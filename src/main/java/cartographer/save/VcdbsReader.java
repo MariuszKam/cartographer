@@ -727,7 +727,7 @@ public class VcdbsReader {
     private Optional<MapChunkCoordinate> inferMapChunkCoordinate(
             SaveRecord record
     ) {
-        OptionalIntPair pair =
+        OptionalChunkPositionParts pair =
                 inferCoordinate(
                         record,
                         "mapchunk"
@@ -748,7 +748,7 @@ public class VcdbsReader {
     private Optional<ChunkCoordinate> inferChunkCoordinate(
             SaveRecord record
     ) {
-        OptionalIntPair pair =
+        OptionalChunkPositionParts pair =
                 inferCoordinate(
                         record,
                         "chunk"
@@ -761,16 +761,18 @@ public class VcdbsReader {
         return Optional.of(
                 new ChunkCoordinate(
                         pair.x(),
+                        pair.y(),
                         pair.z()
                 )
         );
     }
 
-    private OptionalIntPair inferCoordinate(
+    private OptionalChunkPositionParts inferCoordinate(
             SaveRecord record,
             String prefix
     ) {
         Integer x = null;
+        Integer y = null;
         Integer z = null;
 
         Long packedPosition = null;
@@ -854,21 +856,26 @@ public class VcdbsReader {
                     x = decoded.x();
                 }
 
+                if (y == null) {
+                    y = decoded.y();
+                }
+
                 if (z == null) {
                     z = decoded.z();
                 }
 
             } catch (IllegalArgumentException exception) {
-                return OptionalIntPair.empty();
+                return OptionalChunkPositionParts.empty();
             }
         }
 
         if (x == null || z == null) {
-            return OptionalIntPair.empty();
+            return OptionalChunkPositionParts.empty();
         }
 
-        return new OptionalIntPair(
+        return new OptionalChunkPositionParts(
                 x,
+                y == null ? 0 : y,
                 z,
                 true
         );
@@ -1003,14 +1010,16 @@ public class VcdbsReader {
         }
     }
 
-    private record OptionalIntPair(
+    private record OptionalChunkPositionParts(
             int x,
+            int y,
             int z,
             boolean present
     ) {
 
-        static OptionalIntPair empty() {
-            return new OptionalIntPair(
+        static OptionalChunkPositionParts empty() {
+            return new OptionalChunkPositionParts(
+                    0,
                     0,
                     0,
                     false

@@ -15,11 +15,30 @@ public final class ProtobufWireReader {
             byte[] data,
             int wantedFieldNumber
     ) {
+        List<byte[]> fields =
+                readLengthDelimitedFields(
+                        data,
+                        wantedFieldNumber
+                );
+
+        return fields.isEmpty()
+                ? Optional.empty()
+                : Optional.of(
+                fields.get(0)
+        );
+    }
+
+    public static List<byte[]> readLengthDelimitedFields(
+            byte[] data,
+            int wantedFieldNumber
+    ) {
         if (data == null || data.length == 0) {
-            return Optional.empty();
+            return List.of();
         }
 
         Cursor cursor = new Cursor();
+        List<byte[]> fields =
+                new ArrayList<>();
 
         while (cursor.position < data.length) {
             long key = readVarInt(data, cursor);
@@ -43,7 +62,7 @@ public final class ProtobufWireReader {
                     );
 
                     if (fieldNumber == wantedFieldNumber) {
-                        return Optional.of(
+                        fields.add(
                                 Arrays.copyOfRange(
                                         data,
                                         cursor.position,
@@ -74,7 +93,9 @@ public final class ProtobufWireReader {
             }
         }
 
-        return Optional.empty();
+        return List.copyOf(
+                fields
+        );
     }
 
     public static OptionalLong readVarIntField(

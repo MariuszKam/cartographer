@@ -12,6 +12,7 @@ repositories {
 
 dependencies {
     implementation("org.xerial:sqlite-jdbc:3.46.1.0")
+    implementation("com.github.luben:zstd-jni:1.5.6-9")
     runtimeOnly("org.slf4j:slf4j-nop:2.0.16")
 
     testImplementation(platform("org.junit:junit-bom:6.0.0"))

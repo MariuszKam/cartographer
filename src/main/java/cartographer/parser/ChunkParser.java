@@ -3,57 +3,135 @@ package cartographer.parser;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ParseResult;
 import cartographer.model.ParsedChunk;
+import cartographer.model.ServerChunkPayload;
+import cartographer.save.ProtobufWireReader;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
+import java.util.Optional;
+import java.util.OptionalLong;
 
 public class ChunkParser {
-    private static final byte[] MAGIC = "VSCCHUNK1".getBytes(StandardCharsets.US_ASCII);
+    private static final int BLOCKS_COMPRESSED_FIELD = 1;
+    private static final int SAVED_COMPRESSION_VERSION_FIELD = 15;
+    private static final int LIQUIDS_COMPRESSED_FIELD = 16;
+
+    private final ChunkDataLayerDecoder layerDecoder;
+
+    public ChunkParser() {
+        this(
+                new ChunkDataLayerDecoder()
+        );
+    }
+
+    public ChunkParser(
+            ChunkDataLayerDecoder layerDecoder
+    ) {
+        this.layerDecoder =
+                layerDecoder;
+    }
 
     public ParseResult<ParsedChunk> parse(ChunkCoordinate coordinate, byte[] payload) {
+        ParseResult<ServerChunkPayload> parsedPayload =
+                parsePayload(
+                        payload
+                );
+
+        if (!parsedPayload.isSuccess()) {
+            return ParseResult.failure(
+                    parsedPayload.error()
+                            .orElse("unable to parse ServerChunk")
+            );
+        }
+
+        ServerChunkPayload serverChunk =
+                parsedPayload.value()
+                        .orElseThrow();
+
+        try {
+            int[] blockIds =
+                    layerDecoder.decode(
+                            serverChunk.blocksCompressed(),
+                            serverChunk.savedCompressionVersion()
+                    );
+
+            int[] liquidIds =
+                    serverChunk.liquidsCompressed().length == 0
+                            ? new int[ChunkDataLayerDecoder.VALUE_COUNT]
+                            : layerDecoder.decode(
+                            serverChunk.liquidsCompressed(),
+                            serverChunk.savedCompressionVersion()
+                    );
+
+            return ParseResult.success(
+                    new ParsedChunk(
+                            coordinate,
+                            coordinate.y()
+                                    * ChunkDataLayerDecoder.SIZE,
+                            ChunkDataLayerDecoder.SIZE,
+                            ChunkDataLayerDecoder.SIZE,
+                            ChunkDataLayerDecoder.SIZE,
+                            blockIds,
+                            liquidIds,
+                            serverChunk.savedCompressionVersion()
+                    )
+            );
+
+        } catch (IllegalArgumentException exception) {
+            return ParseResult.failure(
+                    "invalid ServerChunk block storage: "
+                            + exception.getMessage()
+            );
+        }
+    }
+
+    public ParseResult<ServerChunkPayload> parsePayload(
+            byte[] payload
+    ) {
         if (payload == null || payload.length == 0) {
             return ParseResult.failure("chunk payload is empty");
         }
-        if (!hasMagic(payload, MAGIC)) {
-            return ParseResult.failure("unsupported chunk payload format");
-        }
-        if (payload.length < MAGIC.length + 16) {
-            return ParseResult.failure("chunk fixture payload is truncated");
-        }
 
-        ByteBuffer buffer = ByteBuffer.wrap(payload).order(ByteOrder.LITTLE_ENDIAN);
-        buffer.position(MAGIC.length);
-        int minY = buffer.getInt();
-        int sizeX = buffer.getInt();
-        int sizeY = buffer.getInt();
-        int sizeZ = buffer.getInt();
+        try {
+            Optional<byte[]> blocksCompressed =
+                    ProtobufWireReader.readLengthDelimitedField(
+                            payload,
+                            BLOCKS_COMPRESSED_FIELD
+                    );
 
-        if (sizeX <= 0 || sizeY <= 0 || sizeZ <= 0 || sizeX > 64 || sizeY > 1024 || sizeZ > 64) {
-            return ParseResult.failure("chunk dimensions are invalid: " + sizeX + "x" + sizeY + "x" + sizeZ);
-        }
-
-        int blockCount = sizeX * sizeY * sizeZ;
-        if (buffer.remaining() < blockCount * Integer.BYTES) {
-            return ParseResult.failure("chunk fixture payload does not contain all block ids");
-        }
-
-        int[] blockIds = new int[blockCount];
-        for (int index = 0; index < blockIds.length; index++) {
-            blockIds[index] = buffer.getInt();
-        }
-        return ParseResult.success(new ParsedChunk(coordinate, minY, sizeX, sizeY, sizeZ, blockIds));
-    }
-
-    private boolean hasMagic(byte[] payload, byte[] magic) {
-        if (payload.length < magic.length) {
-            return false;
-        }
-        for (int index = 0; index < magic.length; index++) {
-            if (payload[index] != magic[index]) {
-                return false;
+            if (blocksCompressed.isEmpty()
+                    || blocksCompressed.get().length == 0) {
+                return ParseResult.failure(
+                        "ServerChunk has no blocksCompressed field"
+                );
             }
+
+            OptionalLong savedCompressionVersion =
+                    ProtobufWireReader.readVarIntField(
+                            payload,
+                            SAVED_COMPRESSION_VERSION_FIELD
+                    );
+
+            byte[] liquidsCompressed =
+                    ProtobufWireReader.readLengthDelimitedField(
+                                    payload,
+                                    LIQUIDS_COMPRESSED_FIELD
+                            )
+                            .orElse(
+                                    new byte[0]
+                            );
+
+            return ParseResult.success(
+                    new ServerChunkPayload(
+                            blocksCompressed.get(),
+                            liquidsCompressed,
+                            (int) savedCompressionVersion.orElse(0)
+                    )
+            );
+
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            return ParseResult.failure(
+                    "invalid ServerChunk protobuf: "
+                            + exception.getMessage()
+            );
         }
-        return true;
     }
 }
