@@ -23,4 +23,14 @@ public record WorldMetadata(
                 absolutePosition.z() - originZ()
         );
     }
+
+    public WorldPosition toAbsolute(
+            DisplayPosition displayPosition
+    ) {
+        return new WorldPosition(
+                displayPosition.x() + originX(),
+                displayPosition.y(),
+                displayPosition.z() + originZ()
+        );
+    }
 }

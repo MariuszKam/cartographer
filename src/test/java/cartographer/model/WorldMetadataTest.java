@@ -45,4 +45,44 @@ class WorldMetadataTest {
                 0.001
         );
     }
+
+    @Test
+    void convertsDisplayPositionToAbsoluteSavePosition() {
+        WorldMetadata metadata =
+                new WorldMetadata(
+                        1_024_000,
+                        256,
+                        1_024_000
+                );
+
+        DisplayPosition display =
+                new DisplayPosition(
+                        -601.619,
+                        108.0,
+                        290.782
+                );
+
+        WorldPosition absolute =
+                metadata.toAbsolute(
+                        display
+                );
+
+        assertEquals(
+                511398.381,
+                absolute.x(),
+                0.001
+        );
+
+        assertEquals(
+                108.0,
+                absolute.y(),
+                0.001
+        );
+
+        assertEquals(
+                512290.782,
+                absolute.z(),
+                0.001
+        );
+    }
 }

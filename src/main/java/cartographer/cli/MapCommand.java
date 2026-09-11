@@ -1,7 +1,9 @@
 package cartographer.cli;
 
+import cartographer.model.DisplayPosition;
 import cartographer.model.HomeLocation;
 import cartographer.model.MapChunk;
+import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
 import cartographer.render.MapRenderer;
@@ -12,6 +14,7 @@ import cartographer.render.RenderedMap;
 import cartographer.render.PngWriter;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
+import cartographer.save.WorldMetadataReader;
 
 import java.awt.image.BufferedImage;
 import java.io.PrintStream;
@@ -22,14 +25,24 @@ import java.util.Optional;
 public class MapCommand implements Command {
     private final PrintStream out;
     private final VcdbsReader reader;
+    private final WorldMetadataReader metadataReader;
     private final HomeStore homeStore;
     private final MapRenderer renderer;
     private final PngWriter pngWriter;
     private final String subcommand;
 
-    public MapCommand(PrintStream out, VcdbsReader reader, HomeStore homeStore, MapRenderer renderer, PngWriter pngWriter, String subcommand) {
+    public MapCommand(
+            PrintStream out,
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            HomeStore homeStore,
+            MapRenderer renderer,
+            PngWriter pngWriter,
+            String subcommand
+    ) {
         this.out = out;
         this.reader = reader;
+        this.metadataReader = metadataReader;
         this.homeStore = homeStore;
         this.renderer = renderer;
         this.pngWriter = pngWriter;
@@ -52,11 +65,20 @@ public class MapCommand implements Command {
         RenderOptions options = new RenderOptions(radius, scale, style, RenderLayer.parse(option(args, "--layers").orElse("")));
         Path output = Path.of(requiredOption(args, "--out"));
         ProgressReporter progress = new ProgressReporter(out);
-        WorldPosition center = center(args).orElseGet(() -> reader.readPlayerPosition(savePath, Optional.empty(), progress));
-        Optional<HomeLocation> home = homeStore.load();
+        WorldPosition player =
+                reader.readPlayerPosition(
+                        savePath,
+                        Optional.empty(),
+                        progress
+                );
+        WorldPosition center = center(args).orElse(player);
+        Optional<HomeLocation> home = absoluteHome(
+                savePath,
+                progress
+        );
         ReadDiagnostics diagnostics = new ReadDiagnostics();
         List<MapChunk> chunks = reader.readMapChunksAround(savePath, center, radius, diagnostics, progress);
-        RenderedMap rendered = renderer.render(center, home, chunks, options, progress);
+        RenderedMap rendered = renderer.render(center, player, home, chunks, options, progress);
         progress.start("Writing PNG");
         pngWriter.write(rendered.image(), output);
         progress.done("PNG written");
@@ -123,5 +145,41 @@ public class MapCommand implements Command {
         } catch (NumberFormatException exception) {
             throw new CommandException("Invalid " + optionName + ": " + value);
         }
+    }
+
+    private Optional<HomeLocation> absoluteHome(
+            Path savePath,
+            ProgressReporter progress
+    ) {
+        Optional<HomeLocation> displayHome =
+                homeStore.load(
+                        savePath
+                );
+
+        if (displayHome.isEmpty()) {
+            return Optional.empty();
+        }
+
+        WorldMetadata metadata =
+                metadataReader.read(
+                        savePath,
+                        progress
+                );
+
+        WorldPosition absolute =
+                metadata.toAbsolute(
+                        new DisplayPosition(
+                                displayHome.get().x(),
+                                0.0,
+                                displayHome.get().z()
+                        )
+                );
+
+        return Optional.of(
+                new HomeLocation(
+                        absolute.x(),
+                        absolute.z()
+                )
+        );
     }
 }

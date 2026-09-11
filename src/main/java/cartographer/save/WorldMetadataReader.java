@@ -12,7 +12,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-public final class WorldMetadataReader {
+public class WorldMetadataReader {
 
     private final SqliteSaveConnection connectionFactory;
     private final SaveGameParser parser;

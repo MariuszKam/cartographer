@@ -1,16 +1,19 @@
 package cartographer.render;
 
 import cartographer.cli.ProgressReporter;
+import cartographer.model.HomeLocation;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldPosition;
 import org.junit.jupiter.api.Test;
 
 import java.awt.image.BufferedImage;
+import java.awt.Color;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 class MapRendererTest {
@@ -91,6 +94,121 @@ class MapRendererTest {
         assertNotEquals(
                 low,
                 high
+        );
+    }
+
+    @Test
+    void drawsPlayerMarkerAtAbsoluteCenterWithoutHome() {
+        RenderedMap rendered =
+                new MapRenderer()
+                        .render(
+                                new WorldPosition(
+                                        100.0,
+                                        0.0,
+                                        100.0
+                                ),
+                                Optional.empty(),
+                                List.of(),
+                                new RenderOptions(
+                                        10,
+                                        1,
+                                        RenderStyle.SIMPLE,
+                                        Set.of(RenderLayer.MARKERS)
+                                ),
+                                ProgressReporter.NONE
+                        );
+
+        assertEquals(
+                1,
+                rendered.report()
+                        .markerCount()
+        );
+
+        assertEquals(
+                Color.RED.getRGB(),
+                rendered.image()
+                        .getRGB(
+                                32,
+                                32
+                        )
+        );
+    }
+
+    @Test
+    void drawsHomeMarkerInAbsoluteRendererCoordinates() {
+        RenderedMap rendered =
+                new MapRenderer()
+                        .render(
+                                new WorldPosition(
+                                        100.0,
+                                        0.0,
+                                        100.0
+                                ),
+                                Optional.of(
+                                        new HomeLocation(
+                                                105.0,
+                                                100.0
+                                        )
+                                ),
+                                List.of(),
+                                new RenderOptions(
+                                        10,
+                                        1,
+                                        RenderStyle.SIMPLE,
+                                        Set.of(RenderLayer.MARKERS)
+                                ),
+                                ProgressReporter.NONE
+                        );
+
+        assertEquals(
+                2,
+                rendered.report()
+                        .markerCount()
+        );
+
+        assertEquals(
+                Color.CYAN.getRGB(),
+                rendered.image()
+                        .getRGB(
+                                48,
+                                32
+                )
+        );
+    }
+
+    @Test
+    void drawsPlayerMarkerAtActualPlayerPositionWhenRenderCenterDiffers() {
+        RenderedMap rendered =
+                new MapRenderer()
+                        .render(
+                                new WorldPosition(
+                                        100.0,
+                                        0.0,
+                                        100.0
+                                ),
+                                new WorldPosition(
+                                        105.0,
+                                        0.0,
+                                        100.0
+                                ),
+                                Optional.empty(),
+                                List.of(),
+                                new RenderOptions(
+                                        10,
+                                        1,
+                                        RenderStyle.SIMPLE,
+                                        Set.of(RenderLayer.MARKERS)
+                                ),
+                                ProgressReporter.NONE
+                        );
+
+        assertEquals(
+                Color.RED.getRGB(),
+                rendered.image()
+                        .getRGB(
+                                48,
+                                32
+                        )
         );
     }
 

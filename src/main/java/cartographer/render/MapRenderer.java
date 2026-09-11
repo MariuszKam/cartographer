@@ -28,6 +28,24 @@ public class MapRenderer {
     }
 
     public RenderedMap render(WorldPosition center, Optional<HomeLocation> home, List<MapChunk> chunks, RenderOptions options, ProgressReporter progress) {
+        return render(
+                center,
+                center,
+                home,
+                chunks,
+                options,
+                progress
+        );
+    }
+
+    public RenderedMap render(
+            WorldPosition center,
+            WorldPosition player,
+            Optional<HomeLocation> home,
+            List<MapChunk> chunks,
+            RenderOptions options,
+            ProgressReporter progress
+    ) {
         int diameter = Math.max(64, Math.min(MAX_IMAGE_SIZE, options.radiusBlocks() * 2 * options.pixelsPerBlock() + 1));
         double scale = diameter / (double) (options.radiusBlocks() * 2);
         BufferedImage image = new BufferedImage(diameter, diameter, BufferedImage.TYPE_INT_ARGB);
@@ -113,8 +131,8 @@ public class MapRenderer {
         if (options.layers().contains(RenderLayer.MARKERS)) {
             Graphics2D graphics = image.createGraphics();
             try {
-                int playerX = (int) Math.round((center.x() - minX) * scale);
-                int playerY = (int) Math.round((center.z() - minZ) * scale);
+                int playerX = (int) Math.round((player.x() - minX) * scale);
+                int playerY = (int) Math.round((player.z() - minZ) * scale);
                 markers.drawCross(graphics, playerX, playerY, Color.RED);
                 markerCount++;
 

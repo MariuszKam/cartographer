@@ -157,6 +157,7 @@ public class CommandRouter {
                     new MapCommand(
                             out,
                             reader,
+                            metadataReader,
                             homeStore,
                             new MapRenderer(),
                             new PngWriter(),
