@@ -34,10 +34,19 @@ public record BlockInfo(int id, String code) {
         if (normalized.contains("lava")) {
             return "lava";
         }
+        if (normalized.contains("snow")) {
+            return "snow";
+        }
+        if (normalized.contains("gravel")) {
+            return "gravel";
+        }
+        if (normalized.contains("sand")) {
+            return "sand";
+        }
         if (normalized.contains("rock") || normalized.contains("stone") || normalized.contains("ore")) {
             return "rock";
         }
-        if (normalized.contains("soil") || normalized.contains("sand") || normalized.contains("gravel") || normalized.contains("clay")) {
+        if (normalized.contains("soil") || normalized.contains("clay")) {
             return "ground";
         }
         if (normalized.contains("wood") || normalized.contains("log") || normalized.contains("plank")) {
