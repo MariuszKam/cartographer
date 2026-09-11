@@ -70,26 +70,6 @@ public record MapChunk(
             int localX,
             int localZ
     ) {
-        validateLocalCoordinate(
-                localX,
-                localZ
-        );
-
-        if (hasRainHeightMap()
-                && hasWorldGenTerrainHeightMap()) {
-            return Math.round(
-                    (rainHeightMap[index(
-                            localX,
-                            localZ
-                    )]
-                            + worldGenTerrainHeightMap[index(
-                            localX,
-                            localZ
-                    )])
-                            / 2.0f
-            );
-        }
-
         return heightAt(
                 localX,
                 localZ

@@ -127,6 +127,70 @@ class MapChunkParserTest {
     }
 
     @Test
+    void renderedTerrainHeightPrefersRainHeightMapWhenBothHeightFieldsExist() {
+        ByteArrayOutputStream payload =
+                new ByteArrayOutputStream();
+
+        payload.writeBytes(
+                serverMapChunkWithRepeatedUInt32Field(
+                        7,
+                        heights(500)
+                )
+        );
+
+        payload.writeBytes(
+                serverMapChunkWithRepeatedUInt32Field(
+                        3,
+                        heights(80)
+                )
+        );
+
+        ParseResult<MapChunk> result =
+                new MapChunkParser()
+                        .parse(
+                                new MapChunkCoordinate(
+                                        0,
+                                        0
+                                ),
+                                payload.toByteArray()
+                        );
+
+        assertTrue(
+                result.isSuccess(),
+                () -> result.error()
+                        .orElse("unknown error")
+        );
+
+        MapChunk chunk =
+                result.value()
+                        .orElseThrow();
+
+        assertTrue(
+                chunk.hasRainHeightMap()
+        );
+
+        assertTrue(
+                chunk.hasWorldGenTerrainHeightMap()
+        );
+
+        assertEquals(
+                80,
+                chunk.terrainHeightAt(
+                        0,
+                        0
+                )
+        );
+
+        assertEquals(
+                1103,
+                chunk.terrainHeightAt(
+                        31,
+                        31
+                )
+        );
+    }
+
+    @Test
     void failsWhenHeightFieldIsMissing() {
         ParseResult<MapChunk> result =
                 new MapChunkParser()
