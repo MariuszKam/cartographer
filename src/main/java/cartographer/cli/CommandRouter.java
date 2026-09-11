@@ -1,5 +1,7 @@
 package cartographer.cli;
 
+import cartographer.atlas.AtlasRenderer;
+import cartographer.atlas.TilePyramid;
 import cartographer.analysis.BlockScanner;
 import cartographer.geology.GeologyAnalyzer;
 import cartographer.marker.MarkerStore;
@@ -69,6 +71,7 @@ public class CommandRouter {
             case "markers" -> new MarkerCommand(out, markerStore, subcommand(args, "markers"));
             case "cache" -> new CacheCommand(out, renderCache, new SaveIndexReader(), subcommand(args, "cache"));
             case "incremental" -> new IncrementalCommand(out, renderCache, new IncrementalRenderIndex(cachePath), new SaveIndexReader(), subcommand(args, "incremental"));
+            case "atlas" -> new AtlasCommand(out, reader, homeStore, new AtlasRenderer(new TilePyramid(), new MapRenderer(), new PngWriter()), subcommand(args, "atlas"));
             case "inspect" -> new InspectCommand(out, new SaveInspector());
             case "index" -> new IndexCommand(out, new SaveIndexReader());
             default -> throw new CommandException("Unknown command: " + args[0]);
@@ -76,7 +79,7 @@ public class CommandRouter {
     }
 
     private String[] commandArgs(String[] args) {
-        if (args.length >= 2 && ("home".equals(args[0]) || "nav".equals(args[0]) || "map".equals(args[0]) || "scan".equals(args[0]) || "geology".equals(args[0]) || "markers".equals(args[0]) || "cache".equals(args[0]) || "incremental".equals(args[0]))) {
+        if (args.length >= 2 && ("home".equals(args[0]) || "nav".equals(args[0]) || "map".equals(args[0]) || "scan".equals(args[0]) || "geology".equals(args[0]) || "markers".equals(args[0]) || "cache".equals(args[0]) || "incremental".equals(args[0]) || "atlas".equals(args[0]))) {
             return Arrays.copyOfRange(args, 2, args.length);
         }
         return Arrays.copyOfRange(args, 1, args.length);
@@ -109,5 +112,6 @@ public class CommandRouter {
         out.println("  vs-cartographer cache status <save.vcdbs>");
         out.println("  vs-cartographer incremental status <save.vcdbs>");
         out.println("  vs-cartographer incremental update <save.vcdbs>");
+        out.println("  vs-cartographer atlas render <save.vcdbs> --center-x <x> --center-z <z> --radius <blocks> --levels <n> --out <directory>");
     }
 }
