@@ -1,6 +1,8 @@
 package cartographer.save;
 
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -123,6 +125,91 @@ public final class ProtobufWireReader {
         }
 
         return OptionalLong.empty();
+    }
+
+    public static List<Long> readRepeatedUInt32Field(
+            byte[] data,
+            int wantedFieldNumber
+    ) {
+        if (data == null || data.length == 0) {
+            return List.of();
+        }
+
+        List<Long> values =
+                new ArrayList<>();
+
+        Cursor cursor =
+                new Cursor();
+
+        while (cursor.position < data.length) {
+            long key =
+                    readVarInt(
+                            data,
+                            cursor
+                    );
+
+            int fieldNumber =
+                    (int) (key >>> 3);
+
+            int wireType =
+                    (int) (key & 0b111);
+
+            if (fieldNumber == wantedFieldNumber) {
+                if (wireType == 0) {
+                    values.add(
+                            readVarInt(
+                                    data,
+                                    cursor
+                            )
+                    );
+
+                } else if (wireType == 2) {
+                    int length =
+                            readLength(
+                                    data,
+                                    cursor
+                            );
+
+                    int limit =
+                            cursor.position
+                                    + length;
+
+                    while (cursor.position < limit) {
+                        values.add(
+                                readVarInt(
+                                        data,
+                                        cursor
+                                )
+                        );
+                    }
+
+                    if (cursor.position != limit) {
+                        throw new IllegalStateException(
+                                "Packed protobuf field exceeds declared length"
+                        );
+                    }
+
+                } else {
+                    throw new IllegalStateException(
+                            "Expected protobuf uint32 for field "
+                                    + wantedFieldNumber
+                                    + " but wire type was "
+                                    + wireType
+                    );
+                }
+
+            } else {
+                skipField(
+                        data,
+                        cursor,
+                        wireType
+                );
+            }
+        }
+
+        return List.copyOf(
+                values
+        );
     }
 
     private static void skipField(

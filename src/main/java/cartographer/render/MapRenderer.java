@@ -50,7 +50,7 @@ public class MapRenderer {
                     int imageX = (int) Math.round((tile.worldX() - minX) * scale);
                     int imageY = (int) Math.round((tile.worldZ() - minZ) * scale);
                     if (imageX >= 0 && imageX < diameter && imageY >= 0 && imageY < diameter) {
-                        image.setRGB(imageX, imageY, palette.tileColor(tile.argb(), tile.height(), options.style()));
+                        image.setRGB(imageX, imageY, palette.heightColor(tile.height(), options.style()));
                         tilesDrawn++;
                     }
                 }

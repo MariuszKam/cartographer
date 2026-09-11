@@ -25,6 +25,17 @@ public class TerrainPalette {
         };
     }
 
+    public int heightColor(int height, RenderStyle style) {
+        int base =
+                ground(height);
+
+        return switch (style) {
+            case SIMPLE -> base;
+            case TOPOGRAPHIC -> shade(base, Math.max(0.65, Math.min(1.35, 0.85 + height / 256.0)));
+            case HIGH_CONTRAST -> height > 96 ? 0xFFFFFFFF : 0xFF202020;
+        };
+    }
+
     public int water() {
         return 0xFF2D6FA3;
     }

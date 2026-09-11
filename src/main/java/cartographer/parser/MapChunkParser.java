@@ -2,59 +2,107 @@ package cartographer.parser;
 
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
-import cartographer.model.MapTile;
 import cartographer.model.ParseResult;
+import cartographer.save.ProtobufWireReader;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 
 public class MapChunkParser {
-    private static final byte[] MAGIC = "VSCMAP1".getBytes(StandardCharsets.US_ASCII);
+    private static final int RAIN_HEIGHT_MAP_FIELD = 3;
+    private static final int WORLD_GEN_TERRAIN_HEIGHT_MAP_FIELD = 7;
+    private static final int HEIGHT_MAP_VALUES = 32 * 32;
 
     public ParseResult<MapChunk> parse(MapChunkCoordinate coordinate, byte[] payload) {
         if (payload == null || payload.length == 0) {
             return ParseResult.failure("mapchunk payload is empty");
         }
-        if (!hasMagic(payload, MAGIC)) {
-            return ParseResult.failure("unsupported mapchunk payload format");
-        }
-        if (payload.length < MAGIC.length + Integer.BYTES) {
-            return ParseResult.failure("mapchunk fixture payload is truncated");
-        }
 
-        ByteBuffer buffer = ByteBuffer.wrap(payload).order(ByteOrder.LITTLE_ENDIAN);
-        buffer.position(MAGIC.length);
-        int count = buffer.getInt();
-        if (count < 0 || count > 1_048_576) {
-            return ParseResult.failure("mapchunk tile count is invalid: " + count);
-        }
-        if (buffer.remaining() < count * 16) {
-            return ParseResult.failure("mapchunk fixture payload does not contain all tile records");
-        }
+        try {
+            List<Long> rainHeightMap =
+                    ProtobufWireReader.readRepeatedUInt32Field(
+                            payload,
+                            RAIN_HEIGHT_MAP_FIELD
+                    );
 
-        List<MapTile> tiles = new ArrayList<>(count);
-        for (int index = 0; index < count; index++) {
-            int worldX = buffer.getInt();
-            int worldZ = buffer.getInt();
-            int height = buffer.getInt();
-            int argb = buffer.getInt();
-            tiles.add(new MapTile(worldX, worldZ, height, argb));
+            List<Long> worldGenTerrainHeightMap =
+                    ProtobufWireReader.readRepeatedUInt32Field(
+                            payload,
+                            WORLD_GEN_TERRAIN_HEIGHT_MAP_FIELD
+                    );
+
+            if (rainHeightMap.isEmpty()
+                    && worldGenTerrainHeightMap.isEmpty()) {
+                return ParseResult.failure(
+                        "mapchunk has no RainHeightMap or WorldGenTerrainHeightMap"
+                );
+            }
+
+            int[] rain =
+                    validateHeightMap(
+                            "RainHeightMap",
+                            rainHeightMap
+                    );
+
+            int[] worldGen =
+                    validateHeightMap(
+                            "WorldGenTerrainHeightMap",
+                            worldGenTerrainHeightMap
+                    );
+
+            return ParseResult.success(
+                    new MapChunk(
+                            coordinate,
+                            rain,
+                            worldGen
+                    )
+            );
+
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            return ParseResult.failure(
+                    "invalid ServerMapChunk protobuf: "
+                            + exception.getMessage()
+            );
         }
-        return ParseResult.success(new MapChunk(coordinate, tiles));
     }
 
-    private boolean hasMagic(byte[] payload, byte[] magic) {
-        if (payload.length < magic.length) {
-            return false;
+    private int[] validateHeightMap(
+            String name,
+            List<Long> values
+    ) {
+        if (values.isEmpty()) {
+            return new int[0];
         }
-        for (int index = 0; index < magic.length; index++) {
-            if (payload[index] != magic[index]) {
-                return false;
+
+        if (values.size() != HEIGHT_MAP_VALUES) {
+            throw new IllegalArgumentException(
+                    name
+                            + " must contain "
+                            + HEIGHT_MAP_VALUES
+                            + " values, got "
+                            + values.size()
+            );
+        }
+
+        int[] heights =
+                new int[HEIGHT_MAP_VALUES];
+
+        for (int index = 0; index < values.size(); index++) {
+            long value =
+                    values.get(index);
+
+            if (value < 0 || value > 0xFFFF_FFFFL) {
+                throw new IllegalArgumentException(
+                        name
+                                + " value at index "
+                                + index
+                                + " is outside uint32 range"
+                );
             }
+
+            heights[index] =
+                    (int) value;
         }
-        return true;
+
+        return heights;
     }
 }
