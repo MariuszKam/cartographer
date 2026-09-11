@@ -1,6 +1,7 @@
 package cartographer.save;
 
 import cartographer.cli.CommandException;
+import cartographer.cli.ProgressReporter;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.MapChunk;
@@ -49,32 +50,49 @@ public class VcdbsReader {
     }
 
     public WorldPosition readPlayerPosition(Path savePath, Optional<String> playerSelector) {
+        return readPlayerPosition(savePath, playerSelector, ProgressReporter.NONE);
+    }
+
+    public WorldPosition readPlayerPosition(Path savePath, Optional<String> playerSelector, ProgressReporter progress) {
+        progress.start("Opening save read-only");
         try (Connection connection = connectionFactory.openReadOnly(savePath)) {
+            progress.done("Save opened read-only");
             ensureTable(connection, SaveTable.PLAYERDATA);
-            List<SaveRecord> records = readRecords(connection, SaveTable.PLAYERDATA.tableName(), 250);
+            List<SaveRecord> records = readRecords(connection, SaveTable.PLAYERDATA.tableName(), 250, progress);
             if (records.isEmpty()) {
                 throw new CommandException("Table playerdata exists but contains no rows");
             }
 
+            progress.start("Parsing player position");
             SaveRecord selected = selectPlayer(records, playerSelector)
                     .orElseThrow(() -> new CommandException("No playerdata row matched selector: " + playerSelector.orElse("")));
             ParseResult<WorldPosition> result = playerDataParser.parse(selected.payload());
-            return result.value().orElseThrow(() -> new CommandException(result.error().orElse("Unable to parse player position")));
+            WorldPosition position = result.value().orElseThrow(() -> new CommandException(result.error().orElse("Unable to parse player position")));
+            progress.done("Player position parsed");
+            return position;
         } catch (SQLException exception) {
             throw new CommandException("Cannot read playerdata: " + exception.getMessage(), exception);
         }
     }
 
     public List<MapChunk> readMapChunksAround(Path savePath, WorldPosition center, int radiusBlocks, ReadDiagnostics diagnostics) {
+        return readMapChunksAround(savePath, center, radiusBlocks, diagnostics, ProgressReporter.NONE);
+    }
+
+    public List<MapChunk> readMapChunksAround(Path savePath, WorldPosition center, int radiusBlocks, ReadDiagnostics diagnostics, ProgressReporter progress) {
+        progress.start("Opening save read-only");
         try (Connection connection = connectionFactory.openReadOnly(savePath)) {
+            progress.done("Save opened read-only");
             if (!tableExists(connection, SaveTable.MAPCHUNK.tableName())) {
                 diagnostics.missingTable(SaveTable.MAPCHUNK.tableName());
                 return List.of();
             }
 
-            List<SaveRecord> records = readRecords(connection, SaveTable.MAPCHUNK.tableName(), 100_000);
+            List<SaveRecord> records = readRecords(connection, SaveTable.MAPCHUNK.tableName(), 100_000, progress);
             List<MapChunk> chunks = new ArrayList<>();
-            for (SaveRecord record : records) {
+            for (int index = 0; index < records.size(); index++) {
+                SaveRecord record = records.get(index);
+                progress.progress("Parsing mapchunks", index + 1, records.size());
                 Optional<MapChunkCoordinate> coordinate = inferMapChunkCoordinate(record);
                 if (coordinate.isEmpty()) {
                     diagnostics.recordSkipped("mapchunk row has no readable coordinate");
@@ -99,18 +117,28 @@ public class VcdbsReader {
     }
 
     public List<ParsedChunk> readChunksAround(Path savePath, WorldPosition center, int radiusBlocks, ReadDiagnostics diagnostics) {
+        return readChunksAround(savePath, center, radiusBlocks, diagnostics, ProgressReporter.NONE);
+    }
+
+    public List<ParsedChunk> readChunksAround(Path savePath, WorldPosition center, int radiusBlocks, ReadDiagnostics diagnostics, ProgressReporter progress) {
+        progress.start("Opening save read-only");
         try (Connection connection = connectionFactory.openReadOnly(savePath)) {
+            progress.done("Save opened read-only");
             if (!tableExists(connection, SaveTable.CHUNK.tableName())) {
                 diagnostics.missingTable(SaveTable.CHUNK.tableName());
                 return List.of();
             }
 
+            progress.start("Reading block registry");
             Map<Integer, BlockInfo> registry = readBlockRegistry(connection);
             diagnostics.registryBlocks(registry.size());
+            progress.done("Block registry read");
 
-            List<SaveRecord> records = readRecords(connection, SaveTable.CHUNK.tableName(), 100_000);
+            List<SaveRecord> records = readRecords(connection, SaveTable.CHUNK.tableName(), 100_000, progress);
             List<ParsedChunk> chunks = new ArrayList<>();
-            for (SaveRecord record : records) {
+            for (int index = 0; index < records.size(); index++) {
+                SaveRecord record = records.get(index);
+                progress.progress("Parsing chunks", index + 1, records.size());
                 Optional<ChunkCoordinate> coordinate = inferChunkCoordinate(record);
                 if (coordinate.isEmpty()) {
                     diagnostics.recordSkipped("chunk row has no readable coordinate");
@@ -135,8 +163,17 @@ public class VcdbsReader {
     }
 
     public Map<Integer, BlockInfo> readBlockRegistry(Path savePath) {
+        return readBlockRegistry(savePath, ProgressReporter.NONE);
+    }
+
+    public Map<Integer, BlockInfo> readBlockRegistry(Path savePath, ProgressReporter progress) {
+        progress.start("Opening save read-only");
         try (Connection connection = connectionFactory.openReadOnly(savePath)) {
-            return readBlockRegistry(connection);
+            progress.done("Save opened read-only");
+            progress.start("Reading block registry");
+            Map<Integer, BlockInfo> registry = readBlockRegistry(connection);
+            progress.done("Block registry read");
+            return registry;
         } catch (SQLException exception) {
             throw new CommandException("Cannot read block registry: " + exception.getMessage(), exception);
         }
@@ -147,7 +184,7 @@ public class VcdbsReader {
             return Map.of();
         }
         Map<Integer, BlockInfo> blocks = new HashMap<>();
-        for (SaveRecord record : readRecords(connection, SaveTable.GAMEDATA.tableName(), 500)) {
+        for (SaveRecord record : readRecords(connection, SaveTable.GAMEDATA.tableName(), 500, ProgressReporter.NONE)) {
             blocks.putAll(registryParser.parse(record.payload()));
         }
         return blocks;
@@ -169,11 +206,19 @@ public class VcdbsReader {
     }
 
     private List<SaveRecord> readRecords(Connection connection, String tableName, int limit) throws SQLException {
+        return readRecords(connection, tableName, limit, ProgressReporter.NONE);
+    }
+
+    private List<SaveRecord> readRecords(Connection connection, String tableName, int limit, ProgressReporter progress) throws SQLException {
         List<SaveRecord> records = new ArrayList<>();
+        int expectedRows = Math.min(countRows(connection, tableName), limit);
         String sql = "SELECT * FROM \"" + tableName + "\" LIMIT " + limit;
         try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(sql)) {
             ResultSetMetaData metaData = resultSet.getMetaData();
+            int row = 0;
             while (resultSet.next()) {
+                row++;
+                progress.progress("Reading " + tableName + " rows", row, expectedRows);
                 Map<String, Object> columns = new LinkedHashMap<>();
                 byte[] payload = null;
                 for (int index = 1; index <= metaData.getColumnCount(); index++) {
@@ -191,6 +236,13 @@ public class VcdbsReader {
             }
         }
         return records;
+    }
+
+    private int countRows(Connection connection, String tableName) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM \"" + tableName + "\"";
+        try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(sql)) {
+            return resultSet.next() ? resultSet.getInt(1) : 0;
+        }
     }
 
     private boolean isLikelyPayload(String columnName, Object value, byte[] candidate, byte[] currentPayload) {

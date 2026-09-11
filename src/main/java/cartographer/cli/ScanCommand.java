@@ -39,11 +39,12 @@ public class ScanCommand implements Command {
 
         Path savePath = Path.of(args[0]);
         int radius = intOption(args, "--radius", 256);
-        WorldPosition player = reader.readPlayerPosition(savePath, Optional.empty());
+        ProgressReporter progress = new ProgressReporter(out);
+        WorldPosition player = reader.readPlayerPosition(savePath, Optional.empty(), progress);
         ReadDiagnostics diagnostics = new ReadDiagnostics();
-        List<ParsedChunk> chunks = reader.readChunksAround(savePath, player, radius, diagnostics);
-        Map<Integer, BlockInfo> registry = reader.readBlockRegistry(savePath);
-        SurfaceScanResult result = scanner.scan(chunks, registry, !hasFlag(args, "--include-foliage"));
+        List<ParsedChunk> chunks = reader.readChunksAround(savePath, player, radius, diagnostics, progress);
+        Map<Integer, BlockInfo> registry = reader.readBlockRegistry(savePath, progress);
+        SurfaceScanResult result = scanner.scan(chunks, registry, !hasFlag(args, "--include-foliage"), progress);
 
         out.println("SURFACE");
         out.println("Chunks parsed: " + diagnostics.parsed());

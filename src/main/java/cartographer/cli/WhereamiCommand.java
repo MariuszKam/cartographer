@@ -24,7 +24,7 @@ public class WhereamiCommand implements Command {
 
         Path savePath = Path.of(args[0]);
         Optional<String> playerSelector = option(args, "--player");
-        WorldPosition position = reader.readPlayerPosition(savePath, playerSelector);
+        WorldPosition position = reader.readPlayerPosition(savePath, playerSelector, new ProgressReporter(out));
 
         out.println("PLAYER");
         out.printf("X: %.3f%n", position.x());

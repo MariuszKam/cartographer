@@ -1,5 +1,6 @@
 package cartographer.render;
 
+import cartographer.cli.ProgressReporter;
 import cartographer.model.HomeLocation;
 import cartographer.model.MapChunk;
 import cartographer.model.MapTile;
@@ -17,19 +18,27 @@ public class MapRenderer {
     private final MarkerRenderer markers = new MarkerRenderer();
 
     public BufferedImage render(WorldPosition player, Optional<HomeLocation> home, List<MapChunk> chunks, int radiusBlocks) {
+        return render(player, home, chunks, radiusBlocks, ProgressReporter.NONE);
+    }
+
+    public BufferedImage render(WorldPosition player, Optional<HomeLocation> home, List<MapChunk> chunks, int radiusBlocks, ProgressReporter progress) {
         int diameter = Math.max(64, Math.min(MAX_IMAGE_SIZE, radiusBlocks * 2 + 1));
         double scale = diameter / (double) (radiusBlocks * 2);
         BufferedImage image = new BufferedImage(diameter, diameter, BufferedImage.TYPE_INT_ARGB);
 
+        progress.start("Preparing image background");
         for (int y = 0; y < diameter; y++) {
             for (int x = 0; x < diameter; x++) {
                 image.setRGB(x, y, palette.background());
             }
+            progress.progress("Preparing image background", y + 1, diameter);
         }
 
         int minX = (int) Math.floor(player.x()) - radiusBlocks;
         int minZ = (int) Math.floor(player.z()) - radiusBlocks;
-        for (MapChunk chunk : chunks) {
+        for (int index = 0; index < chunks.size(); index++) {
+            MapChunk chunk = chunks.get(index);
+            progress.progress("Drawing mapchunks", index + 1, chunks.size());
             for (MapTile tile : chunk.tiles()) {
                 int imageX = (int) Math.round((tile.worldX() - minX) * scale);
                 int imageY = (int) Math.round((tile.worldZ() - minZ) * scale);
@@ -39,6 +48,7 @@ public class MapRenderer {
             }
         }
 
+        progress.start("Drawing markers");
         Graphics2D graphics = image.createGraphics();
         try {
             int playerX = (int) Math.round((player.x() - minX) * scale);
@@ -53,6 +63,7 @@ public class MapRenderer {
         } finally {
             graphics.dispose();
         }
+        progress.done("Markers drawn");
 
         return image;
     }

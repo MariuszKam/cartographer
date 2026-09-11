@@ -44,12 +44,15 @@ public class MapCommand implements Command {
         Path savePath = Path.of(args[0]);
         int radius = intOption(args, "--radius", 1024);
         Path output = Path.of(requiredOption(args, "--out"));
-        WorldPosition player = reader.readPlayerPosition(savePath, Optional.empty());
+        ProgressReporter progress = new ProgressReporter(out);
+        WorldPosition player = reader.readPlayerPosition(savePath, Optional.empty(), progress);
         Optional<HomeLocation> home = homeStore.load();
         ReadDiagnostics diagnostics = new ReadDiagnostics();
-        List<MapChunk> chunks = reader.readMapChunksAround(savePath, player, radius, diagnostics);
-        BufferedImage image = renderer.render(player, home, chunks, radius);
+        List<MapChunk> chunks = reader.readMapChunksAround(savePath, player, radius, diagnostics, progress);
+        BufferedImage image = renderer.render(player, home, chunks, radius, progress);
+        progress.start("Writing PNG");
         pngWriter.write(image, output);
+        progress.done("PNG written");
 
         out.println("MAP");
         out.println("Output: " + output);
