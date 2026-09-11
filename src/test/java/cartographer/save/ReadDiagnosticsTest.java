@@ -63,4 +63,46 @@ class ReadDiagnosticsTest {
                         .size()
         );
     }
+
+    @Test
+    void aggregatesLiquidDecodeFailuresSeparatelyFromChunkFailures() {
+        ReadDiagnostics diagnostics =
+                new ReadDiagnostics();
+
+        diagnostics.recordParsed();
+        diagnostics.recordParsed();
+        diagnostics.recordLiquidDecodeFailure(
+                "liquidsCompressed: zstd bit-plane decompression failed"
+        );
+        diagnostics.recordLiquidDecodeFailure(
+                "liquidsCompressed: zstd bit-plane decompression failed"
+        );
+
+        assertEquals(
+                2,
+                diagnostics.parsed()
+        );
+
+        assertEquals(
+                0,
+                diagnostics.failed()
+        );
+
+        assertEquals(
+                2,
+                diagnostics.liquidDecodeFailures()
+        );
+
+        assertEquals(
+                2,
+                diagnostics.liquidFailureReasons()
+                        .get("liquidsCompressed: zstd bit-plane decompression failed")
+        );
+
+        assertEquals(
+                "2 x liquidsCompressed: zstd bit-plane decompression failed",
+                diagnostics.liquidFailureReasonLines()
+                        .get(0)
+        );
+    }
 }

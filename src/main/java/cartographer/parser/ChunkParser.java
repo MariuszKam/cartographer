@@ -53,7 +53,7 @@ public class ChunkParser {
                             serverChunk.savedCompressionVersion()
                     );
 
-            int[] liquidIds =
+            DecodedLiquids liquids =
                     decodeLiquidsOrEmpty(
                             serverChunk
                     );
@@ -67,8 +67,10 @@ public class ChunkParser {
                             ChunkDataLayerDecoder.SIZE,
                             ChunkDataLayerDecoder.SIZE,
                             blockIds,
-                            liquidIds,
-                            serverChunk.savedCompressionVersion()
+                            liquids.ids(),
+                            serverChunk.savedCompressionVersion(),
+                            liquids.available(),
+                            liquids.error()
                     )
             );
 
@@ -80,21 +82,28 @@ public class ChunkParser {
         }
     }
 
-    private int[] decodeLiquidsOrEmpty(
+    private DecodedLiquids decodeLiquidsOrEmpty(
             ServerChunkPayload serverChunk
     ) {
         if (serverChunk.liquidsCompressed().length == 0) {
-            return new int[ChunkDataLayerDecoder.VALUE_COUNT];
+            return DecodedLiquids.available(
+                    new int[ChunkDataLayerDecoder.VALUE_COUNT]
+            );
         }
 
         try {
-            return layerDecoder.decode(
-                    serverChunk.liquidsCompressed(),
-                    serverChunk.savedCompressionVersion()
+            return DecodedLiquids.available(
+                    layerDecoder.decode(
+                            serverChunk.liquidsCompressed(),
+                            serverChunk.savedCompressionVersion()
+                    )
             );
 
         } catch (IllegalArgumentException exception) {
-            return new int[ChunkDataLayerDecoder.VALUE_COUNT];
+            return DecodedLiquids.unavailable(
+                    "liquidsCompressed: "
+                            + exception.getMessage()
+            );
         }
     }
 
@@ -146,6 +155,32 @@ public class ChunkParser {
             return ParseResult.failure(
                     "invalid ServerChunk protobuf: "
                             + exception.getMessage()
+            );
+        }
+    }
+
+    private record DecodedLiquids(
+            int[] ids,
+            boolean available,
+            String error
+    ) {
+        static DecodedLiquids available(
+                int[] ids
+        ) {
+            return new DecodedLiquids(
+                    ids,
+                    true,
+                    ""
+            );
+        }
+
+        static DecodedLiquids unavailable(
+                String error
+        ) {
+            return new DecodedLiquids(
+                    new int[ChunkDataLayerDecoder.VALUE_COUNT],
+                    false,
+                    error
             );
         }
     }

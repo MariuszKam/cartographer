@@ -404,11 +404,20 @@ public class VcdbsReader {
                         );
 
                 if (parsed.isSuccess()) {
+                    ParsedChunk chunk =
+                            parsed.value()
+                                    .orElseThrow();
+
                     diagnostics.recordParsed();
 
+                    if (!chunk.liquidLayerAvailable()) {
+                        diagnostics.recordLiquidDecodeFailure(
+                                chunk.liquidDecodeError()
+                        );
+                    }
+
                     chunks.add(
-                            parsed.value()
-                                    .orElseThrow()
+                            chunk
                     );
 
                 } else {

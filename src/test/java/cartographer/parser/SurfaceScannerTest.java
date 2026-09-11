@@ -111,6 +111,16 @@ class SurfaceScannerTest {
                         .get(0)
                         .surfaceClass()
         );
+
+        assertEquals(
+                1,
+                result.columnsScanned()
+        );
+
+        assertEquals(
+                0,
+                result.emptyColumns()
+        );
     }
 
     @Test
@@ -163,6 +173,112 @@ class SurfaceScannerTest {
                 result.blocks()
                         .get(0)
                         .surfaceClass()
+        );
+    }
+
+    @Test
+    void reportsUnavailableLiquidLayerWithoutClaimingWater() {
+        ParsedChunk chunk =
+                new ParsedChunk(
+                        new ChunkCoordinate(
+                                0,
+                                0,
+                                0
+                        ),
+                        0,
+                        1,
+                        1,
+                        1,
+                        new int[]{1},
+                        new int[]{0},
+                        2,
+                        false,
+                        "liquidsCompressed: corrupt"
+                );
+
+        Map<Integer, BlockInfo> registry =
+                Map.of(
+                        1,
+                        new BlockInfo(
+                                1,
+                                "game:soil-medium"
+                        )
+                );
+
+        SurfaceScanResult result =
+                new SurfaceScanner()
+                        .scan(
+                                List.of(chunk),
+                                registry,
+                                true
+                        );
+
+        assertEquals(
+                1,
+                result.liquidUnavailableColumns()
+        );
+
+        assertEquals(
+                0,
+                result.waterColumns()
+        );
+    }
+
+    @Test
+    void countsEmptyColumnsOnceAcrossVerticalChunkSections() {
+        ParsedChunk lower =
+                new ParsedChunk(
+                        new ChunkCoordinate(
+                                0,
+                                0,
+                                0
+                        ),
+                        0,
+                        1,
+                        1,
+                        1,
+                        new int[]{0}
+                );
+
+        ParsedChunk upper =
+                new ParsedChunk(
+                        new ChunkCoordinate(
+                                0,
+                                1,
+                                0
+                        ),
+                        32,
+                        1,
+                        1,
+                        1,
+                        new int[]{0}
+                );
+
+        SurfaceScanResult result =
+                new SurfaceScanner()
+                        .scan(
+                                List.of(
+                                        lower,
+                                        upper
+                                ),
+                                Map.of(
+                                        0,
+                                        new BlockInfo(
+                                                0,
+                                                "air"
+                                        )
+                                ),
+                                true
+                        );
+
+        assertEquals(
+                1,
+                result.columnsScanned()
+        );
+
+        assertEquals(
+                1,
+                result.emptyColumns()
         );
     }
 

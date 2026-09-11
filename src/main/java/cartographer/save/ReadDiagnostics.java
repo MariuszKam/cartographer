@@ -11,9 +11,12 @@ public class ReadDiagnostics {
     private int skipped;
     private int failed;
     private int registryBlocks;
+    private int liquidDecodeFailures;
     private final List<String> skippedNotes = new ArrayList<>();
     private final List<String> failureSamples = new ArrayList<>();
     private final Map<String, Integer> failureReasons = new LinkedHashMap<>();
+    private final List<String> liquidFailureSamples = new ArrayList<>();
+    private final Map<String, Integer> liquidFailureReasons = new LinkedHashMap<>();
     private final List<String> generalNotes = new ArrayList<>();
 
     public void recordParsed() {
@@ -37,6 +40,19 @@ public class ReadDiagnostics {
 
         if (failureSamples.size() < SAMPLE_LIMIT) {
             failureSamples.add("failed: " + reason);
+        }
+    }
+
+    public void recordLiquidDecodeFailure(String reason) {
+        liquidDecodeFailures++;
+        liquidFailureReasons.merge(
+                reason,
+                1,
+                Integer::sum
+        );
+
+        if (liquidFailureSamples.size() < SAMPLE_LIMIT) {
+            liquidFailureSamples.add("liquid decode failed: " + reason);
         }
     }
 
@@ -64,6 +80,10 @@ public class ReadDiagnostics {
         return registryBlocks;
     }
 
+    public int liquidDecodeFailures() {
+        return liquidDecodeFailures;
+    }
+
     public List<String> notes() {
         List<String> notes =
                 new ArrayList<>();
@@ -78,6 +98,10 @@ public class ReadDiagnostics {
 
         notes.addAll(
                 failureSamples
+        );
+
+        notes.addAll(
+                liquidFailureSamples
         );
 
         return List.copyOf(notes);
@@ -101,8 +125,34 @@ public class ReadDiagnostics {
         );
     }
 
+    public Map<String, Integer> liquidFailureReasons() {
+        return Map.copyOf(
+                liquidFailureReasons
+        );
+    }
+
     public List<String> failureReasonLines() {
         return failureReasons.entrySet()
+                .stream()
+                .sorted(
+                        (left, right) ->
+                                Integer.compare(
+                                        right.getValue(),
+                                        left.getValue()
+                                )
+                )
+                .limit(SAMPLE_LIMIT)
+                .map(
+                        entry ->
+                                entry.getValue()
+                                        + " x "
+                                        + entry.getKey()
+                )
+                .toList();
+    }
+
+    public List<String> liquidFailureReasonLines() {
+        return liquidFailureReasons.entrySet()
                 .stream()
                 .sorted(
                         (left, right) ->

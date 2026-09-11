@@ -121,7 +121,11 @@ public class MapCommand implements Command {
             printFailureReasons(
                     chunkDiagnostics
             );
+            printLiquidFailureReasons(
+                    chunkDiagnostics
+            );
             out.println("Surface columns: " + surface.columnsScanned());
+            out.println("Liquid unavailable columns: " + surface.liquidUnavailableColumns());
             out.println("Water columns: " + surface.waterColumns());
             out.println("Unknown surface blocks: " + surface.unknownSurfaceBlocks());
             out.println("Distinct surface block codes: " + surface.distinctSurfaceBlockCodes(20));
@@ -148,6 +152,24 @@ public class MapCommand implements Command {
                 );
     }
 
+    private void printLiquidFailureReasons(
+            ReadDiagnostics diagnostics
+    ) {
+        if (diagnostics.liquidFailureReasons()
+                .isEmpty()) {
+            return;
+        }
+
+        out.println("Liquid decode failures: " + diagnostics.liquidDecodeFailures());
+        out.println("Liquid failure reasons:");
+
+        diagnostics.liquidFailureReasonLines()
+                .forEach(
+                        line ->
+                                out.println("  " + line)
+                );
+    }
+
     private SurfaceScanResult surfaceResult(
             Path savePath,
             WorldPosition center,
@@ -159,6 +181,7 @@ public class MapCommand implements Command {
         if (!options.layers().contains(RenderLayer.SURFACE)) {
             return new SurfaceScanResult(
                     List.of(),
+                    0,
                     0,
                     0,
                     0

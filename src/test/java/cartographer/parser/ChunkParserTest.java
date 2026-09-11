@@ -66,7 +66,7 @@ class ChunkParserTest {
     }
 
     @Test
-    void decodesVersionTwoPaletteBitPlanesWithXyzOrientation() {
+    void decodesRawSmallPaletteLayerWithXyzOrientation() {
         byte[] blocks =
                 encodedLayer(
                         new int[]{0, 11, 22, 33},
@@ -203,11 +203,73 @@ class ChunkParserTest {
     }
 
     @Test
-    void decodesUncompressedArrayConvertBuildLayer() {
+    void decodesEmptyLayerMarker() {
+        ParseResult<ParsedChunk> result =
+                new ChunkParser()
+                        .parse(
+                                new ChunkCoordinate(
+                                        0,
+                                        0,
+                                        0
+                                ),
+                                serverChunk(
+                                        emptyLayer(),
+                                        emptyLayer(),
+                                        2
+                                )
+                        );
+
+        assertTrue(
+                result.isSuccess(),
+                () -> result.error()
+                        .orElse("unknown error")
+        );
+
+        assertEquals(
+                0,
+                result.value()
+                        .orElseThrow()
+                        .blockIdAt(
+                                7,
+                                0,
+                                0
+                        )
+        );
+    }
+
+    @Test
+    void decodesCompressedPaletteLayer() {
+        int[] palette =
+                new int[19];
+
+        for (int index = 0; index < palette.length; index++) {
+            palette[index] =
+                    index * 10;
+        }
+
         byte[] blocks =
-                uncompressedLayer(
-                        new int[]{0, 5},
-                        index -> index == 7 ? 1 : 0
+                compressedPaletteLayer(
+                        palette,
+                        index -> {
+                            int x =
+                                    index & 31;
+
+                            int z =
+                                    (index >>> 5) & 31;
+
+                            int y =
+                                    (index >>> 10) & 31;
+
+                            if (x == 7 && y == 0 && z == 0) {
+                                return 18;
+                            }
+
+                            if (x == 3 && y == 4 && z == 5) {
+                                return 17;
+                            }
+
+                            return 1;
+                        }
                 );
 
         ParseResult<ParsedChunk> result =
@@ -232,13 +294,24 @@ class ChunkParserTest {
         );
 
         assertEquals(
-                5,
+                180,
                 result.value()
                         .orElseThrow()
                         .blockIdAt(
                                 7,
                                 0,
                                 0
+                        )
+        );
+
+        assertEquals(
+                170,
+                result.value()
+                        .orElseThrow()
+                        .blockIdAt(
+                                3,
+                                4,
+                                5
                         )
         );
     }
@@ -298,6 +371,167 @@ class ChunkParserTest {
                                 0,
                                 0
                         )
+        );
+
+        assertFalse(
+                result.value()
+                        .orElseThrow()
+                        .liquidLayerAvailable()
+        );
+
+        assertTrue(
+                result.value()
+                        .orElseThrow()
+                        .liquidDecodeError()
+                        .contains("liquidsCompressed")
+        );
+    }
+
+    @Test
+    void failsWhenCompressedPaletteMarkerExceedsPayload() {
+        ByteBuffer corrupt =
+                ByteBuffer.allocate(4)
+                        .order(ByteOrder.LITTLE_ENDIAN);
+
+        corrupt.putInt(99);
+
+        ParseResult<ParsedChunk> result =
+                new ChunkParser()
+                        .parse(
+                                new ChunkCoordinate(
+                                        0,
+                                        0,
+                                        0
+                                ),
+                                serverChunk(
+                                        corrupt.array(),
+                                        emptyLayer(),
+                                        2
+                                )
+                        );
+
+        assertFalse(
+                result.isSuccess()
+        );
+
+        assertTrue(
+                result.error()
+                        .orElse("")
+                        .contains("compressed chunk palette exceeds payload length")
+        );
+    }
+
+    @Test
+    void failsWhenCompressedPaletteIsMalformed() {
+        ByteBuffer corrupt =
+                ByteBuffer.allocate(8)
+                        .order(ByteOrder.LITTLE_ENDIAN);
+
+        corrupt.putInt(4);
+        corrupt.putInt(12345);
+
+        ParseResult<ParsedChunk> result =
+                new ChunkParser()
+                        .parse(
+                                new ChunkCoordinate(
+                                        0,
+                                        0,
+                                        0
+                                ),
+                                serverChunk(
+                                        corrupt.array(),
+                                        emptyLayer(),
+                                        2
+                                )
+                        );
+
+        assertFalse(
+                result.isSuccess()
+        );
+    }
+
+    @Test
+    void failsWhenDecompressedPaletteIsNotIntAligned() {
+        byte[] malformedPalette =
+                Zstd.compress(
+                        new byte[]{1, 2, 3},
+                        -3
+                );
+
+        ByteBuffer corrupt =
+                ByteBuffer.allocate(
+                                Integer.BYTES
+                                        + malformedPalette.length
+                        )
+                        .order(ByteOrder.LITTLE_ENDIAN);
+
+        corrupt.putInt(
+                malformedPalette.length
+        );
+        corrupt.put(
+                malformedPalette
+        );
+
+        ParseResult<ParsedChunk> result =
+                new ChunkParser()
+                        .parse(
+                                new ChunkCoordinate(
+                                        0,
+                                        0,
+                                        0
+                                ),
+                                serverChunk(
+                                        corrupt.array(),
+                                        emptyLayer(),
+                                        2
+                                )
+                        );
+
+        assertFalse(
+                result.isSuccess()
+        );
+
+        assertTrue(
+                result.error()
+                        .orElse("")
+                        .contains("not int aligned")
+        );
+    }
+
+    @Test
+    void failsWhenCompressedBitPlanesAreCorrupt() {
+        ByteBuffer corrupt =
+                ByteBuffer.allocate(16)
+                        .order(ByteOrder.LITTLE_ENDIAN);
+
+        corrupt.putInt(-8);
+        corrupt.putInt(0);
+        corrupt.putInt(1);
+        corrupt.putInt(12345);
+
+        ParseResult<ParsedChunk> result =
+                new ChunkParser()
+                        .parse(
+                                new ChunkCoordinate(
+                                        0,
+                                        0,
+                                        0
+                                ),
+                                serverChunk(
+                                        corrupt.array(),
+                                        emptyLayer(),
+                                        2
+                                )
+                        );
+
+        assertFalse(
+                result.isSuccess()
+        );
+
+        assertTrue(
+                result.error()
+                        .orElse("")
+                        .contains("bit-plane")
         );
     }
 
@@ -480,13 +714,15 @@ class ChunkParserTest {
         return out.array();
     }
 
-    private byte[] uncompressedLayer(
+    private byte[] compressedPaletteLayer(
             int[] palette,
             PaletteIndexAt paletteIndexAt
     ) {
         int bitSize =
                 bitSize(
-                        palette.length
+                        roundedUpPowerOfTwo(
+                                palette.length
+                        )
                 );
 
         ByteBuffer bitPlanes =
@@ -509,31 +745,48 @@ class ChunkParserTest {
             }
         }
 
-        ByteBuffer out =
+        ByteBuffer paletteBytes =
                 ByteBuffer.allocate(
-                                Integer.BYTES
-                                        + palette.length * Integer.BYTES
-                                        + Integer.BYTES
-                                        + bitPlanes.array().length
+                                palette.length * Integer.BYTES
                         )
                         .order(ByteOrder.LITTLE_ENDIAN);
 
-        out.putInt(
-                palette.length * Integer.BYTES
-        );
-
         for (int id : palette) {
-            out.putInt(
+            paletteBytes.putInt(
                     id
             );
         }
 
+        byte[] compressedPalette =
+                Zstd.compress(
+                        paletteBytes.array(),
+                        -3
+                );
+
+        byte[] compressedBitPlanes =
+                Zstd.compress(
+                        bitPlanes.array(),
+                        -3
+                );
+
+        ByteBuffer out =
+                ByteBuffer.allocate(
+                                Integer.BYTES
+                                        + compressedPalette.length
+                                        + compressedBitPlanes.length
+                        )
+                        .order(ByteOrder.LITTLE_ENDIAN);
+
         out.putInt(
-                bitPlanes.array().length
+                compressedPalette.length
         );
 
         out.put(
-                bitPlanes.array()
+                compressedPalette
+        );
+
+        out.put(
+                compressedBitPlanes
         );
 
         return out.array();
@@ -591,6 +844,23 @@ class ChunkParserTest {
         }
 
         return bitSize;
+    }
+
+    private int roundedUpPowerOfTwo(
+            int value
+    ) {
+        if (value <= 1) {
+            return value;
+        }
+
+        int rounded =
+                1;
+
+        while (rounded < value) {
+            rounded <<= 1;
+        }
+
+        return rounded;
     }
 
     private byte[] serverChunk(

@@ -13,7 +13,8 @@ public record SurfaceScanResult(
         List<SurfaceBlock> blocks,
         int chunksScanned,
         int columnsScanned,
-        int emptyColumns
+        int emptyColumns,
+        int liquidUnavailableColumns
 ) {
     public long waterColumns() {
         return blocks.stream()

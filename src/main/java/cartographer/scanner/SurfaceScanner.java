@@ -8,8 +8,10 @@ import cartographer.model.SurfaceClass;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class SurfaceScanner {
     private final SurfaceClassifier classifier =
@@ -23,6 +25,12 @@ public class SurfaceScanner {
         Map<Long, SurfaceBlock> surfaceByColumn =
                 new HashMap<>();
 
+        Set<Long> consideredColumns =
+                new HashSet<>();
+
+        Set<Long> liquidUnavailableColumns =
+                new HashSet<>();
+
         int columns = 0;
         int totalColumns = chunks.stream()
                 .mapToInt(chunk -> chunk.sizeX() * chunk.sizeZ())
@@ -34,6 +42,19 @@ public class SurfaceScanner {
                 for (int x = 0; x < chunk.sizeX(); x++) {
                     columns++;
                     progress.progress("Scanning surface columns", columns, totalColumns);
+                    long columnKey =
+                            key(
+                                    chunk.worldX(x),
+                                    chunk.worldZ(z)
+                            );
+                    consideredColumns.add(
+                            columnKey
+                    );
+                    if (!chunk.liquidLayerAvailable()) {
+                        liquidUnavailableColumns.add(
+                                columnKey
+                        );
+                    }
                     SurfaceBlock block = findSurfaceBlock(chunk, registry, x, z, ignoreFoliage);
                     if (block != null) {
                         surfaceByColumn.merge(
@@ -55,16 +76,34 @@ public class SurfaceScanner {
         int emptyColumns =
                 Math.max(
                         0,
-                        columns - surfaceByColumn.size()
+                        consideredColumns.size()
+                                - surfaceByColumn.size()
                 );
 
-        return new SurfaceScanResult(List.copyOf(new ArrayList<>(surfaceByColumn.values())), chunks.size(), columns, emptyColumns);
+        return new SurfaceScanResult(
+                List.copyOf(
+                        new ArrayList<>(
+                                surfaceByColumn.values()
+                        )
+                ),
+                chunks.size(),
+                consideredColumns.size(),
+                emptyColumns,
+                liquidUnavailableColumns.size()
+        );
     }
 
     private SurfaceBlock findSurfaceBlock(ParsedChunk chunk, Map<Integer, BlockInfo> registry, int localX, int localZ, boolean ignoreFoliage) {
         for (int localY = chunk.sizeY() - 1; localY >= 0; localY--) {
             int blockId = chunk.blockIdAt(localX, localY, localZ);
-            int liquidId = chunk.liquidIdAt(localX, localY, localZ);
+            int liquidId =
+                    chunk.liquidLayerAvailable()
+                            ? chunk.liquidIdAt(
+                            localX,
+                            localY,
+                            localZ
+                    )
+                            : 0;
             BlockInfo blockInfo = registry.getOrDefault(blockId, BlockInfo.unknown(blockId));
             BlockInfo liquidInfo = registry.getOrDefault(liquidId, BlockInfo.unknown(liquidId));
             SurfaceClass surfaceClass =

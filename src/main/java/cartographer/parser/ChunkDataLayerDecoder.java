@@ -45,23 +45,49 @@ public class ChunkDataLayerDecoder {
             return new int[VALUE_COUNT];
         }
 
-        boolean bitPlanesAreCompressed =
-                paletteByteLengthMarker < 0;
+        int[] palette =
+                paletteByteLengthMarker < 0
+                        ? readRawPalette(
+                        buffer,
+                        -paletteByteLengthMarker
+                )
+                        : readCompressedPalette(
+                        buffer,
+                        paletteByteLengthMarker
+                );
 
-        /*
-         * Vintage Story ChunkDataLayer storage uses ArrayConvert.Build
-         * for uncompressed combined arrays:
-         *
-         *   paletteByteLength, palette bytes, dataBitsByteLength, dataBits bytes
-         *
-         * Current compressed chunk saves store a negative palette byte length
-         * followed by the palette and a zstd frame for the bit planes.
-         */
-        int paletteByteLength =
-                bitPlanesAreCompressed
-                        ? -paletteByteLengthMarker
-                        : paletteByteLengthMarker;
+        if (palette.length == 0) {
+            return new int[VALUE_COUNT];
+        }
 
+        int[] roundedPalette =
+                roundedPalette(
+                        palette
+                );
+
+        int bitSize =
+                bitSize(
+                        roundedPalette.length
+                );
+
+        byte[] dataBitsBytes =
+                readCompressedDataBits(
+                        payload,
+                        buffer.position(),
+                        bitSize
+                );
+
+        return decodePaletteBits(
+                roundedPalette,
+                dataBitsBytes,
+                bitSize
+        );
+    }
+
+    private int[] readRawPalette(
+            ByteBuffer buffer,
+            int paletteByteLength
+    ) {
         if (paletteByteLength % Integer.BYTES != 0) {
             throw new IllegalArgumentException(
                     "chunk palette byte length is not int aligned: "
@@ -83,32 +109,79 @@ public class ChunkDataLayerDecoder {
                     buffer.getInt();
         }
 
-        if (palette.length == 0) {
-            return new int[VALUE_COUNT];
+        return palette;
+    }
+
+    private int[] readCompressedPalette(
+            ByteBuffer buffer,
+            int compressedPaletteLength
+    ) {
+        if (compressedPaletteLength > buffer.remaining()) {
+            throw new IllegalArgumentException(
+                    "compressed chunk palette exceeds payload length"
+            );
         }
 
-        int bitSize =
-                bitSize(
-                        palette.length
-                );
+        byte[] compressedPalette =
+                new byte[compressedPaletteLength];
 
-        byte[] dataBitsBytes =
-                bitPlanesAreCompressed
-                        ? readCompressedDataBits(
-                        payload,
-                        buffer.position(),
-                        bitSize
-                )
-                        : readUncompressedDataBits(
-                        buffer,
-                        bitSize
-                );
-
-        return decodePaletteBits(
-                palette,
-                dataBitsBytes,
-                bitSize
+        buffer.get(
+                compressedPalette
         );
+
+        long decompressedSize =
+                Zstd.getFrameContentSize(
+                        compressedPalette
+                );
+
+        if (decompressedSize <= 0 || decompressedSize > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException(
+                    "compressed chunk palette has invalid decompressed size: "
+                            + decompressedSize
+            );
+        }
+
+        byte[] paletteBytes;
+
+        try {
+            paletteBytes =
+                    Zstd.decompress(
+                            compressedPalette,
+                            (int) decompressedSize
+                    );
+
+        } catch (RuntimeException exception) {
+            throw new IllegalArgumentException(
+                    "zstd palette decompression failed: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+
+        if (paletteBytes.length % Integer.BYTES != 0) {
+            throw new IllegalArgumentException(
+                    "decompressed chunk palette byte length is not int aligned: "
+                            + paletteBytes.length
+            );
+        }
+
+        ByteBuffer paletteBuffer =
+                ByteBuffer.wrap(
+                                paletteBytes
+                        )
+                        .order(
+                                ByteOrder.LITTLE_ENDIAN
+                        );
+
+        int[] palette =
+                new int[paletteBytes.length / Integer.BYTES];
+
+        for (int index = 0; index < palette.length; index++) {
+            palette[index] =
+                    paletteBuffer.getInt();
+        }
+
+        return palette;
     }
 
     private byte[] readCompressedDataBits(
@@ -151,7 +224,7 @@ public class ChunkDataLayerDecoder {
 
         } catch (RuntimeException exception) {
             throw new IllegalArgumentException(
-                    "zstd decompression failed: "
+                    "zstd bit-plane decompression failed: "
                             + exception.getMessage(),
                     exception
             );
@@ -167,51 +240,6 @@ public class ChunkDataLayerDecoder {
         }
 
         return decompressed;
-    }
-
-    private byte[] readUncompressedDataBits(
-            ByteBuffer buffer,
-            int bitSize
-    ) {
-        int expectedLength =
-                bitSize * SLICE_COUNT * Integer.BYTES;
-
-        if (expectedLength == 0) {
-            return new byte[0];
-        }
-
-        if (buffer.remaining() < Integer.BYTES) {
-            throw new IllegalArgumentException(
-                    "chunk data layer is missing uncompressed bit-plane length"
-            );
-        }
-
-        int dataBitsLength =
-                buffer.getInt();
-
-        if (dataBitsLength != expectedLength) {
-            throw new IllegalArgumentException(
-                    "uncompressed bit-plane length mismatch: expected "
-                            + expectedLength
-                            + ", got "
-                            + dataBitsLength
-            );
-        }
-
-        if (buffer.remaining() < dataBitsLength) {
-            throw new IllegalArgumentException(
-                    "uncompressed bit planes exceed payload length"
-            );
-        }
-
-        byte[] dataBits =
-                new byte[dataBitsLength];
-
-        buffer.get(
-                dataBits
-        );
-
-        return dataBits;
     }
 
     private int[] decodePaletteBits(
@@ -300,5 +328,44 @@ public class ChunkDataLayerDecoder {
         }
 
         return bitSize;
+    }
+
+    private int[] roundedPalette(
+            int[] palette
+    ) {
+        int roundedSize =
+                roundedUpPowerOfTwo(
+                        palette.length
+                );
+
+        int[] rounded =
+                new int[roundedSize];
+
+        System.arraycopy(
+                palette,
+                0,
+                rounded,
+                0,
+                palette.length
+        );
+
+        return rounded;
+    }
+
+    private int roundedUpPowerOfTwo(
+            int value
+    ) {
+        if (value <= 1) {
+            return value;
+        }
+
+        int rounded =
+                1;
+
+        while (rounded < value) {
+            rounded <<= 1;
+        }
+
+        return rounded;
     }
 }

@@ -61,9 +61,13 @@ public class ScanCommand implements Command {
         printFailureReasons(
                 diagnostics
         );
+        printLiquidFailureReasons(
+                diagnostics
+        );
         out.println("Registry blocks: " + registry.size());
         out.println("Columns scanned: " + result.columnsScanned());
         out.println("Empty columns: " + result.emptyColumns());
+        out.println("Liquid unavailable columns: " + result.liquidUnavailableColumns());
         out.println("Surface blocks: " + result.blocks().size());
         out.println("Water columns: " + result.waterColumns());
         out.println("Unknown surface blocks: " + result.unknownSurfaceBlocks());
@@ -95,6 +99,9 @@ public class ScanCommand implements Command {
         out.println("Chunks skipped: " + diagnostics.skipped());
         out.println("Chunks failed: " + diagnostics.failed());
         printFailureReasons(
+                diagnostics
+        );
+        printLiquidFailureReasons(
                 diagnostics
         );
         out.println("Blocks scanned: " + result.blocksScanned());
@@ -134,6 +141,24 @@ public class ScanCommand implements Command {
         out.println("Failure reasons:");
 
         diagnostics.failureReasonLines()
+                .forEach(
+                        line ->
+                                out.println("  " + line)
+                );
+    }
+
+    private void printLiquidFailureReasons(
+            ReadDiagnostics diagnostics
+    ) {
+        if (diagnostics.liquidFailureReasons()
+                .isEmpty()) {
+            return;
+        }
+
+        out.println("Liquid decode failures: " + diagnostics.liquidDecodeFailures());
+        out.println("Liquid failure reasons:");
+
+        diagnostics.liquidFailureReasonLines()
                 .forEach(
                         line ->
                                 out.println("  " + line)

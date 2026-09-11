@@ -10,7 +10,9 @@ public record ParsedChunk(
         int sizeZ,
         int[] blockIds,
         int[] liquidIds,
-        int savedCompressionVersion
+        int savedCompressionVersion,
+        boolean liquidLayerAvailable,
+        String liquidDecodeError
 ) {
     public ParsedChunk(
             ChunkCoordinate coordinate,
@@ -28,7 +30,33 @@ public record ParsedChunk(
                 sizeZ,
                 blockIds,
                 new int[sizeX * sizeY * sizeZ],
-                0
+                0,
+                true,
+                ""
+        );
+    }
+
+    public ParsedChunk(
+            ChunkCoordinate coordinate,
+            int minY,
+            int sizeX,
+            int sizeY,
+            int sizeZ,
+            int[] blockIds,
+            int[] liquidIds,
+            int savedCompressionVersion
+    ) {
+        this(
+                coordinate,
+                minY,
+                sizeX,
+                sizeY,
+                sizeZ,
+                blockIds,
+                liquidIds,
+                savedCompressionVersion,
+                true,
+                ""
         );
     }
 
@@ -50,6 +78,11 @@ public record ParsedChunk(
                         sizeZ,
                         "liquid"
                 );
+
+        liquidDecodeError =
+                liquidDecodeError == null
+                        ? ""
+                        : liquidDecodeError;
     }
 
     public int blockIdAt(int x, int y, int z) {
