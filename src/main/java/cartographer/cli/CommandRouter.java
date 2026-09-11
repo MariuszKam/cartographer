@@ -1,6 +1,8 @@
 package cartographer.cli;
 
+import cartographer.analysis.BlockScanner;
 import cartographer.geology.GeologyAnalyzer;
+import cartographer.marker.MarkerStore;
 import cartographer.navigation.HomeStore;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
@@ -51,14 +53,16 @@ public class CommandRouter {
     private Command commandFor(String[] args) {
         VcdbsReader reader = new VcdbsReader(new PlayerDataParser(), new MapChunkParser(), new ChunkParser(), new RegistryParser());
         HomeStore homeStore = new HomeStore(Path.of(System.getProperty("user.home"), ".vs-cartographer", "home.properties"));
+        MarkerStore markerStore = new MarkerStore(Path.of(System.getProperty("user.home"), ".vs-cartographer", "markers.csv"));
 
         return switch (args[0]) {
             case "whereami" -> new WhereamiCommand(out, reader);
             case "home" -> new HomeCommand(out, homeStore, subcommand(args, "home"));
             case "nav" -> new NavCommand(out, reader, homeStore, subcommand(args, "nav"));
             case "map" -> new MapCommand(out, reader, homeStore, new MapRenderer(), new PngWriter(), subcommand(args, "map"));
-            case "scan" -> new ScanCommand(out, reader, new SurfaceScanner(), subcommand(args, "scan"));
+            case "scan" -> new ScanCommand(out, reader, new SurfaceScanner(), new BlockScanner(), subcommand(args, "scan"));
             case "geology" -> new GeologyCommand(out, reader, new SurfaceScanner(), new GeologyAnalyzer(), subcommand(args, "geology"));
+            case "markers" -> new MarkerCommand(out, markerStore, subcommand(args, "markers"));
             case "inspect" -> new InspectCommand(out, new SaveInspector());
             case "index" -> new IndexCommand(out, new SaveIndexReader());
             default -> throw new CommandException("Unknown command: " + args[0]);
@@ -66,7 +70,7 @@ public class CommandRouter {
     }
 
     private String[] commandArgs(String[] args) {
-        if (args.length >= 2 && ("home".equals(args[0]) || "nav".equals(args[0]) || "map".equals(args[0]) || "scan".equals(args[0]) || "geology".equals(args[0]))) {
+        if (args.length >= 2 && ("home".equals(args[0]) || "nav".equals(args[0]) || "map".equals(args[0]) || "scan".equals(args[0]) || "geology".equals(args[0]) || "markers".equals(args[0]))) {
             return Arrays.copyOfRange(args, 2, args.length);
         }
         return Arrays.copyOfRange(args, 1, args.length);
@@ -92,5 +96,8 @@ public class CommandRouter {
         out.println("  vs-cartographer map render <save.vcdbs> --radius <blocks> --out <map.png> [--center-x <x> --center-z <z>] [--scale <n>] [--style simple|topographic|high-contrast] [--layers terrain,water,markers]");
         out.println("  vs-cartographer scan surface <save.vcdbs> --radius <blocks>");
         out.println("  vs-cartographer geology surface <save.vcdbs> --radius <blocks> [--center-x <x> --center-z <z>]");
+        out.println("  vs-cartographer scan blocks <save.vcdbs> --match <text> [--center-x <x> --center-z <z>] [--radius <blocks>] [--limit <n>]");
+        out.println("  vs-cartographer markers add <name> <x> <z>");
+        out.println("  vs-cartographer markers list");
     }
 }

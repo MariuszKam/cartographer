@@ -1,5 +1,8 @@
 package cartographer.cli;
 
+import cartographer.analysis.BlockMatch;
+import cartographer.analysis.BlockScanResult;
+import cartographer.analysis.BlockScanner;
 import cartographer.model.BlockInfo;
 import cartographer.model.ParsedChunk;
 import cartographer.model.SurfaceBlock;
@@ -19,17 +22,22 @@ public class ScanCommand implements Command {
     private final PrintStream out;
     private final VcdbsReader reader;
     private final SurfaceScanner scanner;
+    private final BlockScanner blockScanner;
     private final String subcommand;
 
-    public ScanCommand(PrintStream out, VcdbsReader reader, SurfaceScanner scanner, String subcommand) {
+    public ScanCommand(PrintStream out, VcdbsReader reader, SurfaceScanner scanner, BlockScanner blockScanner, String subcommand) {
         this.out = out;
         this.reader = reader;
         this.scanner = scanner;
+        this.blockScanner = blockScanner;
         this.subcommand = subcommand;
     }
 
     @Override
     public int run(String[] args) {
+        if ("blocks".equals(subcommand)) {
+            return scanBlocks(args);
+        }
         if (!"surface".equals(subcommand)) {
             throw new CommandException("Unknown scan subcommand: " + subcommand);
         }
@@ -60,6 +68,34 @@ public class ScanCommand implements Command {
         return 0;
     }
 
+    private int scanBlocks(String[] args) {
+        if (args.length < 1) {
+            throw new CommandException("Usage: scan blocks <save.vcdbs> --match <text> [--radius <blocks>] [--limit <n>]");
+        }
+        Path savePath = Path.of(args[0]);
+        String match = option(args, "--match").orElseThrow(() -> new CommandException("Missing option: --match"));
+        int radius = intOption(args, "--radius", 256);
+        int limit = intOption(args, "--limit", 100);
+        ProgressReporter progress = new ProgressReporter(out);
+        WorldPosition center = center(args).orElseGet(() -> reader.readPlayerPosition(savePath, Optional.empty(), progress));
+        ReadDiagnostics diagnostics = new ReadDiagnostics();
+        List<ParsedChunk> chunks = reader.readChunksAround(savePath, center, radius, diagnostics, progress);
+        Map<Integer, BlockInfo> registry = reader.readBlockRegistry(savePath, progress);
+        BlockScanResult result = blockScanner.scan(chunks, registry, match, limit, progress);
+
+        out.println("BLOCK SCAN");
+        out.println("Match: " + match);
+        out.println("Chunks parsed: " + diagnostics.parsed());
+        out.println("Chunks skipped: " + diagnostics.skipped());
+        out.println("Chunks failed: " + diagnostics.failed());
+        out.println("Blocks scanned: " + result.blocksScanned());
+        out.println("Matches: " + result.matches().size());
+        out.println("Truncated: " + result.truncated());
+        result.matches().forEach(this::printBlockMatch);
+        diagnostics.notes().forEach(note -> out.println("Note: " + note));
+        return 0;
+    }
+
     private void printSurfaceBlock(SurfaceBlock block) {
         out.printf("%d,%d,%d %s %s%n",
                 block.worldX(),
@@ -67,6 +103,15 @@ public class ScanCommand implements Command {
                 block.worldZ(),
                 block.blockInfo().code(),
                 block.blockInfo().materialType());
+    }
+
+    private void printBlockMatch(BlockMatch match) {
+        out.printf("%d,%d,%d %s %s%n",
+                match.worldX(),
+                match.y(),
+                match.worldZ(),
+                match.blockInfo().code(),
+                match.blockInfo().materialType());
     }
 
     private int intOption(String[] args, String optionName, int defaultValue) {
@@ -101,5 +146,25 @@ public class ScanCommand implements Command {
             }
         }
         return false;
+    }
+
+    private Optional<WorldPosition> center(String[] args) {
+        Optional<String> x = option(args, "--center-x");
+        Optional<String> z = option(args, "--center-z");
+        if (x.isEmpty() && z.isEmpty()) {
+            return Optional.empty();
+        }
+        if (x.isEmpty() || z.isEmpty()) {
+            throw new CommandException("--center-x and --center-z must be used together");
+        }
+        return Optional.of(new WorldPosition(parseDouble(x.get(), "--center-x"), 0.0, parseDouble(z.get(), "--center-z")));
+    }
+
+    private double parseDouble(String value, String optionName) {
+        try {
+            return Double.parseDouble(value);
+        } catch (NumberFormatException exception) {
+            throw new CommandException("Invalid " + optionName + ": " + value);
+        }
     }
 }
