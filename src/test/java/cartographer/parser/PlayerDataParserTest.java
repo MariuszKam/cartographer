@@ -4,57 +4,191 @@ import cartographer.model.ParseResult;
 import cartographer.model.WorldPosition;
 import org.junit.jupiter.api.Test;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PlayerDataParserTest {
+
     @Test
-    void parsesFixtureProtobufFixed64Position() {
-        ByteBuffer buffer = ByteBuffer.allocate(27).order(ByteOrder.LITTLE_ENDIAN);
-        buffer.put((byte) 0x09).putDouble(512341.4);
-        buffer.put((byte) 0x11).putDouble(112.0);
-        buffer.put((byte) 0x19).putDouble(511782.7);
+    void parsesVintageStoryEntityPlayerSerializedFromField3() {
+        byte[] entityPlayer = createEntityPlayer(
+                512341.4,
+                112.0,
+                511782.7
+        );
 
-        ParseResult<WorldPosition> result = new PlayerDataParser().parse(buffer.array());
+        byte[] playerData =
+                wrapAsEntityPlayerSerializedField(entityPlayer);
 
-        assertTrue(result.isSuccess());
-        WorldPosition position = result.value().orElseThrow();
-        assertEquals(512341.4, position.x(), 0.0001);
-        assertEquals(112.0, position.y(), 0.0001);
-        assertEquals(511782.7, position.z(), 0.0001);
+        ParseResult<WorldPosition> result =
+                new PlayerDataParser().parse(playerData);
+
+        assertTrue(
+                result.isSuccess(),
+                () -> result.error().orElse("unknown error")
+        );
+
+        WorldPosition position =
+                result.value().orElseThrow();
+
+        assertEquals(
+                512341.4,
+                position.x(),
+                0.0001
+        );
+
+        assertEquals(
+                112.0,
+                position.y(),
+                0.0001
+        );
+
+        assertEquals(
+                511782.7,
+                position.z(),
+                0.0001
+        );
     }
 
     @Test
-    void rejectsAllZeroBinaryTripleAsFalsePositive() {
-        byte[] payload = ByteBuffer.allocate(24)
-                .order(ByteOrder.LITTLE_ENDIAN)
-                .putDouble(0.0)
-                .putDouble(0.0)
-                .putDouble(0.0)
-                .array();
+    void rejectsPayloadWithoutEntityPlayerField() {
+        byte[] invalidPlayerData = {
+                0x0A,
+                0x03,
+                'a',
+                'b',
+                'c'
+        };
 
-        ParseResult<WorldPosition> result = new PlayerDataParser().parse(payload);
+        ParseResult<WorldPosition> result =
+                new PlayerDataParser()
+                        .parse(invalidPlayerData);
 
         assertFalse(result.isSuccess());
     }
 
-    @Test
-    void ranksLikelyPositionCandidates() {
-        ByteBuffer buffer = ByteBuffer.allocate(64).order(ByteOrder.LITTLE_ENDIAN);
-        buffer.position(8);
-        buffer.putDouble(9.0).putDouble(6.0).putDouble(9.0);
-        buffer.position(40);
-        buffer.putFloat(512341.5f).putFloat(112.0f).putFloat(511782.75f);
+    private byte[] createEntityPlayer(
+            double x,
+            double y,
+            double z
+    ) {
+        ByteArrayOutputStream out =
+                new ByteArrayOutputStream();
 
-        PlayerPositionCandidate candidate = new PlayerDataParser().findCandidates(buffer.array(), 1).get(0);
+        writeDotNetString(
+                out,
+                "EntityPlayer"
+        );
 
-        assertEquals("float-le", candidate.encoding());
-        assertEquals(512341.5, candidate.position().x(), 0.5);
-        assertEquals(112.0, candidate.position().y(), 0.5);
-        assertEquals(511782.75, candidate.position().z(), 0.5);
+        writeDotNetString(
+                out,
+                "1.21.0"
+        );
+
+        // EntityId
+        writeLongLE(
+                out,
+                123L
+        );
+
+        /*
+         * Empty WatchedAttributes.
+         * TreeAttribute terminator.
+         */
+        out.write(0);
+
+        // EntityPos
+        writeDoubleLE(out, x);
+        writeDoubleLE(out, y);
+        writeDoubleLE(out, z);
+
+        /*
+         * EntityPos contains more fields after XYZ,
+         * but our parser intentionally stops after Z.
+         */
+        return out.toByteArray();
+    }
+
+    private byte[] wrapAsEntityPlayerSerializedField(
+            byte[] entityPlayer
+    ) {
+        ByteArrayOutputStream out =
+                new ByteArrayOutputStream();
+
+        /*
+         * protobuf:
+         *
+         * field 3
+         * wire type 2
+         *
+         * (3 << 3) | 2 = 26 = 0x1A
+         */
+        out.write(0x1A);
+
+        writeVarInt(
+                out,
+                entityPlayer.length
+        );
+
+        out.writeBytes(entityPlayer);
+
+        return out.toByteArray();
+    }
+
+    private void writeDotNetString(
+            ByteArrayOutputStream out,
+            String value
+    ) {
+        byte[] bytes =
+                value.getBytes(StandardCharsets.UTF_8);
+
+        writeVarInt(
+                out,
+                bytes.length
+        );
+
+        out.writeBytes(bytes);
+    }
+
+    private void writeDoubleLE(
+            ByteArrayOutputStream out,
+            double value
+    ) {
+        writeLongLE(
+                out,
+                Double.doubleToLongBits(value)
+        );
+    }
+
+    private void writeLongLE(
+            ByteArrayOutputStream out,
+            long value
+    ) {
+        for (int index = 0; index < 8; index++) {
+            out.write(
+                    (int) ((value >>> (index * 8)) & 0xFF)
+            );
+        }
+    }
+
+    private void writeVarInt(
+            ByteArrayOutputStream out,
+            int value
+    ) {
+        int remaining = value;
+
+        while (remaining >= 0x80) {
+            out.write(
+                    (remaining & 0x7F) | 0x80
+            );
+
+            remaining >>>= 7;
+        }
+
+        out.write(remaining);
     }
 }
