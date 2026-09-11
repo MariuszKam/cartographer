@@ -2,8 +2,11 @@ package cartographer.render;
 
 import cartographer.cli.ProgressReporter;
 import cartographer.model.HomeLocation;
+import cartographer.model.BlockInfo;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
+import cartographer.model.SurfaceBlock;
+import cartographer.model.SurfaceClass;
 import cartographer.model.WorldPosition;
 import org.junit.jupiter.api.Test;
 
@@ -208,6 +211,113 @@ class MapRendererTest {
                         .getRGB(
                                 48,
                                 32
+                )
+        );
+    }
+
+    @Test
+    void semanticSurfaceLayerUsesClassPaletteOverHeightTerrain() {
+        RenderedMap rendered =
+                new MapRenderer()
+                        .render(
+                                new WorldPosition(
+                                        16.0,
+                                        0.0,
+                                        16.0
+                                ),
+                                Optional.empty(),
+                                List.of(),
+                                List.of(
+                                        new SurfaceBlock(
+                                                16,
+                                                80,
+                                                16,
+                                                new BlockInfo(
+                                                        10,
+                                                        "water-still-7"
+                                                ),
+                                                10,
+                                                new BlockInfo(
+                                                        10,
+                                                        "water-still-7"
+                                                ),
+                                                SurfaceClass.WATER
+                                        )
+                                ),
+                                new RenderOptions(
+                                        16,
+                                        1,
+                                        RenderStyle.TOPOGRAPHIC,
+                                        Set.of(
+                                                RenderLayer.TERRAIN,
+                                                RenderLayer.SURFACE
+                                        )
+                                ),
+                                ProgressReporter.NONE
+                        );
+
+        int expected =
+                new SemanticTerrainPalette()
+                        .color(
+                                SurfaceClass.WATER,
+                                0.0
+                        );
+
+        assertEquals(
+                expected,
+                rendered.image()
+                        .getRGB(
+                                32,
+                                32
+                        )
+        );
+    }
+
+    @Test
+    void semanticSurfaceLegendDrawsWhenClassesArePresent() {
+        RenderedMap rendered =
+                new MapRenderer()
+                        .render(
+                                new WorldPosition(
+                                        16.0,
+                                        0.0,
+                                        16.0
+                                ),
+                                Optional.empty(),
+                                List.of(),
+                                List.of(
+                                        new SurfaceBlock(
+                                                16,
+                                                80,
+                                                16,
+                                                new BlockInfo(
+                                                        99,
+                                                        "unknown:99"
+                                                ),
+                                                0,
+                                                BlockInfo.unknown(0),
+                                                SurfaceClass.UNKNOWN
+                                        )
+                                ),
+                                new RenderOptions(
+                                        16,
+                                        1,
+                                        RenderStyle.SIMPLE,
+                                        Set.of(RenderLayer.SURFACE)
+                                ),
+                                ProgressReporter.NONE
+                        );
+
+        assertNotEquals(
+                new TerrainPalette()
+                        .background(
+                                RenderStyle.SIMPLE
+                        ),
+                rendered.image()
+                        .getRGB(
+                                10,
+                                rendered.image()
+                                        .getHeight() - 20
                         )
         );
     }

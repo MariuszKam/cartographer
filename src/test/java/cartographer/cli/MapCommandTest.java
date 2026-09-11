@@ -2,6 +2,7 @@ package cartographer.cli;
 
 import cartographer.model.HomeLocation;
 import cartographer.model.MapChunk;
+import cartographer.model.SurfaceBlock;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
@@ -175,6 +176,7 @@ class MapCommandTest {
                 WorldPosition player,
                 Optional<HomeLocation> home,
                 List<MapChunk> chunks,
+                List<SurfaceBlock> surfaceBlocks,
                 RenderOptions options,
                 ProgressReporter progress
         ) {

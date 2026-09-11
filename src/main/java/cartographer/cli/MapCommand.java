@@ -1,8 +1,11 @@
 package cartographer.cli;
 
 import cartographer.model.DisplayPosition;
+import cartographer.model.BlockInfo;
 import cartographer.model.HomeLocation;
 import cartographer.model.MapChunk;
+import cartographer.model.ParsedChunk;
+import cartographer.model.SurfaceBlock;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
@@ -15,11 +18,14 @@ import cartographer.render.PngWriter;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
+import cartographer.scanner.SurfaceScanResult;
+import cartographer.scanner.SurfaceScanner;
 
 import java.awt.image.BufferedImage;
 import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class MapCommand implements Command {
@@ -78,7 +84,20 @@ public class MapCommand implements Command {
         );
         ReadDiagnostics diagnostics = new ReadDiagnostics();
         List<MapChunk> chunks = reader.readMapChunksAround(savePath, center, radius, diagnostics, progress);
-        RenderedMap rendered = renderer.render(center, player, home, chunks, options, progress);
+        ReadDiagnostics chunkDiagnostics =
+                new ReadDiagnostics();
+
+        SurfaceScanResult surface =
+                surfaceResult(
+                        savePath,
+                        center,
+                        radius,
+                        options,
+                        chunkDiagnostics,
+                        progress
+                );
+
+        RenderedMap rendered = renderer.render(center, player, home, chunks, surface.blocks(), options, progress);
         progress.start("Writing PNG");
         pngWriter.write(rendered.image(), output);
         progress.done("PNG written");
@@ -93,8 +112,58 @@ public class MapCommand implements Command {
         out.println("Parsed mapchunks: " + diagnostics.parsed());
         out.println("Skipped mapchunks: " + diagnostics.skipped());
         out.println("Failed mapchunks: " + diagnostics.failed());
+        if (options.layers().contains(RenderLayer.SURFACE)) {
+            out.println("Parsed chunks: " + chunkDiagnostics.parsed());
+            out.println("Failed chunks: " + chunkDiagnostics.failed());
+            out.println("Surface columns: " + surface.columnsScanned());
+            out.println("Water columns: " + surface.waterColumns());
+            out.println("Unknown surface blocks: " + surface.unknownSurfaceBlocks());
+            out.println("Distinct surface block codes: " + surface.distinctSurfaceBlockCodes(20));
+        }
         diagnostics.notes().forEach(note -> out.println("Note: " + note));
+        chunkDiagnostics.notes().forEach(note -> out.println("Note: " + note));
         return 0;
+    }
+
+    private SurfaceScanResult surfaceResult(
+            Path savePath,
+            WorldPosition center,
+            int radius,
+            RenderOptions options,
+            ReadDiagnostics diagnostics,
+            ProgressReporter progress
+    ) {
+        if (!options.layers().contains(RenderLayer.SURFACE)) {
+            return new SurfaceScanResult(
+                    List.of(),
+                    0,
+                    0,
+                    0
+            );
+        }
+
+        List<ParsedChunk> chunks =
+                reader.readChunksAround(
+                        savePath,
+                        center,
+                        radius,
+                        diagnostics,
+                        progress
+                );
+
+        Map<Integer, BlockInfo> registry =
+                reader.readBlockRegistry(
+                        savePath,
+                        progress
+                );
+
+        return new SurfaceScanner()
+                .scan(
+                        chunks,
+                        registry,
+                        true,
+                        progress
+                );
     }
 
     private int intOption(String[] args, String optionName, int defaultValue) {
