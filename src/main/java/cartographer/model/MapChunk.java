@@ -66,6 +66,36 @@ public record MapChunk(
         )];
     }
 
+    public int terrainHeightAt(
+            int localX,
+            int localZ
+    ) {
+        validateLocalCoordinate(
+                localX,
+                localZ
+        );
+
+        if (hasRainHeightMap()
+                && hasWorldGenTerrainHeightMap()) {
+            return Math.round(
+                    (rainHeightMap[index(
+                            localX,
+                            localZ
+                    )]
+                            + worldGenTerrainHeightMap[index(
+                            localX,
+                            localZ
+                    )])
+                            / 2.0f
+            );
+        }
+
+        return heightAt(
+                localX,
+                localZ
+        );
+    }
+
     public List<MapTile> tiles() {
         int[] heights =
                 hasRainHeightMap()
@@ -95,10 +125,10 @@ public record MapChunk(
                         new MapTile(
                                 originX + localX,
                                 originZ + localZ,
-                                heights[index(
+                                terrainHeightAt(
                                         localX,
                                         localZ
-                                )]
+                                )
                         )
                 );
             }
