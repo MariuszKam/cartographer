@@ -9,6 +9,7 @@ import cartographer.model.WorldPosition;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -19,20 +20,73 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public class MapRenderer {
-    private static final int MAX_IMAGE_SIZE = 4096;
-    private final TerrainPalette palette = new TerrainPalette();
-    private final SemanticTerrainPalette semanticPalette = new SemanticTerrainPalette();
-    private final MarkerRenderer markers = new MarkerRenderer();
 
-    public BufferedImage render(WorldPosition player, Optional<HomeLocation> home, List<MapChunk> chunks, int radiusBlocks) {
-        return render(player, home, chunks, new RenderOptions(radiusBlocks, 1, RenderStyle.SIMPLE, RenderLayer.defaults()), ProgressReporter.NONE).image();
+    private static final int MAX_IMAGE_SIZE =
+            4096;
+
+    private static final int MIN_LEGEND_WIDTH =
+            180;
+
+    private static final int MIN_LEGEND_HEIGHT =
+            120;
+
+    private final TerrainPalette palette =
+            new TerrainPalette();
+
+    private final SemanticTerrainPalette semanticPalette =
+            new SemanticTerrainPalette();
+
+    private final MarkerRenderer markers =
+            new MarkerRenderer();
+
+    public BufferedImage render(
+            WorldPosition player,
+            Optional<HomeLocation> home,
+            List<MapChunk> chunks,
+            int radiusBlocks
+    ) {
+        return render(
+                player,
+                home,
+                chunks,
+                new RenderOptions(
+                        radiusBlocks,
+                        1,
+                        RenderStyle.SIMPLE,
+                        RenderLayer.defaults()
+                ),
+                ProgressReporter.NONE
+        ).image();
     }
 
-    public BufferedImage render(WorldPosition player, Optional<HomeLocation> home, List<MapChunk> chunks, int radiusBlocks, ProgressReporter progress) {
-        return render(player, home, chunks, new RenderOptions(radiusBlocks, 1, RenderStyle.SIMPLE, RenderLayer.defaults()), progress).image();
+    public BufferedImage render(
+            WorldPosition player,
+            Optional<HomeLocation> home,
+            List<MapChunk> chunks,
+            int radiusBlocks,
+            ProgressReporter progress
+    ) {
+        return render(
+                player,
+                home,
+                chunks,
+                new RenderOptions(
+                        radiusBlocks,
+                        1,
+                        RenderStyle.SIMPLE,
+                        RenderLayer.defaults()
+                ),
+                progress
+        ).image();
     }
 
-    public RenderedMap render(WorldPosition center, Optional<HomeLocation> home, List<MapChunk> chunks, RenderOptions options, ProgressReporter progress) {
+    public RenderedMap render(
+            WorldPosition center,
+            Optional<HomeLocation> home,
+            List<MapChunk> chunks,
+            RenderOptions options,
+            ProgressReporter progress
+    ) {
         return render(
                 center,
                 center,
@@ -91,90 +145,95 @@ public class MapRenderer {
             RenderOptions options,
             ProgressReporter progress
     ) {
-        int diameter = Math.max(64, Math.min(MAX_IMAGE_SIZE, options.radiusBlocks() * 2 * options.pixelsPerBlock() + 1));
-        double scale = diameter / (double) (options.radiusBlocks() * 2);
-        BufferedImage image = new BufferedImage(diameter, diameter, BufferedImage.TYPE_INT_ARGB);
+        int diameter =
+                Math.clamp(
+                        (long) options.radiusBlocks()
+                                * 2
+                                * options.pixelsPerBlock()
+                                + 1
+                        ,
+                        64,
+                        MAX_IMAGE_SIZE);
 
-        progress.start("Preparing image background");
-        for (int y = 0; y < diameter; y++) {
-            for (int x = 0; x < diameter; x++) {
-                image.setRGB(x, y, palette.background(options.style()));
-            }
-            progress.progress("Preparing image background", y + 1, diameter);
-        }
+        double scale =
+                diameter
+                        / (double) (
+                        options.radiusBlocks()
+                                * 2
+                );
 
-        int tilesDrawn = 0;
-        int minX = (int) Math.floor(center.x()) - options.radiusBlocks();
-        int minZ = (int) Math.floor(center.z()) - options.radiusBlocks();
+        BufferedImage image =
+                new BufferedImage(
+                        diameter,
+                        diameter,
+                        BufferedImage.TYPE_INT_ARGB
+                );
+
+        prepareBackground(
+                image,
+                options,
+                progress
+        );
+
+        int minX =
+                (int) Math.floor(
+                        center.x()
+                )
+                        - options.radiusBlocks();
+
+        int minZ =
+                (int) Math.floor(
+                        center.z()
+                )
+                        - options.radiusBlocks();
+
+        boolean terrainEnabled =
+                options.layers()
+                        .contains(
+                                RenderLayer.TERRAIN
+                        );
+
+        boolean surfaceEnabled =
+                options.layers()
+                        .contains(
+                                RenderLayer.SURFACE
+                        );
+
         HeightSamples samples =
                 HeightSamples.empty();
 
-        if (options.layers().contains(RenderLayer.TERRAIN) || options.layers().contains(RenderLayer.WATER) || options.layers().contains(RenderLayer.SURFACE)) {
+        if (terrainEnabled
+                || surfaceEnabled) {
+
             samples =
                     collectHeightSamples(
                             chunks,
                             minX,
                             minZ,
-                            options.radiusBlocks() * 2,
+                            options.radiusBlocks()
+                                    * 2,
                             progress
                     );
-
-            for (int imageY = 0; imageY < diameter; imageY++) {
-                int worldZ =
-                        minZ
-                                + Math.min(
-                                options.radiusBlocks() * 2 - 1,
-                                (int) Math.floor(
-                                        imageY / scale
-                                )
-                        );
-
-                for (int imageX = 0; imageX < diameter; imageX++) {
-                    int worldX =
-                            minX
-                                    + Math.min(
-                                    options.radiusBlocks() * 2 - 1,
-                                    (int) Math.floor(
-                                            imageX / scale
-                                    )
-                            );
-
-                    Integer height =
-                            samples.heightAt(
-                                    worldX,
-                                    worldZ
-                            );
-
-                    if (height != null) {
-                        image.setRGB(
-                                imageX,
-                                imageY,
-                                palette.terrainColor(
-                                        height,
-                                        samples.minHeight(),
-                                        samples.maxHeight(),
-                                        hillshade(
-                                                samples,
-                                                worldX,
-                                                worldZ
-                                        ),
-                                        options.style()
-                                )
-                        );
-
-                        tilesDrawn++;
-                    }
-                }
-
-                progress.progress(
-                        "Drawing terrain",
-                        imageY + 1,
-                        diameter
-                );
-            }
         }
 
-        if (options.layers().contains(RenderLayer.SURFACE)) {
+        int tilesDrawn =
+                0;
+
+        if (terrainEnabled) {
+            tilesDrawn =
+                    drawTerrain(
+                            image,
+                            samples,
+                            minX,
+                            minZ,
+                            scale,
+                            diameter,
+                            options,
+                            progress
+                    );
+        }
+
+        if (surfaceEnabled) {
             drawSurfaceBlocks(
                     image,
                     surfaceBlocks,
@@ -187,42 +246,166 @@ public class MapRenderer {
             );
         }
 
-        int markerCount = 0;
-        progress.start("Drawing markers");
-        if (options.layers().contains(RenderLayer.MARKERS)) {
-            Graphics2D graphics = image.createGraphics();
-            try {
-                int playerX = (int) Math.round((player.x() - minX) * scale);
-                int playerY = (int) Math.round((player.z() - minZ) * scale);
-                markers.drawCross(graphics, playerX, playerY, Color.RED);
-                markerCount++;
+        int markerCount =
+                drawMarkers(
+                        image,
+                        player,
+                        home,
+                        minX,
+                        minZ,
+                        scale,
+                        options,
+                        progress
+                );
 
-                home.ifPresent(location -> {
-                    int homeX = (int) Math.round((location.x() - minX) * scale);
-                    int homeY = (int) Math.round((location.z() - minZ) * scale);
-                    markers.drawCross(graphics, homeX, homeY, Color.CYAN);
-                });
-                if (home.isPresent()) {
-                    markerCount++;
-                }
-            } finally {
-                graphics.dispose();
-            }
-        }
-        progress.done("Markers drawn");
-
-        if (options.layers().contains(RenderLayer.SURFACE)) {
+        if (surfaceEnabled) {
             drawLegend(
                     image,
                     surfaceBlocks
             );
         }
 
-        String layers = options.layers().stream()
-                .map(Enum::name)
-                .sorted()
-                .collect(Collectors.joining(","));
-        return new RenderedMap(image, new MapRenderReport(diameter, diameter, chunks.size(), tilesDrawn, markerCount, options.style(), layers));
+        String layers =
+                options.layers()
+                        .stream()
+                        .map(Enum::name)
+                        .sorted()
+                        .collect(
+                                Collectors.joining(",")
+                        );
+
+        return new RenderedMap(
+                image,
+                new MapRenderReport(
+                        diameter,
+                        diameter,
+                        chunks.size(),
+                        tilesDrawn,
+                        markerCount,
+                        options.style(),
+                        layers
+                )
+        );
+    }
+
+    private void prepareBackground(
+            BufferedImage image,
+            RenderOptions options,
+            ProgressReporter progress
+    ) {
+        progress.start(
+                "Preparing image background"
+        );
+
+        for (int y = 0;
+             y < image.getHeight();
+             y++) {
+
+            for (int x = 0;
+                 x < image.getWidth();
+                 x++) {
+
+                image.setRGB(
+                        x,
+                        y,
+                        palette.background(
+                                options.style()
+                        )
+                );
+            }
+
+            progress.progress(
+                    "Preparing image background",
+                    y + 1,
+                    image.getHeight()
+            );
+        }
+    }
+
+    private int drawTerrain(
+            BufferedImage image,
+            HeightSamples samples,
+            int minX,
+            int minZ,
+            double scale,
+            int diameter,
+            RenderOptions options,
+            ProgressReporter progress
+    ) {
+        int tilesDrawn =
+                0;
+
+        progress.start(
+                "Drawing terrain"
+        );
+
+        for (int imageY = 0;
+             imageY < diameter;
+             imageY++) {
+
+            int worldZ =
+                    minZ
+                            + Math.min(
+                            options.radiusBlocks()
+                                    * 2
+                                    - 1,
+                            (int) Math.floor(
+                                    imageY / scale
+                            )
+                    );
+
+            for (int imageX = 0;
+                 imageX < diameter;
+                 imageX++) {
+
+                int worldX =
+                        minX
+                                + Math.min(
+                                options.radiusBlocks()
+                                        * 2
+                                        - 1,
+                                (int) Math.floor(
+                                        imageX / scale
+                                )
+                        );
+
+                Integer height =
+                        samples.heightAt(
+                                worldX,
+                                worldZ
+                        );
+
+                if (height == null) {
+                    continue;
+                }
+
+                image.setRGB(
+                        imageX,
+                        imageY,
+                        palette.terrainColor(
+                                height,
+                                samples.minHeight(),
+                                samples.maxHeight(),
+                                hillshade(
+                                        samples,
+                                        worldX,
+                                        worldZ
+                                ),
+                                options.style()
+                        )
+                );
+
+                tilesDrawn++;
+            }
+
+            progress.progress(
+                    "Drawing terrain",
+                    imageY + 1,
+                    diameter
+            );
+        }
+
+        return tilesDrawn;
     }
 
     private void drawSurfaceBlocks(
@@ -239,43 +422,113 @@ public class MapRenderer {
                 "Drawing semantic surface"
         );
 
-        for (int index = 0; index < surfaceBlocks.size(); index++) {
-            SurfaceBlock block =
-                    surfaceBlocks.get(index);
+        for (int index = 0;
+             index < surfaceBlocks.size();
+             index++) {
 
-            int imageX =
-                    (int) Math.round(
+            SurfaceBlock block =
+                    surfaceBlocks.get(
+                            index
+                    );
+
+            int startX =
+                    (int) Math.floor(
                             (block.worldX() - minX)
                                     * scale
                     );
 
-            int imageY =
-                    (int) Math.round(
+            int endX =
+                    (int) Math.ceil(
+                            (block.worldX()
+                                    + 1
+                                    - minX)
+                                    * scale
+                    );
+
+            int startY =
+                    (int) Math.floor(
                             (block.worldZ() - minZ)
                                     * scale
                     );
 
-            if (imageX >= 0
-                    && imageX < diameter
-                    && imageY >= 0
-                    && imageY < diameter) {
-                image.setRGB(
-                        imageX,
-                        imageY,
-                        semanticPalette.color(
-                                block.surfaceClass(),
-                                samples.heightAt(
-                                                block.worldX(),
-                                                block.worldZ()
-                                        ) == null
-                                        ? 0.0
-                                        : hillshade(
-                                        samples,
-                                        block.worldX(),
-                                        block.worldZ()
-                                )
-                        )
+            int endY =
+                    (int) Math.ceil(
+                            (block.worldZ()
+                                    + 1
+                                    - minZ)
+                                    * scale
+                    );
+
+            if (endX <= 0
+                    || endY <= 0
+                    || startX >= diameter
+                    || startY >= diameter) {
+
+                progress.progress(
+                        "Drawing semantic surface",
+                        index + 1,
+                        surfaceBlocks.size()
                 );
+
+                continue;
+            }
+
+            startX =
+                    Math.max(
+                            0,
+                            startX
+                    );
+
+            startY =
+                    Math.max(
+                            0,
+                            startY
+                    );
+
+            endX =
+                    Math.min(
+                            diameter,
+                            endX
+                    );
+
+            endY =
+                    Math.min(
+                            diameter,
+                            endY
+                    );
+
+            double shade =
+                    samples.heightAt(
+                            block.worldX(),
+                            block.worldZ()
+                    ) == null
+                            ? 0.0
+                            : hillshade(
+                            samples,
+                            block.worldX(),
+                            block.worldZ()
+                    );
+
+            int color =
+                    semanticPalette.color(
+                            block.surfaceClass(),
+                            shade
+                    );
+
+            for (int imageY = startY;
+                 imageY < endY;
+                 imageY++) {
+
+                for (int imageX = startX;
+                     imageX < endX;
+                     imageX++) {
+
+                    image.setRGB(
+                            imageX,
+                            imageY,
+                            color
+                    );
+                }
             }
 
             progress.progress(
@@ -286,16 +539,115 @@ public class MapRenderer {
         }
     }
 
+    private int drawMarkers(
+            BufferedImage image,
+            WorldPosition player,
+            Optional<HomeLocation> home,
+            int minX,
+            int minZ,
+            double scale,
+            RenderOptions options,
+            ProgressReporter progress
+    ) {
+        int markerCount =
+                0;
+
+        progress.start(
+                "Drawing markers"
+        );
+
+        if (options.layers()
+                .contains(
+                        RenderLayer.MARKERS
+                )) {
+
+            Graphics2D graphics =
+                    image.createGraphics();
+
+            try {
+                int playerX =
+                        (int) Math.round(
+                                (player.x() - minX)
+                                        * scale
+                        );
+
+                int playerY =
+                        (int) Math.round(
+                                (player.z() - minZ)
+                                        * scale
+                        );
+
+                markers.drawCross(
+                        graphics,
+                        playerX,
+                        playerY,
+                        Color.RED
+                );
+
+                markerCount++;
+
+                if (home.isPresent()) {
+                    HomeLocation location =
+                            home.get();
+
+                    int homeX =
+                            (int) Math.round(
+                                    (location.x() - minX)
+                                            * scale
+                            );
+
+                    int homeY =
+                            (int) Math.round(
+                                    (location.z() - minZ)
+                                            * scale
+                            );
+
+                    markers.drawCross(
+                            graphics,
+                            homeX,
+                            homeY,
+                            Color.CYAN
+                    );
+
+                    markerCount++;
+                }
+
+            } finally {
+                graphics.dispose();
+            }
+        }
+
+        progress.done(
+                "Markers drawn"
+        );
+
+        return markerCount;
+    }
+
     private void drawLegend(
             BufferedImage image,
             List<SurfaceBlock> surfaceBlocks
     ) {
+        /*
+         * A legend on tiny images is not useful and can cover the
+         * actual data completely.
+         *
+         * Real maps such as our 257x257 render still get the legend.
+         */
+        if (image.getWidth() < MIN_LEGEND_WIDTH
+                || image.getHeight() < MIN_LEGEND_HEIGHT) {
+
+            return;
+        }
+
         Set<SurfaceClass> classes =
                 EnumSet.noneOf(
                         SurfaceClass.class
                 );
 
-        for (SurfaceBlock block : surfaceBlocks) {
+        for (SurfaceBlock block :
+                surfaceBlocks) {
+
             classes.add(
                     block.surfaceClass()
             );
@@ -309,14 +661,25 @@ public class MapRenderer {
                 image.createGraphics();
 
         try {
+            graphics.setRenderingHint(
+                    RenderingHints.KEY_TEXT_ANTIALIASING,
+                    RenderingHints.VALUE_TEXT_ANTIALIAS_ON
+            );
+
             int lineHeight =
                     14;
 
             int width =
-                    150;
+                    160;
+
+            int titleHeight =
+                    18;
 
             int height =
-                    8 + classes.size() * lineHeight;
+                    8
+                            + titleHeight
+                            + classes.size()
+                            * lineHeight;
 
             int x =
                     8;
@@ -324,7 +687,9 @@ public class MapRenderer {
             int y =
                     Math.max(
                             8,
-                            image.getHeight() - height - 8
+                            image.getHeight()
+                                    - height
+                                    - 8
                     );
 
             graphics.setColor(
@@ -332,7 +697,7 @@ public class MapRenderer {
                             0,
                             0,
                             0,
-                            170
+                            180
                     )
             );
 
@@ -343,16 +708,34 @@ public class MapRenderer {
                     height
             );
 
+            graphics.setColor(
+                    Color.WHITE
+            );
+
+            graphics.drawString(
+                    "Surface",
+                    x + 6,
+                    y + 13
+            );
+
             int line =
                     0;
 
-            for (SurfaceClass surfaceClass : SurfaceClass.values()) {
-                if (!classes.contains(surfaceClass)) {
+            for (SurfaceClass surfaceClass :
+                    SurfaceClass.values()) {
+
+                if (!classes.contains(
+                        surfaceClass
+                )) {
                     continue;
                 }
 
                 int rowY =
-                        y + 6 + line * lineHeight;
+                        y
+                                + titleHeight
+                                + 4
+                                + line
+                                * lineHeight;
 
                 graphics.setColor(
                         new Color(
@@ -376,13 +759,14 @@ public class MapRenderer {
                 );
 
                 graphics.drawString(
-                        surfaceClass.name(),
+                        surfaceClass.label(),
                         x + 22,
                         rowY + 10
                 );
 
                 line++;
             }
+
         } finally {
             graphics.dispose();
         }
@@ -407,9 +791,14 @@ public class MapRenderer {
         int maxHeight =
                 Integer.MIN_VALUE;
 
-        for (int index = 0; index < chunks.size(); index++) {
+        for (int index = 0;
+             index < chunks.size();
+             index++) {
+
             MapChunk chunk =
-                    chunks.get(index);
+                    chunks.get(
+                            index
+                    );
 
             progress.progress(
                     "Indexing mapchunk heights",
@@ -418,25 +807,38 @@ public class MapRenderer {
             );
 
             int originX =
-                    chunk.coordinate().x()
+                    chunk.coordinate()
+                            .x()
                             * MapChunk.SIZE;
 
             int originZ =
-                    chunk.coordinate().z()
+                    chunk.coordinate()
+                            .z()
                             * MapChunk.SIZE;
 
-            for (int localZ = 0; localZ < MapChunk.SIZE; localZ++) {
-                for (int localX = 0; localX < MapChunk.SIZE; localX++) {
+            for (int localZ = 0;
+                 localZ < MapChunk.SIZE;
+                 localZ++) {
+
+                for (int localX = 0;
+                     localX < MapChunk.SIZE;
+                     localX++) {
+
                     int worldX =
-                            originX + localX;
+                            originX
+                                    + localX;
 
                     int worldZ =
-                            originZ + localZ;
+                            originZ
+                                    + localZ;
 
                     if (worldX < minX
-                            || worldX >= minX + sizeBlocks
+                            || worldX >= minX
+                            + sizeBlocks
                             || worldZ < minZ
-                            || worldZ >= minZ + sizeBlocks) {
+                            || worldZ >= minZ
+                            + sizeBlocks) {
+
                         continue;
                     }
 
@@ -514,6 +916,7 @@ public class MapRenderer {
                 || east == null
                 || north == null
                 || south == null) {
+
             return 0.0;
         }
 
@@ -528,13 +931,11 @@ public class MapRenderer {
                         - dz * 0.75)
                         / 32.0;
 
-        return Math.max(
+        return Math.clamp(
+                light
+                ,
                 -0.35,
-                Math.min(
-                        0.35,
-                        light
-                )
-        );
+                0.35);
     }
 
     private long key(
@@ -552,6 +953,7 @@ public class MapRenderer {
             int minHeight,
             int maxHeight
     ) {
+
         static HeightSamples empty() {
             return new HeightSamples(
                     Map.of(),

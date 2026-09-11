@@ -6,20 +6,24 @@ import cartographer.model.SurfaceClass;
 import java.util.Locale;
 
 public class SurfaceClassifier {
+
     public SurfaceClass classify(
             BlockInfo block,
             BlockInfo liquid
     ) {
-        if (liquid != null
-                && liquid.id() != 0
-                && isWater(liquid)) {
+        if (isWater(liquid)) {
             return SurfaceClass.WATER;
         }
 
         if (block == null
                 || block.code() == null
                 || block.code().startsWith("unknown:")) {
+
             return SurfaceClass.UNKNOWN;
+        }
+
+        if (isWater(block)) {
+            return SurfaceClass.WATER;
         }
 
         String code =
@@ -32,38 +36,51 @@ public class SurfaceClassifier {
             return SurfaceClass.SNOW;
         }
 
-        if (code.contains("leaves")
-                || code.contains("foliage")
-                || code.contains("flower")
-                || code.contains("mushroom")
-                || code.contains("sapling")
-                || code.contains("crop")
-                || code.contains("tallgrass")) {
+        if (code.contains("forestfloor")) {
+            return SurfaceClass.FOREST_FLOOR;
+        }
+
+        if (block.isFoliage()) {
             return SurfaceClass.VEGETATION;
         }
 
+        /*
+         * Tall grass and similar vegetation has already been caught
+         * by BlockInfo.isFoliage(). What remains here represents
+         * grass-like ground surfaces.
+         */
         if (code.contains("grass")) {
             return SurfaceClass.GRASS;
         }
 
-        if (code.contains("sand")) {
-            return SurfaceClass.SAND;
+        /*
+         * Rock must be checked before sand.
+         *
+         * Example:
+         * rock-sandstone
+         *
+         * contains "sand", but it is rock.
+         */
+        if (isRockLike(code)) {
+            return SurfaceClass.ROCK;
         }
 
         if (code.contains("gravel")) {
             return SurfaceClass.GRAVEL;
         }
 
-        if (code.contains("soil")
-                || code.contains("clay")
-                || code.contains("peat")) {
-            return SurfaceClass.SOIL;
+        if (code.contains("sand")) {
+            return SurfaceClass.SAND;
         }
 
-        if (code.contains("rock")
-                || code.contains("stone")
-                || code.contains("ore")) {
-            return SurfaceClass.ROCK;
+        if (containsAny(
+                code,
+                "soil",
+                "clay",
+                "peat",
+                "mud"
+        )) {
+            return SurfaceClass.SOIL;
         }
 
         return SurfaceClass.UNKNOWN;
@@ -72,14 +89,45 @@ public class SurfaceClassifier {
     private boolean isWater(
             BlockInfo block
     ) {
-        String code =
-                block.code() == null
-                        ? ""
-                        : block.code()
-                        .toLowerCase(
-                                Locale.ROOT
-                        );
+        if (block == null
+                || block.id() == 0
+                || block.code() == null) {
 
-        return code.contains("water");
+            return false;
+        }
+
+        return block.code()
+                .toLowerCase(
+                        Locale.ROOT
+                )
+                .contains("water");
+    }
+
+    private boolean isRockLike(
+            String code
+    ) {
+        return containsAny(
+                code,
+                "rock",
+                "stone",
+                "ore",
+                "flint",
+                "stalag",
+                "stalact",
+                "looseboulder"
+        );
+    }
+
+    private boolean containsAny(
+            String value,
+            String... fragments
+    ) {
+        for (String fragment : fragments) {
+            if (value.contains(fragment)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

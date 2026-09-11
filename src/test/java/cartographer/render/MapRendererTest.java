@@ -279,17 +279,17 @@ class MapRendererTest {
                 new MapRenderer()
                         .render(
                                 new WorldPosition(
-                                        16.0,
+                                        128.0,
                                         0.0,
-                                        16.0
+                                        128.0
                                 ),
                                 Optional.empty(),
                                 List.of(),
                                 List.of(
                                         new SurfaceBlock(
-                                                16,
+                                                128,
                                                 80,
-                                                16,
+                                                128,
                                                 new BlockInfo(
                                                         99,
                                                         "unknown:99"
@@ -300,24 +300,30 @@ class MapRendererTest {
                                         )
                                 ),
                                 new RenderOptions(
-                                        16,
+                                        128,
                                         1,
                                         RenderStyle.SIMPLE,
-                                        Set.of(RenderLayer.SURFACE)
+                                        Set.of(
+                                                RenderLayer.SURFACE
+                                        )
                                 ),
                                 ProgressReporter.NONE
                         );
 
-        assertNotEquals(
+        int background =
                 new TerrainPalette()
                         .background(
                                 RenderStyle.SIMPLE
-                        ),
+                        );
+
+        assertNotEquals(
+                background,
                 rendered.image()
                         .getRGB(
                                 10,
                                 rendered.image()
-                                        .getHeight() - 20
+                                        .getHeight()
+                                        - 20
                         )
         );
     }

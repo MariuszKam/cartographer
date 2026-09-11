@@ -1,7 +1,9 @@
 package cartographer.cli;
 
+import cartographer.model.BlockInfo;
 import cartographer.model.HomeLocation;
 import cartographer.model.MapChunk;
+import cartographer.model.ParsedChunk;
 import cartographer.model.SurfaceBlock;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
@@ -10,12 +12,12 @@ import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
+import cartographer.render.MapRenderReport;
 import cartographer.render.MapRenderer;
 import cartographer.render.PngWriter;
 import cartographer.render.RenderOptions;
-import cartographer.render.RenderedMap;
-import cartographer.render.MapRenderReport;
 import cartographer.render.RenderStyle;
+import cartographer.render.RenderedMap;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
@@ -27,6 +29,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -146,10 +149,30 @@ class MapCommandTest {
         ) {
             return List.of();
         }
+
+        @Override
+        public List<ParsedChunk> readChunksAround(
+                Path savePath,
+                WorldPosition center,
+                int radiusBlocks,
+                ReadDiagnostics diagnostics,
+                ProgressReporter progress
+        ) {
+            return List.of();
+        }
+
+        @Override
+        public Map<Integer, BlockInfo> readBlockRegistry(
+                Path savePath,
+                ProgressReporter progress
+        ) {
+            return Map.of();
+        }
     }
 
     private static class FakeMetadataReader
             extends WorldMetadataReader {
+
         @Override
         public WorldMetadata read(
                 Path savePath,
@@ -165,6 +188,7 @@ class MapCommandTest {
 
     private static class CapturingRenderer
             extends MapRenderer {
+
         private Optional<HomeLocation> home =
                 Optional.empty();
 
@@ -197,7 +221,9 @@ class MapCommandTest {
                             1,
                             chunks.size(),
                             0,
-                            home.isPresent() ? 2 : 1,
+                            home.isPresent()
+                                    ? 2
+                                    : 1,
                             RenderStyle.SIMPLE,
                             "MARKERS"
                     )
@@ -215,6 +241,7 @@ class MapCommandTest {
 
     private static class NoopPngWriter
             extends PngWriter {
+
         @Override
         public void write(
                 BufferedImage image,

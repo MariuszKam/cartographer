@@ -353,7 +353,7 @@ public class CommandRouter {
                         + "[--center-x <x> --center-z <z>] "
                         + "[--scale <n>] "
                         + "[--style simple|topographic|high-contrast] "
-                        + "[--layers terrain,water,markers]"
+                        + "[--layers terrain,surface,markers]"
         );
 
         out.println(

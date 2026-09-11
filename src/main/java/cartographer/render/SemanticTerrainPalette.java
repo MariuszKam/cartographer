@@ -2,32 +2,74 @@ package cartographer.render;
 
 import cartographer.model.SurfaceClass;
 
+/**
+ * Cartographer semantic terrain palette.
+ * These are deliberately NOT claimed to be official Vintage Story
+ * minimap colors.
+ */
 public class SemanticTerrainPalette {
+
     public int color(
             SurfaceClass surfaceClass,
             double hillshade
     ) {
         int base =
                 switch (surfaceClass) {
-                    case WATER -> 0xFF2D6FA3;
-                    case GRASS -> 0xFF4F8F3A;
-                    case VEGETATION -> 0xFF2F6E2D;
-                    case SOIL -> 0xFF7C5A36;
-                    case ROCK -> 0xFF777777;
-                    case SAND -> 0xFFD7C27A;
-                    case GRAVEL -> 0xFF9B9284;
-                    case SNOW -> 0xFFECECEC;
-                    case UNKNOWN -> 0xFF8050A0;
+                    case WATER ->
+                            0xFF2F6F98;
+
+                    case GRASS ->
+                            0xFF6F9144;
+
+                    case FOREST_FLOOR ->
+                            0xFF5D6D3E;
+
+                    case VEGETATION ->
+                            0xFF3F783A;
+
+                    case SOIL ->
+                            0xFF896440;
+
+                    case ROCK ->
+                            0xFF888781;
+
+                    case SAND ->
+                            0xFFD4C28B;
+
+                    case GRAVEL ->
+                            0xFFA39A8C;
+
+                    case SNOW ->
+                            0xFFE8ECEA;
+
+                    /*
+                     * UNKNOWN is intentionally obvious.
+                     *
+                     * We want incorrect / unsupported classification
+                     * to be visible instead of silently looking valid.
+                     */
+                    case UNKNOWN ->
+                            0xFFB54CC2;
+                };
+
+        double effectiveHillshade =
+                switch (surfaceClass) {
+                    case WATER ->
+                            hillshade * 0.20;
+
+                    case SNOW ->
+                            hillshade * 0.45;
+
+                    default ->
+                            hillshade;
                 };
 
         double factor =
-                Math.max(
-                        0.60,
-                        Math.min(
-                                1.45,
-                                1.0 + hillshade
-                        )
-                );
+                Math.clamp(
+                        1.0 + effectiveHillshade
+                        ,
+                        0.68,
+                        1.32);
 
         return shade(
                 base,
@@ -43,22 +85,34 @@ public class SemanticTerrainPalette {
                 argb & 0xFF000000;
 
         int red =
-                Math.min(
-                        255,
-                        (int) (((argb >> 16) & 0xFF) * factor)
-                );
+                Math.clamp(
+                        (int) (
+                                ((argb >> 16) & 0xFF)
+                                        * factor
+                        )
+                        ,
+                        0,
+                        255);
 
         int green =
-                Math.min(
-                        255,
-                        (int) (((argb >> 8) & 0xFF) * factor)
-                );
+                Math.clamp(
+                        (int) (
+                                ((argb >> 8) & 0xFF)
+                                        * factor
+                        )
+                        ,
+                        0,
+                        255);
 
         int blue =
-                Math.min(
-                        255,
-                        (int) ((argb & 0xFF) * factor)
-                );
+                Math.clamp(
+                        (int) (
+                                (argb & 0xFF)
+                                        * factor
+                        )
+                        ,
+                        0,
+                        255);
 
         return alpha
                 | (red << 16)
