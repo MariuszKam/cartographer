@@ -5,6 +5,10 @@ import cartographer.model.MapChunk;
 import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
 import cartographer.render.MapRenderer;
+import cartographer.render.RenderLayer;
+import cartographer.render.RenderOptions;
+import cartographer.render.RenderStyle;
+import cartographer.render.RenderedMap;
 import cartographer.render.PngWriter;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
@@ -43,19 +47,27 @@ public class MapCommand implements Command {
 
         Path savePath = Path.of(args[0]);
         int radius = intOption(args, "--radius", 1024);
+        int scale = intOption(args, "--scale", 1);
+        RenderStyle style = RenderStyle.parse(option(args, "--style").orElse("simple"));
+        RenderOptions options = new RenderOptions(radius, scale, style, RenderLayer.parse(option(args, "--layers").orElse("")));
         Path output = Path.of(requiredOption(args, "--out"));
         ProgressReporter progress = new ProgressReporter(out);
-        WorldPosition player = reader.readPlayerPosition(savePath, Optional.empty(), progress);
+        WorldPosition center = center(args).orElseGet(() -> reader.readPlayerPosition(savePath, Optional.empty(), progress));
         Optional<HomeLocation> home = homeStore.load();
         ReadDiagnostics diagnostics = new ReadDiagnostics();
-        List<MapChunk> chunks = reader.readMapChunksAround(savePath, player, radius, diagnostics, progress);
-        BufferedImage image = renderer.render(player, home, chunks, radius, progress);
+        List<MapChunk> chunks = reader.readMapChunksAround(savePath, center, radius, diagnostics, progress);
+        RenderedMap rendered = renderer.render(center, home, chunks, options, progress);
         progress.start("Writing PNG");
-        pngWriter.write(image, output);
+        pngWriter.write(rendered.image(), output);
         progress.done("PNG written");
 
         out.println("MAP");
         out.println("Output: " + output);
+        out.println("Image: " + rendered.report().width() + "x" + rendered.report().height());
+        out.println("Style: " + rendered.report().style());
+        out.println("Layers: " + rendered.report().layers());
+        out.println("Tiles drawn: " + rendered.report().tilesDrawn());
+        out.println("Markers: " + rendered.report().markerCount());
         out.println("Parsed mapchunks: " + diagnostics.parsed());
         out.println("Skipped mapchunks: " + diagnostics.skipped());
         out.println("Failed mapchunks: " + diagnostics.failed());
@@ -70,8 +82,9 @@ public class MapCommand implements Command {
         }
         try {
             int value = Integer.parseInt(option.get());
-            if (value <= 0 || value > 8192) {
-                throw new CommandException(optionName + " must be between 1 and 8192");
+            int max = "--scale".equals(optionName) ? 16 : 8192;
+            if (value <= 0 || value > max) {
+                throw new CommandException(optionName + " must be between 1 and " + max);
             }
             return value;
         } catch (NumberFormatException exception) {
@@ -90,5 +103,25 @@ public class MapCommand implements Command {
             }
         }
         return Optional.empty();
+    }
+
+    private Optional<WorldPosition> center(String[] args) {
+        Optional<String> x = option(args, "--center-x");
+        Optional<String> z = option(args, "--center-z");
+        if (x.isEmpty() && z.isEmpty()) {
+            return Optional.empty();
+        }
+        if (x.isEmpty() || z.isEmpty()) {
+            throw new CommandException("--center-x and --center-z must be used together");
+        }
+        return Optional.of(new WorldPosition(parseDouble(x.get(), "--center-x"), 0.0, parseDouble(z.get(), "--center-z")));
+    }
+
+    private double parseDouble(String value, String optionName) {
+        try {
+            return Double.parseDouble(value);
+        } catch (NumberFormatException exception) {
+            throw new CommandException("Invalid " + optionName + ": " + value);
+        }
     }
 }

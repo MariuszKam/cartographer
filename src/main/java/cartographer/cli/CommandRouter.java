@@ -9,6 +9,7 @@ import cartographer.render.MapRenderer;
 import cartographer.render.PngWriter;
 import cartographer.save.VcdbsReader;
 import cartographer.save.SaveInspector;
+import cartographer.save.SaveIndexReader;
 import cartographer.scanner.SurfaceScanner;
 
 import java.io.PrintStream;
@@ -57,6 +58,7 @@ public class CommandRouter {
             case "map" -> new MapCommand(out, reader, homeStore, new MapRenderer(), new PngWriter(), subcommand(args, "map"));
             case "scan" -> new ScanCommand(out, reader, new SurfaceScanner(), subcommand(args, "scan"));
             case "inspect" -> new InspectCommand(out, new SaveInspector());
+            case "index" -> new IndexCommand(out, new SaveIndexReader());
             default -> throw new CommandException("Unknown command: " + args[0]);
         };
     }
@@ -84,7 +86,8 @@ public class CommandRouter {
         out.println("  vs-cartographer home show");
         out.println("  vs-cartographer nav home <save.vcdbs>");
         out.println("  vs-cartographer inspect <save.vcdbs>");
-        out.println("  vs-cartographer map render <save.vcdbs> --radius <blocks> --out <map.png>");
+        out.println("  vs-cartographer index <save.vcdbs>");
+        out.println("  vs-cartographer map render <save.vcdbs> --radius <blocks> --out <map.png> [--center-x <x> --center-z <z>] [--scale <n>] [--style simple|topographic|high-contrast] [--layers terrain,water,markers]");
         out.println("  vs-cartographer scan surface <save.vcdbs> --radius <blocks>");
     }
 }

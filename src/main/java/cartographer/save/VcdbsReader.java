@@ -269,9 +269,13 @@ public class VcdbsReader {
     private OptionalIntPair inferCoordinate(SaveRecord record, String prefix) {
         Integer x = null;
         Integer z = null;
+        Long packedPosition = null;
         for (Map.Entry<String, Object> entry : record.columns().entrySet()) {
             String name = entry.getKey().toLowerCase(Locale.ROOT);
             Integer value = asInteger(entry.getValue());
+            if ("position".equals(name) && entry.getValue() instanceof Number number) {
+                packedPosition = number.longValue();
+            }
             if (value == null) {
                 continue;
             }
@@ -281,7 +285,16 @@ public class VcdbsReader {
                 z = value;
             }
         }
+        if ((x == null || z == null) && packedPosition != null && ("mapchunk".equals(prefix) || "mapregion".equals(prefix))) {
+            return decodePacked2dPosition(packedPosition);
+        }
         return x == null || z == null ? OptionalIntPair.empty() : new OptionalIntPair(x, z, true);
+    }
+
+    private OptionalIntPair decodePacked2dPosition(long position) {
+        int x = (int) (position >> 32);
+        int z = (int) position;
+        return new OptionalIntPair(x, z, true);
     }
 
     private Integer asInteger(Object value) {

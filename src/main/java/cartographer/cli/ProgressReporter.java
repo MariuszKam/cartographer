@@ -31,9 +31,9 @@ public class ProgressReporter {
             lastBucket = -1;
         }
 
-        int percent = Math.min(100, Math.max(0, (int) Math.round(current * 100.0 / total)));
+        int percent = Math.min(100, Math.max(0, current * 100 / total));
         int bucket = percent / 10;
-        if (bucket != lastBucket || percent == 100) {
+        if (bucket != lastBucket) {
             lastBucket = bucket;
             out.printf("%3d%% - %s (%d/%d)%n", percent, stage, current, total);
         }
