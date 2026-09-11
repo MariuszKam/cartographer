@@ -62,6 +62,9 @@ public class ScanCommand implements Command {
         out.println("Columns scanned: " + result.columnsScanned());
         out.println("Empty columns: " + result.emptyColumns());
         out.println("Surface blocks: " + result.blocks().size());
+        out.println("Water columns: " + result.waterColumns());
+        out.println("Unknown surface blocks: " + result.unknownSurfaceBlocks());
+        out.println("Distinct surface block codes: " + result.distinctSurfaceBlockCodes(20));
 
         result.blocks().stream().limit(20).forEach(this::printSurfaceBlock);
         diagnostics.notes().forEach(note -> out.println("Note: " + note));
