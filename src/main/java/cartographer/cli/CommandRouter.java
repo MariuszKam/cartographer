@@ -8,6 +8,7 @@ import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
+import cartographer.perf.RenderCache;
 import cartographer.render.MapRenderer;
 import cartographer.render.PngWriter;
 import cartographer.save.VcdbsReader;
@@ -63,6 +64,7 @@ public class CommandRouter {
             case "scan" -> new ScanCommand(out, reader, new SurfaceScanner(), new BlockScanner(), subcommand(args, "scan"));
             case "geology" -> new GeologyCommand(out, reader, new SurfaceScanner(), new GeologyAnalyzer(), subcommand(args, "geology"));
             case "markers" -> new MarkerCommand(out, markerStore, subcommand(args, "markers"));
+            case "cache" -> new CacheCommand(out, new RenderCache(Path.of(System.getProperty("user.home"), ".vs-cartographer", "cache")), new SaveIndexReader(), subcommand(args, "cache"));
             case "inspect" -> new InspectCommand(out, new SaveInspector());
             case "index" -> new IndexCommand(out, new SaveIndexReader());
             default -> throw new CommandException("Unknown command: " + args[0]);
@@ -70,7 +72,7 @@ public class CommandRouter {
     }
 
     private String[] commandArgs(String[] args) {
-        if (args.length >= 2 && ("home".equals(args[0]) || "nav".equals(args[0]) || "map".equals(args[0]) || "scan".equals(args[0]) || "geology".equals(args[0]) || "markers".equals(args[0]))) {
+        if (args.length >= 2 && ("home".equals(args[0]) || "nav".equals(args[0]) || "map".equals(args[0]) || "scan".equals(args[0]) || "geology".equals(args[0]) || "markers".equals(args[0]) || "cache".equals(args[0]))) {
             return Arrays.copyOfRange(args, 2, args.length);
         }
         return Arrays.copyOfRange(args, 1, args.length);
@@ -99,5 +101,7 @@ public class CommandRouter {
         out.println("  vs-cartographer scan blocks <save.vcdbs> --match <text> [--center-x <x> --center-z <z>] [--radius <blocks>] [--limit <n>]");
         out.println("  vs-cartographer markers add <name> <x> <z>");
         out.println("  vs-cartographer markers list");
+        out.println("  vs-cartographer cache warm <save.vcdbs>");
+        out.println("  vs-cartographer cache status <save.vcdbs>");
     }
 }
