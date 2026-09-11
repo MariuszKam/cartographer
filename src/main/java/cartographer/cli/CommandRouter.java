@@ -17,6 +17,7 @@ import cartographer.render.PngWriter;
 import cartographer.save.VcdbsReader;
 import cartographer.save.SaveInspector;
 import cartographer.save.SaveIndexReader;
+import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.SurfaceScanner;
 
 import java.io.PrintStream;
@@ -62,7 +63,11 @@ public class CommandRouter {
         RenderCache renderCache = new RenderCache(cachePath);
 
         return switch (args[0]) {
-            case "whereami" -> new WhereamiCommand(out, reader);
+            case "whereami" -> new WhereamiCommand(
+                    out,
+                    reader,
+                    new WorldMetadataReader()
+            );
             case "home" -> new HomeCommand(out, homeStore, subcommand(args, "home"));
             case "nav" -> new NavCommand(out, reader, homeStore, subcommand(args, "nav"));
             case "map" -> new MapCommand(out, reader, homeStore, new MapRenderer(), new PngWriter(), subcommand(args, "map"));
