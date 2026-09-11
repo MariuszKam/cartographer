@@ -54,6 +54,11 @@ public class AtlasCommand implements Command {
         out.println("Parsed mapchunks: " + diagnostics.parsed());
         out.println("Skipped mapchunks: " + diagnostics.skipped());
         out.println("Failed mapchunks: " + diagnostics.failed());
+        if (!diagnostics.failureReasons().isEmpty()) {
+            out.println("Failure reasons:");
+            diagnostics.failureReasonLines()
+                    .forEach(line -> out.println("  " + line));
+        }
         diagnostics.notes().forEach(note -> out.println("Note: " + note));
         return 0;
     }

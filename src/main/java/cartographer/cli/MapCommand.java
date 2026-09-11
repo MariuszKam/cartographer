@@ -112,9 +112,15 @@ public class MapCommand implements Command {
         out.println("Parsed mapchunks: " + diagnostics.parsed());
         out.println("Skipped mapchunks: " + diagnostics.skipped());
         out.println("Failed mapchunks: " + diagnostics.failed());
+        printFailureReasons(
+                diagnostics
+        );
         if (options.layers().contains(RenderLayer.SURFACE)) {
             out.println("Parsed chunks: " + chunkDiagnostics.parsed());
             out.println("Failed chunks: " + chunkDiagnostics.failed());
+            printFailureReasons(
+                    chunkDiagnostics
+            );
             out.println("Surface columns: " + surface.columnsScanned());
             out.println("Water columns: " + surface.waterColumns());
             out.println("Unknown surface blocks: " + surface.unknownSurfaceBlocks());
@@ -123,6 +129,23 @@ public class MapCommand implements Command {
         diagnostics.notes().forEach(note -> out.println("Note: " + note));
         chunkDiagnostics.notes().forEach(note -> out.println("Note: " + note));
         return 0;
+    }
+
+    private void printFailureReasons(
+            ReadDiagnostics diagnostics
+    ) {
+        if (diagnostics.failureReasons()
+                .isEmpty()) {
+            return;
+        }
+
+        out.println("Failure reasons:");
+
+        diagnostics.failureReasonLines()
+                .forEach(
+                        line ->
+                                out.println("  " + line)
+                );
     }
 
     private SurfaceScanResult surfaceResult(

@@ -58,6 +58,9 @@ public class ScanCommand implements Command {
         out.println("Chunks parsed: " + diagnostics.parsed());
         out.println("Chunks skipped: " + diagnostics.skipped());
         out.println("Chunks failed: " + diagnostics.failed());
+        printFailureReasons(
+                diagnostics
+        );
         out.println("Registry blocks: " + registry.size());
         out.println("Columns scanned: " + result.columnsScanned());
         out.println("Empty columns: " + result.emptyColumns());
@@ -91,6 +94,9 @@ public class ScanCommand implements Command {
         out.println("Chunks parsed: " + diagnostics.parsed());
         out.println("Chunks skipped: " + diagnostics.skipped());
         out.println("Chunks failed: " + diagnostics.failed());
+        printFailureReasons(
+                diagnostics
+        );
         out.println("Blocks scanned: " + result.blocksScanned());
         out.println("Matches: " + result.matches().size());
         out.println("Truncated: " + result.truncated());
@@ -115,6 +121,23 @@ public class ScanCommand implements Command {
                 match.worldZ(),
                 match.blockInfo().code(),
                 match.blockInfo().materialType());
+    }
+
+    private void printFailureReasons(
+            ReadDiagnostics diagnostics
+    ) {
+        if (diagnostics.failureReasons()
+                .isEmpty()) {
+            return;
+        }
+
+        out.println("Failure reasons:");
+
+        diagnostics.failureReasonLines()
+                .forEach(
+                        line ->
+                                out.println("  " + line)
+                );
     }
 
     private int intOption(String[] args, String optionName, int defaultValue) {

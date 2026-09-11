@@ -203,6 +203,105 @@ class ChunkParserTest {
     }
 
     @Test
+    void decodesUncompressedArrayConvertBuildLayer() {
+        byte[] blocks =
+                uncompressedLayer(
+                        new int[]{0, 5},
+                        index -> index == 7 ? 1 : 0
+                );
+
+        ParseResult<ParsedChunk> result =
+                new ChunkParser()
+                        .parse(
+                                new ChunkCoordinate(
+                                        0,
+                                        0,
+                                        0
+                                ),
+                                serverChunk(
+                                        blocks,
+                                        emptyLayer(),
+                                        2
+                                )
+                        );
+
+        assertTrue(
+                result.isSuccess(),
+                () -> result.error()
+                        .orElse("unknown error")
+        );
+
+        assertEquals(
+                5,
+                result.value()
+                        .orElseThrow()
+                        .blockIdAt(
+                                7,
+                                0,
+                                0
+                        )
+        );
+    }
+
+    @Test
+    void ignoresCorruptOptionalLiquidLayerWhenBlocksDecode() {
+        ByteBuffer corruptLiquid =
+                ByteBuffer.allocate(16)
+                        .order(ByteOrder.LITTLE_ENDIAN);
+
+        corruptLiquid.putInt(-8);
+        corruptLiquid.putInt(0);
+        corruptLiquid.putInt(1);
+        corruptLiquid.putInt(12345);
+
+        ParseResult<ParsedChunk> result =
+                new ChunkParser()
+                        .parse(
+                                new ChunkCoordinate(
+                                        0,
+                                        0,
+                                        0
+                                ),
+                                serverChunk(
+                                        encodedLayer(
+                                                new int[]{0, 9},
+                                                index -> index == 0 ? 1 : 0
+                                        ),
+                                        corruptLiquid.array(),
+                                        2
+                                )
+                        );
+
+        assertTrue(
+                result.isSuccess(),
+                () -> result.error()
+                        .orElse("unknown error")
+        );
+
+        assertEquals(
+                9,
+                result.value()
+                        .orElseThrow()
+                        .blockIdAt(
+                                0,
+                                0,
+                                0
+                        )
+        );
+
+        assertEquals(
+                0,
+                result.value()
+                        .orElseThrow()
+                        .liquidIdAt(
+                                0,
+                                0,
+                                0
+                        )
+        );
+    }
+
+    @Test
     void failsWhenBlocksCompressedIsMissing() {
         ParseResult<ParsedChunk> result =
                 new ChunkParser()
@@ -254,7 +353,7 @@ class ChunkParserTest {
         assertTrue(
                 result.error()
                         .orElse("")
-                        .contains("unsupported chunk compression version")
+                        .contains("blocksCompressed: unsupported chunk compression version")
         );
     }
 
@@ -379,6 +478,102 @@ class ChunkParserTest {
         );
 
         return out.array();
+    }
+
+    private byte[] uncompressedLayer(
+            int[] palette,
+            PaletteIndexAt paletteIndexAt
+    ) {
+        int bitSize =
+                bitSize(
+                        palette.length
+                );
+
+        ByteBuffer bitPlanes =
+                ByteBuffer.allocate(
+                                bitSize * 1024 * Integer.BYTES
+                        )
+                        .order(ByteOrder.LITTLE_ENDIAN);
+
+        int[][] dataBits =
+                dataBits(
+                        bitSize,
+                        paletteIndexAt
+                );
+
+        for (int bit = 0; bit < bitSize; bit++) {
+            for (int slice = 0; slice < 1024; slice++) {
+                bitPlanes.putInt(
+                        dataBits[bit][slice]
+                );
+            }
+        }
+
+        ByteBuffer out =
+                ByteBuffer.allocate(
+                                Integer.BYTES
+                                        + palette.length * Integer.BYTES
+                                        + Integer.BYTES
+                                        + bitPlanes.array().length
+                        )
+                        .order(ByteOrder.LITTLE_ENDIAN);
+
+        out.putInt(
+                palette.length * Integer.BYTES
+        );
+
+        for (int id : palette) {
+            out.putInt(
+                    id
+            );
+        }
+
+        out.putInt(
+                bitPlanes.array().length
+        );
+
+        out.put(
+                bitPlanes.array()
+        );
+
+        return out.array();
+    }
+
+    private int[][] dataBits(
+            int bitSize,
+            PaletteIndexAt paletteIndexAt
+    ) {
+        int[][] dataBits =
+                new int[bitSize][1024];
+
+        for (int y = 0; y < 32; y++) {
+            for (int z = 0; z < 32; z++) {
+                int slice =
+                        y * 32
+                                + z;
+
+                for (int x = 0; x < 32; x++) {
+                    int index =
+                            (y << 10)
+                                    | (z << 5)
+                                    | x;
+
+                    int paletteIndex =
+                            paletteIndexAt.paletteIndexAt(
+                                    index
+                            );
+
+                    for (int bit = 0; bit < bitSize; bit++) {
+                        if (((paletteIndex >>> bit) & 1) == 1) {
+                            dataBits[bit][slice] |=
+                                    1 << x;
+                        }
+                    }
+                }
+            }
+        }
+
+        return dataBits;
     }
 
     private int bitSize(

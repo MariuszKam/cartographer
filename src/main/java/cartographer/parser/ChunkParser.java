@@ -54,11 +54,8 @@ public class ChunkParser {
                     );
 
             int[] liquidIds =
-                    serverChunk.liquidsCompressed().length == 0
-                            ? new int[ChunkDataLayerDecoder.VALUE_COUNT]
-                            : layerDecoder.decode(
-                            serverChunk.liquidsCompressed(),
-                            serverChunk.savedCompressionVersion()
+                    decodeLiquidsOrEmpty(
+                            serverChunk
                     );
 
             return ParseResult.success(
@@ -77,9 +74,27 @@ public class ChunkParser {
 
         } catch (IllegalArgumentException exception) {
             return ParseResult.failure(
-                    "invalid ServerChunk block storage: "
+                    "blocksCompressed: "
                             + exception.getMessage()
             );
+        }
+    }
+
+    private int[] decodeLiquidsOrEmpty(
+            ServerChunkPayload serverChunk
+    ) {
+        if (serverChunk.liquidsCompressed().length == 0) {
+            return new int[ChunkDataLayerDecoder.VALUE_COUNT];
+        }
+
+        try {
+            return layerDecoder.decode(
+                    serverChunk.liquidsCompressed(),
+                    serverChunk.savedCompressionVersion()
+            );
+
+        } catch (IllegalArgumentException exception) {
+            return new int[ChunkDataLayerDecoder.VALUE_COUNT];
         }
     }
 

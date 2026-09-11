@@ -45,15 +45,22 @@ public class ChunkDataLayerDecoder {
             return new int[VALUE_COUNT];
         }
 
-        if (paletteByteLengthMarker > 0) {
-            throw new IllegalArgumentException(
-                    "unsupported uncompressed chunk data layer marker: "
-                            + paletteByteLengthMarker
-            );
-        }
+        boolean bitPlanesAreCompressed =
+                paletteByteLengthMarker < 0;
 
+        /*
+         * Vintage Story ChunkDataLayer storage uses ArrayConvert.Build
+         * for uncompressed combined arrays:
+         *
+         *   paletteByteLength, palette bytes, dataBitsByteLength, dataBits bytes
+         *
+         * Current compressed chunk saves store a negative palette byte length
+         * followed by the palette and a zstd frame for the bit planes.
+         */
         int paletteByteLength =
-                -paletteByteLengthMarker;
+                bitPlanesAreCompressed
+                        ? -paletteByteLengthMarker
+                        : paletteByteLengthMarker;
 
         if (paletteByteLength % Integer.BYTES != 0) {
             throw new IllegalArgumentException(
@@ -86,9 +93,14 @@ public class ChunkDataLayerDecoder {
                 );
 
         byte[] dataBitsBytes =
-                readDataBits(
+                bitPlanesAreCompressed
+                        ? readCompressedDataBits(
                         payload,
                         buffer.position(),
+                        bitSize
+                )
+                        : readUncompressedDataBits(
+                        buffer,
                         bitSize
                 );
 
@@ -99,7 +111,7 @@ public class ChunkDataLayerDecoder {
         );
     }
 
-    private byte[] readDataBits(
+    private byte[] readCompressedDataBits(
             byte[] payload,
             int offset,
             int bitSize
@@ -155,6 +167,51 @@ public class ChunkDataLayerDecoder {
         }
 
         return decompressed;
+    }
+
+    private byte[] readUncompressedDataBits(
+            ByteBuffer buffer,
+            int bitSize
+    ) {
+        int expectedLength =
+                bitSize * SLICE_COUNT * Integer.BYTES;
+
+        if (expectedLength == 0) {
+            return new byte[0];
+        }
+
+        if (buffer.remaining() < Integer.BYTES) {
+            throw new IllegalArgumentException(
+                    "chunk data layer is missing uncompressed bit-plane length"
+            );
+        }
+
+        int dataBitsLength =
+                buffer.getInt();
+
+        if (dataBitsLength != expectedLength) {
+            throw new IllegalArgumentException(
+                    "uncompressed bit-plane length mismatch: expected "
+                            + expectedLength
+                            + ", got "
+                            + dataBitsLength
+            );
+        }
+
+        if (buffer.remaining() < dataBitsLength) {
+            throw new IllegalArgumentException(
+                    "uncompressed bit planes exceed payload length"
+            );
+        }
+
+        byte[] dataBits =
+                new byte[dataBitsLength];
+
+        buffer.get(
+                dataBits
+        );
+
+        return dataBits;
     }
 
     private int[] decodePaletteBits(
