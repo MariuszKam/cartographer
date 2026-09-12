@@ -4,6 +4,10 @@ import cartographer.application.RenderActualOreMapRequest;
 import cartographer.application.RenderActualOreMapResult;
 import cartographer.application.RenderActualOreMapUseCase;
 import cartographer.application.ActualOreOverlaySpec;
+import cartographer.application.RenderSurfaceResourceMapRequest;
+import cartographer.application.RenderSurfaceResourceMapResult;
+import cartographer.application.RenderSurfaceResourceMapUseCase;
+import cartographer.application.SurfaceResourceMatch;
 import cartographer.marker.MarkerStore;
 import cartographer.navigation.HomeStore;
 import cartographer.parser.ChunkParser;
@@ -16,7 +20,10 @@ import cartographer.render.OreOverlayPalette;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.render.UserMarkerRenderer;
+import cartographer.render.SurfaceResourceOverlayRenderer;
 import cartographer.resource.ResourceAnalyzer;
+import cartographer.resource.SurfaceResourceAnalyzer;
+import cartographer.model.BlockInfo;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMapScanner;
@@ -59,7 +66,10 @@ public class CartographerDesktopApp extends Application {
 
     private final TextField saveField = new TextField();
     private final Button browseButton = new Button("Browse...");
+    private final RadioButton oreSearchButton = new RadioButton("Ore deposits");
+    private final RadioButton surfaceSearchButton = new RadioButton("Surface resources");
     private final ComboBox<OreResource> resourceBox = new ComboBox<>();
+    private final ComboBox<SurfaceResourcePreset> surfaceResourceBox = new ComboBox<>();
     private final RadioButton singleResourceButton = new RadioButton("Single resource");
     private final RadioButton multipleResourcesButton = new RadioButton("Multiple resources");
     private final VBox resourceChecklist = new VBox(4);
@@ -79,21 +89,26 @@ public class CartographerDesktopApp extends Application {
     private final ProgressIndicator progress = new ProgressIndicator();
     private final Label statusLabel = new Label();
     private final Label resourceStatusLabel = new Label();
+    private final Label surfaceResourceStatusLabel = new Label();
     private final Label playerStatusLabel = new Label("Player: not loaded");
     private final Label resultLabel = new Label("Select a save and render an ore map.");
     private final ImageView imageView = new ImageView();
     private final ScrollPane preview = new ScrollPane(imageView);
 
     private RenderActualOreMapUseCase useCase;
+    private RenderSurfaceResourceMapUseCase surfaceUseCase;
+    private VcdbsReader reader;
     private ResourceCatalogService resourceCatalogService;
     private PlayerPositionService playerPositionService;
     private List<OreResource> discoveredResources = List.of();
+    private Map<Integer, BlockInfo> loadedRegistry = Map.of();
 
     @Override
     public void start(Stage stage) {
-        VcdbsReader reader = createReader();
+        reader = createReader();
         WorldMetadataReader metadataReader = new WorldMetadataReader();
         useCase = createUseCase(reader, metadataReader);
+        surfaceUseCase = createSurfaceUseCase(reader, metadataReader);
         resourceCatalogService = new ResourceCatalogService(
                 reader,
                 new ResourceAnalyzer()
@@ -142,6 +157,30 @@ public class CartographerDesktopApp extends Application {
         resourceBox.getEditor().textProperty().addListener(
                 (observable, oldValue, typed) -> updateResourceStatus()
         );
+        surfaceResourceBox.getItems().setAll(List.of(SurfaceResourcePreset.values()));
+        surfaceResourceBox.setEditable(true);
+        surfaceResourceBox.setConverter(new StringConverter<SurfaceResourcePreset>() {
+            @Override
+            public String toString(SurfaceResourcePreset preset) {
+                return preset == null ? "" : preset.label();
+            }
+
+            @Override
+            public SurfaceResourcePreset fromString(String value) {
+                return surfacePresetFor(value).orElse(null);
+            }
+        });
+        surfaceResourceBox.setValue(SurfaceResourcePreset.FIRE_CLAY);
+        surfaceResourceBox.getEditor().textProperty().addListener(
+                (observable, oldValue, typed) -> updateSurfaceResourceStatus()
+        );
+        ToggleGroup searchType = new ToggleGroup();
+        oreSearchButton.setToggleGroup(searchType);
+        surfaceSearchButton.setToggleGroup(searchType);
+        oreSearchButton.setSelected(true);
+        searchType.selectedToggleProperty().addListener(
+                (observable, oldValue, selected) -> updateSearchType()
+        );
         ToggleGroup resourceMode = new ToggleGroup();
         singleResourceButton.setToggleGroup(resourceMode);
         multipleResourcesButton.setToggleGroup(resourceMode);
@@ -185,6 +224,7 @@ public class CartographerDesktopApp extends Application {
         playerStatusLabel.setWrapText(true);
         resultLabel.setWrapText(true);
         updateResourceStatus();
+        updateSurfaceResourceStatus();
     }
 
     private VBox buildControls() {
@@ -197,30 +237,41 @@ public class CartographerDesktopApp extends Application {
         grid.add(new Label("PLAYER"), 0, 2);
         grid.add(playerStatusLabel, 0, 3, 2, 1);
 
-        grid.add(new Label("RESOURCE"), 0, 4);
+        grid.add(new Label("SEARCH TYPE"), 0, 4);
+        grid.add(new HBox(8, oreSearchButton, surfaceSearchButton), 0, 5, 2, 1);
+        grid.add(new Label("RESOURCE"), 0, 6);
         HBox resourceMode = new HBox(8, singleResourceButton, multipleResourcesButton);
-        grid.add(resourceMode, 0, 5, 2, 1);
+        grid.add(resourceMode, 0, 7, 2, 1);
         VBox singleResourcePanel = new VBox(4, resourceBox, resourceStatusLabel);
-        grid.add(singleResourcePanel, 0, 6, 2, 1);
+        grid.add(singleResourcePanel, 0, 8, 2, 1);
         HBox multiActions = new HBox(6, selectAllButton, clearAllButton);
         resourceChecklistScroll.setFitToWidth(true);
         resourceChecklistScroll.setPrefViewportHeight(130);
         VBox multiResourcePanel = new VBox(4, multiActions, resourceChecklistScroll);
-        grid.add(multiResourcePanel, 0, 7, 2, 1);
+        grid.add(multiResourcePanel, 0, 9, 2, 1);
         singleResourcePanel.visibleProperty().bind(singleResourceButton.selectedProperty());
         singleResourcePanel.managedProperty().bind(singleResourcePanel.visibleProperty());
         multiResourcePanel.visibleProperty().bind(multipleResourcesButton.selectedProperty());
         multiResourcePanel.managedProperty().bind(multiResourcePanel.visibleProperty());
 
-        grid.add(new Label("RADIUS"), 0, 8);
-        HBox radiusBox = new HBox(8, radius128Button, radius256Button, radius512Button);
-        grid.add(radiusBox, 0, 9, 2, 1);
+        VBox surfacePanel = new VBox(
+                4,
+                surfaceResourceBox,
+                surfaceResourceStatusLabel
+        );
+        grid.add(surfacePanel, 0, 7, 2, 3);
+        surfacePanel.visibleProperty().bind(surfaceSearchButton.selectedProperty());
+        surfacePanel.managedProperty().bind(surfacePanel.visibleProperty());
 
-        grid.add(new Label("Y FILTER"), 0, 10);
-        grid.add(allYButton, 0, 11);
-        grid.add(customYButton, 1, 11);
-        grid.add(yMinField, 0, 12);
-        grid.add(yMaxField, 1, 12);
+        grid.add(new Label("RADIUS"), 0, 10);
+        HBox radiusBox = new HBox(8, radius128Button, radius256Button, radius512Button);
+        grid.add(radiusBox, 0, 11, 2, 1);
+
+        grid.add(new Label("Y FILTER"), 0, 12);
+        grid.add(allYButton, 0, 13);
+        grid.add(customYButton, 1, 13);
+        grid.add(yMinField, 0, 14);
+        grid.add(yMaxField, 1, 14);
 
         VBox box = new VBox(
                 12,
@@ -265,13 +316,15 @@ public class CartographerDesktopApp extends Application {
             @Override
             protected SaveLoadResult call() {
                 List<OreResource> resources = resourceCatalogService.discover(savePath);
+                Map<Integer, BlockInfo> registry = reader.readBlockRegistry(savePath);
                 try {
                     return new SaveLoadResult(
                             resources,
-                            Optional.of(playerPositionService.load(savePath))
+                            Optional.of(playerPositionService.load(savePath)),
+                            registry
                     );
                 } catch (RuntimeException exception) {
-                    return new SaveLoadResult(resources, Optional.empty());
+                    return new SaveLoadResult(resources, Optional.empty(), registry);
                 }
             }
         };
@@ -279,6 +332,7 @@ public class CartographerDesktopApp extends Application {
             SaveLoadResult loaded = task.getValue();
             List<OreResource> discovered = loaded.resources();
             discoveredResources = discovered;
+            loadedRegistry = loaded.registry();
             rebuildResourceChecklist();
             resourceBox.getItems().setAll(
                     discovered.isEmpty()
@@ -289,6 +343,7 @@ public class CartographerDesktopApp extends Application {
                 resourceBox.setValue(resourceBox.getItems().getFirst());
             }
             updateResourceStatus();
+            updateSurfaceResourceStatus();
             playerStatusLabel.setText(
                     loaded.player().map(this::formatPlayer).orElse("Player: unavailable")
             );
@@ -302,6 +357,7 @@ public class CartographerDesktopApp extends Application {
         task.setOnFailed(event -> {
             resourceBox.getItems().setAll(presetResources());
             discoveredResources = presetResources();
+            loadedRegistry = Map.of();
             rebuildResourceChecklist();
             resourceBox.setValue(resourceBox.getItems().getFirst());
             resourceStatusLabel.setText("Registry match: unavailable");
@@ -317,6 +373,10 @@ public class CartographerDesktopApp extends Application {
 
     private void render() {
         try {
+            if (surfaceSearchButton.isSelected()) {
+                renderSurfaceResource();
+                return;
+            }
             RenderActualOreMapRequest request = requestFromControls();
             setBusy(true);
             statusLabel.setText("Rendering...");
@@ -334,6 +394,48 @@ public class CartographerDesktopApp extends Application {
         } catch (RuntimeException exception) {
             showFailure(exception);
         }
+    }
+
+    private void renderSurfaceResource() {
+        RenderSurfaceResourceMapRequest request = surfaceRequestFromControls();
+        setBusy(true);
+        statusLabel.setText("Rendering surface resource...");
+        Task<RenderSurfaceResourceMapResult> task = new Task<>() {
+            @Override
+            protected RenderSurfaceResourceMapResult call() {
+                return surfaceUseCase.execute(request);
+            }
+        };
+        task.setOnSucceeded(event -> showSurfaceResult(task.getValue(), request));
+        task.setOnFailed(event -> showFailure(task.getException()));
+        Thread worker = new Thread(task, "cartographer-surface-resource-render");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    private RenderSurfaceResourceMapRequest surfaceRequestFromControls() {
+        if (saveField.getText().isBlank()) {
+            throw new IllegalArgumentException("Select a .vcdbs save.");
+        }
+        String typed = surfaceResourceBox.getEditor().getText().trim();
+        if (typed.isBlank()) {
+            throw new IllegalArgumentException("Enter a surface resource match.");
+        }
+        SurfaceResourceMatch match = surfacePresetFor(typed)
+                .map(preset -> new SurfaceResourceMatch(
+                        preset.label(),
+                        preset.requiredTokens()
+                ))
+                .orElseGet(() -> new SurfaceResourceMatch(typed, List.of(typed)));
+        return new RenderSurfaceResourceMapRequest(
+                Path.of(saveField.getText()),
+                selectedRadius(),
+                1,
+                RenderStyle.TOPOGRAPHIC,
+                EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE, RenderLayer.MARKERS),
+                match,
+                Optional.empty()
+        );
     }
 
     private RenderActualOreMapRequest requestFromControls() {
@@ -401,6 +503,42 @@ public class CartographerDesktopApp extends Application {
         setBusy(false);
     }
 
+    private void showSurfaceResult(
+            RenderSurfaceResourceMapResult result,
+            RenderSurfaceResourceMapRequest request
+    ) {
+        imageView.setImage(SwingFXUtils.toFXImage(result.image(), null));
+        imageView.setFitWidth(Math.max(720, result.image().getWidth()));
+        imageView.setFitHeight(Math.max(620, result.image().getHeight()));
+        StringBuilder resultText = new StringBuilder()
+                .append("Surface resource: ")
+                .append(request.match().displayName())
+                .append("\nRadius: ")
+                .append(request.radius())
+                .append("\nMatching surface blocks: ")
+                .append(result.analysis().matchingBlockCount())
+                .append("\nConnected deposits: ")
+                .append(result.analysis().depositCount());
+        int limit = Math.min(5, result.analysis().deposits().size());
+        if (limit > 0) {
+            resultText.append("\n\nLargest deposits:");
+            for (int index = 0; index < limit; index++) {
+                var deposit = result.analysis().deposits().get(index);
+                resultText.append("\n")
+                        .append(index + 1)
+                        .append(". blocks=")
+                        .append(deposit.blockCount())
+                        .append(" Y=")
+                        .append(deposit.minY())
+                        .append("..")
+                        .append(deposit.maxY());
+            }
+        }
+        resultLabel.setText(resultText.toString());
+        statusLabel.setText("Rendered.");
+        setBusy(false);
+    }
+
     private String foundY(cartographer.scanner.ActualBlockMap map) {
         return map.cells().isEmpty()
                 ? "none"
@@ -437,6 +575,9 @@ public class CartographerDesktopApp extends Application {
         browseButton.setDisable(busy);
         saveField.setDisable(busy);
         resourceBox.setDisable(busy);
+        surfaceResourceBox.setDisable(busy);
+        oreSearchButton.setDisable(busy);
+        surfaceSearchButton.setDisable(busy);
         singleResourceButton.setDisable(busy);
         multipleResourcesButton.setDisable(busy);
         selectAllButton.setDisable(busy);
@@ -446,8 +587,8 @@ public class CartographerDesktopApp extends Application {
         radius512Button.setDisable(busy);
         allYButton.setDisable(busy);
         customYButton.setDisable(busy);
-        yMinField.setDisable(busy || allYButton.isSelected());
-        yMaxField.setDisable(busy || allYButton.isSelected());
+        yMinField.setDisable(busy || allYButton.isSelected() || surfaceSearchButton.isSelected());
+        yMaxField.setDisable(busy || allYButton.isSelected() || surfaceSearchButton.isSelected());
         progress.setVisible(busy);
     }
 
@@ -456,6 +597,9 @@ public class CartographerDesktopApp extends Application {
         browseButton.setDisable(busy);
         saveField.setDisable(busy);
         resourceBox.setDisable(busy);
+        surfaceResourceBox.setDisable(busy);
+        oreSearchButton.setDisable(busy);
+        surfaceSearchButton.setDisable(busy);
         singleResourceButton.setDisable(busy);
         multipleResourcesButton.setDisable(busy);
         selectAllButton.setDisable(busy);
@@ -463,7 +607,7 @@ public class CartographerDesktopApp extends Application {
     }
 
     private void updateYFields() {
-        boolean disabled = allYButton.isSelected();
+        boolean disabled = allYButton.isSelected() || surfaceSearchButton.isSelected();
         yMinField.setDisable(disabled);
         yMaxField.setDisable(disabled);
     }
@@ -486,6 +630,9 @@ public class CartographerDesktopApp extends Application {
     }
 
     private void updateResourceStatus() {
+        if (!oreSearchButton.isSelected()) {
+            return;
+        }
         String editor = resourceBox.getEditor().getText().trim();
         Optional<OreResource> selected = resourceBox.getItems().stream()
                 .filter(resource -> resource.displayName().equalsIgnoreCase(editor))
@@ -506,6 +653,38 @@ public class CartographerDesktopApp extends Application {
                                 + resource.match()
                                 + "\" as custom match"
         );
+    }
+
+    private void updateSurfaceResourceStatus() {
+        if (!surfaceSearchButton.isSelected()) {
+            return;
+        }
+        String typed = surfaceResourceBox.getEditor().getText().trim();
+        Optional<SurfaceResourcePreset> preset = surfacePresetFor(typed);
+        if (preset.isEmpty()) {
+            surfaceResourceStatusLabel.setText("Registry candidates: custom input");
+            return;
+        }
+        long candidates = loadedRegistry.values().stream()
+                .filter(block -> block.code() != null)
+                .filter(block -> preset.get().requiredTokens().stream()
+                        .allMatch(token -> block.code().toLowerCase(java.util.Locale.ROOT).contains(token)))
+                .count();
+        surfaceResourceStatusLabel.setText(
+                "Registry candidates: " + (candidates == 0 ? "none" : candidates)
+        );
+    }
+
+    private void updateSearchType() {
+        updateYFields();
+        updateResourceStatus();
+        updateSurfaceResourceStatus();
+    }
+
+    private Optional<SurfaceResourcePreset> surfacePresetFor(String value) {
+        return java.util.Arrays.stream(SurfaceResourcePreset.values())
+                .filter(preset -> preset.label().equalsIgnoreCase(value.trim()))
+                .findFirst();
     }
 
     private void updateResourceMode() {
@@ -647,9 +826,28 @@ public class CartographerDesktopApp extends Application {
         );
     }
 
+    private RenderSurfaceResourceMapUseCase createSurfaceUseCase(
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader
+    ) {
+        Path config = Path.of(System.getProperty("user.home"), ".vs-cartographer");
+        return new RenderSurfaceResourceMapUseCase(
+                reader,
+                metadataReader,
+                new HomeStore(config.resolve("home.properties")),
+                new MarkerStore(config.resolve("markers.csv")),
+                new MapRenderer(),
+                new UserMarkerRenderer(),
+                new cartographer.scanner.SurfaceScanner(),
+                new SurfaceResourceAnalyzer(),
+                new SurfaceResourceOverlayRenderer()
+        );
+    }
+
     private record SaveLoadResult(
             List<OreResource> resources,
-            Optional<PlayerPositionView> player
+            Optional<PlayerPositionView> player,
+            Map<Integer, BlockInfo> registry
     ) {
     }
 }
