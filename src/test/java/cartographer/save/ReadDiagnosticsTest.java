@@ -2,107 +2,113 @@ package cartographer.save;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ReadDiagnosticsTest {
+
     @Test
-    void aggregatesFailureReasonsSeparatelyFromSkippedSamples() {
+    void aggregatesRepeatedSkippedReasons() {
         ReadDiagnostics diagnostics =
                 new ReadDiagnostics();
 
-        for (int index = 0; index < 50; index++) {
-            diagnostics.recordSkipped(
-                    "chunk outside requested radius"
-            );
-        }
-
-        diagnostics.recordFailed(
-                "blocksCompressed: zstd decompression failed"
+        diagnostics.recordSkipped(
+                "mapchunk outside requested radius"
         );
 
-        diagnostics.recordFailed(
-                "blocksCompressed: zstd decompression failed"
+        diagnostics.recordSkipped(
+                "mapchunk outside requested radius"
         );
 
-        diagnostics.recordFailed(
-                "invalid ServerChunk protobuf: Unexpected end of protobuf varint"
+        diagnostics.recordSkipped(
+                "mapchunk outside requested radius"
+        );
+
+        diagnostics.recordSkipped(
+                "chunk outside requested radius"
         );
 
         assertEquals(
-                50,
+                4,
                 diagnostics.skipped()
         );
 
         assertEquals(
-                3,
-                diagnostics.failed()
-        );
-
-        assertEquals(
-                2,
-                diagnostics.failureReasons()
-                        .get("blocksCompressed: zstd decompression failed")
-        );
-
-        assertTrue(
-                diagnostics.failureReasonLines()
-                        .get(0)
-                        .startsWith("2 x blocksCompressed")
-        );
-
-        assertEquals(
-                10,
+                List.of(
+                        "skipped: 3 x mapchunk outside requested radius",
+                        "skipped: 1 x chunk outside requested radius"
+                ),
                 diagnostics.skippedNotes()
-                        .size()
-        );
-
-        assertEquals(
-                3,
-                diagnostics.failureSamples()
-                        .size()
         );
     }
 
     @Test
-    void aggregatesLiquidDecodeFailuresSeparatelyFromChunkFailures() {
+    void notesDoNotRepeatEverySkippedRecord() {
         ReadDiagnostics diagnostics =
                 new ReadDiagnostics();
 
-        diagnostics.recordParsed();
-        diagnostics.recordParsed();
-        diagnostics.recordLiquidDecodeFailure(
-                "liquidsCompressed: zstd bit-plane decompression failed"
+        for (int index = 0;
+             index < 1000;
+             index++) {
+
+            diagnostics.recordSkipped(
+                    "outside requested radius"
+            );
+        }
+
+        assertEquals(
+                List.of(
+                        "skipped: 1000 x outside requested radius"
+                ),
+                diagnostics.notes()
         );
-        diagnostics.recordLiquidDecodeFailure(
-                "liquidsCompressed: zstd bit-plane decompression failed"
+    }
+
+    @Test
+    void missingTableNotesAreDeduplicated() {
+        ReadDiagnostics diagnostics =
+                new ReadDiagnostics();
+
+        diagnostics.missingTable(
+                "mapregion"
+        );
+
+        diagnostics.missingTable(
+                "mapregion"
         );
 
         assertEquals(
-                2,
-                diagnostics.parsed()
+                List.of(
+                        "missing table: mapregion"
+                ),
+                diagnostics.notes()
+        );
+    }
+
+    @Test
+    void failureReasonsRemainAggregatedSeparately() {
+        ReadDiagnostics diagnostics =
+                new ReadDiagnostics();
+
+        diagnostics.recordFailed(
+                "invalid payload"
+        );
+
+        diagnostics.recordFailed(
+                "invalid payload"
+        );
+
+        diagnostics.recordFailed(
+                "unexpected field"
         );
 
         assertEquals(
-                0,
-                diagnostics.failed()
-        );
-
-        assertEquals(
-                2,
-                diagnostics.liquidDecodeFailures()
-        );
-
-        assertEquals(
-                2,
-                diagnostics.liquidFailureReasons()
-                        .get("liquidsCompressed: zstd bit-plane decompression failed")
-        );
-
-        assertEquals(
-                "2 x liquidsCompressed: zstd bit-plane decompression failed",
-                diagnostics.liquidFailureReasonLines()
-                        .get(0)
+                List.of(
+                        "2 x invalid payload",
+                        "1 x unexpected field"
+                ),
+                diagnostics.failureReasonLines()
         );
     }
 }

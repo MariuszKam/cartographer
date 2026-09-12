@@ -404,7 +404,7 @@ public class CommandRouter {
         out.println();
 
         out.println(
-                "Usage:"
+                "Navigation:"
         );
 
         out.println(
@@ -414,7 +414,7 @@ public class CommandRouter {
 
         out.println(
                 "  vs-cartographer home set <save.vcdbs> "
-                        + "[<x> <z>]"
+                        + "[<display-x> <display-z>]"
         );
 
         out.println(
@@ -425,12 +425,29 @@ public class CommandRouter {
                 "  vs-cartographer nav home <save.vcdbs>"
         );
 
+        out.println();
+
         out.println(
-                "  vs-cartographer inspect <save.vcdbs>"
+                "Cartography:"
         );
 
         out.println(
-                "  vs-cartographer index <save.vcdbs>"
+                "  vs-cartographer map render <save.vcdbs> "
+                        + "--radius <blocks> "
+                        + "--out <map.png> "
+                        + "[--center-x <x> --center-z <z>] "
+                        + "[--scale <n>] "
+                        + "[--style simple|topographic|high-contrast] "
+                        + "[--layers terrain,surface,environment,geology,markers]"
+        );
+
+        out.println(
+                "  vs-cartographer coverage inspect <save.vcdbs>"
+        );
+
+        out.println(
+                "  vs-cartographer coverage render <save.vcdbs> "
+                        + "--out <coverage.png>"
         );
 
         out.println(
@@ -439,6 +456,54 @@ public class CommandRouter {
 
         out.println(
                 "  vs-cartographer environment inspect <save.vcdbs>"
+        );
+
+        out.println(
+                "  vs-cartographer geology surface <save.vcdbs> "
+                        + "--radius <blocks> "
+                        + "[--center-x <x> --center-z <z>]"
+        );
+
+        out.println(
+                "  vs-cartographer geology strata <save.vcdbs>"
+        );
+
+        out.println();
+
+        out.println(
+                "Markers:"
+        );
+
+        out.println(
+                "  vs-cartographer markers add <save.vcdbs> "
+                        + "<name...> <display-x> <display-z>"
+        );
+
+        out.println(
+                "  vs-cartographer markers update <save.vcdbs> "
+                        + "<name...> <display-x> <display-z>"
+        );
+
+        out.println(
+                "  vs-cartographer markers here <save.vcdbs> <name...>"
+        );
+
+        out.println(
+                "  vs-cartographer markers list <save.vcdbs>"
+        );
+
+        out.println(
+                "  vs-cartographer markers remove <save.vcdbs> <name...>"
+        );
+
+        out.println(
+                "  vs-cartographer markers clear <save.vcdbs>"
+        );
+
+        out.println();
+
+        out.println(
+                "Resources and scanning:"
         );
 
         out.println(
@@ -470,63 +535,8 @@ public class CommandRouter {
         );
 
         out.println(
-                "  vs-cartographer coverage inspect <save.vcdbs>"
-        );
-
-        out.println(
-                "  vs-cartographer coverage render <save.vcdbs> "
-                        + "--out <coverage.png>"
-        );
-
-        out.println(
-                "  vs-cartographer map render <save.vcdbs> "
-                        + "--radius <blocks> "
-                        + "--out <map.png> "
-                        + "[--center-x <x> --center-z <z>] "
-                        + "[--scale <n>] "
-                        + "[--style simple|topographic|high-contrast] "
-                        + "[--layers terrain,surface,markers]"
-        );
-
-        out.println(
-                "  vs-cartographer markers add <save.vcdbs> "
-                        + "<name...> <display-x> <display-z>"
-        );
-
-        out.println(
-                "  vs-cartographer markers update <save.vcdbs> "
-                        + "<name...> <display-x> <display-z>"
-        );
-
-        out.println(
-                "  vs-cartographer markers here <save.vcdbs> <name...>"
-        );
-
-        out.println(
-                "  vs-cartographer markers list <save.vcdbs>"
-        );
-
-        out.println(
-                "  vs-cartographer markers remove <save.vcdbs> <name...>"
-        );
-
-        out.println(
-                "  vs-cartographer markers clear <save.vcdbs>"
-        );
-
-        out.println(
                 "  vs-cartographer scan surface <save.vcdbs> "
                         + "--radius <blocks>"
-        );
-
-        out.println(
-                "  vs-cartographer geology surface <save.vcdbs> "
-                        + "--radius <blocks> "
-                        + "[--center-x <x> --center-z <z>]"
-        );
-
-        out.println(
-                "  vs-cartographer geology strata <save.vcdbs>"
         );
 
         out.println(
@@ -535,6 +545,26 @@ public class CommandRouter {
                         + "[--center-x <x> --center-z <z>] "
                         + "[--radius <blocks>] "
                         + "[--limit <n>]"
+        );
+
+        out.println();
+
+        out.println(
+                "Save diagnostics:"
+        );
+
+        out.println(
+                "  vs-cartographer inspect <save.vcdbs>"
+        );
+
+        out.println(
+                "  vs-cartographer index <save.vcdbs>"
+        );
+
+        out.println();
+
+        out.println(
+                "Cache and atlas:"
         );
 
         out.println(
@@ -560,6 +590,42 @@ public class CommandRouter {
                         + "--radius <blocks> "
                         + "--levels <n> "
                         + "--out <directory>"
+        );
+
+        out.println();
+
+        out.println(
+                "Map layers:"
+        );
+
+        out.println(
+                "  TERRAIN      base height/topography"
+        );
+
+        out.println(
+                "  SURFACE      semantic surface and real liquid/water data"
+        );
+
+        out.println(
+                "  ENVIRONMENT  Cartographer-derived environment overlay"
+        );
+
+        out.println(
+                "  GEOLOGY      raw geologic-province category overlay"
+        );
+
+        out.println(
+                "  MARKERS      PLAYER, HOME and user markers"
+        );
+
+        out.println();
+
+        out.println(
+                "Default map layers: terrain,surface,markers"
+        );
+
+        out.println(
+                "Legacy layer alias: water -> surface"
         );
     }
 }

@@ -2,66 +2,128 @@ package cartographer.save;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class ReadDiagnostics {
-    private static final int SAMPLE_LIMIT = 10;
+
+    private static final int SAMPLE_LIMIT =
+            10;
+
     private int parsed;
+
     private int skipped;
+
     private int failed;
+
     private int registryBlocks;
+
     private int liquidDecodeFailures;
-    private final List<String> skippedNotes = new ArrayList<>();
-    private final List<String> failureSamples = new ArrayList<>();
-    private final Map<String, Integer> failureReasons = new LinkedHashMap<>();
-    private final List<String> liquidFailureSamples = new ArrayList<>();
-    private final Map<String, Integer> liquidFailureReasons = new LinkedHashMap<>();
-    private final List<String> generalNotes = new ArrayList<>();
+
+    private final Map<String, Integer> skippedReasons =
+            new LinkedHashMap<>();
+
+    private final List<String> failureSamples =
+            new ArrayList<>();
+
+    private final Map<String, Integer> failureReasons =
+            new LinkedHashMap<>();
+
+    private final List<String> liquidFailureSamples =
+            new ArrayList<>();
+
+    private final Map<String, Integer> liquidFailureReasons =
+            new LinkedHashMap<>();
+
+    private final Set<String> generalNotes =
+            new LinkedHashSet<>();
 
     public void recordParsed() {
         parsed++;
     }
 
-    public void recordSkipped(String reason) {
+    public void recordSkipped(
+            String reason
+    ) {
         skipped++;
-        if (skippedNotes.size() < SAMPLE_LIMIT) {
-            skippedNotes.add("skipped: " + reason);
-        }
+
+        skippedReasons.merge(
+                normalizedReason(
+                        reason
+                ),
+                1,
+                Integer::sum
+        );
     }
 
-    public void recordFailed(String reason) {
+    public void recordFailed(
+            String reason
+    ) {
         failed++;
+
+        String normalized =
+                normalizedReason(
+                        reason
+                );
+
         failureReasons.merge(
-                reason,
+                normalized,
                 1,
                 Integer::sum
         );
 
-        if (failureSamples.size() < SAMPLE_LIMIT) {
-            failureSamples.add("failed: " + reason);
+        if (failureSamples.size()
+                < SAMPLE_LIMIT) {
+
+            failureSamples.add(
+                    "failed: "
+                            + normalized
+            );
         }
     }
 
-    public void recordLiquidDecodeFailure(String reason) {
+    public void recordLiquidDecodeFailure(
+            String reason
+    ) {
         liquidDecodeFailures++;
+
+        String normalized =
+                normalizedReason(
+                        reason
+                );
+
         liquidFailureReasons.merge(
-                reason,
+                normalized,
                 1,
                 Integer::sum
         );
 
-        if (liquidFailureSamples.size() < SAMPLE_LIMIT) {
-            liquidFailureSamples.add("liquid decode failed: " + reason);
+        if (liquidFailureSamples.size()
+                < SAMPLE_LIMIT) {
+
+            liquidFailureSamples.add(
+                    "liquid decode failed: "
+                            + normalized
+            );
         }
     }
 
-    public void missingTable(String tableName) {
-        generalNotes.add("missing table: " + tableName);
+    public void missingTable(
+            String tableName
+    ) {
+        generalNotes.add(
+                "missing table: "
+                        + tableName
+        );
     }
 
-    public void registryBlocks(int registryBlocks) {
-        this.registryBlocks = registryBlocks;
+    public void registryBlocks(
+            int registryBlocks
+    ) {
+        this.registryBlocks =
+                registryBlocks;
     }
 
     public int parsed() {
@@ -93,24 +155,46 @@ public class ReadDiagnostics {
         );
 
         notes.addAll(
-                skippedNotes
+                skippedNotes()
         );
 
-        notes.addAll(
-                failureSamples
+        return List.copyOf(
+                notes
         );
-
-        notes.addAll(
-                liquidFailureSamples
-        );
-
-        return List.copyOf(notes);
     }
 
     public List<String> skippedNotes() {
-        return List.copyOf(
-                skippedNotes
-        );
+        return skippedReasons.entrySet()
+                .stream()
+                .sorted(
+                        (left, right) -> {
+                            int countComparison =
+                                    Integer.compare(
+                                            right.getValue(),
+                                            left.getValue()
+                                    );
+
+                            if (countComparison != 0) {
+                                return countComparison;
+                            }
+
+                            return left.getKey()
+                                    .compareTo(
+                                            right.getKey()
+                                    );
+                        }
+                )
+                .limit(
+                        SAMPLE_LIMIT
+                )
+                .map(
+                        entry ->
+                                "skipped: "
+                                        + entry.getValue()
+                                        + " x "
+                                        + entry.getKey()
+                )
+                .toList();
     }
 
     public List<String> failureSamples() {
@@ -135,13 +219,26 @@ public class ReadDiagnostics {
         return failureReasons.entrySet()
                 .stream()
                 .sorted(
-                        (left, right) ->
-                                Integer.compare(
-                                        right.getValue(),
-                                        left.getValue()
-                                )
+                        (left, right) -> {
+                            int countComparison =
+                                    Integer.compare(
+                                            right.getValue(),
+                                            left.getValue()
+                                    );
+
+                            if (countComparison != 0) {
+                                return countComparison;
+                            }
+
+                            return left.getKey()
+                                    .compareTo(
+                                            right.getKey()
+                                    );
+                        }
                 )
-                .limit(SAMPLE_LIMIT)
+                .limit(
+                        SAMPLE_LIMIT
+                )
                 .map(
                         entry ->
                                 entry.getValue()
@@ -155,13 +252,26 @@ public class ReadDiagnostics {
         return liquidFailureReasons.entrySet()
                 .stream()
                 .sorted(
-                        (left, right) ->
-                                Integer.compare(
-                                        right.getValue(),
-                                        left.getValue()
-                                )
+                        (left, right) -> {
+                            int countComparison =
+                                    Integer.compare(
+                                            right.getValue(),
+                                            left.getValue()
+                                    );
+
+                            if (countComparison != 0) {
+                                return countComparison;
+                            }
+
+                            return left.getKey()
+                                    .compareTo(
+                                            right.getKey()
+                                    );
+                        }
                 )
-                .limit(SAMPLE_LIMIT)
+                .limit(
+                        SAMPLE_LIMIT
+                )
                 .map(
                         entry ->
                                 entry.getValue()
@@ -169,5 +279,17 @@ public class ReadDiagnostics {
                                         + entry.getKey()
                 )
                 .toList();
+    }
+
+    private String normalizedReason(
+            String reason
+    ) {
+        if (reason == null
+                || reason.isBlank()) {
+
+            return "unspecified";
+        }
+
+        return reason.trim();
     }
 }
