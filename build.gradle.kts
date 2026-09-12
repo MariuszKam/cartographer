@@ -1,6 +1,7 @@
 plugins {
     application
     id("java")
+    id("org.openjfx.javafxplugin") version "0.1.0"
 }
 
 group = "cartographer"
@@ -33,4 +34,17 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)
     }
+}
+
+javafx {
+    version = "25"
+    modules("javafx.controls", "javafx.swing")
+}
+
+tasks.register<JavaExec>("runGui") {
+    group = "application"
+    description = "Launches the VS Cartographer desktop UI"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("cartographer.ui.CartographerDesktopLauncher")
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
