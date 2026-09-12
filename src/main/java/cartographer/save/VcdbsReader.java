@@ -18,6 +18,7 @@ import cartographer.parser.RegistryParser;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -203,80 +204,13 @@ public class VcdbsReader {
                 return List.of();
             }
 
-            List<SaveRecord> records =
-                    readRecords(
-                            connection,
-                            SaveTable.MAPCHUNK.tableName(),
-                            100_000,
-                            progress
-                    );
-
-            List<MapChunk> chunks =
-                    new ArrayList<>();
-
-            for (int index = 0;
-                 index < records.size();
-                 index++) {
-
-                SaveRecord record =
-                        records.get(index);
-
-                progress.progress(
-                        "Parsing mapchunks",
-                        index + 1,
-                        records.size()
-                );
-
-                Optional<MapChunkCoordinate> coordinate =
-                        inferMapChunkCoordinate(
-                                record
-                        );
-
-                if (coordinate.isEmpty()) {
-                    diagnostics.recordSkipped(
-                            "mapchunk row has no readable coordinate"
-                    );
-
-                    continue;
-                }
-
-                if (!withinRadius(
-                        coordinate.get(),
-                        center,
-                        radiusBlocks
-                )) {
-                    diagnostics.recordSkipped(
-                            "mapchunk outside requested radius"
-                    );
-
-                    continue;
-                }
-
-                ParseResult<MapChunk> parsed =
-                        mapChunkParser.parse(
-                                coordinate.get(),
-                                record.payload()
-                        );
-
-                if (parsed.isSuccess()) {
-                    diagnostics.recordParsed();
-
-                    chunks.add(
-                            parsed.value()
-                                    .orElseThrow()
-                    );
-
-                } else {
-                    diagnostics.recordFailed(
-                            parsed.error()
-                                    .orElse(
-                                            "unknown mapchunk parse error"
-                                    )
-                    );
-                }
-            }
-
-            return chunks;
+            return readMapChunksAroundFromResultSet(
+                    connection,
+                    center,
+                    radiusBlocks,
+                    diagnostics,
+                    progress
+            );
 
         } catch (SQLException exception) {
             throw new CommandException(
@@ -331,106 +265,13 @@ public class VcdbsReader {
                 return List.of();
             }
 
-            progress.start(
-                    "Reading block registry"
+            return readChunksAroundFromResultSet(
+                    connection,
+                    center,
+                    radiusBlocks,
+                    diagnostics,
+                    progress
             );
-
-            Map<Integer, BlockInfo> registry =
-                    readBlockRegistry(
-                            connection
-                    );
-
-            diagnostics.registryBlocks(
-                    registry.size()
-            );
-
-            progress.done(
-                    "Block registry read"
-            );
-
-            List<SaveRecord> records =
-                    readRecords(
-                            connection,
-                            SaveTable.CHUNK.tableName(),
-                            100_000,
-                            progress
-                    );
-
-            List<ParsedChunk> chunks =
-                    new ArrayList<>();
-
-            for (int index = 0;
-                 index < records.size();
-                 index++) {
-
-                SaveRecord record =
-                        records.get(index);
-
-                progress.progress(
-                        "Parsing chunks",
-                        index + 1,
-                        records.size()
-                );
-
-                Optional<ChunkCoordinate> coordinate =
-                        inferChunkCoordinate(
-                                record
-                        );
-
-                if (coordinate.isEmpty()) {
-                    diagnostics.recordSkipped(
-                            "chunk row has no readable coordinate"
-                    );
-
-                    continue;
-                }
-
-                if (!withinRadius(
-                        coordinate.get(),
-                        center,
-                        radiusBlocks
-                )) {
-                    diagnostics.recordSkipped(
-                            "chunk outside requested radius"
-                    );
-
-                    continue;
-                }
-
-                ParseResult<ParsedChunk> parsed =
-                        chunkParser.parse(
-                                coordinate.get(),
-                                record.payload()
-                        );
-
-                if (parsed.isSuccess()) {
-                    ParsedChunk chunk =
-                            parsed.value()
-                                    .orElseThrow();
-
-                    diagnostics.recordParsed();
-
-                    if (!chunk.liquidLayerAvailable()) {
-                        diagnostics.recordLiquidDecodeFailure(
-                                chunk.liquidDecodeError()
-                        );
-                    }
-
-                    chunks.add(
-                            chunk
-                    );
-
-                } else {
-                    diagnostics.recordFailed(
-                            parsed.error()
-                                    .orElse(
-                                            "unknown chunk parse error"
-                                    )
-                    );
-                }
-            }
-
-            return chunks;
 
         } catch (SQLException exception) {
             throw new CommandException(
@@ -519,6 +360,277 @@ public class VcdbsReader {
         }
 
         return blocks;
+    }
+
+    private List<MapChunk> readMapChunksAroundFromResultSet(
+            Connection connection,
+            WorldPosition center,
+            int radiusBlocks,
+            ReadDiagnostics diagnostics,
+            ProgressReporter progress
+    ) throws SQLException {
+
+        List<MapChunk> chunks =
+                new ArrayList<>();
+
+        int expectedRows =
+                countRows(
+                        connection,
+                        SaveTable.MAPCHUNK.tableName()
+                );
+
+        String sql =
+                "SELECT position, data FROM \""
+                        + SaveTable.MAPCHUNK.tableName()
+                        + "\"";
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql);
+
+             ResultSet resultSet =
+                     statement.executeQuery()) {
+
+            int row =
+                    0;
+
+            while (resultSet.next()) {
+                row++;
+
+                progress.progress(
+                        "Parsing mapchunks",
+                        row,
+                        expectedRows
+                );
+
+                Optional<MapChunkCoordinate> coordinate =
+                        mapChunkCoordinateFromPackedPosition(
+                                resultSet.getObject(
+                                        "position"
+                                )
+                        );
+
+                if (coordinate.isEmpty()) {
+                    diagnostics.recordSkipped(
+                            "mapchunk row has no readable coordinate"
+                    );
+
+                    continue;
+                }
+
+                if (!withinRadius(
+                        coordinate.get(),
+                        center,
+                        radiusBlocks
+                )) {
+                    diagnostics.recordSkipped(
+                            "mapchunk outside requested radius"
+                    );
+
+                    continue;
+                }
+
+                byte[] payload =
+                        resultSet.getBytes(
+                                "data"
+                        );
+
+                if (payload == null) {
+                    continue;
+                }
+
+                ParseResult<MapChunk> parsed =
+                        mapChunkParser.parse(
+                                coordinate.get(),
+                                payload
+                        );
+
+                if (parsed.isSuccess()) {
+                    diagnostics.recordParsed();
+
+                    chunks.add(
+                            parsed.value()
+                                    .orElseThrow()
+                    );
+
+                } else {
+                    diagnostics.recordFailed(
+                            parsed.error()
+                                    .orElse(
+                                            "unknown mapchunk parse error"
+                                    )
+                    );
+                }
+            }
+        }
+
+        return chunks;
+    }
+
+    private List<ParsedChunk> readChunksAroundFromResultSet(
+            Connection connection,
+            WorldPosition center,
+            int radiusBlocks,
+            ReadDiagnostics diagnostics,
+            ProgressReporter progress
+    ) throws SQLException {
+
+        List<ParsedChunk> chunks =
+                new ArrayList<>();
+
+        int expectedRows =
+                countRows(
+                        connection,
+                        SaveTable.CHUNK.tableName()
+                );
+
+        String sql =
+                "SELECT position, data FROM \""
+                        + SaveTable.CHUNK.tableName()
+                        + "\"";
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql);
+
+             ResultSet resultSet =
+                     statement.executeQuery()) {
+
+            int row =
+                    0;
+
+            while (resultSet.next()) {
+                row++;
+
+                progress.progress(
+                        "Parsing chunks",
+                        row,
+                        expectedRows
+                );
+
+                Optional<ChunkCoordinate> coordinate =
+                        chunkCoordinateFromPackedPosition(
+                                resultSet.getObject(
+                                        "position"
+                                )
+                        );
+
+                if (coordinate.isEmpty()) {
+                    diagnostics.recordSkipped(
+                            "chunk row has no readable coordinate"
+                    );
+
+                    continue;
+                }
+
+                if (!withinRadius(
+                        coordinate.get(),
+                        center,
+                        radiusBlocks
+                )) {
+                    diagnostics.recordSkipped(
+                            "chunk outside requested radius"
+                    );
+
+                    continue;
+                }
+
+                byte[] payload =
+                        resultSet.getBytes(
+                                "data"
+                        );
+
+                if (payload == null) {
+                    continue;
+                }
+
+                ParseResult<ParsedChunk> parsed =
+                        chunkParser.parse(
+                                coordinate.get(),
+                                payload
+                        );
+
+                if (parsed.isSuccess()) {
+                    ParsedChunk chunk =
+                            parsed.value()
+                                    .orElseThrow();
+
+                    diagnostics.recordParsed();
+
+                    if (!chunk.liquidLayerAvailable()) {
+                        diagnostics.recordLiquidDecodeFailure(
+                                chunk.liquidDecodeError()
+                        );
+                    }
+
+                    chunks.add(
+                            chunk
+                    );
+
+                } else {
+                    diagnostics.recordFailed(
+                            parsed.error()
+                                    .orElse(
+                                            "unknown chunk parse error"
+                                    )
+                    );
+                }
+            }
+        }
+
+        return chunks;
+    }
+
+    private Optional<MapChunkCoordinate> mapChunkCoordinateFromPackedPosition(
+            Object rawValue
+    ) {
+        Optional<ChunkPosition> decoded =
+                decodePackedPosition(
+                        rawValue
+                );
+
+        return decoded.map(
+                position ->
+                        new MapChunkCoordinate(
+                                position.x(),
+                                position.z()
+                        )
+        );
+    }
+
+    private Optional<ChunkCoordinate> chunkCoordinateFromPackedPosition(
+            Object rawValue
+    ) {
+        Optional<ChunkPosition> decoded =
+                decodePackedPosition(
+                        rawValue
+                );
+
+        return decoded.map(
+                position ->
+                        new ChunkCoordinate(
+                                position.x(),
+                                position.y(),
+                                position.z()
+                        )
+        );
+    }
+
+    private Optional<ChunkPosition> decodePackedPosition(
+            Object rawValue
+    ) {
+        if (!(rawValue instanceof Number number)) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(
+                    ChunkPosDecoder.decode(
+                            number.longValue()
+                    )
+            );
+
+        } catch (IllegalArgumentException exception) {
+            return Optional.empty();
+        }
     }
 
     private Optional<SaveRecord> selectPlayer(
