@@ -1,5 +1,9 @@
 package cartographer.cli;
 
+import cartographer.environment.EnvironmentInterpreter;
+import cartographer.environment.EnvironmentProfile;
+import cartographer.geology.GeologicProvinceInterpreter;
+import cartographer.geology.GeologicProvinceSummary;
 import cartographer.marker.MarkerStore;
 import cartographer.marker.UserMarker;
 import cartographer.model.BlockInfo;
@@ -7,15 +11,20 @@ import cartographer.model.DisplayPosition;
 import cartographer.model.HomeLocation;
 import cartographer.model.MapChunk;
 import cartographer.model.ParsedChunk;
+import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
+import cartographer.render.EnvironmentOverlayRenderer;
+import cartographer.render.GeologyOverlayRenderer;
 import cartographer.render.MapRenderer;
+import cartographer.render.OverlayRenderReport;
 import cartographer.render.PngWriter;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderOptions;
 import cartographer.render.RenderStyle;
 import cartographer.render.RenderedMap;
+import cartographer.render.SystemMarkerOverlayRenderer;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
@@ -48,6 +57,21 @@ public class MapCommand implements Command {
     private final PngWriter pngWriter;
 
     private final String subcommand;
+
+    private final EnvironmentInterpreter environmentInterpreter =
+            new EnvironmentInterpreter();
+
+    private final GeologicProvinceInterpreter geologicProvinceInterpreter =
+            new GeologicProvinceInterpreter();
+
+    private final EnvironmentOverlayRenderer environmentOverlayRenderer =
+            new EnvironmentOverlayRenderer();
+
+    private final GeologyOverlayRenderer geologyOverlayRenderer =
+            new GeologyOverlayRenderer();
+
+    private final SystemMarkerOverlayRenderer systemMarkerOverlayRenderer =
+            new SystemMarkerOverlayRenderer();
 
     public MapCommand(
             PrintStream out,
@@ -186,7 +210,7 @@ public class MapCommand implements Command {
                         progress
                 );
 
-        ReadDiagnostics diagnostics =
+        ReadDiagnostics mapChunkDiagnostics =
                 new ReadDiagnostics();
 
         List<MapChunk> chunks =
@@ -194,7 +218,7 @@ public class MapCommand implements Command {
                         savePath,
                         center,
                         radius,
-                        diagnostics,
+                        mapChunkDiagnostics,
                         progress
                 );
 
@@ -222,6 +246,62 @@ public class MapCommand implements Command {
                         progress
                 );
 
+        ReadDiagnostics mapRegionDiagnostics =
+                new ReadDiagnostics();
+
+        List<ServerMapRegion> mapRegions =
+                mapRegions(
+                        savePath,
+                        options,
+                        mapRegionDiagnostics,
+                        progress
+                );
+
+        OverlayRenderReport environmentOverlay =
+                drawEnvironmentOverlay(
+                        rendered,
+                        center,
+                        radius,
+                        options,
+                        mapRegions,
+                        progress
+                );
+
+        OverlayRenderReport geologyOverlay =
+                drawGeologyOverlay(
+                        rendered,
+                        center,
+                        radius,
+                        options,
+                        mapRegions,
+                        progress
+                );
+
+        if (hasMapRegionOverlay(
+                options
+        )
+                && options.layers()
+                .contains(
+                        RenderLayer.MARKERS
+                )) {
+
+            progress.start(
+                    "Redrawing system markers"
+            );
+
+            systemMarkerOverlayRenderer.draw(
+                    rendered.image(),
+                    center,
+                    player,
+                    home,
+                    radius
+            );
+
+            progress.done(
+                    "System markers redrawn"
+            );
+        }
+
         int userMarkersDrawn =
                 drawUserMarkers(
                         savePath,
@@ -245,6 +325,154 @@ public class MapCommand implements Command {
                 "PNG written"
         );
 
+        printReport(
+                output,
+                rendered,
+                userMarkersDrawn,
+                options,
+                mapChunkDiagnostics,
+                chunkDiagnostics,
+                mapRegionDiagnostics,
+                surface,
+                environmentOverlay,
+                geologyOverlay
+        );
+
+        return 0;
+    }
+
+    private List<ServerMapRegion> mapRegions(
+            Path savePath,
+            RenderOptions options,
+            ReadDiagnostics diagnostics,
+            ProgressReporter progress
+    ) {
+        if (!hasMapRegionOverlay(
+                options
+        )) {
+
+            return List.of();
+        }
+
+        return reader.readMapRegions(
+                savePath,
+                diagnostics,
+                progress
+        );
+    }
+
+    private OverlayRenderReport drawEnvironmentOverlay(
+            RenderedMap rendered,
+            WorldPosition center,
+            int radius,
+            RenderOptions options,
+            List<ServerMapRegion> mapRegions,
+            ProgressReporter progress
+    ) {
+        if (!options.layers()
+                .contains(
+                        RenderLayer.ENVIRONMENT
+                )) {
+
+            return OverlayRenderReport.none();
+        }
+
+        progress.start(
+                "Drawing environment overlay"
+        );
+
+        List<EnvironmentProfile> profiles =
+                mapRegions.stream()
+                        .map(
+                                environmentInterpreter::interpret
+                        )
+                        .toList();
+
+        OverlayRenderReport report =
+                environmentOverlayRenderer.draw(
+                        rendered.image(),
+                        center,
+                        radius,
+                        profiles
+                );
+
+        progress.done(
+                "Environment overlay drawn"
+        );
+
+        return report;
+    }
+
+    private OverlayRenderReport drawGeologyOverlay(
+            RenderedMap rendered,
+            WorldPosition center,
+            int radius,
+            RenderOptions options,
+            List<ServerMapRegion> mapRegions,
+            ProgressReporter progress
+    ) {
+        if (!options.layers()
+                .contains(
+                        RenderLayer.GEOLOGY
+                )) {
+
+            return OverlayRenderReport.none();
+        }
+
+        progress.start(
+                "Drawing geology overlay"
+        );
+
+        List<GeologicProvinceSummary> summaries =
+                mapRegions.stream()
+                        .map(
+                                geologicProvinceInterpreter::summarize
+                        )
+                        .flatMap(
+                                Optional::stream
+                        )
+                        .toList();
+
+        OverlayRenderReport report =
+                geologyOverlayRenderer.draw(
+                        rendered.image(),
+                        center,
+                        radius,
+                        summaries
+                );
+
+        progress.done(
+                "Geology overlay drawn"
+        );
+
+        return report;
+    }
+
+    private boolean hasMapRegionOverlay(
+            RenderOptions options
+    ) {
+        return options.layers()
+                .contains(
+                        RenderLayer.ENVIRONMENT
+                )
+                || options.layers()
+                .contains(
+                        RenderLayer.GEOLOGY
+                );
+    }
+
+    private void printReport(
+            Path output,
+            RenderedMap rendered,
+            int userMarkersDrawn,
+            RenderOptions options,
+            ReadDiagnostics mapChunkDiagnostics,
+            ReadDiagnostics chunkDiagnostics,
+            ReadDiagnostics mapRegionDiagnostics,
+            SurfaceScanResult surface,
+            OverlayRenderReport environmentOverlay,
+            OverlayRenderReport geologyOverlay
+    ) {
         out.println(
                 "MAP"
         );
@@ -294,21 +522,22 @@ public class MapCommand implements Command {
 
         out.println(
                 "Parsed mapchunks: "
-                        + diagnostics.parsed()
+                        + mapChunkDiagnostics.parsed()
         );
 
         out.println(
                 "Skipped mapchunks: "
-                        + diagnostics.skipped()
+                        + mapChunkDiagnostics.skipped()
         );
 
         out.println(
                 "Failed mapchunks: "
-                        + diagnostics.failed()
+                        + mapChunkDiagnostics.failed()
         );
 
         printFailureReasons(
-                diagnostics
+                "Mapchunk failure reasons",
+                mapChunkDiagnostics
         );
 
         if (options.layers()
@@ -322,11 +551,17 @@ public class MapCommand implements Command {
             );
 
             out.println(
+                    "Skipped chunks: "
+                            + chunkDiagnostics.skipped()
+            );
+
+            out.println(
                     "Failed chunks: "
                             + chunkDiagnostics.failed()
             );
 
             printFailureReasons(
+                    "Chunk failure reasons",
                     chunkDiagnostics
             );
 
@@ -366,25 +601,79 @@ public class MapCommand implements Command {
             );
         }
 
-        diagnostics.notes()
-                .forEach(
-                        note ->
-                                out.println(
-                                        "Note: "
-                                                + note
-                                )
-                );
+        if (hasMapRegionOverlay(
+                options
+        )) {
 
-        chunkDiagnostics.notes()
-                .forEach(
-                        note ->
-                                out.println(
-                                        "Note: "
-                                                + note
-                                )
-                );
+            out.println(
+                    "Parsed mapregions: "
+                            + mapRegionDiagnostics.parsed()
+            );
 
-        return 0;
+            out.println(
+                    "Skipped mapregions: "
+                            + mapRegionDiagnostics.skipped()
+            );
+
+            out.println(
+                    "Failed mapregions: "
+                            + mapRegionDiagnostics.failed()
+            );
+
+            printFailureReasons(
+                    "Mapregion failure reasons",
+                    mapRegionDiagnostics
+            );
+        }
+
+        if (options.layers()
+                .contains(
+                        RenderLayer.ENVIRONMENT
+                )) {
+
+            printOverlayReport(
+                    "Environment overlay",
+                    environmentOverlay
+            );
+        }
+
+        if (options.layers()
+                .contains(
+                        RenderLayer.GEOLOGY
+                )) {
+
+            printOverlayReport(
+                    "Geology overlay",
+                    geologyOverlay
+            );
+        }
+
+        printNotes(
+                mapChunkDiagnostics
+        );
+
+        printNotes(
+                chunkDiagnostics
+        );
+
+        printNotes(
+                mapRegionDiagnostics
+        );
+    }
+
+    private void printOverlayReport(
+            String name,
+            OverlayRenderReport report
+    ) {
+        out.println(
+                name
+                        + ": candidates="
+                        + report.candidates()
+                        + " drawn="
+                        + report.drawn()
+                        + " unavailable="
+                        + report.unavailable()
+        );
     }
 
     private int drawUserMarkers(
@@ -439,6 +728,7 @@ public class MapCommand implements Command {
     }
 
     private void printFailureReasons(
+            String title,
             ReadDiagnostics diagnostics
     ) {
         if (diagnostics.failureReasons()
@@ -448,7 +738,8 @@ public class MapCommand implements Command {
         }
 
         out.println(
-                "Failure reasons:"
+                title
+                        + ":"
         );
 
         diagnostics.failureReasonLines()
@@ -512,6 +803,19 @@ public class MapCommand implements Command {
                                                 + block.code()
                                                 + ": "
                                                 + block.count()
+                                )
+                );
+    }
+
+    private void printNotes(
+            ReadDiagnostics diagnostics
+    ) {
+        diagnostics.notes()
+                .forEach(
+                        note ->
+                                out.println(
+                                        "Note: "
+                                                + note
                                 )
                 );
     }

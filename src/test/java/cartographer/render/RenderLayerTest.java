@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RenderLayerTest {
 
     @Test
-    void defaultsEnableRealSemanticSurface() {
+    void defaultsRemainFocusedOnDetailedBaseMap() {
         Set<RenderLayer> layers =
                 RenderLayer.defaults();
 
@@ -52,6 +52,41 @@ class RenderLayerTest {
         assertEquals(
                 3,
                 layers.size()
+        );
+    }
+
+    @Test
+    void parsesEnvironmentAndGeologyLayers() {
+        Set<RenderLayer> layers =
+                RenderLayer.parse(
+                        "terrain,environment,geology,markers"
+                );
+
+        assertEquals(
+                Set.of(
+                        RenderLayer.TERRAIN,
+                        RenderLayer.ENVIRONMENT,
+                        RenderLayer.GEOLOGY,
+                        RenderLayer.MARKERS
+                ),
+                layers
+        );
+    }
+
+    @Test
+    void parsingIsCaseInsensitive() {
+        Set<RenderLayer> layers =
+                RenderLayer.parse(
+                        "Terrain,Environment,GEOLOGY"
+                );
+
+        assertEquals(
+                Set.of(
+                        RenderLayer.TERRAIN,
+                        RenderLayer.ENVIRONMENT,
+                        RenderLayer.GEOLOGY
+                ),
+                layers
         );
     }
 }

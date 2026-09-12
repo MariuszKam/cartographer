@@ -7,6 +7,8 @@ import java.util.Set;
 public enum RenderLayer {
     TERRAIN,
     SURFACE,
+    ENVIRONMENT,
+    GEOLOGY,
     MARKERS;
 
     public static Set<RenderLayer> defaults() {
@@ -41,8 +43,8 @@ public enum RenderLayer {
             /*
              * Backward-compatible CLI alias.
              *
-             * Water is now decoded from the real liquid layer and is
-             * therefore part of SURFACE rather than a separate render layer.
+             * Water is decoded through the real liquid/surface data,
+             * therefore it remains part of SURFACE.
              */
             if ("WATER".equals(normalized)) {
                 layers.add(
