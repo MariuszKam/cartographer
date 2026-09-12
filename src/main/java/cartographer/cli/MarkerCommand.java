@@ -10,6 +10,7 @@ import cartographer.save.WorldMetadataReader;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -59,6 +60,11 @@ public class MarkerCommand implements Command {
                             args
                     );
 
+            case "update" ->
+                    update(
+                            args
+                    );
+
             case "here" ->
                     here(
                             args
@@ -87,12 +93,23 @@ public class MarkerCommand implements Command {
         };
     }
 
+    /*
+     * Syntax intentionally allows an unquoted multi-word marker name.
+     *
+     * Example arguments after routing:
+     *
+     * world.vcdbs RED CLAY -834 259
+     *
+     * The final two arguments are always coordinates.
+     * Everything between savePath and those coordinates becomes the name.
+     */
     private int add(
             String[] args
     ) {
         if (args.length < 4) {
             throw new CommandException(
-                    "Usage: markers add <save.vcdbs> <name> <x> <z>"
+                    "Usage: markers add <save.vcdbs> "
+                            + "<name...> <x> <z>"
             );
         }
 
@@ -101,18 +118,39 @@ public class MarkerCommand implements Command {
                         args[0]
                 );
 
+        String name =
+                joinArguments(
+                        args,
+                        1,
+                        args.length - 2
+                );
+
+        double x =
+                parseDouble(
+                        args[args.length - 2],
+                        "x"
+                );
+
+        double z =
+                parseDouble(
+                        args[args.length - 1],
+                        "z"
+                );
+
         UserMarker marker =
                 new UserMarker(
-                        args[1],
-                        parseDouble(
-                                args[2],
-                                "x"
-                        ),
-                        parseDouble(
-                                args[3],
-                                "z"
-                        )
+                        name,
+                        x,
+                        z
                 );
+
+        boolean replacing =
+                findByName(
+                        markerStore.load(
+                                savePath
+                        ),
+                        name
+                ).isPresent();
 
         markerStore.put(
                 savePath,
@@ -120,7 +158,9 @@ public class MarkerCommand implements Command {
         );
 
         out.println(
-                "MARKER SAVED"
+                replacing
+                        ? "MARKER REPLACED"
+                        : "MARKER ADDED"
         );
 
         printMarker(
@@ -134,18 +174,109 @@ public class MarkerCommand implements Command {
         return 0;
     }
 
-    private int here(
+    /*
+     * Explicit update differs from add/upsert:
+     * update requires that the marker already exists.
+     */
+    private int update(
             String[] args
     ) {
-        if (args.length < 2) {
+        if (args.length < 4) {
             throw new CommandException(
-                    "Usage: markers here <save.vcdbs> <name>"
+                    "Usage: markers update <save.vcdbs> "
+                            + "<name...> <x> <z>"
             );
         }
 
         Path savePath =
                 Path.of(
                         args[0]
+                );
+
+        String name =
+                joinArguments(
+                        args,
+                        1,
+                        args.length - 2
+                );
+
+        Optional<UserMarker> existing =
+                findByName(
+                        markerStore.load(
+                                savePath
+                        ),
+                        name
+                );
+
+        if (existing.isEmpty()) {
+            throw new CommandException(
+                    "Marker not found: "
+                            + name
+            );
+        }
+
+        UserMarker marker =
+                new UserMarker(
+                        existing.get()
+                                .name(),
+                        parseDouble(
+                                args[args.length - 2],
+                                "x"
+                        ),
+                        parseDouble(
+                                args[args.length - 1],
+                                "z"
+                        )
+                );
+
+        markerStore.put(
+                savePath,
+                marker
+        );
+
+        out.println(
+                "MARKER UPDATED"
+        );
+
+        printMarker(
+                marker
+        );
+
+        out.println(
+                "Coordinate space: DISPLAY"
+        );
+
+        return 0;
+    }
+
+    /*
+     * Everything after savePath is considered the marker name.
+     *
+     * That makes:
+     *
+     * markers here world.vcdbs OLD COPPER MINE
+     *
+     * work without nested quoting.
+     */
+    private int here(
+            String[] args
+    ) {
+        if (args.length < 2) {
+            throw new CommandException(
+                    "Usage: markers here <save.vcdbs> <name...>"
+            );
+        }
+
+        Path savePath =
+                Path.of(
+                        args[0]
+                );
+
+        String name =
+                joinArguments(
+                        args,
+                        1,
+                        args.length
                 );
 
         ProgressReporter progress =
@@ -173,10 +304,18 @@ public class MarkerCommand implements Command {
 
         UserMarker marker =
                 new UserMarker(
-                        args[1],
+                        name,
                         display.x(),
                         display.z()
                 );
+
+        boolean replacing =
+                findByName(
+                        markerStore.load(
+                                savePath
+                        ),
+                        name
+                ).isPresent();
 
         markerStore.put(
                 savePath,
@@ -184,7 +323,9 @@ public class MarkerCommand implements Command {
         );
 
         out.println(
-                "MARKER SAVED AT PLAYER"
+                replacing
+                        ? "MARKER MOVED TO PLAYER"
+                        : "MARKER SAVED AT PLAYER"
         );
 
         printMarker(
@@ -256,7 +397,7 @@ public class MarkerCommand implements Command {
     ) {
         if (args.length < 2) {
             throw new CommandException(
-                    "Usage: markers remove <save.vcdbs> <name>"
+                    "Usage: markers remove <save.vcdbs> <name...>"
             );
         }
 
@@ -266,15 +407,21 @@ public class MarkerCommand implements Command {
                 );
 
         String name =
-                args[1];
+                joinArguments(
+                        args,
+                        1,
+                        args.length
+                );
 
-        boolean removed =
-                markerStore.remove(
-                        savePath,
+        Optional<UserMarker> existing =
+                findByName(
+                        markerStore.load(
+                                savePath
+                        ),
                         name
                 );
 
-        if (!removed) {
+        if (existing.isEmpty()) {
             out.println(
                     "Marker not found: "
                             + name
@@ -283,9 +430,16 @@ public class MarkerCommand implements Command {
             return 0;
         }
 
+        markerStore.remove(
+                savePath,
+                existing.get()
+                        .name()
+        );
+
         out.println(
                 "Marker removed: "
-                        + name
+                        + existing.get()
+                        .name()
         );
 
         return 0;
@@ -316,6 +470,55 @@ public class MarkerCommand implements Command {
         );
 
         return 0;
+    }
+
+    private Optional<UserMarker> findByName(
+            List<UserMarker> markers,
+            String name
+    ) {
+        return markers.stream()
+                .filter(
+                        marker ->
+                                marker.name()
+                                        .equalsIgnoreCase(
+                                                name
+                                        )
+                )
+                .findFirst();
+    }
+
+    private String joinArguments(
+            String[] args,
+            int startInclusive,
+            int endExclusive
+    ) {
+        if (startInclusive < 0
+                || endExclusive > args.length
+                || startInclusive >= endExclusive) {
+
+            throw new CommandException(
+                    "Marker name is required"
+            );
+        }
+
+        String name =
+                String.join(
+                                " ",
+                                Arrays.copyOfRange(
+                                        args,
+                                        startInclusive,
+                                        endExclusive
+                                )
+                        )
+                        .trim();
+
+        if (name.isBlank()) {
+            throw new CommandException(
+                    "Marker name is required"
+            );
+        }
+
+        return name;
     }
 
     private void printMarker(
