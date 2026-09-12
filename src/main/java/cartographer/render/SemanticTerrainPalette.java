@@ -52,6 +52,15 @@ public class SemanticTerrainPalette {
                             0xFFB54CC2;
                 };
 
+        double factor = getFactor(surfaceClass, hillshade);
+
+        return shade(
+                base,
+                factor
+        );
+    }
+
+    private static double getFactor(SurfaceClass surfaceClass, double hillshade) {
         double effectiveHillshade =
                 switch (surfaceClass) {
                     case WATER ->
@@ -64,17 +73,11 @@ public class SemanticTerrainPalette {
                             hillshade;
                 };
 
-        double factor =
-                Math.clamp(
-                        1.0 + effectiveHillshade
-                        ,
-                        0.68,
-                        1.32);
-
-        return shade(
-                base,
-                factor
-        );
+        return Math.clamp(
+                1.0 + effectiveHillshade
+                ,
+                0.68,
+                1.32);
     }
 
     private int shade(
