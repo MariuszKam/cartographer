@@ -18,12 +18,17 @@ public final class OreCodeMatcher {
         String normalizedCode = code.toLowerCase(Locale.ROOT);
         String normalizedMatch = match.trim().toLowerCase(Locale.ROOT);
 
-        return (normalizedCode.startsWith("ore-poor-")
-                || normalizedCode.startsWith("ore-medium-")
-                || normalizedCode.startsWith("ore-rich-")
-                || normalizedCode.contains(":ore-poor-")
-                || normalizedCode.contains(":ore-medium-")
-                || normalizedCode.contains(":ore-rich-"))
-                && normalizedCode.contains(normalizedMatch);
+        String path = pathPart(normalizedCode);
+
+        return path.startsWith("ore-")
+                && path.contains(normalizedMatch);
+    }
+
+    private static String pathPart(String normalizedCode) {
+        int namespaceSeparator = normalizedCode.indexOf(':');
+
+        return namespaceSeparator >= 0
+                ? normalizedCode.substring(namespaceSeparator + 1)
+                : normalizedCode;
     }
 }

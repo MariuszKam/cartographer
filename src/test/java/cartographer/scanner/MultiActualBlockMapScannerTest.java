@@ -114,6 +114,45 @@ class MultiActualBlockMapScannerTest {
         assertEquals(0, maps.getFirst().matchingBlocks());
     }
 
+    @Test
+    void supportsNamespacedOreRegistryCodes() {
+        List<ActualBlockMap> maps = new MultiActualBlockMapScanner().scan(
+                List.of(chunk(
+                        new BlockAt(0, 5, 0, 1),
+                        new BlockAt(1, 5, 0, 2)
+                )),
+                Map.of(
+                        1, new BlockInfo(1, "game:ore-nativecopper-granite"),
+                        2, new BlockInfo(2, "mod:ore-cassiterite-granite")
+                ),
+                0,
+                0,
+                16,
+                List.of("nativecopper", "cassiterite"),
+                ActualBlockYFilter.unbounded()
+        );
+
+        assertEquals(1, maps.get(0).matchingBlocks());
+        assertEquals(1, maps.get(1).matchingBlocks());
+    }
+
+    @Test
+    void ignoresOreSubstringOutsideOrePath() {
+        List<ActualBlockMap> maps = new MultiActualBlockMapScanner().scan(
+                List.of(chunk(new BlockAt(0, 5, 0, 3))),
+                Map.of(
+                        3, new BlockInfo(3, "game:decorative-ore-nativecopper")
+                ),
+                0,
+                0,
+                16,
+                List.of("nativecopper"),
+                ActualBlockYFilter.unbounded()
+        );
+
+        assertEquals(0, maps.getFirst().matchingBlocks());
+    }
+
     private List<ActualBlockMap> scan(
             List<ParsedChunk> chunks,
             ActualBlockYFilter yFilter

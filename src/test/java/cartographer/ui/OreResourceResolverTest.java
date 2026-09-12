@@ -31,6 +31,28 @@ class OreResourceResolverTest {
     }
 
     @Test
+    void verifiesOreWithoutQualityPrefixVariant() {
+        OreResource resource = resolver.resolve(
+                "game:cassiterite",
+                List.of(block(1, "ore-cassiterite-granite"))
+        );
+
+        assertTrue(resource.registryVerified());
+        assertEquals(1, resource.registryMatchCount());
+    }
+
+    @Test
+    void verifiesNamespacedOreWithoutQuality() {
+        OreResource resource = resolver.resolve(
+                "game:cassiterite",
+                List.of(block(1, "game:ore-cassiterite-granite"))
+        );
+
+        assertTrue(resource.registryVerified());
+        assertEquals(1, resource.registryMatchCount());
+    }
+
+    @Test
     void resolvesCopperAliasToNativeCopper() {
         OreResource resource = resolver.resolve(
                 "game:copper",
@@ -87,7 +109,7 @@ class OreResourceResolverTest {
     }
 
     @Test
-    void onlyRecognizesKnownOreQualitySegments() {
+    void recognizesOrePathAndRejectsUnrelatedBlocks() {
         List<OreResource> resources = resolver.resolve(
                 List.of("game:cassiterite"),
                 List.of(
