@@ -882,29 +882,8 @@ public class MapCommand implements Command {
         }
 
         try {
-            int value =
-                    Integer.parseInt(
-                            option.get()
-                    );
 
-            int max =
-                    "--scale".equals(
-                            optionName
-                    )
-                            ? 16
-                            : 8192;
-
-            if (value <= 0
-                    || value > max) {
-
-                throw new CommandException(
-                        optionName
-                                + " must be between 1 and "
-                                + max
-                );
-            }
-
-            return value;
+            return getValue(optionName, option);
 
         } catch (NumberFormatException exception) {
             throw new CommandException(
@@ -914,6 +893,31 @@ public class MapCommand implements Command {
                             + option.get()
             );
         }
+    }
+
+    private static int getValue(String optionName, Optional<String> option) {
+        int value =
+                Integer.parseInt(
+                        option.get()
+                );
+
+        int max =
+                "--scale".equals(
+                        optionName
+                )
+                        ? 16
+                        : 8192;
+
+        if (value <= 0
+                || value > max) {
+
+            throw new CommandException(
+                    optionName
+                            + " must be between 1 and "
+                            + max
+            );
+        }
+        return value;
     }
 
     private String requiredOption(
