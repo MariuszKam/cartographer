@@ -29,11 +29,11 @@ public record RegionCoverageSummary(
                 cells == null
                         ? List.of()
                         : List.copyOf(
-                                cells
-                        );
+                        cells
+                );
     }
 
-    public static RegionCoverageSummary empty() {
+    public static RegionCoverageSummary emptySummary() {
         return new RegionCoverageSummary(
                 true,
                 List.of(),

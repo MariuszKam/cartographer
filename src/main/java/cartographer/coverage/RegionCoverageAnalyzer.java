@@ -47,7 +47,7 @@ public class RegionCoverageAnalyzer {
         }
 
         if (coordinates.isEmpty()) {
-            return RegionCoverageSummary.empty();
+            return RegionCoverageSummary.emptySummary();
         }
 
         int minRegionX =
