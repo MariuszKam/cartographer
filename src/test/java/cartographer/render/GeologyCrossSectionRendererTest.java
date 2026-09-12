@@ -61,35 +61,35 @@ class GeologyCrossSectionRendererTest {
         BufferedImage image =
                 renderer.render(
                         section,
-                        2,
+                        4,
                         3
                 );
 
         assertEquals(
-                78,
+                80,
                 image.getWidth()
         );
 
         assertEquals(
-                80,
+                154,
                 image.getHeight()
         );
 
         int unavailable =
                 image.getRGB(
-                        56,
+                        58,
                         25
                 );
 
         int air =
                 image.getRGB(
-                        56,
+                        58,
                         28
                 );
 
         int granite =
                 image.getRGB(
-                        56,
+                        58,
                         31
                 );
 
@@ -147,25 +147,111 @@ class GeologyCrossSectionRendererTest {
         BufferedImage image =
                 renderer.render(
                         section,
-                        2,
+                        4,
                         4
                 );
 
         int copper =
                 image.getRGB(
-                        56,
+                        58,
                         26
                 );
 
         int granite =
                 image.getRGB(
-                        56,
+                        58,
                         30
                 );
 
         assertNotEquals(
                 copper,
                 granite
+        );
+    }
+
+    @Test
+    void rendersPlayerMarkerWhenProvided() {
+        GeologyCrossSection section =
+                new GeologyCrossSection(
+                        0,
+                        0,
+                        2,
+                        0,
+                        0,
+                        4,
+                        List.of(
+                                new GeologySectionColumn(
+                                        0,
+                                        0,
+                                        0,
+                                        List.of(
+                                                new GeologySectionRun(
+                                                        0,
+                                                        4,
+                                                        true,
+                                                        1,
+                                                        "rock-granite"
+                                                )
+                                        )
+                                ),
+                                new GeologySectionColumn(
+                                        1,
+                                        1,
+                                        0,
+                                        List.of(
+                                                new GeologySectionRun(
+                                                        0,
+                                                        4,
+                                                        true,
+                                                        1,
+                                                        "rock-granite"
+                                                )
+                                        )
+                                ),
+                                new GeologySectionColumn(
+                                        2,
+                                        2,
+                                        0,
+                                        List.of(
+                                                new GeologySectionRun(
+                                                        0,
+                                                        4,
+                                                        true,
+                                                        1,
+                                                        "rock-granite"
+                                                )
+                                        )
+                                )
+                        )
+                );
+
+        BufferedImage image =
+                renderer.render(
+                        section,
+                        4,
+                        4,
+                        new GeologySectionMarker(
+                                "PLAYER",
+                                1,
+                                2
+                        )
+                );
+
+        int markerPixel =
+                image.getRGB(
+                        56 + 1 * 4 + 2,
+                        24 + (4 - 2 - 1) * 4 + 2
+                );
+
+        int neighboringGranite =
+                image.getRGB(
+                        56 + 0 * 4 + 2,
+                        24 + (4 - 2 - 1) * 4 + 2
+                );
+
+        assertNotEquals(
+                neighboringGranite,
+                markerPixel
         );
     }
 }

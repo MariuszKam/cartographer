@@ -133,6 +133,12 @@ class GeologyCommandSectionTest {
                         "Chunks failed: 0"
                 )
         );
+
+        assertTrue(
+                output.contains(
+                        "Player marker: column 1 at Y 111"
+                )
+        );
     }
 
     private static ParsedChunk graniteChunk() {
@@ -222,6 +228,18 @@ class GeologyCommandSectionTest {
                 ProgressReporter progress
         ) {
             return registry;
+        }
+
+        @Override
+        public WorldPosition readPlayerPosition(
+                Path savePath,
+                ProgressReporter progress
+        ) {
+            return new WorldPosition(
+                    1.0,
+                    111.0,
+                    0.0
+            );
         }
     }
 }

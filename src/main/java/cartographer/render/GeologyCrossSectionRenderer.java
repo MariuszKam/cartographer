@@ -24,7 +24,7 @@ public class GeologyCrossSectionRenderer {
             24;
 
     private static final int BOTTOM_MARGIN =
-            44;
+            118;
 
     private static final int MAX_IMAGE_DIMENSION =
             8192;
@@ -34,6 +34,9 @@ public class GeologyCrossSectionRenderer {
 
     private static final int EMPTY_HEIGHT =
             100;
+
+    private static final int DISTANCE_TICK_STEP =
+            128;
 
     private static final Color BACKGROUND =
             new Color(
@@ -113,10 +116,47 @@ public class GeologyCrossSectionRenderer {
                     234
             );
 
+    private static final Color FRAME =
+            new Color(
+                    220,
+                    225,
+                    230,
+                    100
+            );
+
+    private static final Color MARKER_LINE =
+            new Color(
+                    74,
+                    192,
+                    255,
+                    180
+            );
+
+    private static final Color MARKER_DOT =
+            new Color(
+                    180,
+                    231,
+                    255
+            );
+
     public BufferedImage render(
             GeologyCrossSection section,
             int horizontalScale,
             int verticalScale
+    ) {
+        return render(
+                section,
+                horizontalScale,
+                verticalScale,
+                null
+        );
+    }
+
+    public BufferedImage render(
+            GeologyCrossSection section,
+            int horizontalScale,
+            int verticalScale,
+            GeologySectionMarker marker
     ) {
         Objects.requireNonNull(
                 section,
@@ -224,10 +264,32 @@ public class GeologyCrossSectionRenderer {
                     mapHeight
             );
 
+            drawMarker(
+                    graphics,
+                    section,
+                    marker,
+                    horizontalScale,
+                    verticalScale,
+                    mapHeight
+            );
+
             drawLabels(
                     graphics,
                     section,
                     mapWidth,
+                    mapHeight
+            );
+
+            drawDistanceTicks(
+                    graphics,
+                    section,
+                    mapWidth,
+                    mapHeight,
+                    horizontalScale
+            );
+
+            drawLegend(
+                    graphics,
                     mapHeight
             );
 
@@ -513,12 +575,7 @@ public class GeologyCrossSectionRenderer {
             int mapHeight
     ) {
         graphics.setColor(
-                new Color(
-                        220,
-                        225,
-                        230,
-                        100
-                )
+                FRAME
         );
 
         graphics.drawRect(
@@ -526,6 +583,94 @@ public class GeologyCrossSectionRenderer {
                 TOP_MARGIN,
                 mapWidth,
                 mapHeight
+        );
+    }
+
+    private void drawMarker(
+            Graphics2D graphics,
+            GeologyCrossSection section,
+            GeologySectionMarker marker,
+            int horizontalScale,
+            int verticalScale,
+            int mapHeight
+    ) {
+        if (marker == null) {
+            return;
+        }
+
+        if (marker.columnIndex()
+                >= section.columns().size()) {
+
+            return;
+        }
+
+        int markerX =
+                LEFT_MARGIN
+                        + marker.columnIndex()
+                        * horizontalScale
+                        + Math.max(
+                        0,
+                        horizontalScale / 2
+                );
+
+        graphics.setColor(
+                MARKER_LINE
+        );
+
+        graphics.drawLine(
+                markerX,
+                TOP_MARGIN,
+                markerX,
+                TOP_MARGIN + mapHeight
+        );
+
+        int clampedY =
+                Math.max(
+                        section.minYInclusive(),
+                        Math.min(
+                                marker.worldY(),
+                                section.maxYExclusive() - 1
+                        )
+                );
+
+        int markerY =
+                TOP_MARGIN
+                        + (
+                        section.maxYExclusive()
+                                - clampedY
+                                - 1
+                )
+                        * verticalScale
+                        + Math.max(
+                        0,
+                        verticalScale / 2
+                );
+
+        graphics.setColor(
+                MARKER_DOT
+        );
+
+        graphics.fillOval(
+                markerX - 4,
+                markerY - 4,
+                8,
+                8
+        );
+
+        graphics.drawString(
+                marker.label()
+                        + " Y="
+                        + marker.worldY(),
+                Math.min(
+                        markerX + 8,
+                        LEFT_MARGIN
+                                + (section.columns().size() - 1)
+                                * horizontalScale
+                ),
+                Math.max(
+                        14,
+                        markerY - 8
+                )
         );
     }
 
@@ -588,6 +733,219 @@ public class GeologyCrossSectionRenderer {
                         + (section.maxYExclusive() - 1),
                 LEFT_MARGIN,
                 bottom + 36
+        );
+    }
+
+    private void drawDistanceTicks(
+            Graphics2D graphics,
+            GeologyCrossSection section,
+            int mapWidth,
+            int mapHeight,
+            int horizontalScale
+    ) {
+        graphics.setColor(
+                TEXT
+        );
+
+        int baselineY =
+                TOP_MARGIN
+                        + mapHeight
+                        + 48;
+
+        int tickTop =
+                baselineY - 10;
+
+        graphics.drawString(
+                "Distance from START",
+                LEFT_MARGIN,
+                baselineY - 16
+        );
+
+        for (int index = 0;
+             index < section.columns().size();
+             index += DISTANCE_TICK_STEP) {
+
+            int x =
+                    LEFT_MARGIN
+                            + index
+                            * horizontalScale;
+
+            graphics.drawLine(
+                    x,
+                    tickTop,
+                    x,
+                    baselineY
+            );
+
+            graphics.drawString(
+                    index + "b",
+                    x,
+                    baselineY + 14
+            );
+        }
+
+        int endX =
+                LEFT_MARGIN
+                        + mapWidth
+                        - 1;
+
+        graphics.drawLine(
+                endX,
+                tickTop,
+                endX,
+                baselineY
+        );
+
+        String endLabel =
+                (section.columns().size() - 1)
+                        + "b";
+
+        int endLabelWidth =
+                graphics.getFontMetrics()
+                        .stringWidth(
+                                endLabel
+                        );
+
+        graphics.drawString(
+                endLabel,
+                Math.max(
+                        LEFT_MARGIN,
+                        endX - endLabelWidth
+                ),
+                baselineY + 14
+        );
+    }
+
+    private void drawLegend(
+            Graphics2D graphics,
+            int mapHeight
+    ) {
+        int baseY =
+                TOP_MARGIN
+                        + mapHeight
+                        + 78;
+
+        int x =
+                LEFT_MARGIN;
+
+        drawLegendItem(
+                graphics,
+                x,
+                baseY,
+                new Color(
+                        153,
+                        128,
+                        126
+                ),
+                "granite"
+        );
+
+        x += 112;
+
+        drawLegendItem(
+                graphics,
+                x,
+                baseY,
+                new Color(
+                        65,
+                        70,
+                        75
+                ),
+                "basalt"
+        );
+
+        x += 108;
+
+        drawLegendItem(
+                graphics,
+                x,
+                baseY,
+                new Color(
+                        172,
+                        143,
+                        95
+                ),
+                "sandstone"
+        );
+
+        x += 128;
+
+        drawLegendItem(
+                graphics,
+                x,
+                baseY,
+                COPPER_ORE,
+                "copper ore"
+        );
+
+        x += 126;
+
+        drawLegendItem(
+                graphics,
+                x,
+                baseY,
+                GENERIC_ORE,
+                "other ore"
+        );
+
+        x += 116;
+
+        drawLegendItem(
+                graphics,
+                x,
+                baseY,
+                AIR,
+                "air / cave"
+        );
+
+        x += 112;
+
+        drawLegendItem(
+                graphics,
+                x,
+                baseY,
+                UNAVAILABLE,
+                "unavailable"
+        );
+    }
+
+    private void drawLegendItem(
+            Graphics2D graphics,
+            int x,
+            int y,
+            Color color,
+            String label
+    ) {
+        graphics.setColor(
+                color
+        );
+
+        graphics.fillRect(
+                x,
+                y - 9,
+                12,
+                12
+        );
+
+        graphics.setColor(
+                FRAME
+        );
+
+        graphics.drawRect(
+                x,
+                y - 9,
+                12,
+                12
+        );
+
+        graphics.setColor(
+                TEXT
+        );
+
+        graphics.drawString(
+                label,
+                x + 18,
+                y + 1
         );
     }
 
@@ -808,8 +1166,7 @@ public class GeologyCrossSectionRenderer {
                 );
 
         return Color.getHSBColor(
-                hueDegrees
-                        / 360.0f,
+                hueDegrees / 360.0f,
                 0.28f,
                 0.62f
         );

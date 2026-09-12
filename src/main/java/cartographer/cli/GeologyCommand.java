@@ -17,6 +17,7 @@ import cartographer.model.ParsedChunk;
 import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldPosition;
 import cartographer.render.GeologyCrossSectionRenderer;
+import cartographer.render.GeologySectionMarker;
 import cartographer.render.PngWriter;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
@@ -546,6 +547,18 @@ public class GeologyCommand implements Command {
                         toZ
                 );
 
+        WorldPosition player =
+                reader.readPlayerPosition(
+                        savePath,
+                        progress
+                );
+
+        GeologySectionMarker playerMarker =
+                playerMarker(
+                        section,
+                        player
+                );
+
         progress.done(
                 "Geology cross-section analyzed"
         );
@@ -561,7 +574,8 @@ public class GeologyCommand implements Command {
                     crossSectionRenderer.render(
                             section,
                             horizontalScale,
-                            verticalScale
+                            verticalScale,
+                            playerMarker
                     );
 
         } catch (IllegalArgumentException | ArithmeticException exception) {
@@ -669,6 +683,20 @@ public class GeologyCommand implements Command {
                 "Vertical scale: "
                         + verticalScale
         );
+
+        if (playerMarker == null) {
+            out.println(
+                    "Player marker: not on section line"
+            );
+
+        } else {
+            out.println(
+                    "Player marker: column "
+                            + playerMarker.columnIndex()
+                            + " at Y "
+                            + playerMarker.worldY()
+            );
+        }
 
         out.println(
                 "Chunks parsed: "
@@ -827,6 +855,42 @@ public class GeologyCommand implements Command {
                         - (double) first
         )
                 / 2.0;
+    }
+
+    private GeologySectionMarker playerMarker(
+            GeologyCrossSection section,
+            WorldPosition player
+    ) {
+        int playerX =
+                (int) Math.round(
+                        player.x()
+                );
+
+        int playerZ =
+                (int) Math.round(
+                        player.z()
+                );
+
+        int playerY =
+                (int) Math.round(
+                        player.y()
+                );
+
+        for (GeologySectionColumn column :
+                section.columns()) {
+
+            if (column.worldX() == playerX
+                    && column.worldZ() == playerZ) {
+
+                return new GeologySectionMarker(
+                        "PLAYER",
+                        column.index(),
+                        playerY
+                );
+            }
+        }
+
+        return null;
     }
 
     private int requiredIntOption(

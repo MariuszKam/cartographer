@@ -470,6 +470,17 @@ public class CommandRouter {
                 "  vs-cartographer geology strata <save.vcdbs>"
         );
 
+        out.println(
+                "  vs-cartographer geology section <save.vcdbs> "
+                        + "--from-x <x> "
+                        + "--from-z <z> "
+                        + "--to-x <x> "
+                        + "--to-z <z> "
+                        + "[--out <section.png>] "
+                        + "[--horizontal-scale <n>] "
+                        + "[--vertical-scale <n>]"
+        );
+
         out.println();
 
         out.println(
