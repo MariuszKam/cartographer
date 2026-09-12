@@ -3,6 +3,8 @@ package cartographer.cli;
 import cartographer.analysis.BlockScanner;
 import cartographer.atlas.AtlasRenderer;
 import cartographer.atlas.TilePyramid;
+import cartographer.coverage.RegionCoverageAnalyzer;
+import cartographer.coverage.RegionCoverageRenderer;
 import cartographer.environment.EnvironmentInterpreter;
 import cartographer.geology.GeologyAnalyzer;
 import cartographer.marker.MarkerStore;
@@ -223,6 +225,21 @@ public class CommandRouter {
                             )
                     );
 
+            case "coverage" ->
+                    new CoverageCommand(
+                            out,
+                            reader,
+                            metadataReader,
+                            homeStore,
+                            new RegionCoverageAnalyzer(),
+                            new RegionCoverageRenderer(),
+                            new PngWriter(),
+                            subcommand(
+                                    args,
+                                    "coverage"
+                            )
+                    );
+
             case "scan" ->
                     new ScanCommand(
                             out,
@@ -358,7 +375,8 @@ public class CommandRouter {
                  "atlas",
                  "mapregion",
                  "environment",
-                 "resource" -> true;
+                 "resource",
+                 "coverage" -> true;
 
             default -> false;
         };
@@ -449,6 +467,15 @@ public class CommandRouter {
         out.println(
                 "  vs-cartographer resource surface-render <save.vcdbs> <match> "
                         + "[--radius <blocks>] [--out <map.png>]"
+        );
+
+        out.println(
+                "  vs-cartographer coverage inspect <save.vcdbs>"
+        );
+
+        out.println(
+                "  vs-cartographer coverage render <save.vcdbs> "
+                        + "--out <coverage.png>"
         );
 
         out.println(
