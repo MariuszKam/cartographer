@@ -16,6 +16,7 @@ import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
+import cartographer.render.ActualOreOverlayPainter;
 import cartographer.render.EnvironmentOverlayRenderer;
 import cartographer.render.GeologyOverlayRenderer;
 import cartographer.render.MapRenderer;
@@ -30,6 +31,9 @@ import cartographer.render.UserMarkerRenderer;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
+import cartographer.scanner.ActualBlockMap;
+import cartographer.scanner.ActualBlockMapScanner;
+import cartographer.scanner.ActualBlockYFilter;
 import cartographer.scanner.SurfaceScanResult;
 import cartographer.scanner.SurfaceScanner;
 
@@ -49,6 +53,8 @@ public class MapCommand implements Command {
     private final MapRenderer renderer;
     private final UserMarkerRenderer userMarkerRenderer;
     private final PngWriter pngWriter;
+    private final ActualBlockMapScanner actualBlockMapScanner;
+    private final ActualOreOverlayPainter actualOreOverlayPainter;
     private final String subcommand;
 
     private final EnvironmentInterpreter environmentInterpreter =
@@ -77,6 +83,34 @@ public class MapCommand implements Command {
             PngWriter pngWriter,
             String subcommand
     ) {
+        this(
+                out,
+                reader,
+                metadataReader,
+                homeStore,
+                markerStore,
+                renderer,
+                userMarkerRenderer,
+                pngWriter,
+                new ActualBlockMapScanner(),
+                new ActualOreOverlayPainter(),
+                subcommand
+        );
+    }
+
+    public MapCommand(
+            PrintStream out,
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            HomeStore homeStore,
+            MarkerStore markerStore,
+            MapRenderer renderer,
+            UserMarkerRenderer userMarkerRenderer,
+            PngWriter pngWriter,
+            ActualBlockMapScanner actualBlockMapScanner,
+            ActualOreOverlayPainter actualOreOverlayPainter,
+            String subcommand
+    ) {
         this.out = out;
         this.reader = reader;
         this.metadataReader = metadataReader;
@@ -85,6 +119,8 @@ public class MapCommand implements Command {
         this.renderer = renderer;
         this.userMarkerRenderer = userMarkerRenderer;
         this.pngWriter = pngWriter;
+        this.actualBlockMapScanner = actualBlockMapScanner;
+        this.actualOreOverlayPainter = actualOreOverlayPainter;
         this.subcommand = subcommand;
     }
 
@@ -149,6 +185,11 @@ public class MapCommand implements Command {
                                         "--layers"
                                 ).orElse("")
                         )
+                );
+
+        ActualOreRequest actualOreRequest =
+                actualOreRequest(
+                        args
                 );
 
         Path output =
@@ -250,9 +291,20 @@ public class MapCommand implements Command {
                         progress
                 );
 
-        if (hasMapRegionOverlay(
+        ActualBlockMap actualOreMap =
+                drawActualOreOverlay(
+                        savePath,
+                        rendered,
+                        center,
+                        radius,
+                        actualOreRequest,
+                        progress
+                );
+
+        if ((hasMapRegionOverlay(
                 options
         )
+                || actualOreMap != null)
                 && options.layers()
                 .contains(
                         RenderLayer.MARKERS
@@ -308,8 +360,100 @@ public class MapCommand implements Command {
                 mapRegionDiagnostics,
                 surface,
                 environmentOverlay,
-                geologyOverlay
+                geologyOverlay,
+                actualOreMap
         );
+    }
+
+    private ActualBlockMap drawActualOreOverlay(
+            Path savePath,
+            RenderedMap rendered,
+            WorldPosition center,
+            int radius,
+            ActualOreRequest request,
+            ProgressReporter progress
+    ) {
+        if (!request.enabled()) {
+            return null;
+        }
+
+        ReadDiagnostics diagnostics =
+                new ReadDiagnostics();
+
+        List<ParsedChunk> chunks =
+                reader.readChunksAround(
+                        savePath,
+                        center,
+                        radius,
+                        diagnostics,
+                        progress
+                );
+
+        Map<Integer, BlockInfo> registry =
+                reader.readBlockRegistry(
+                        savePath,
+                        progress
+                );
+
+        int centerX =
+                (int) Math.round(
+                        center.x()
+                );
+
+        int centerZ =
+                (int) Math.round(
+                        center.z()
+                );
+
+        progress.start(
+                "Scanning actual ore overlay"
+        );
+
+        ActualBlockMap map =
+                actualBlockMapScanner.scan(
+                        chunks,
+                        registry,
+                        centerX,
+                        centerZ,
+                        radius,
+                        request.match()
+                                .orElseThrow(),
+                        request.yFilter()
+                );
+
+        progress.done(
+                "Actual ore overlay scanned"
+        );
+
+        progress.start(
+                "Drawing actual ore overlay"
+        );
+
+        actualOreOverlayPainter.paint(
+                rendered.image(),
+                map,
+                center,
+                radius
+        );
+
+        progress.done(
+                "Actual ore overlay drawn"
+        );
+
+        printFailureReasons(
+                "Actual ore chunk failure reasons",
+                diagnostics
+        );
+
+        printLiquidFailureReasons(
+                diagnostics
+        );
+
+        printNotes(
+                diagnostics
+        );
+
+        return map;
     }
 
     private List<ServerMapRegion> mapRegions(
@@ -441,7 +585,8 @@ public class MapCommand implements Command {
             ReadDiagnostics mapRegionDiagnostics,
             SurfaceScanResult surface,
             OverlayRenderReport environmentOverlay,
-            OverlayRenderReport geologyOverlay
+            OverlayRenderReport geologyOverlay,
+            ActualBlockMap actualOreMap
     ) {
         out.println(
                 "MAP"
@@ -608,6 +753,29 @@ public class MapCommand implements Command {
             printOverlayReport(
                     "Geology overlay",
                     geologyOverlay
+            );
+        }
+
+        if (actualOreMap != null) {
+            out.println(
+                    "Actual ore overlay: "
+                            + actualOreMap.match()
+            );
+
+            out.println(
+                    "Actual ore Y filter: "
+                            + actualOreMap.yFilter()
+                            .description()
+            );
+
+            out.println(
+                    "Actual ore matching blocks: "
+                            + actualOreMap.matchingBlocks()
+            );
+
+            out.println(
+                    "Actual ore hit columns: "
+                            + actualOreMap.hitColumns()
             );
         }
 
@@ -828,6 +996,89 @@ public class MapCommand implements Command {
                 );
     }
 
+    private ActualOreRequest actualOreRequest(
+            String[] args
+    ) {
+        Optional<String> match =
+                option(
+                        args,
+                        "--actual-ore"
+                );
+
+        if (match.isPresent()
+                && match.get().isBlank()) {
+
+            throw new CommandException(
+                    "--actual-ore must not be blank"
+            );
+        }
+
+        Integer yMin =
+                optionalIntegerOption(
+                        args,
+                        "--actual-y-min"
+                );
+
+        Integer yMax =
+                optionalIntegerOption(
+                        args,
+                        "--actual-y-max"
+                );
+
+        if (match.isEmpty()
+                && (yMin != null
+                || yMax != null)) {
+            throw new CommandException(
+                    "--actual-y-min and --actual-y-max require --actual-ore"
+            );
+        }
+
+        if (yMin != null
+                && yMax != null
+                && yMin > yMax) {
+            throw new CommandException(
+                    "--actual-y-min must not be greater than --actual-y-max"
+            );
+        }
+
+        return new ActualOreRequest(
+                match,
+                new ActualBlockYFilter(
+                        yMin,
+                        yMax
+                )
+        );
+    }
+
+    private Integer optionalIntegerOption(
+            String[] args,
+            String optionName
+    ) {
+        Optional<String> value =
+                option(
+                        args,
+                        optionName
+                );
+
+        if (value.isEmpty()) {
+            return null;
+        }
+
+        try {
+            return Integer.parseInt(
+                    value.orElseThrow()
+            );
+
+        } catch (NumberFormatException exception) {
+            throw new CommandException(
+                    "Invalid "
+                            + optionName
+                            + ": "
+                            + value.orElse("")
+            );
+        }
+    }
+
     private int intOption(
             String[] args,
             String optionName,
@@ -1022,5 +1273,15 @@ public class MapCommand implements Command {
                         absolute.z()
                 )
         );
+    }
+
+    private record ActualOreRequest(
+            Optional<String> match,
+            ActualBlockYFilter yFilter
+    ) {
+
+        private boolean enabled() {
+            return match.isPresent();
+        }
     }
 }

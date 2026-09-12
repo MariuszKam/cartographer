@@ -440,7 +440,10 @@ public class CommandRouter {
                         + "[--center-x <x> --center-z <z>] "
                         + "[--scale <n>] "
                         + "[--style simple|topographic|high-contrast] "
-                        + "[--layers terrain,surface,environment,geology,markers]"
+                        + "[--layers terrain,surface,environment,geology,markers] "
+                        + "[--actual-ore <text>] "
+                        + "[--actual-y-min <y>] "
+                        + "[--actual-y-max <y>]"
         );
 
         out.println(
