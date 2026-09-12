@@ -7,12 +7,7 @@ public class ForestInterpreter {
     public ForestSample interpret(
             int rawValue
     ) {
-        double normalized =
-                clamp(
-                        rawValue / MAX_DENSITY_VALUE,
-                        0.0,
-                        1.0
-                );
+        double normalized = Math.clamp(rawValue / MAX_DENSITY_VALUE, 0.0, 1.0);
 
         return new ForestSample(
                 rawValue,
@@ -49,15 +44,4 @@ public class ForestInterpreter {
         return ForestDensityClass.VERY_DENSE;
     }
 
-    private double clamp(
-            double value,
-            double min,
-            double max
-    ) {
-        return Math.clamp(
-                max,
-                min,
-                value
-        );
-    }
 }

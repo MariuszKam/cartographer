@@ -198,7 +198,7 @@ public class VcdbsReader {
                     "Save opened read-only"
             );
 
-            if (tableExists(
+            if (tableMissing(
                     connection,
                     SaveTable.MAPCHUNK.tableName()
             )) {
@@ -259,7 +259,7 @@ public class VcdbsReader {
                     "Save opened read-only"
             );
 
-            if (tableExists(
+            if (tableMissing(
                     connection,
                     SaveTable.CHUNK.tableName()
             )) {
@@ -362,7 +362,7 @@ public class VcdbsReader {
                     "Save opened read-only"
             );
 
-            if (tableExists(
+            if (tableMissing(
                     connection,
                     SaveTable.MAPREGION.tableName()
             )) {
@@ -392,7 +392,7 @@ public class VcdbsReader {
             Connection connection
     ) throws SQLException {
 
-        if (tableExists(
+        if (tableMissing(
                 connection,
                 SaveTable.GAMEDATA.tableName()
         )) {
@@ -1245,7 +1245,7 @@ public class VcdbsReader {
             SaveTable table
     ) throws SQLException {
 
-        if (tableExists(
+        if (tableMissing(
                 connection,
                 table.tableName()
         )) {
@@ -1257,7 +1257,7 @@ public class VcdbsReader {
         }
     }
 
-    private boolean tableExists(
+    private boolean tableMissing(
             Connection connection,
             String tableName
     ) throws SQLException {
