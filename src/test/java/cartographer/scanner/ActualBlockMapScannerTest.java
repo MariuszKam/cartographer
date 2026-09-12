@@ -277,6 +277,58 @@ class ActualBlockMapScannerTest {
         );
     }
 
+    @Test
+    void unboundedYFilterFindsAllYValues() {
+        ActualBlockMap map =
+                new ActualBlockMapScanner().scan(
+                        chunksWithCopperAtYValues(),
+                        registry(),
+                        0,
+                        0,
+                        16,
+                        "copper"
+                );
+
+        assertEquals(
+                4,
+                map.matchingBlocks()
+        );
+
+        assertEquals(
+                1,
+                map.hitColumns()
+        );
+
+        assertEquals(
+                5,
+                map.minMatchedY()
+        );
+
+        assertEquals(
+                70,
+                map.maxMatchedY()
+        );
+
+        ActualBlockMapCell cell =
+                map.cells()
+                        .getFirst();
+
+        assertEquals(
+                4,
+                cell.matchCount()
+        );
+
+        assertEquals(
+                5,
+                cell.minY()
+        );
+
+        assertEquals(
+                70,
+                cell.maxY()
+        );
+    }
+
     private Map<Integer, BlockInfo> registry() {
         return Map.of(
                 1,

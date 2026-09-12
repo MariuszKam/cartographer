@@ -565,6 +565,8 @@ public class CommandRouter {
                         + "--match <text> "
                         + "[--radius <blocks>] "
                         + "[--center-x <x> --center-z <z>] "
+                        + "[--y-min <y>] "
+                        + "[--y-max <y>] "
                         + "[--scale <n>] "
                         + "[--out <image.png>]"
         );
