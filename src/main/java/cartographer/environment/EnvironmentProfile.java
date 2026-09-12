@@ -8,7 +8,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public record EnvironmentProfile(
         MapRegionCoordinate coordinate,
         Optional<ClimateSummary> climate,
@@ -24,44 +23,39 @@ public record EnvironmentProfile(
                 "EnvironmentProfile coordinate is required"
         );
 
-        climate =
-                Objects.requireNonNull(
-                        climate,
-                        "EnvironmentProfile climate is required"
-                );
+        Objects.requireNonNull(
+                climate,
+                "EnvironmentProfile climate is required"
+        );
 
-        forest =
-                Objects.requireNonNull(
-                        forest,
-                        "EnvironmentProfile forest is required"
-                );
+        Objects.requireNonNull(
+                forest,
+                "EnvironmentProfile forest is required"
+        );
 
-        ocean =
-                Objects.requireNonNull(
-                        ocean,
-                        "EnvironmentProfile ocean is required"
-                );
+        Objects.requireNonNull(
+                ocean,
+                "EnvironmentProfile ocean is required"
+        );
 
-        landform =
-                Objects.requireNonNull(
-                        landform,
-                        "EnvironmentProfile landform is required"
-                );
+        Objects.requireNonNull(
+                landform,
+                "EnvironmentProfile landform is required"
+        );
 
-        geologicProvince =
-                Objects.requireNonNull(
-                        geologicProvince,
-                        "EnvironmentProfile geologicProvince is required"
-                );
+        Objects.requireNonNull(
+                geologicProvince,
+                "EnvironmentProfile geologicProvince is required"
+        );
 
         labels =
                 labels == null
                         || labels.isEmpty()
                         ? Set.of()
                         : Collections.unmodifiableSet(
-                                EnumSet.copyOf(
-                                        labels
-                                )
-                        );
+                        EnumSet.copyOf(
+                                labels
+                        )
+                );
     }
 }

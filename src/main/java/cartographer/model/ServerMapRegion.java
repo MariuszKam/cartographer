@@ -22,35 +22,30 @@ public record ServerMapRegion(
                 "ServerMapRegion coordinate is required"
         );
 
-        climateMap =
-                Objects.requireNonNull(
-                        climateMap,
-                        "ServerMapRegion climateMap is required"
-                );
+        Objects.requireNonNull(
+                climateMap,
+                "ServerMapRegion climateMap is required"
+        );
 
-        forestMap =
-                Objects.requireNonNull(
-                        forestMap,
-                        "ServerMapRegion forestMap is required"
-                );
+        Objects.requireNonNull(
+                forestMap,
+                "ServerMapRegion forestMap is required"
+        );
 
-        landformMap =
-                Objects.requireNonNull(
-                        landformMap,
-                        "ServerMapRegion landformMap is required"
-                );
+        Objects.requireNonNull(
+                landformMap,
+                "ServerMapRegion landformMap is required"
+        );
 
-        geologicProvinceMap =
-                Objects.requireNonNull(
-                        geologicProvinceMap,
-                        "ServerMapRegion geologicProvinceMap is required"
-                );
+        Objects.requireNonNull(
+                geologicProvinceMap,
+                "ServerMapRegion geologicProvinceMap is required"
+        );
 
-        oceanMap =
-                Objects.requireNonNull(
-                        oceanMap,
-                        "ServerMapRegion oceanMap is required"
-                );
+        Objects.requireNonNull(
+                oceanMap,
+                "ServerMapRegion oceanMap is required"
+        );
 
         oreMaps =
                 Map.copyOf(
