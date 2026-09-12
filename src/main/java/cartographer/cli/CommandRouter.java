@@ -463,11 +463,16 @@ public class CommandRouter {
 
         out.println(
                 "  vs-cartographer markers add <save.vcdbs> "
-                        + "<name> <display-x> <display-z>"
+                        + "<name...> <display-x> <display-z>"
         );
 
         out.println(
-                "  vs-cartographer markers here <save.vcdbs> <name>"
+                "  vs-cartographer markers update <save.vcdbs> "
+                        + "<name...> <display-x> <display-z>"
+        );
+
+        out.println(
+                "  vs-cartographer markers here <save.vcdbs> <name...>"
         );
 
         out.println(
@@ -475,7 +480,7 @@ public class CommandRouter {
         );
 
         out.println(
-                "  vs-cartographer markers remove <save.vcdbs> <name>"
+                "  vs-cartographer markers remove <save.vcdbs> <name...>"
         );
 
         out.println(
