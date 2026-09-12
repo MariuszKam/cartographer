@@ -1,5 +1,6 @@
 package cartographer.cli;
 
+import cartographer.marker.MarkerStore;
 import cartographer.model.BlockInfo;
 import cartographer.model.HomeLocation;
 import cartographer.model.MapChunk;
@@ -18,6 +19,7 @@ import cartographer.render.PngWriter;
 import cartographer.render.RenderOptions;
 import cartographer.render.RenderStyle;
 import cartographer.render.RenderedMap;
+import cartographer.render.UserMarkerRenderer;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
@@ -53,6 +55,13 @@ class MapCommandTest {
                         )
                 );
 
+        MarkerStore markerStore =
+                new MarkerStore(
+                        tempDir.resolve(
+                                "markers.csv"
+                        )
+                );
+
         homeStore.save(
                 savePath,
                 new HomeLocation(
@@ -72,7 +81,9 @@ class MapCommandTest {
                         new FakeReader(),
                         new FakeMetadataReader(),
                         homeStore,
+                        markerStore,
                         renderer,
+                        new UserMarkerRenderer(),
                         new NoopPngWriter(),
                         "render"
                 );
