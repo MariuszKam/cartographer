@@ -12,13 +12,20 @@ import java.nio.file.Path;
 import java.util.Map;
 
 public class IncrementalCommand implements Command {
+
     private final PrintStream out;
     private final RenderCache cache;
     private final IncrementalRenderIndex incrementalIndex;
     private final SaveIndexReader indexReader;
     private final String subcommand;
 
-    public IncrementalCommand(PrintStream out, RenderCache cache, IncrementalRenderIndex incrementalIndex, SaveIndexReader indexReader, String subcommand) {
+    public IncrementalCommand(
+            PrintStream out,
+            RenderCache cache,
+            IncrementalRenderIndex incrementalIndex,
+            SaveIndexReader indexReader,
+            String subcommand
+    ) {
         this.out = out;
         this.cache = cache;
         this.incrementalIndex = incrementalIndex;
@@ -27,44 +34,147 @@ public class IncrementalCommand implements Command {
     }
 
     @Override
-    public int run(String[] args) {
+    public void run(
+            String[] args
+    ) {
         if (args.length < 1) {
-            throw new CommandException("Usage: incremental " + subcommand + " <save.vcdbs>");
-        }
-        Path savePath = Path.of(args[0]);
-        switch (subcommand) {
-            case "status" -> status(savePath);
-            case "update" -> update(savePath);
-            default -> throw new CommandException("Unknown incremental subcommand: " + subcommand);
+            throw new CommandException(
+                    "Usage: incremental "
+                            + subcommand
+                            + " <save.vcdbs>"
+            );
         }
 
-        return 0;
+        Path savePath =
+                Path.of(
+                        args[0]
+                );
+
+        switch (subcommand) {
+            case "status" ->
+                    status(
+                            savePath
+                    );
+
+            case "update" ->
+                    update(
+                            savePath
+                    );
+
+            default ->
+                    throw new CommandException(
+                            "Unknown incremental subcommand: "
+                                    + subcommand
+                    );
+        }
     }
 
-    private void status(Path savePath) {
-        ProgressReporter progress = new ProgressReporter(out);
-        CacheKey key = cache.key(savePath);
-        SaveIndex index = indexReader.read(savePath, progress);
-        IncrementalState current = incrementalIndex.from(index, key);
+    private void status(
+            Path savePath
+    ) {
+        ProgressReporter progress =
+                new ProgressReporter(
+                        out
+                );
 
-        out.println("INCREMENTAL STATUS");
-        out.println("Index exists: " + incrementalIndex.exists(key));
-        if (!incrementalIndex.exists(key)) {
-            out.println("Changed tables: all");
+        CacheKey key =
+                cache.key(
+                        savePath
+                );
+
+        SaveIndex index =
+                indexReader.read(
+                        savePath,
+                        progress
+                );
+
+        IncrementalState current =
+                incrementalIndex.from(
+                        index,
+                        key
+                );
+
+        out.println(
+                "INCREMENTAL STATUS"
+        );
+
+        out.println(
+                "Index exists: "
+                        + incrementalIndex.exists(
+                        key
+                )
+        );
+
+        if (!incrementalIndex.exists(
+                key
+        )) {
+            out.println(
+                    "Changed tables: all"
+            );
+
             return;
         }
-        Map<String, String> changes = incrementalIndex.changes(incrementalIndex.read(key), current);
-        out.println("Changed tables: " + changes.size());
-        changes.forEach((table, state) -> out.println("  " + table + ": " + state));
+
+        Map<String, String> changes =
+                incrementalIndex.changes(
+                        incrementalIndex.read(
+                                key
+                        ),
+                        current
+                );
+
+        out.println(
+                "Changed tables: "
+                        + changes.size()
+        );
+
+        changes.forEach(
+                (table, state) ->
+                        out.println(
+                                "  "
+                                        + table
+                                        + ": "
+                                        + state
+                        )
+        );
     }
 
-    private void update(Path savePath) {
-        ProgressReporter progress = new ProgressReporter(out);
-        CacheKey key = cache.key(savePath);
-        SaveIndex index = indexReader.read(savePath, progress);
-        incrementalIndex.write(key, incrementalIndex.from(index, key));
+    private void update(
+            Path savePath
+    ) {
+        ProgressReporter progress =
+                new ProgressReporter(
+                        out
+                );
 
-        out.println("INCREMENTAL INDEX UPDATED");
-        out.println("Path: " + incrementalIndex.path(key));
+        CacheKey key =
+                cache.key(
+                        savePath
+                );
+
+        SaveIndex index =
+                indexReader.read(
+                        savePath,
+                        progress
+                );
+
+        incrementalIndex.write(
+                key,
+                incrementalIndex.from(
+                        index,
+                        key
+                )
+        );
+
+        out.println(
+                "INCREMENTAL INDEX UPDATED"
+        );
+
+        out.println(
+                "Path: "
+                        + incrementalIndex.path(
+                        key
+                )
+        );
     }
 }

@@ -88,22 +88,16 @@ class MapCommandTest {
                         "render"
                 );
 
-        int exitCode =
-                command.run(
-                        new String[]{
-                                savePath.toString(),
-                                "--radius",
-                                "64",
-                                "--out",
-                                tempDir.resolve(
-                                        "map.png"
-                                ).toString()
-                        }
-                );
-
-        assertEquals(
-                0,
-                exitCode
+        command.run(
+                new String[]{
+                        savePath.toString(),
+                        "--radius",
+                        "64",
+                        "--out",
+                        tempDir.resolve(
+                                "map.png"
+                        ).toString()
+                }
         );
 
         assertEquals(

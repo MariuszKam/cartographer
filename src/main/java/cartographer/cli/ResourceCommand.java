@@ -122,7 +122,7 @@ public class ResourceCommand implements Command {
     }
 
     @Override
-    public int run(
+    public void run(
             String[] args
     ) {
         switch (subcommand) {
@@ -162,8 +162,6 @@ public class ResourceCommand implements Command {
                                     + subcommand
                     );
         }
-
-        return 0;
     }
 
     private void list(

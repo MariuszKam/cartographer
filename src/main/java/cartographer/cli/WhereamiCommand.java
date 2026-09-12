@@ -29,7 +29,7 @@ public class WhereamiCommand
     }
 
     @Override
-    public int run(
+    public void run(
             String[] args
     ) {
         if (args.length < 1) {
@@ -84,10 +84,14 @@ public class WhereamiCommand
                 );
 
         out.println();
-        out.println("PLAYER");
+        out.println(
+                "PLAYER"
+        );
         out.println();
 
-        out.println("Game position:");
+        out.println(
+                "Game position:"
+        );
 
         out.printf(
                 Locale.ROOT,
@@ -109,7 +113,9 @@ public class WhereamiCommand
 
         out.println();
 
-        out.println("Save position:");
+        out.println(
+                "Save position:"
+        );
 
         out.printf(
                 Locale.ROOT,
@@ -161,8 +167,6 @@ public class WhereamiCommand
                         .regionCoordinate()
                         .z()
         );
-
-        return 0;
     }
 
     private Optional<String> playerSelector(

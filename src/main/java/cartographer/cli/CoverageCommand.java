@@ -54,7 +54,7 @@ public class CoverageCommand implements Command {
     }
 
     @Override
-    public int run(
+    public void run(
             String[] args
     ) {
         switch (subcommand) {
@@ -74,8 +74,6 @@ public class CoverageCommand implements Command {
                                     + subcommand
                     );
         }
-
-        return 0;
     }
 
     private void inspect(

@@ -40,20 +40,14 @@ class MarkerCommandTest {
                         "add"
                 );
 
-        int exitCode =
-                command.run(
-                        new String[]{
-                                savePath.toString(),
-                                "RED",
-                                "CLAY",
-                                "-834",
-                                "259"
-                        }
-                );
-
-        assertEquals(
-                0,
-                exitCode
+        command.run(
+                new String[]{
+                        savePath.toString(),
+                        "RED",
+                        "CLAY",
+                        "-834",
+                        "259"
+                }
         );
 
         assertEquals(
@@ -95,20 +89,14 @@ class MarkerCommandTest {
                         "update"
                 );
 
-        int exitCode =
-                command.run(
-                        new String[]{
-                                savePath.toString(),
-                                "RED",
-                                "CLAY",
-                                "-800",
-                                "300"
-                        }
-                );
-
-        assertEquals(
-                0,
-                exitCode
+        command.run(
+                new String[]{
+                        savePath.toString(),
+                        "RED",
+                        "CLAY",
+                        "-800",
+                        "300"
+                }
         );
 
         assertEquals(
@@ -150,18 +138,12 @@ class MarkerCommandTest {
                         "remove"
                 );
 
-        int exitCode =
-                command.run(
-                        new String[]{
-                                savePath.toString(),
-                                "BLUE",
-                                "CLAY"
-                        }
-                );
-
-        assertEquals(
-                0,
-                exitCode
+        command.run(
+                new String[]{
+                        savePath.toString(),
+                        "BLUE",
+                        "CLAY"
+                }
         );
 
         assertTrue(
@@ -211,16 +193,10 @@ class MarkerCommandTest {
                         "clear"
                 );
 
-        int exitCode =
-                command.run(
-                        new String[]{
-                                firstSave.toString()
-                        }
-                );
-
-        assertEquals(
-                0,
-                exitCode
+        command.run(
+                new String[]{
+                        firstSave.toString()
+                }
         );
 
         assertTrue(

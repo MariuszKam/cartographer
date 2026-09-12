@@ -40,14 +40,22 @@ public class ScanCommand implements Command {
     }
 
     @Override
-    public int run(String[] args) {
-        if ("blocks".equals(subcommand)) {
-            scanBlocks(args);
+    public void run(
+            String[] args
+    ) {
+        if ("blocks".equals(
+                subcommand
+        )) {
+            scanBlocks(
+                    args
+            );
 
-            return 0;
+            return;
         }
 
-        if (!"surface".equals(subcommand)) {
+        if (!"surface".equals(
+                subcommand
+        )) {
             throw new CommandException(
                     "Unknown scan subcommand: "
                             + subcommand
@@ -63,7 +71,9 @@ public class ScanCommand implements Command {
         }
 
         Path savePath =
-                Path.of(args[0]);
+                Path.of(
+                        args[0]
+                );
 
         int radius =
                 intOption(
@@ -73,7 +83,9 @@ public class ScanCommand implements Command {
                 );
 
         ProgressReporter progress =
-                new ProgressReporter(out);
+                new ProgressReporter(
+                        out
+                );
 
         WorldPosition player =
                 reader.readPlayerPosition(
@@ -103,14 +115,30 @@ public class ScanCommand implements Command {
                 scanner.scan(
                         chunks,
                         registry,
-                        !includeFoliage(args),
+                        !includeFoliage(
+                                args
+                        ),
                         progress
                 );
 
-        out.println("SURFACE");
-        out.println("Chunks parsed: " + diagnostics.parsed());
-        out.println("Chunks skipped: " + diagnostics.skipped());
-        out.println("Chunks failed: " + diagnostics.failed());
+        out.println(
+                "SURFACE"
+        );
+
+        out.println(
+                "Chunks parsed: "
+                        + diagnostics.parsed()
+        );
+
+        out.println(
+                "Chunks skipped: "
+                        + diagnostics.skipped()
+        );
+
+        out.println(
+                "Chunks failed: "
+                        + diagnostics.failed()
+        );
 
         printFailureReasons(
                 diagnostics
@@ -120,13 +148,40 @@ public class ScanCommand implements Command {
                 diagnostics
         );
 
-        out.println("Registry blocks: " + registry.size());
-        out.println("Columns scanned: " + result.columnsScanned());
-        out.println("Empty columns: " + result.emptyColumns());
-        out.println("Liquid unavailable columns: " + result.liquidUnavailableColumns());
-        out.println("Surface blocks: " + result.blocks().size());
-        out.println("Water columns: " + result.waterColumns());
-        out.println("Unknown surface blocks: " + result.unknownSurfaceBlocks());
+        out.println(
+                "Registry blocks: "
+                        + registry.size()
+        );
+
+        out.println(
+                "Columns scanned: "
+                        + result.columnsScanned()
+        );
+
+        out.println(
+                "Empty columns: "
+                        + result.emptyColumns()
+        );
+
+        out.println(
+                "Liquid unavailable columns: "
+                        + result.liquidUnavailableColumns()
+        );
+
+        out.println(
+                "Surface blocks: "
+                        + result.blocks().size()
+        );
+
+        out.println(
+                "Water columns: "
+                        + result.waterColumns()
+        );
+
+        out.println(
+                "Unknown surface blocks: "
+                        + result.unknownSurfaceBlocks()
+        );
 
         printTopUnknownSurfaceBlockCodes(
                 result
@@ -141,7 +196,9 @@ public class ScanCommand implements Command {
 
         result.blocks()
                 .stream()
-                .limit(20)
+                .limit(
+                        20
+                )
                 .forEach(
                         this::printSurfaceBlock
                 );
@@ -150,11 +207,10 @@ public class ScanCommand implements Command {
                 .forEach(
                         note ->
                                 out.println(
-                                        "Note: " + note
+                                        "Note: "
+                                                + note
                                 )
                 );
-
-        return 0;
     }
 
     private void scanBlocks(

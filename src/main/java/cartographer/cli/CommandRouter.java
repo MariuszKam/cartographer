@@ -75,11 +75,13 @@ public class CommandRouter {
                             args
                     );
 
-            return command.run(
+            command.run(
                     commandArgs(
                             args
                     )
             );
+
+            return 0;
 
         } catch (CommandException exception) {
             err.println(

@@ -43,7 +43,7 @@ public class AtlasCommand implements Command {
     }
 
     @Override
-    public int run(
+    public void run(
             String[] args
     ) {
         if (!"render".equals(
@@ -190,8 +190,6 @@ public class AtlasCommand implements Command {
                                                 + note
                                 )
                 );
-
-        return 0;
     }
 
     private Optional<WorldPosition> center(

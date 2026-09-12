@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 public class EnvironmentCommand implements Command {
+
     private final PrintStream out;
     private final VcdbsReader reader;
     private final EnvironmentInterpreter interpreter;
@@ -33,10 +34,12 @@ public class EnvironmentCommand implements Command {
     }
 
     @Override
-    public int run(
+    public void run(
             String[] args
     ) {
-        if (!"inspect".equals(subcommand)) {
+        if (!"inspect".equals(
+                subcommand
+        )) {
             throw new CommandException(
                     "Unknown environment subcommand: "
                             + subcommand
@@ -69,10 +72,24 @@ public class EnvironmentCommand implements Command {
                         progress
                 );
 
-        out.println("ENVIRONMENT");
-        out.println("Regions parsed: " + diagnostics.parsed());
-        out.println("Regions skipped: " + diagnostics.skipped());
-        out.println("Regions failed: " + diagnostics.failed());
+        out.println(
+                "ENVIRONMENT"
+        );
+
+        out.println(
+                "Regions parsed: "
+                        + diagnostics.parsed()
+        );
+
+        out.println(
+                "Regions skipped: "
+                        + diagnostics.skipped()
+        );
+
+        out.println(
+                "Regions failed: "
+                        + diagnostics.failed()
+        );
 
         printFailureReasons(
                 diagnostics
@@ -90,11 +107,10 @@ public class EnvironmentCommand implements Command {
                 .forEach(
                         note ->
                                 out.println(
-                                        "Note: " + note
+                                        "Note: "
+                                                + note
                                 )
                 );
-
-        return 0;
     }
 
     private void printProfile(

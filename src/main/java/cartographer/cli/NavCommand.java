@@ -41,7 +41,7 @@ public class NavCommand
     }
 
     @Override
-    public int run(
+    public void run(
             String[] args
     ) {
         if (!"home".equals(
@@ -106,7 +106,9 @@ public class NavCommand
                         );
 
         out.println();
-        out.println("NAVIGATION");
+        out.println(
+                "NAVIGATION"
+        );
         out.println();
 
         out.printf(
@@ -141,7 +143,5 @@ public class NavCommand
                 "Bearing: %.1f degrees%n",
                 direction.bearingDegrees()
         );
-
-        return 0;
     }
 }

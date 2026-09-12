@@ -95,20 +95,14 @@ class CoverageCommandTest {
                         "render"
                 );
 
-        int exitCode =
-                command.run(
-                        new String[]{
-                                savePath.toString(),
-                                "--out",
-                                tempDir.resolve(
-                                        "coverage.png"
-                                ).toString()
-                        }
-                );
-
-        assertEquals(
-                0,
-                exitCode
+        command.run(
+                new String[]{
+                        savePath.toString(),
+                        "--out",
+                        tempDir.resolve(
+                                "coverage.png"
+                        ).toString()
+                }
         );
 
         assertEquals(

@@ -36,15 +36,19 @@ public class HomeCommand
     }
 
     @Override
-    public int run(
+    public void run(
             String[] args
     ) {
         switch (subcommand) {
             case "set" ->
-                    set(args);
+                    set(
+                            args
+                    );
 
             case "show" ->
-                    show(args);
+                    show(
+                            args
+                    );
 
             default ->
                     throw new CommandException(
@@ -52,8 +56,6 @@ public class HomeCommand
                                     + subcommand
                     );
         }
-
-        return 0;
     }
 
     private void set(

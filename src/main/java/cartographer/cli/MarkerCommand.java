@@ -51,7 +51,7 @@ public class MarkerCommand implements Command {
     }
 
     @Override
-    public int run(
+    public void run(
             String[] args
     ) {
         switch (subcommand) {
@@ -91,8 +91,6 @@ public class MarkerCommand implements Command {
                                     + subcommand
                     );
         }
-
-        return 0;
     }
 
     /*

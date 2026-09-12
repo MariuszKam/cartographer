@@ -15,7 +15,12 @@ public class CacheCommand implements Command {
     private final SaveIndexReader indexReader;
     private final String subcommand;
 
-    public CacheCommand(PrintStream out, RenderCache cache, SaveIndexReader indexReader, String subcommand) {
+    public CacheCommand(
+            PrintStream out,
+            RenderCache cache,
+            SaveIndexReader indexReader,
+            String subcommand
+    ) {
         this.out = out;
         this.cache = cache;
         this.indexReader = indexReader;
@@ -23,52 +28,148 @@ public class CacheCommand implements Command {
     }
 
     @Override
-    public int run(String[] args) {
+    public void run(
+            String[] args
+    ) {
         if (args.length < 1) {
-            throw new CommandException("Usage: cache " + subcommand + " <save.vcdbs>");
+            throw new CommandException(
+                    "Usage: cache "
+                            + subcommand
+                            + " <save.vcdbs>"
+            );
         }
-        Path savePath = Path.of(args[0]);
+
+        Path savePath =
+                Path.of(
+                        args[0]
+                );
+
         switch (subcommand) {
-            case "warm" -> warm(savePath);
-            case "status" -> status(savePath);
-            default -> throw new CommandException("Unknown cache subcommand: " + subcommand);
-        }
+            case "warm" ->
+                    warm(
+                            savePath
+                    );
 
-        return 0;
-    }
+            case "status" ->
+                    status(
+                            savePath
+                    );
 
-    private void warm(Path savePath) {
-        ProgressReporter progress = new ProgressReporter(out);
-        SaveIndex index = indexReader.read(savePath, progress);
-        CacheKey key = cache.key(savePath);
-        cache.write(key, serialize(index));
-        out.println("CACHE WARMED");
-        out.println("Key: " + key.fileName());
-        out.println("Path: " + cache.path(key));
-    }
-
-    private void status(Path savePath) {
-        CacheKey key = cache.key(savePath);
-        out.println("CACHE");
-        out.println("Key: " + key.fileName());
-        out.println("Exists: " + cache.exists(key));
-        if (cache.exists(key)) {
-            out.println(cache.read(key));
+            default ->
+                    throw new CommandException(
+                            "Unknown cache subcommand: "
+                                    + subcommand
+                    );
         }
     }
 
-    private String serialize(SaveIndex index) {
-        StringBuilder builder = new StringBuilder();
-        for (TableIndex table : index.tables()) {
-            builder.append(table.tableName())
-                    .append(',')
-                    .append(table.rows())
-                    .append(',')
-                    .append(table.minPosition())
-                    .append(',')
-                    .append(table.maxPosition())
-                    .append(System.lineSeparator());
+    private void warm(
+            Path savePath
+    ) {
+        ProgressReporter progress =
+                new ProgressReporter(
+                        out
+                );
+
+        SaveIndex index =
+                indexReader.read(
+                        savePath,
+                        progress
+                );
+
+        CacheKey key =
+                cache.key(
+                        savePath
+                );
+
+        cache.write(
+                key,
+                serialize(
+                        index
+                )
+        );
+
+        out.println(
+                "CACHE WARMED"
+        );
+
+        out.println(
+                "Key: "
+                        + key.fileName()
+        );
+
+        out.println(
+                "Path: "
+                        + cache.path(
+                        key
+                )
+        );
+    }
+
+    private void status(
+            Path savePath
+    ) {
+        CacheKey key =
+                cache.key(
+                        savePath
+                );
+
+        out.println(
+                "CACHE"
+        );
+
+        out.println(
+                "Key: "
+                        + key.fileName()
+        );
+
+        out.println(
+                "Exists: "
+                        + cache.exists(
+                        key
+                )
+        );
+
+        if (cache.exists(
+                key
+        )) {
+            out.println(
+                    cache.read(
+                            key
+                    )
+            );
         }
+    }
+
+    private String serialize(
+            SaveIndex index
+    ) {
+        StringBuilder builder =
+                new StringBuilder();
+
+        for (TableIndex table :
+                index.tables()) {
+
+            builder.append(
+                            table.tableName()
+                    )
+                    .append(',')
+                    .append(
+                            table.rows()
+                    )
+                    .append(',')
+                    .append(
+                            table.minPosition()
+                    )
+                    .append(',')
+                    .append(
+                            table.maxPosition()
+                    )
+                    .append(
+                            System.lineSeparator()
+                    );
+        }
+
         return builder.toString();
     }
 }

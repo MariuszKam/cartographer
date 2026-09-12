@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Set;
 
 public class MapRegionCommand implements Command {
+
     private static final int SAMPLE_LIMIT =
             8;
 
@@ -30,10 +31,12 @@ public class MapRegionCommand implements Command {
     }
 
     @Override
-    public int run(
+    public void run(
             String[] args
     ) {
-        if (!"inspect".equals(subcommand)) {
+        if (!"inspect".equals(
+                subcommand
+        )) {
             throw new CommandException(
                     "Unknown mapregion subcommand: "
                             + subcommand
@@ -66,16 +69,32 @@ public class MapRegionCommand implements Command {
                         progress
                 );
 
-        out.println("MAPREGION");
-        out.println("Rows parsed: " + diagnostics.parsed());
-        out.println("Rows skipped: " + diagnostics.skipped());
-        out.println("Rows failed: " + diagnostics.failed());
+        out.println(
+                "MAPREGION"
+        );
+
+        out.println(
+                "Rows parsed: "
+                        + diagnostics.parsed()
+        );
+
+        out.println(
+                "Rows skipped: "
+                        + diagnostics.skipped()
+        );
+
+        out.println(
+                "Rows failed: "
+                        + diagnostics.failed()
+        );
 
         printFailureReasons(
                 diagnostics
         );
 
-        for (ServerMapRegion region : regions) {
+        for (ServerMapRegion region :
+                regions) {
+
             out.println();
 
             out.println(
@@ -155,11 +174,10 @@ public class MapRegionCommand implements Command {
                 .forEach(
                         note ->
                                 out.println(
-                                        "Note: " + note
+                                        "Note: "
+                                                + note
                                 )
                 );
-
-        return 0;
     }
 
     private void printMap(
@@ -224,7 +242,8 @@ public class MapRegionCommand implements Command {
                 .forEach(
                         line ->
                                 out.println(
-                                        "  " + line
+                                        "  "
+                                                + line
                                 )
                 );
     }
@@ -235,6 +254,7 @@ public class MapRegionCommand implements Command {
             int distinctCount,
             List<Integer> sample
     ) {
+
         static MapStats from(
                 IntDataMap2D map
         ) {

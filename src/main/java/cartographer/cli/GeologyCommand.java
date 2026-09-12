@@ -24,8 +24,12 @@ import java.util.Map;
 import java.util.Optional;
 
 public class GeologyCommand implements Command {
-    private static final int DEFAULT_RADIUS = 512;
-    private static final int MAX_RADIUS = 8192;
+
+    private static final int DEFAULT_RADIUS =
+            512;
+
+    private static final int MAX_RADIUS =
+            8192;
 
     private final PrintStream out;
     private final VcdbsReader reader;
@@ -48,7 +52,9 @@ public class GeologyCommand implements Command {
     }
 
     @Override
-    public int run(String[] args) {
+    public void run(
+            String[] args
+    ) {
         switch (subcommand) {
             case "surface" ->
                     runSurface(
@@ -66,11 +72,11 @@ public class GeologyCommand implements Command {
                                     + subcommand
                     );
         }
-
-        return 0;
     }
 
-    private void runSurface(String[] args) {
+    private void runSurface(
+            String[] args
+    ) {
         if (args.length < 1) {
             throw new CommandException(
                     "Usage: geology surface <save.vcdbs> "
@@ -136,13 +142,39 @@ public class GeologyCommand implements Command {
                         surface.blocks()
                 );
 
-        out.println("GEOLOGY SURFACE");
-        out.println("Chunks parsed: " + diagnostics.parsed());
-        out.println("Chunks skipped: " + diagnostics.skipped());
-        out.println("Chunks failed: " + diagnostics.failed());
-        out.println("Surface samples: " + report.samples());
-        out.println("Geological samples: " + report.geologicalSamples());
-        out.println("Unknown samples: " + report.unknownSamples());
+        out.println(
+                "GEOLOGY SURFACE"
+        );
+
+        out.println(
+                "Chunks parsed: "
+                        + diagnostics.parsed()
+        );
+
+        out.println(
+                "Chunks skipped: "
+                        + diagnostics.skipped()
+        );
+
+        out.println(
+                "Chunks failed: "
+                        + diagnostics.failed()
+        );
+
+        out.println(
+                "Surface samples: "
+                        + report.samples()
+        );
+
+        out.println(
+                "Geological samples: "
+                        + report.geologicalSamples()
+        );
+
+        out.println(
+                "Unknown samples: "
+                        + report.unknownSamples()
+        );
 
         printMap(
                 "Rock families",
@@ -158,12 +190,15 @@ public class GeologyCommand implements Command {
                 .forEach(
                         note ->
                                 out.println(
-                                        "Note: " + note
+                                        "Note: "
+                                                + note
                                 )
                 );
     }
 
-    private void runStrata(String[] args) {
+    private void runStrata(
+            String[] args
+    ) {
         if (args.length < 1) {
             throw new CommandException(
                     "Usage: geology strata <save.vcdbs>"
@@ -196,10 +231,24 @@ public class GeologyCommand implements Command {
         GeologicProvinceInterpreter provinceInterpreter =
                 new GeologicProvinceInterpreter();
 
-        out.println("GEOLOGY STRATA");
-        out.println("Regions parsed: " + diagnostics.parsed());
-        out.println("Regions skipped: " + diagnostics.skipped());
-        out.println("Regions failed: " + diagnostics.failed());
+        out.println(
+                "GEOLOGY STRATA"
+        );
+
+        out.println(
+                "Regions parsed: "
+                        + diagnostics.parsed()
+        );
+
+        out.println(
+                "Regions skipped: "
+                        + diagnostics.skipped()
+        );
+
+        out.println(
+                "Regions failed: "
+                        + diagnostics.failed()
+        );
 
         printFailureReasons(
                 diagnostics
@@ -218,6 +267,7 @@ public class GeologyCommand implements Command {
 
             if (strataSummary.strata().isEmpty()
                     && province.isEmpty()) {
+
                 continue;
             }
 
@@ -288,7 +338,8 @@ public class GeologyCommand implements Command {
                 .forEach(
                         note ->
                                 out.println(
-                                        "Note: " + note
+                                        "Note: "
+                                                + note
                                 )
                 );
     }
@@ -321,7 +372,9 @@ public class GeologyCommand implements Command {
     private void printFailureReasons(
             ReadDiagnostics diagnostics
     ) {
-        if (diagnostics.failureReasons().isEmpty()) {
+        if (diagnostics.failureReasons()
+                .isEmpty()) {
+
             return;
         }
 
@@ -355,11 +408,13 @@ public class GeologyCommand implements Command {
 
         if (x.isEmpty()
                 && z.isEmpty()) {
+
             return Optional.empty();
         }
 
         if (x.isEmpty()
                 || z.isEmpty()) {
+
             throw new CommandException(
                     "--center-x and --center-z must be used together"
             );
@@ -401,6 +456,7 @@ public class GeologyCommand implements Command {
 
             if (value <= 0
                     || value > MAX_RADIUS) {
+
                 throw new CommandException(
                         "--radius must be between 1 and "
                                 + MAX_RADIUS

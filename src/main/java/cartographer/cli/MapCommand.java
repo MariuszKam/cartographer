@@ -89,7 +89,7 @@ public class MapCommand implements Command {
     }
 
     @Override
-    public int run(
+    public void run(
             String[] args
     ) {
         if (!"render".equals(
@@ -310,8 +310,6 @@ public class MapCommand implements Command {
                 environmentOverlay,
                 geologyOverlay
         );
-
-        return 0;
     }
 
     private List<ServerMapRegion> mapRegions(
