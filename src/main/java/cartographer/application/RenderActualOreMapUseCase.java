@@ -29,6 +29,7 @@ import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMapScanner;
+import cartographer.scanner.MultiActualBlockMapScanner;
 import cartographer.scanner.SurfaceScanResult;
 import cartographer.scanner.SurfaceScanner;
 
@@ -46,6 +47,7 @@ public class RenderActualOreMapUseCase {
     private final MapRenderer renderer;
     private final UserMarkerRenderer userMarkerRenderer;
     private final ActualBlockMapScanner actualBlockMapScanner;
+    private final MultiActualBlockMapScanner multiActualBlockMapScanner;
     private final ActualOreOverlayPainter actualOreOverlayPainter;
     private final EnvironmentInterpreter environmentInterpreter = new EnvironmentInterpreter();
     private final GeologicProvinceInterpreter geologicProvinceInterpreter = new GeologicProvinceInterpreter();
@@ -63,6 +65,30 @@ public class RenderActualOreMapUseCase {
             ActualBlockMapScanner actualBlockMapScanner,
             ActualOreOverlayPainter actualOreOverlayPainter
     ) {
+        this(
+                reader,
+                metadataReader,
+                homeStore,
+                markerStore,
+                renderer,
+                userMarkerRenderer,
+                actualBlockMapScanner,
+                actualOreOverlayPainter,
+                new MultiActualBlockMapScanner()
+        );
+    }
+
+    public RenderActualOreMapUseCase(
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            HomeStore homeStore,
+            MarkerStore markerStore,
+            MapRenderer renderer,
+            UserMarkerRenderer userMarkerRenderer,
+            ActualBlockMapScanner actualBlockMapScanner,
+            ActualOreOverlayPainter actualOreOverlayPainter,
+            MultiActualBlockMapScanner multiActualBlockMapScanner
+    ) {
         this.reader = Objects.requireNonNull(reader, "reader is required");
         this.metadataReader = Objects.requireNonNull(metadataReader, "metadataReader is required");
         this.homeStore = Objects.requireNonNull(homeStore, "homeStore is required");
@@ -71,6 +97,10 @@ public class RenderActualOreMapUseCase {
         this.userMarkerRenderer = Objects.requireNonNull(userMarkerRenderer, "userMarkerRenderer is required");
         this.actualBlockMapScanner = Objects.requireNonNull(actualBlockMapScanner, "actualBlockMapScanner is required");
         this.actualOreOverlayPainter = Objects.requireNonNull(actualOreOverlayPainter, "actualOreOverlayPainter is required");
+        this.multiActualBlockMapScanner = Objects.requireNonNull(
+                multiActualBlockMapScanner,
+                "multiActualBlockMapScanner is required"
+        );
     }
 
     public RenderActualOreMapResult execute(RenderActualOreMapRequest request) {
@@ -110,11 +140,11 @@ public class RenderActualOreMapUseCase {
         );
 
         ReadDiagnostics actualOreDiagnostics = new ReadDiagnostics();
-        ActualBlockMap actualOreMap = drawActualOreOverlay(
+        List<ActualOreOverlayResult> actualOreOverlays = drawActualOreOverlays(
                 request, rendered, center, actualOreDiagnostics
         );
 
-        if ((hasMapRegionOverlay(options) || actualOreMap != null)
+        if ((hasMapRegionOverlay(options) || !actualOreOverlays.isEmpty())
                 && options.layers().contains(RenderLayer.MARKERS)) {
             systemMarkerOverlayRenderer.draw(
                     rendered.image(), center, player, home, request.radius()
@@ -135,20 +165,23 @@ public class RenderActualOreMapUseCase {
         return new RenderActualOreMapResult(
                 rendered.image(), rendered.report(), surface,
                 environmentOverlay, geologyOverlay,
-                Optional.ofNullable(actualOreMap),
+                actualOreOverlays.isEmpty()
+                        ? Optional.empty()
+                        : Optional.of(actualOreOverlays.getFirst().map()),
                 mapChunkDiagnostics, chunkDiagnostics, mapRegionDiagnostics,
-                actualOreDiagnostics, userMarkersDrawn
+                actualOreDiagnostics, userMarkersDrawn, actualOreOverlays
         );
     }
 
-    private ActualBlockMap drawActualOreOverlay(
+    private List<ActualOreOverlayResult> drawActualOreOverlays(
             RenderActualOreMapRequest request,
             RenderedMap rendered,
             WorldPosition center,
             ReadDiagnostics diagnostics
     ) {
-        if (request.oreMatch().isEmpty()) {
-            return null;
+        List<ActualOreOverlaySpec> specs = request.oreOverlays();
+        if (specs.isEmpty()) {
+            return List.of();
         }
         List<ParsedChunk> chunks = reader.readChunksAround(
                 request.savePath(), center, request.radius(), diagnostics
@@ -156,12 +189,49 @@ public class RenderActualOreMapUseCase {
         Map<Integer, BlockInfo> registry = reader.readBlockRegistry(request.savePath());
         int centerX = (int) Math.round(center.x());
         int centerZ = (int) Math.round(center.z());
-        ActualBlockMap map = actualBlockMapScanner.scan(
-                chunks, registry, centerX, centerZ, request.radius(),
-                request.oreMatch().orElseThrow(), request.yFilter()
+        List<ActualBlockMap> maps;
+        if (specs.size() == 1) {
+            ActualOreOverlaySpec spec = specs.getFirst();
+            maps = List.of(
+                    actualBlockMapScanner.scan(
+                            chunks,
+                            registry,
+                            centerX,
+                            centerZ,
+                            request.radius(),
+                            spec.match(),
+                            request.yFilter()
+                    )
+            );
+        } else {
+            maps = multiActualBlockMapScanner.scan(
+                    chunks,
+                    registry,
+                    centerX,
+                    centerZ,
+                    request.radius(),
+                    specs.stream().map(ActualOreOverlaySpec::match).toList(),
+                    request.yFilter()
+            );
+        }
+
+        List<ActualOreOverlayResult> results = new java.util.ArrayList<>();
+        for (int index = 0; index < specs.size(); index++) {
+            results.add(
+                    new ActualOreOverlayResult(
+                            specs.get(index),
+                            maps.get(index)
+                    )
+            );
+        }
+        List<ActualOreOverlayResult> immutable = List.copyOf(results);
+        actualOreOverlayPainter.paint(
+                rendered.image(),
+                immutable,
+                center,
+                request.radius()
         );
-        actualOreOverlayPainter.paint(rendered.image(), map, center, request.radius());
-        return map;
+        return immutable;
     }
 
     private SurfaceScanResult surfaceResult(

@@ -6,6 +6,8 @@ import cartographer.render.RenderStyle;
 import cartographer.scanner.ActualBlockYFilter;
 
 import java.nio.file.Path;
+import java.awt.Color;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -17,8 +19,32 @@ public record RenderActualOreMapRequest(
         Set<RenderLayer> layers,
         Optional<String> oreMatch,
         ActualBlockYFilter yFilter,
-        Optional<WorldPosition> center
+        Optional<WorldPosition> center,
+        List<ActualOreOverlaySpec> oreOverlays
 ) {
+
+    public RenderActualOreMapRequest(
+            Path savePath,
+            int radius,
+            int pixelsPerBlock,
+            RenderStyle style,
+            Set<RenderLayer> layers,
+            Optional<String> oreMatch,
+            ActualBlockYFilter yFilter,
+            Optional<WorldPosition> center
+    ) {
+        this(
+                savePath,
+                radius,
+                pixelsPerBlock,
+                style,
+                layers,
+                oreMatch,
+                yFilter,
+                center,
+                defaultOverlays(oreMatch)
+        );
+    }
 
     public RenderActualOreMapRequest {
         if (savePath == null) {
@@ -37,9 +63,28 @@ public record RenderActualOreMapRequest(
         oreMatch = Optional.ofNullable(oreMatch).orElse(Optional.empty());
         yFilter = yFilter == null ? ActualBlockYFilter.unbounded() : yFilter;
         center = Optional.ofNullable(center).orElse(Optional.empty());
+        oreOverlays = List.copyOf(
+                oreOverlays == null ? List.of() : oreOverlays
+        );
 
         if (oreMatch.isPresent() && oreMatch.orElseThrow().isBlank()) {
             throw new IllegalArgumentException("oreMatch must not be blank");
         }
+    }
+
+    private static List<ActualOreOverlaySpec> defaultOverlays(
+            Optional<String> oreMatch
+    ) {
+        if (oreMatch == null || oreMatch.isEmpty()) {
+            return List.of();
+        }
+        String match = oreMatch.orElseThrow();
+        return List.of(
+                new ActualOreOverlaySpec(
+                        match,
+                        match,
+                        new Color(225, 92, 24)
+                )
+        );
     }
 }

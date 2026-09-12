@@ -1,6 +1,8 @@
 package cartographer.render;
 
 import cartographer.model.WorldPosition;
+import cartographer.application.ActualOreOverlayResult;
+import cartographer.application.ActualOreOverlaySpec;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMapCell;
 import org.junit.jupiter.api.Test;
@@ -82,6 +84,41 @@ class ActualOreOverlayPainterTest {
                         10,
                         10
                 )
+        );
+    }
+
+    @Test
+    void rendersCombinedLegendWithZeroHitResource() {
+        BufferedImage image = new BufferedImage(
+                100,
+                100,
+                BufferedImage.TYPE_INT_ARGB
+        );
+        ActualBlockMap empty = new ActualBlockMap(
+                "cassiterite",
+                10,
+                10,
+                10,
+                0,
+                -1,
+                -1,
+                List.of()
+        );
+
+        new ActualOreOverlayPainter().paint(
+                image,
+                List.of(
+                        new ActualOreOverlayResult(
+                                new ActualOreOverlaySpec(
+                                        "Tin / Cassiterite",
+                                        "cassiterite",
+                                        Color.BLUE
+                                ),
+                                empty
+                        )
+                ),
+                new WorldPosition(10.0, 100.0, 10.0),
+                10
         );
     }
 }

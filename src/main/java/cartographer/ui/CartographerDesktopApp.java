@@ -3,6 +3,7 @@ package cartographer.ui;
 import cartographer.application.RenderActualOreMapRequest;
 import cartographer.application.RenderActualOreMapResult;
 import cartographer.application.RenderActualOreMapUseCase;
+import cartographer.application.ActualOreOverlaySpec;
 import cartographer.marker.MarkerStore;
 import cartographer.navigation.HomeStore;
 import cartographer.parser.ChunkParser;
@@ -11,6 +12,7 @@ import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.render.ActualOreOverlayPainter;
 import cartographer.render.MapRenderer;
+import cartographer.render.OreOverlayPalette;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.render.UserMarkerRenderer;
@@ -25,6 +27,7 @@ import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressIndicator;
@@ -37,6 +40,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -47,12 +51,21 @@ import java.nio.file.Path;
 import java.util.EnumSet;
 import java.util.Optional;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class CartographerDesktopApp extends Application {
 
     private final TextField saveField = new TextField();
     private final Button browseButton = new Button("Browse...");
     private final ComboBox<OreResource> resourceBox = new ComboBox<>();
+    private final RadioButton singleResourceButton = new RadioButton("Single resource");
+    private final RadioButton multipleResourcesButton = new RadioButton("Multiple resources");
+    private final VBox resourceChecklist = new VBox(4);
+    private final ScrollPane resourceChecklistScroll = new ScrollPane(resourceChecklist);
+    private final Button selectAllButton = new Button("Select all");
+    private final Button clearAllButton = new Button("Clear");
+    private final Map<OreResource, CheckBox> resourceChecks = new LinkedHashMap<>();
     private final TextField yMinField = new TextField();
     private final TextField yMaxField = new TextField();
     private final RadioButton allYButton = new RadioButton("All Y");
@@ -72,6 +85,7 @@ public class CartographerDesktopApp extends Application {
     private RenderActualOreMapUseCase useCase;
     private ResourceCatalogService resourceCatalogService;
     private PlayerPositionService playerPositionService;
+    private List<OreResource> discoveredResources = List.of();
 
     @Override
     public void start(Stage stage) {
@@ -106,6 +120,7 @@ public class CartographerDesktopApp extends Application {
         saveField.setPromptText("Select a .vcdbs save");
 
         resourceBox.getItems().setAll(presetResources());
+        discoveredResources = presetResources();
         resourceBox.setValue(presetResources().getFirst());
         resourceBox.setEditable(true);
         resourceBox.setConverter(new StringConverter<OreResource>() {
@@ -125,6 +140,17 @@ public class CartographerDesktopApp extends Application {
         resourceBox.getEditor().textProperty().addListener(
                 (observable, oldValue, typed) -> updateResourceStatus()
         );
+        ToggleGroup resourceMode = new ToggleGroup();
+        singleResourceButton.setToggleGroup(resourceMode);
+        multipleResourcesButton.setToggleGroup(resourceMode);
+        singleResourceButton.setSelected(true);
+        resourceMode.selectedToggleProperty().addListener(
+                (observable, oldValue, selected) -> updateResourceMode()
+        );
+        selectAllButton.setOnAction(event ->
+                resourceChecks.values().forEach(check -> check.setSelected(true)));
+        clearAllButton.setOnAction(event ->
+                resourceChecks.values().forEach(check -> check.setSelected(false)));
 
         ToggleGroup radiusGroup = new ToggleGroup();
         radius128Button.setToggleGroup(radiusGroup);
@@ -170,18 +196,29 @@ public class CartographerDesktopApp extends Application {
         grid.add(playerStatusLabel, 0, 3, 2, 1);
 
         grid.add(new Label("RESOURCE"), 0, 4);
-        grid.add(resourceBox, 0, 5, 2, 1);
-        grid.add(resourceStatusLabel, 0, 6, 2, 1);
+        HBox resourceMode = new HBox(8, singleResourceButton, multipleResourcesButton);
+        grid.add(resourceMode, 0, 5, 2, 1);
+        VBox singleResourcePanel = new VBox(4, resourceBox, resourceStatusLabel);
+        grid.add(singleResourcePanel, 0, 6, 2, 1);
+        HBox multiActions = new HBox(6, selectAllButton, clearAllButton);
+        resourceChecklistScroll.setFitToWidth(true);
+        resourceChecklistScroll.setPrefViewportHeight(130);
+        VBox multiResourcePanel = new VBox(4, multiActions, resourceChecklistScroll);
+        grid.add(multiResourcePanel, 0, 7, 2, 1);
+        singleResourcePanel.visibleProperty().bind(singleResourceButton.selectedProperty());
+        singleResourcePanel.managedProperty().bind(singleResourcePanel.visibleProperty());
+        multiResourcePanel.visibleProperty().bind(multipleResourcesButton.selectedProperty());
+        multiResourcePanel.managedProperty().bind(multiResourcePanel.visibleProperty());
 
-        grid.add(new Label("RADIUS"), 0, 7);
+        grid.add(new Label("RADIUS"), 0, 8);
         HBox radiusBox = new HBox(8, radius128Button, radius256Button, radius512Button);
-        grid.add(radiusBox, 0, 8, 2, 1);
+        grid.add(radiusBox, 0, 9, 2, 1);
 
-        grid.add(new Label("Y FILTER"), 0, 9);
-        grid.add(allYButton, 0, 10);
-        grid.add(customYButton, 1, 10);
-        grid.add(yMinField, 0, 11);
-        grid.add(yMaxField, 1, 11);
+        grid.add(new Label("Y FILTER"), 0, 10);
+        grid.add(allYButton, 0, 11);
+        grid.add(customYButton, 1, 11);
+        grid.add(yMinField, 0, 12);
+        grid.add(yMaxField, 1, 12);
 
         VBox box = new VBox(
                 12,
@@ -239,6 +276,8 @@ public class CartographerDesktopApp extends Application {
         task.setOnSucceeded(event -> {
             SaveLoadResult loaded = task.getValue();
             List<OreResource> discovered = loaded.resources();
+            discoveredResources = discovered;
+            rebuildResourceChecklist();
             resourceBox.getItems().setAll(
                     discovered.isEmpty()
                             ? presetResources()
@@ -260,6 +299,8 @@ public class CartographerDesktopApp extends Application {
         });
         task.setOnFailed(event -> {
             resourceBox.getItems().setAll(presetResources());
+            discoveredResources = presetResources();
+            rebuildResourceChecklist();
             resourceBox.setValue(resourceBox.getItems().getFirst());
             resourceStatusLabel.setText("Registry match: unavailable");
             playerStatusLabel.setText("Player: unavailable");
@@ -297,9 +338,14 @@ public class CartographerDesktopApp extends Application {
         if (saveField.getText().isBlank()) {
             throw new IllegalArgumentException("Select a .vcdbs save.");
         }
-        String match = resourceMatch();
+        List<ActualOreOverlaySpec> overlays = selectedOverlays();
+        String match = overlays.isEmpty() ? "" : overlays.getFirst().match();
         if (match.isBlank()) {
-            throw new IllegalArgumentException("Enter an ore match.");
+            throw new IllegalArgumentException(
+                    multipleResourcesButton.isSelected()
+                            ? "Select at least one resource."
+                            : "Enter an ore match."
+            );
         }
         Integer min = null;
         Integer max = null;
@@ -318,7 +364,8 @@ public class CartographerDesktopApp extends Application {
                 EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE, RenderLayer.MARKERS),
                 Optional.of(match),
                 new ActualBlockYFilter(min, max),
-                Optional.empty()
+                Optional.empty(),
+                overlays
         );
     }
 
@@ -326,17 +373,28 @@ public class CartographerDesktopApp extends Application {
         imageView.setImage(SwingFXUtils.toFXImage(result.image(), null));
         imageView.setFitWidth(Math.max(720, result.image().getWidth()));
         imageView.setFitHeight(Math.max(620, result.image().getHeight()));
-        resultLabel.setText(result.actualOreMap()
-                .map(map -> "Resource: " + request.oreMatch().orElseThrow()
-                        + "\nRadius: " + request.radius()
-                        + "\nY filter: " + map.yFilter().description()
-                        + "\nMatching blocks: " + map.matchingBlocks()
-                        + "\nHit columns: " + map.hitColumns()
-                        + "\nFound Y: " + foundY(map))
-                .orElse("Resource: " + request.oreMatch().orElseThrow()
-                        + "\nRadius: " + request.radius()
-                        + "\nY filter: " + request.yFilter().description()
-                        + "\nNo matching blocks found"));
+        StringBuilder resultText = new StringBuilder()
+                .append("Resources: ")
+                .append(result.actualOreOverlays().size())
+                .append("\nRadius: ")
+                .append(request.radius())
+                .append("\nY filter: ")
+                .append(request.yFilter().description());
+        long total = 0;
+        for (var overlay : result.actualOreOverlays()) {
+            var map = overlay.map();
+            total += map.matchingBlocks();
+            resultText.append("\n\n")
+                    .append(overlay.spec().displayName())
+                    .append("\n  Blocks: ")
+                    .append(map.matchingBlocks())
+                    .append("\n  Columns: ")
+                    .append(map.hitColumns())
+                    .append("\n  Y: ")
+                    .append(foundY(map));
+        }
+        resultText.append("\n\nTotal matching blocks: ").append(total);
+        resultLabel.setText(resultText.toString());
         statusLabel.setText("Rendered.");
         setBusy(false);
     }
@@ -377,6 +435,10 @@ public class CartographerDesktopApp extends Application {
         browseButton.setDisable(busy);
         saveField.setDisable(busy);
         resourceBox.setDisable(busy);
+        singleResourceButton.setDisable(busy);
+        multipleResourcesButton.setDisable(busy);
+        selectAllButton.setDisable(busy);
+        clearAllButton.setDisable(busy);
         radius128Button.setDisable(busy);
         radius256Button.setDisable(busy);
         radius512Button.setDisable(busy);
@@ -392,6 +454,10 @@ public class CartographerDesktopApp extends Application {
         browseButton.setDisable(busy);
         saveField.setDisable(busy);
         resourceBox.setDisable(busy);
+        singleResourceButton.setDisable(busy);
+        multipleResourcesButton.setDisable(busy);
+        selectAllButton.setDisable(busy);
+        clearAllButton.setDisable(busy);
     }
 
     private void updateYFields() {
@@ -438,6 +504,71 @@ public class CartographerDesktopApp extends Application {
                                 + resource.match()
                                 + "\" as custom match"
         );
+    }
+
+    private void updateResourceMode() {
+        if (multipleResourcesButton.isSelected()) {
+            String currentMatch = resourceMatch();
+            resourceChecks.forEach((resource, check) ->
+                    check.setSelected(resource.match().equalsIgnoreCase(currentMatch)));
+        }
+        updateResourceStatus();
+    }
+
+    private void rebuildResourceChecklist() {
+        resourceChecks.clear();
+        resourceChecklist.getChildren().clear();
+        for (int index = 0; index < discoveredResources.size(); index++) {
+            OreResource resource = discoveredResources.get(index);
+            CheckBox check = new CheckBox(resource.displayName());
+            Region color = new Region();
+            color.setPrefSize(12, 12);
+            java.awt.Color awt = OreOverlayPalette.colorFor(resource.match(), index);
+            color.setStyle(
+                    "-fx-background-color: rgb("
+                            + awt.getRed() + "," + awt.getGreen() + "," + awt.getBlue() + ");"
+            );
+            check.setGraphic(color);
+            resourceChecks.put(resource, check);
+            resourceChecklist.getChildren().add(check);
+        }
+    }
+
+    private List<ActualOreOverlaySpec> selectedOverlays() {
+        if (singleResourceButton.isSelected()) {
+            String match = resourceMatch();
+            if (match.isBlank()) {
+                return List.of();
+            }
+            OreResource selected = resourceForDisplayName(
+                    resourceBox.getEditor().getText().trim()
+            ).orElse(null);
+            String displayName = selected == null ? match : selected.displayName();
+            return List.of(
+                    new ActualOreOverlaySpec(
+                            displayName,
+                            match,
+                            OreOverlayPalette.colorFor(match, 0)
+                    )
+            );
+        }
+
+        List<ActualOreOverlaySpec> result = new java.util.ArrayList<>();
+        int colorIndex = 0;
+        for (OreResource resource : discoveredResources) {
+            CheckBox check = resourceChecks.get(resource);
+            if (check == null || !check.isSelected()) {
+                continue;
+            }
+            result.add(
+                    new ActualOreOverlaySpec(
+                            resource.displayName(),
+                            resource.match(),
+                            OreOverlayPalette.colorFor(resource.match(), colorIndex++)
+                    )
+            );
+        }
+        return List.copyOf(result);
     }
 
     private Optional<OreResource> resourceForDisplayName(String value) {
