@@ -7,11 +7,9 @@ import cartographer.model.SurfaceBlock;
 import cartographer.model.SurfaceClass;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class SurfaceScanner {
     private final SurfaceClassifier classifier =
@@ -22,74 +20,126 @@ public class SurfaceScanner {
     }
 
     public SurfaceScanResult scan(List<ParsedChunk> chunks, Map<Integer, BlockInfo> registry, boolean ignoreFoliage, ProgressReporter progress) {
-        Map<Long, SurfaceBlock> surfaceByColumn =
-                new HashMap<>();
-
-        Set<Long> consideredColumns =
-                new HashSet<>();
-
-        Set<Long> liquidUnavailableColumns =
-                new HashSet<>();
-
         int columns = 0;
         int totalColumns = chunks.stream()
                 .mapToInt(chunk -> chunk.sizeX() * chunk.sizeZ())
                 .sum();
 
+        List<ParsedChunk> orderedChunks =
+                chunks.stream()
+                        .sorted(
+                                Comparator.comparingInt(
+                                                (ParsedChunk chunk) ->
+                                                        chunk.coordinate()
+                                                                .x()
+                                        )
+                                        .thenComparingInt(
+                                                chunk ->
+                                                        chunk.coordinate()
+                                                                .z()
+                                        )
+                        )
+                        .toList();
+
+        List<SurfaceBlock> surfaceBlocks =
+                new ArrayList<>();
+
+        int consideredColumnCount =
+                0;
+
+        int liquidUnavailableColumnCount =
+                0;
+
         progress.start("Scanning surface columns");
-        for (ParsedChunk chunk : chunks) {
-            for (int z = 0; z < chunk.sizeZ(); z++) {
-                for (int x = 0; x < chunk.sizeX(); x++) {
-                    columns++;
-                    progress.progress("Scanning surface columns", columns, totalColumns);
-                    long columnKey =
-                            key(
-                                    chunk.worldX(x),
-                                    chunk.worldZ(z)
-                            );
-                    consideredColumns.add(
-                            columnKey
+        int index =
+                0;
+
+        while (index < orderedChunks.size()) {
+            ParsedChunk first =
+                    orderedChunks.get(
+                            index
                     );
-                    if (!chunk.liquidLayerAvailable()) {
-                        liquidUnavailableColumns.add(
-                                columnKey
+
+            int chunkX =
+                    first.coordinate()
+                            .x();
+
+            int chunkZ =
+                    first.coordinate()
+                            .z();
+
+            ChunkColumnState state =
+                    new ChunkColumnState();
+
+            while (index < orderedChunks.size()
+                    && orderedChunks.get(index)
+                    .coordinate()
+                    .x() == chunkX
+                    && orderedChunks.get(index)
+                    .coordinate()
+                    .z() == chunkZ) {
+
+                ParsedChunk chunk =
+                        orderedChunks.get(
+                                index
                         );
-                    }
-                    SurfaceBlock block = findSurfaceBlock(chunk, registry, x, z, ignoreFoliage);
-                    if (block != null) {
-                        surfaceByColumn.merge(
-                                key(
-                                        block.worldX(),
-                                        block.worldZ()
-                                ),
-                                block,
-                                (oldValue, newValue) ->
-                                        newValue.y() > oldValue.y()
-                                                ? newValue
-                                                : oldValue
+
+                for (int z = 0; z < chunk.sizeZ(); z++) {
+                    for (int x = 0; x < chunk.sizeX(); x++) {
+                        columns++;
+                        progress.progress("Scanning surface columns", columns, totalColumns);
+                        state.consider(
+                                x,
+                                z
                         );
+
+                        if (!chunk.liquidLayerAvailable()) {
+                            state.markLiquidUnavailable(
+                                    x,
+                                    z
+                            );
+                        }
+
+                        SurfaceBlock block = findSurfaceBlock(chunk, registry, x, z, ignoreFoliage);
+                        if (block != null) {
+                            state.recordSurface(
+                                    x,
+                                    z,
+                                    block
+                            );
+                        }
                     }
                 }
+
+                index++;
             }
+
+            consideredColumnCount +=
+                    state.consideredColumns();
+
+            liquidUnavailableColumnCount +=
+                    state.liquidUnavailableColumns();
+
+            state.appendSurfaceBlocksTo(
+                    surfaceBlocks
+            );
         }
 
         int emptyColumns =
                 Math.max(
                         0,
-                        consideredColumns.size()
-                                - surfaceByColumn.size()
+                        consideredColumnCount
+                                - surfaceBlocks.size()
                 );
 
         return new SurfaceScanResult(
                 List.copyOf(
-                        new ArrayList<>(
-                                surfaceByColumn.values()
-                        )
+                        surfaceBlocks
                 ),
                 chunks.size(),
-                consideredColumns.size(),
+                consideredColumnCount,
                 emptyColumns,
-                liquidUnavailableColumns.size()
+                liquidUnavailableColumnCount
         );
     }
 
@@ -144,13 +194,122 @@ public class SurfaceScanner {
         return null;
     }
 
-    private long key(
-            int worldX,
-            int worldZ
-    ) {
-        return ((long) worldX << 32)
-                ^ Integer.toUnsignedLong(
-                worldZ
-        );
+    private static class ChunkColumnState {
+        private static final int COLUMN_SIZE =
+                32;
+
+        private static final int COLUMN_COUNT =
+                COLUMN_SIZE
+                        * COLUMN_SIZE;
+
+        private final SurfaceBlock[] surfaceBlocks =
+                new SurfaceBlock[COLUMN_COUNT];
+
+        private final boolean[] consideredColumns =
+                new boolean[COLUMN_COUNT];
+
+        private final boolean[] liquidUnavailableColumns =
+                new boolean[COLUMN_COUNT];
+
+        private int consideredColumnCount;
+
+        private int liquidUnavailableColumnCount;
+
+        void consider(
+                int localX,
+                int localZ
+        ) {
+            int index =
+                    index(
+                            localX,
+                            localZ
+                    );
+
+            if (!consideredColumns[index]) {
+                consideredColumns[index] =
+                        true;
+
+                consideredColumnCount++;
+            }
+        }
+
+        void markLiquidUnavailable(
+                int localX,
+                int localZ
+        ) {
+            int index =
+                    index(
+                            localX,
+                            localZ
+                    );
+
+            if (!liquidUnavailableColumns[index]) {
+                liquidUnavailableColumns[index] =
+                        true;
+
+                liquidUnavailableColumnCount++;
+            }
+        }
+
+        void recordSurface(
+                int localX,
+                int localZ,
+                SurfaceBlock block
+        ) {
+            int index =
+                    index(
+                            localX,
+                            localZ
+                    );
+
+            SurfaceBlock current =
+                    surfaceBlocks[index];
+
+            if (current == null
+                    || block.y() > current.y()) {
+
+                surfaceBlocks[index] =
+                        block;
+            }
+        }
+
+        int consideredColumns() {
+            return consideredColumnCount;
+        }
+
+        int liquidUnavailableColumns() {
+            return liquidUnavailableColumnCount;
+        }
+
+        void appendSurfaceBlocksTo(
+                List<SurfaceBlock> output
+        ) {
+            for (SurfaceBlock block : surfaceBlocks) {
+                if (block != null) {
+                    output.add(
+                            block
+                    );
+                }
+            }
+        }
+
+        private int index(
+                int localX,
+                int localZ
+        ) {
+            if (localX < 0
+                    || localX >= COLUMN_SIZE
+                    || localZ < 0
+                    || localZ >= COLUMN_SIZE) {
+
+                throw new IndexOutOfBoundsException(
+                        "Local surface column out of bounds"
+                );
+            }
+
+            return localZ
+                    * COLUMN_SIZE
+                    + localX;
+        }
     }
 }
