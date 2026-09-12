@@ -230,6 +230,7 @@ public class CommandRouter {
                     new AtlasCommand(
                             out,
                             reader,
+                            metadataReader,
                             homeStore,
                             new AtlasRenderer(
                                     new TilePyramid(),

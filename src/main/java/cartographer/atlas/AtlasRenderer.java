@@ -18,8 +18,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public class AtlasRenderer {
+    private static final Set<RenderLayer> SUPPORTED_LAYERS =
+            Set.of(
+                    RenderLayer.TERRAIN,
+                    RenderLayer.MARKERS
+            );
+
     private final TilePyramid tilePyramid;
     private final MapRenderer mapRenderer;
     private final PngWriter pngWriter;
@@ -35,7 +42,7 @@ public class AtlasRenderer {
         for (int index = 0; index < tiles.size(); index++) {
             AtlasTile tile = tiles.get(index);
             progress.progress("Rendering atlas tiles", index + 1, tiles.size());
-            RenderOptions options = new RenderOptions(tile.radiusBlocks(), 1, RenderStyle.TOPOGRAPHIC, RenderLayer.defaults());
+            RenderOptions options = new RenderOptions(tile.radiusBlocks(), 1, RenderStyle.TOPOGRAPHIC, SUPPORTED_LAYERS);
             RenderedMap rendered = mapRenderer.render(tile.center(), home, chunks, options, ProgressReporter.NONE);
             pngWriter.write(rendered.image(), outputDirectory.resolve("tiles").resolve("z" + tile.level()).resolve(tile.x() + "_" + tile.z() + ".png"));
         }

@@ -71,6 +71,9 @@ public class ScanCommand implements Command {
         out.println("Surface blocks: " + result.blocks().size());
         out.println("Water columns: " + result.waterColumns());
         out.println("Unknown surface blocks: " + result.unknownSurfaceBlocks());
+        printTopUnknownSurfaceBlockCodes(
+                result
+        );
         out.println("Distinct surface block codes: " + result.distinctSurfaceBlockCodes(20));
 
         result.blocks().stream().limit(20).forEach(this::printSurfaceBlock);
@@ -128,6 +131,27 @@ public class ScanCommand implements Command {
                 match.worldZ(),
                 match.blockInfo().code(),
                 match.blockInfo().materialType());
+    }
+
+    private void printTopUnknownSurfaceBlockCodes(
+            SurfaceScanResult result
+    ) {
+        if (result.unknownSurfaceBlocks() <= 0) {
+            return;
+        }
+
+        out.println("Top UNKNOWN surface block codes:");
+
+        result.topUnknownSurfaceBlockCodes(10)
+                .forEach(
+                        block ->
+                                out.println(
+                                        "  "
+                                                + block.code()
+                                                + ": "
+                                                + block.count()
+                                )
+                );
     }
 
     private void printFailureReasons(

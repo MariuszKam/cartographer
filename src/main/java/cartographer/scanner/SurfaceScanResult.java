@@ -4,10 +4,12 @@ import cartographer.model.SurfaceBlock;
 import cartographer.model.SurfaceClass;
 
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 public record SurfaceScanResult(
         List<SurfaceBlock> blocks,
@@ -32,6 +34,53 @@ public record SurfaceScanResult(
                                 block.surfaceClass() == SurfaceClass.UNKNOWN
                 )
                 .count();
+    }
+
+    public List<BlockCodeCount> topUnknownSurfaceBlockCodes(
+            int limit
+    ) {
+        if (limit <= 0) {
+            return List.of();
+        }
+
+        Map<String, Long> counts =
+                new LinkedHashMap<>();
+
+        for (SurfaceBlock block : blocks) {
+            if (block.surfaceClass() != SurfaceClass.UNKNOWN) {
+                continue;
+            }
+
+            counts.merge(
+                    block.blockInfo()
+                            .code(),
+                    1L,
+                    Long::sum
+            );
+        }
+
+        return counts.entrySet()
+                .stream()
+                .sorted(
+                        Map.Entry.<String, Long>comparingByValue()
+                                .reversed()
+                                .thenComparing(
+                                        Map.Entry.comparingByKey()
+                                )
+                )
+                .limit(
+                        limit
+                )
+                .map(
+                        entry ->
+                                new BlockCodeCount(
+                                        entry.getKey(),
+                                        entry.getValue()
+                                )
+                )
+                .collect(
+                        Collectors.toUnmodifiableList()
+                );
     }
 
     public Set<String> distinctSurfaceBlockCodes(
@@ -73,5 +122,11 @@ public record SurfaceScanResult(
         return Map.copyOf(
                 counts
         );
+    }
+
+    public record BlockCodeCount(
+            String code,
+            long count
+    ) {
     }
 }

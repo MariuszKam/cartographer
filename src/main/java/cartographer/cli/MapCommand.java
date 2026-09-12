@@ -128,6 +128,9 @@ public class MapCommand implements Command {
             out.println("Liquid unavailable columns: " + surface.liquidUnavailableColumns());
             out.println("Water columns: " + surface.waterColumns());
             out.println("Unknown surface blocks: " + surface.unknownSurfaceBlocks());
+            printTopUnknownSurfaceBlockCodes(
+                    surface
+            );
             out.println("Distinct surface block codes: " + surface.distinctSurfaceBlockCodes(20));
         }
         diagnostics.notes().forEach(note -> out.println("Note: " + note));
@@ -167,6 +170,27 @@ public class MapCommand implements Command {
                 .forEach(
                         line ->
                                 out.println("  " + line)
+                );
+    }
+
+    private void printTopUnknownSurfaceBlockCodes(
+            SurfaceScanResult result
+    ) {
+        if (result.unknownSurfaceBlocks() <= 0) {
+            return;
+        }
+
+        out.println("Top UNKNOWN surface block codes:");
+
+        result.topUnknownSurfaceBlockCodes(10)
+                .forEach(
+                        block ->
+                                out.println(
+                                        "  "
+                                                + block.code()
+                                                + ": "
+                                                + block.count()
+                                )
                 );
     }
 

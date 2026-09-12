@@ -246,6 +246,13 @@ public class MapRenderer {
             );
         }
 
+        if (surfaceEnabled) {
+            drawLegend(
+                    image,
+                    surfaceBlocks
+            );
+        }
+
         int markerCount =
                 drawMarkers(
                         image,
@@ -257,13 +264,6 @@ public class MapRenderer {
                         options,
                         progress
                 );
-
-        if (surfaceEnabled) {
-            drawLegend(
-                    image,
-                    surfaceBlocks
-            );
-        }
 
         String layers =
                 options.layers()
