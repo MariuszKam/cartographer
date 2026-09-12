@@ -15,6 +15,7 @@ import cartographer.perf.IncrementalRenderIndex;
 import cartographer.perf.RenderCache;
 import cartographer.render.MapRenderer;
 import cartographer.render.PngWriter;
+import cartographer.render.UserMarkerRenderer;
 import cartographer.resource.ResourceAnalyzer;
 import cartographer.save.SaveIndexReader;
 import cartographer.save.SaveInspector;
@@ -29,35 +30,53 @@ import java.util.Arrays;
 public class CommandRouter {
 
     private final PrintStream out;
+
     private final PrintStream err;
 
     public CommandRouter() {
-        this(System.out, System.err);
+        this(
+                System.out,
+                System.err
+        );
     }
 
     public CommandRouter(
             PrintStream out,
             PrintStream err
     ) {
-        this.out = out;
-        this.err = err;
+        this.out =
+                out;
+
+        this.err =
+                err;
     }
 
-    public int run(String[] args) {
+    public int run(
+            String[] args
+    ) {
         try {
             if (args.length == 0
-                    || "--help".equals(args[0])
-                    || "-h".equals(args[0])) {
+                    || "--help".equals(
+                    args[0]
+            )
+                    || "-h".equals(
+                    args[0]
+            )) {
 
                 printHelp();
+
                 return 0;
             }
 
             Command command =
-                    commandFor(args);
+                    commandFor(
+                            args
+                    );
 
             return command.run(
-                    commandArgs(args)
+                    commandArgs(
+                            args
+                    )
             );
 
         } catch (CommandException exception) {
@@ -94,7 +113,9 @@ public class CommandRouter {
 
         Path configDirectory =
                 Path.of(
-                        System.getProperty("user.home"),
+                        System.getProperty(
+                                "user.home"
+                        ),
                         ".vs-cartographer"
                 );
 
@@ -123,7 +144,6 @@ public class CommandRouter {
                 );
 
         return switch (args[0]) {
-
             case "whereami" ->
                     new WhereamiCommand(
                             out,
@@ -161,7 +181,9 @@ public class CommandRouter {
                             reader,
                             metadataReader,
                             homeStore,
+                            markerStore,
                             new MapRenderer(),
+                            new UserMarkerRenderer(),
                             new PngWriter(),
                             subcommand(
                                     args,
@@ -229,6 +251,8 @@ public class CommandRouter {
                     new MarkerCommand(
                             out,
                             markerStore,
+                            reader,
+                            metadataReader,
                             subcommand(
                                     args,
                                     "markers"
@@ -301,7 +325,9 @@ public class CommandRouter {
             String[] args
     ) {
         if (args.length >= 2
-                && hasSubcommand(args[0])) {
+                && hasSubcommand(
+                args[0]
+        )) {
 
             return Arrays.copyOfRange(
                     args,
@@ -353,10 +379,15 @@ public class CommandRouter {
     }
 
     private void printHelp() {
-        out.println("VS Cartographer");
+        out.println(
+                "VS Cartographer"
+        );
+
         out.println();
 
-        out.println("Usage:");
+        out.println(
+                "Usage:"
+        );
 
         out.println(
                 "  vs-cartographer whereami <save.vcdbs> "
@@ -402,7 +433,22 @@ public class CommandRouter {
 
         out.println(
                 "  vs-cartographer resource search <save.vcdbs> <resource> "
-                        + "[--top <n>]"
+                        + "[--top <n>] [--separation <blocks>]"
+        );
+
+        out.println(
+                "  vs-cartographer resource render <save.vcdbs> <resource> "
+                        + "[--radius <blocks>] [--out <map.png>]"
+        );
+
+        out.println(
+                "  vs-cartographer resource surface-search <save.vcdbs> <match> "
+                        + "[--radius <blocks>] [--top <n>]"
+        );
+
+        out.println(
+                "  vs-cartographer resource surface-render <save.vcdbs> <match> "
+                        + "[--radius <blocks>] [--out <map.png>]"
         );
 
         out.println(
@@ -413,6 +459,27 @@ public class CommandRouter {
                         + "[--scale <n>] "
                         + "[--style simple|topographic|high-contrast] "
                         + "[--layers terrain,surface,markers]"
+        );
+
+        out.println(
+                "  vs-cartographer markers add <save.vcdbs> "
+                        + "<name> <display-x> <display-z>"
+        );
+
+        out.println(
+                "  vs-cartographer markers here <save.vcdbs> <name>"
+        );
+
+        out.println(
+                "  vs-cartographer markers list <save.vcdbs>"
+        );
+
+        out.println(
+                "  vs-cartographer markers remove <save.vcdbs> <name>"
+        );
+
+        out.println(
+                "  vs-cartographer markers clear <save.vcdbs>"
         );
 
         out.println(
@@ -436,14 +503,6 @@ public class CommandRouter {
                         + "[--center-x <x> --center-z <z>] "
                         + "[--radius <blocks>] "
                         + "[--limit <n>]"
-        );
-
-        out.println(
-                "  vs-cartographer markers add <name> <x> <z>"
-        );
-
-        out.println(
-                "  vs-cartographer markers list"
         );
 
         out.println(
