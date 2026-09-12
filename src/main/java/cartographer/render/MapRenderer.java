@@ -42,6 +42,25 @@ public class MapRenderer {
 
     public RenderedMap render(
             WorldPosition center,
+            WorldPosition player,
+            HomeState home,
+            List<MapChunk> chunks,
+            List<SurfaceBlock> surfaceBlocks,
+            RenderOptions options
+    ) {
+        return render(
+                center,
+                player,
+                home,
+                chunks,
+                surfaceBlocks,
+                options,
+                ProgressReporter.NONE
+        );
+    }
+
+    public RenderedMap render(
+            WorldPosition center,
             HomeState home,
             List<MapChunk> chunks,
             RenderOptions options,

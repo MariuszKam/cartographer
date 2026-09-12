@@ -1,5 +1,8 @@
 package cartographer.cli;
 
+import cartographer.application.RenderActualOreMapRequest;
+import cartographer.application.RenderActualOreMapResult;
+import cartographer.application.RenderActualOreMapUseCase;
 import cartographer.marker.MarkerStore;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
@@ -17,11 +20,15 @@ import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.render.MapRenderReport;
 import cartographer.render.MapRenderer;
+import cartographer.render.OverlayRenderReport;
 import cartographer.render.PngWriter;
 import cartographer.render.RenderOptions;
 import cartographer.render.RenderStyle;
 import cartographer.render.RenderedMap;
 import cartographer.render.UserMarkerRenderer;
+import cartographer.render.ActualOreOverlayPainter;
+import cartographer.scanner.ActualBlockMapScanner;
+import cartographer.scanner.SurfaceScanResult;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
@@ -35,6 +42,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -269,6 +277,75 @@ class MapCommandTest {
         );
     }
 
+    @Test
+    void delegatesMapRenderingToApplicationUseCase() {
+        RecordingUseCase useCase =
+                new RecordingUseCase(
+                        new FakeReader(),
+                        new FakeMetadataReader(),
+                        new HomeStore(
+                                tempDir.resolve("home.properties")
+                        ),
+                        new MarkerStore(
+                                tempDir.resolve("markers.csv")
+                        ),
+                        new MapRenderer(),
+                        new UserMarkerRenderer(),
+                        new ActualBlockMapScanner(),
+                        new ActualOreOverlayPainter()
+                );
+
+        MapCommand command =
+                new MapCommand(
+                        new PrintStream(
+                                new ByteArrayOutputStream()
+                        ),
+                        new NoopPngWriter(),
+                        useCase,
+                        "render"
+                );
+
+        command.run(
+                new String[]{
+                        "world.vcdbs",
+                        "--radius",
+                        "64",
+                        "--scale",
+                        "2",
+                        "--style",
+                        "topographic",
+                        "--layers",
+                        "terrain,markers",
+                        "--actual-ore",
+                        "copper",
+                        "--actual-y-min",
+                        "0",
+                        "--out",
+                        "map.png"
+                }
+        );
+
+        assertEquals(
+                "copper",
+                useCase.request.oreMatch().orElseThrow()
+        );
+
+        assertEquals(
+                0,
+                useCase.request.yFilter().minInclusive()
+        );
+
+        assertEquals(
+                2,
+                useCase.request.pixelsPerBlock()
+        );
+
+        assertEquals(
+                RenderStyle.TOPOGRAPHIC,
+                useCase.request.style()
+        );
+    }
+
     private MapCommand commandForValidation() {
         return new MapCommand(
                 new PrintStream(
@@ -481,6 +558,73 @@ class MapCommandTest {
                 BufferedImage image,
                 Path output
         ) {
+        }
+    }
+
+    private static class RecordingUseCase
+            extends RenderActualOreMapUseCase {
+
+        private RenderActualOreMapRequest request;
+
+        RecordingUseCase(
+                VcdbsReader reader,
+                WorldMetadataReader metadataReader,
+                HomeStore homeStore,
+                MarkerStore markerStore,
+                MapRenderer renderer,
+                UserMarkerRenderer userMarkerRenderer,
+                ActualBlockMapScanner actualBlockMapScanner,
+                ActualOreOverlayPainter actualOreOverlayPainter
+        ) {
+            super(
+                    reader,
+                    metadataReader,
+                    homeStore,
+                    markerStore,
+                    renderer,
+                    userMarkerRenderer,
+                    actualBlockMapScanner,
+                    actualOreOverlayPainter
+            );
+        }
+
+        @Override
+        public RenderActualOreMapResult execute(
+                RenderActualOreMapRequest request
+        ) {
+            this.request = request;
+
+            return new RenderActualOreMapResult(
+                    new BufferedImage(
+                            8,
+                            8,
+                            BufferedImage.TYPE_INT_ARGB
+                    ),
+                    new MapRenderReport(
+                            8,
+                            8,
+                            0,
+                            0,
+                            0,
+                            request.style(),
+                            "MARKERS,TERRAIN"
+                    ),
+                    new SurfaceScanResult(
+                            List.of(),
+                            0,
+                            0,
+                            0,
+                            0
+                    ),
+                    OverlayRenderReport.none(),
+                    OverlayRenderReport.none(),
+                    Optional.empty(),
+                    new ReadDiagnostics(),
+                    new ReadDiagnostics(),
+                    new ReadDiagnostics(),
+                    new ReadDiagnostics(),
+                    0
+            );
         }
     }
 

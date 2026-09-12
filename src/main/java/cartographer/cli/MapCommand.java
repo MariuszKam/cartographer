@@ -1,6 +1,9 @@
 package cartographer.cli;
 
 import cartographer.environment.EnvironmentInterpreter;
+import cartographer.application.RenderActualOreMapRequest;
+import cartographer.application.RenderActualOreMapResult;
+import cartographer.application.RenderActualOreMapUseCase;
 import cartographer.environment.EnvironmentProfile;
 import cartographer.geology.GeologicProvinceInterpreter;
 import cartographer.geology.GeologicProvinceSummary;
@@ -20,6 +23,7 @@ import cartographer.render.ActualOreOverlayPainter;
 import cartographer.render.EnvironmentOverlayRenderer;
 import cartographer.render.GeologyOverlayRenderer;
 import cartographer.render.MapRenderer;
+import cartographer.render.MapRenderReport;
 import cartographer.render.OverlayRenderReport;
 import cartographer.render.PngWriter;
 import cartographer.render.RenderLayer;
@@ -53,6 +57,7 @@ public class MapCommand implements Command {
     private final MapRenderer renderer;
     private final UserMarkerRenderer userMarkerRenderer;
     private final PngWriter pngWriter;
+    private final RenderActualOreMapUseCase renderActualOreMapUseCase;
     private final ActualBlockMapScanner actualBlockMapScanner;
     private final ActualOreOverlayPainter actualOreOverlayPainter;
     private final String subcommand;
@@ -119,9 +124,39 @@ public class MapCommand implements Command {
         this.renderer = renderer;
         this.userMarkerRenderer = userMarkerRenderer;
         this.pngWriter = pngWriter;
+        this.renderActualOreMapUseCase = new RenderActualOreMapUseCase(
+                reader,
+                metadataReader,
+                homeStore,
+                markerStore,
+                renderer,
+                userMarkerRenderer,
+                actualBlockMapScanner,
+                actualOreOverlayPainter
+        );
         this.actualBlockMapScanner = actualBlockMapScanner;
         this.actualOreOverlayPainter = actualOreOverlayPainter;
         this.subcommand = subcommand;
+    }
+
+    public MapCommand(
+            PrintStream out,
+            PngWriter pngWriter,
+            RenderActualOreMapUseCase renderActualOreMapUseCase,
+            String subcommand
+    ) {
+        this.out = out;
+        this.pngWriter = pngWriter;
+        this.renderActualOreMapUseCase = renderActualOreMapUseCase;
+        this.subcommand = subcommand;
+        this.reader = null;
+        this.metadataReader = null;
+        this.homeStore = null;
+        this.markerStore = null;
+        this.renderer = null;
+        this.userMarkerRenderer = null;
+        this.actualBlockMapScanner = null;
+        this.actualOreOverlayPainter = null;
     }
 
     @Override
@@ -199,150 +234,26 @@ public class MapCommand implements Command {
                         )
                 );
 
-        ProgressReporter progress =
-                new ProgressReporter(
-                        out
-                );
+        RenderActualOreMapRequest request = new RenderActualOreMapRequest(
+                savePath,
+                radius,
+                scale,
+                style,
+                options.layers(),
+                actualOreRequest.match(),
+                actualOreRequest.yFilter(),
+                center(args)
+        );
+        RenderActualOreMapResult result = renderActualOreMapUseCase.execute(request);
 
-        WorldPosition player =
-                reader.readPlayerPosition(
-                        savePath,
-                        progress
-                );
-
-        WorldPosition center =
-                center(
-                        args
-                )
-                        .orElse(
-                                player
-                        );
-
-        HomeState home =
-                absoluteHome(
-                        savePath,
-                        progress
-                );
-
-        ReadDiagnostics mapChunkDiagnostics =
-                new ReadDiagnostics();
-
-        List<MapChunk> chunks =
-                reader.readMapChunksAround(
-                        savePath,
-                        center,
-                        radius,
-                        mapChunkDiagnostics,
-                        progress
-                );
-
-        ReadDiagnostics chunkDiagnostics =
-                new ReadDiagnostics();
-
-        SurfaceScanResult surface =
-                surfaceResult(
-                        savePath,
-                        center,
-                        radius,
-                        options,
-                        chunkDiagnostics,
-                        progress
-                );
-
-        RenderedMap rendered =
-                renderer.render(
-                        center,
-                        player,
-                        home,
-                        chunks,
-                        surface.blocks(),
-                        options,
-                        progress
-                );
-
-        ReadDiagnostics mapRegionDiagnostics =
-                new ReadDiagnostics();
-
-        List<ServerMapRegion> mapRegions =
-                mapRegions(
-                        savePath,
-                        options,
-                        mapRegionDiagnostics,
-                        progress
-                );
-
-        OverlayRenderReport environmentOverlay =
-                drawEnvironmentOverlay(
-                        rendered,
-                        center,
-                        radius,
-                        options,
-                        mapRegions,
-                        progress
-                );
-
-        OverlayRenderReport geologyOverlay =
-                drawGeologyOverlay(
-                        rendered,
-                        center,
-                        radius,
-                        options,
-                        mapRegions,
-                        progress
-                );
-
-        ActualBlockMap actualOreMap =
-                drawActualOreOverlay(
-                        savePath,
-                        rendered,
-                        center,
-                        radius,
-                        actualOreRequest,
-                        progress
-                );
-
-        if ((hasMapRegionOverlay(
-                options
-        )
-                || actualOreMap != null)
-                && options.layers()
-                .contains(
-                        RenderLayer.MARKERS
-                )) {
-
-            progress.start(
-                    "Redrawing system markers"
-            );
-
-            systemMarkerOverlayRenderer.draw(
-                    rendered.image(),
-                    center,
-                    player,
-                    home,
-                    radius
-            );
-
-            progress.done(
-                    "System markers redrawn"
-            );
-        }
-
-        int userMarkersDrawn =
-                drawUserMarkers(
-                        savePath,
-                        rendered,
-                        center,
-                        radius,
-                        options,
-                        progress
-                );
+        ProgressReporter progress = new ProgressReporter(out);
 
         progress.start(
                 "Writing PNG"
         );
 
         pngWriter.write(
-                rendered.image(),
+                result.image(),
                 output
         );
 
@@ -352,16 +263,16 @@ public class MapCommand implements Command {
 
         printReport(
                 output,
-                rendered,
-                userMarkersDrawn,
+                result.renderReport(),
+                result.userMarkersDrawn(),
                 options,
-                mapChunkDiagnostics,
-                chunkDiagnostics,
-                mapRegionDiagnostics,
-                surface,
-                environmentOverlay,
-                geologyOverlay,
-                actualOreMap
+                result.mapChunkDiagnostics(),
+                result.chunkDiagnostics(),
+                result.mapRegionDiagnostics(),
+                result.surface(),
+                result.environmentOverlay(),
+                result.geologyOverlay(),
+                result.actualOreMap().orElse(null)
         );
     }
 
@@ -577,7 +488,7 @@ public class MapCommand implements Command {
 
     private void printReport(
             Path output,
-            RenderedMap rendered,
+            MapRenderReport renderReport,
             int userMarkersDrawn,
             RenderOptions options,
             ReadDiagnostics mapChunkDiagnostics,
@@ -599,29 +510,29 @@ public class MapCommand implements Command {
 
         out.println(
                 "Image: "
-                        + rendered.report().width()
+                        + renderReport.width()
                         + "x"
-                        + rendered.report().height()
+                        + renderReport.height()
         );
 
         out.println(
                 "Style: "
-                        + rendered.report().style()
+                        + renderReport.style()
         );
 
         out.println(
                 "Layers: "
-                        + rendered.report().layers()
+                        + renderReport.layers()
         );
 
         out.println(
                 "Tiles drawn: "
-                        + rendered.report().tilesDrawn()
+                        + renderReport.tilesDrawn()
         );
 
         out.println(
                 "System markers: "
-                        + rendered.report().markerCount()
+                        + renderReport.markerCount()
         );
 
         out.println(

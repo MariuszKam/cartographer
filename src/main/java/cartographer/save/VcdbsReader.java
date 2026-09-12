@@ -45,6 +45,65 @@ public class VcdbsReader {
     private final ServerMapRegionParser serverMapRegionParser;
     private final SqliteSaveConnection connectionFactory;
 
+    public WorldPosition readPlayerPosition(
+            Path savePath
+    ) {
+        return readPlayerPosition(
+                savePath,
+                ProgressReporter.NONE
+        );
+    }
+
+    public List<MapChunk> readMapChunksAround(
+            Path savePath,
+            WorldPosition center,
+            int radiusBlocks,
+            ReadDiagnostics diagnostics
+    ) {
+        return readMapChunksAround(
+                savePath,
+                center,
+                radiusBlocks,
+                diagnostics,
+                ProgressReporter.NONE
+        );
+    }
+
+    public List<ParsedChunk> readChunksAround(
+            Path savePath,
+            WorldPosition center,
+            int radiusBlocks,
+            ReadDiagnostics diagnostics
+    ) {
+        return readChunksAround(
+                savePath,
+                center,
+                radiusBlocks,
+                diagnostics,
+                ProgressReporter.NONE
+        );
+    }
+
+    public Map<Integer, BlockInfo> readBlockRegistry(
+            Path savePath
+    ) {
+        return readBlockRegistry(
+                savePath,
+                ProgressReporter.NONE
+        );
+    }
+
+    public List<ServerMapRegion> readMapRegions(
+            Path savePath,
+            ReadDiagnostics diagnostics
+    ) {
+        return readMapRegions(
+                savePath,
+                diagnostics,
+                ProgressReporter.NONE
+        );
+    }
+
     public VcdbsReader(
             PlayerDataParser playerDataParser,
             MapChunkParser mapChunkParser,

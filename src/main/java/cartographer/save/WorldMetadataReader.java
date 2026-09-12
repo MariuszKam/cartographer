@@ -36,6 +36,15 @@ public class WorldMetadataReader {
     }
 
     public WorldMetadata read(
+            Path savePath
+    ) {
+        return read(
+                savePath,
+                ProgressReporter.NONE
+        );
+    }
+
+    public WorldMetadata read(
             Path savePath,
             ProgressReporter progress
     ) {
