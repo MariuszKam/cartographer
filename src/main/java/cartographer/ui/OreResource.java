@@ -5,7 +5,9 @@ import java.util.Objects;
 public record OreResource(
         String displayName,
         String match,
-        String sourceKey
+        String sourceKey,
+        boolean registryVerified,
+        int registryMatchCount
 ) {
 
     public OreResource {
@@ -21,6 +23,14 @@ public record OreResource(
         }
         if (sourceKey.isBlank()) {
             throw new IllegalArgumentException("sourceKey must not be blank");
+        }
+        if (registryMatchCount < 0) {
+            throw new IllegalArgumentException("registryMatchCount must not be negative");
+        }
+        if (!registryVerified && registryMatchCount != 0) {
+            throw new IllegalArgumentException(
+                    "unverified resources must not have registry matches"
+            );
         }
     }
 

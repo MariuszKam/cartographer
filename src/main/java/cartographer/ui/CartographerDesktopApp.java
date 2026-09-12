@@ -67,6 +67,7 @@ public class CartographerDesktopApp extends Application {
     private final Button renderButton = new Button("Render");
     private final ProgressIndicator progress = new ProgressIndicator();
     private final Label statusLabel = new Label();
+    private final Label resourceStatusLabel = new Label();
     private final Label resultLabel = new Label("Select a save and render an ore map.");
     private final ImageView imageView = new ImageView();
     private final ScrollPane preview = new ScrollPane(imageView);
@@ -115,6 +116,12 @@ public class CartographerDesktopApp extends Application {
                 return resourceForDisplayName(value).orElse(null);
             }
         });
+        resourceBox.valueProperty().addListener(
+                (observable, oldValue, selected) -> updateResourceStatus()
+        );
+        resourceBox.getEditor().textProperty().addListener(
+                (observable, oldValue, typed) -> updateResourceStatus()
+        );
 
         ToggleGroup radiusGroup = new ToggleGroup();
         radius128Button.setToggleGroup(radiusGroup);
@@ -143,7 +150,9 @@ public class CartographerDesktopApp extends Application {
         progress.setVisible(false);
         progress.setPrefSize(28, 28);
         statusLabel.setWrapText(true);
+        resourceStatusLabel.setWrapText(true);
         resultLabel.setWrapText(true);
+        updateResourceStatus();
     }
 
     private VBox buildControls() {
@@ -156,16 +165,17 @@ public class CartographerDesktopApp extends Application {
 
         grid.add(new Label("RESOURCE"), 0, 2);
         grid.add(resourceBox, 0, 3, 2, 1);
+        grid.add(resourceStatusLabel, 0, 4, 2, 1);
 
-        grid.add(new Label("RADIUS"), 0, 4);
+        grid.add(new Label("RADIUS"), 0, 5);
         HBox radiusBox = new HBox(8, radius128Button, radius256Button, radius512Button);
-        grid.add(radiusBox, 0, 5, 2, 1);
+        grid.add(radiusBox, 0, 6, 2, 1);
 
-        grid.add(new Label("Y FILTER"), 0, 6);
-        grid.add(allYButton, 0, 7);
-        grid.add(customYButton, 1, 7);
-        grid.add(yMinField, 0, 8);
-        grid.add(yMaxField, 1, 8);
+        grid.add(new Label("Y FILTER"), 0, 7);
+        grid.add(allYButton, 0, 8);
+        grid.add(customYButton, 1, 8);
+        grid.add(yMinField, 0, 9);
+        grid.add(yMaxField, 1, 9);
 
         VBox box = new VBox(
                 12,
@@ -221,6 +231,7 @@ public class CartographerDesktopApp extends Application {
             if (!resourceBox.getItems().isEmpty()) {
                 resourceBox.setValue(resourceBox.getItems().getFirst());
             }
+            updateResourceStatus();
             statusLabel.setText(
                     discovered.isEmpty()
                             ? "No resource maps found; custom matches are available."
@@ -231,6 +242,7 @@ public class CartographerDesktopApp extends Application {
         task.setOnFailed(event -> {
             resourceBox.getItems().setAll(presetResources());
             resourceBox.setValue(resourceBox.getItems().getFirst());
+            resourceStatusLabel.setText("Registry match: unavailable");
             showFailure(task.getException());
             setDiscoveryBusy(false);
         });
@@ -373,6 +385,29 @@ public class CartographerDesktopApp extends Application {
                 .orElse(editor);
     }
 
+    private void updateResourceStatus() {
+        String editor = resourceBox.getEditor().getText().trim();
+        Optional<OreResource> selected = resourceBox.getItems().stream()
+                .filter(resource -> resource.displayName().equalsIgnoreCase(editor))
+                .findFirst();
+
+        if (selected.isEmpty()) {
+            resourceStatusLabel.setText("Registry match: custom input");
+            return;
+        }
+
+        OreResource resource = selected.orElseThrow();
+        resourceStatusLabel.setText(
+                resource.registryVerified()
+                        ? "Registry match: verified ("
+                                + resource.registryMatchCount()
+                                + " block codes)"
+                        : "Registry match: not verified - using \""
+                                + resource.match()
+                                + "\" as custom match"
+        );
+    }
+
     private Optional<OreResource> resourceForDisplayName(String value) {
         return resourceBox.getItems().stream()
                 .filter(resource -> resource.displayName().equalsIgnoreCase(value.trim()))
@@ -384,7 +419,9 @@ public class CartographerDesktopApp extends Application {
                 .map(preset -> new OreResource(
                         preset.label(),
                         preset.match(),
-                        preset.match()
+                        preset.match(),
+                        false,
+                        0
                 ))
                 .toList();
     }
