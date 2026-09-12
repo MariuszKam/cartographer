@@ -15,6 +15,7 @@ import cartographer.perf.IncrementalRenderIndex;
 import cartographer.perf.RenderCache;
 import cartographer.render.MapRenderer;
 import cartographer.render.PngWriter;
+import cartographer.resource.ResourceAnalyzer;
 import cartographer.save.SaveIndexReader;
 import cartographer.save.SaveInspector;
 import cartographer.save.VcdbsReader;
@@ -189,6 +190,17 @@ public class CommandRouter {
                             )
                     );
 
+            case "resource" ->
+                    new ResourceCommand(
+                            out,
+                            reader,
+                            new ResourceAnalyzer(),
+                            subcommand(
+                                    args,
+                                    "resource"
+                            )
+                    );
+
             case "scan" ->
                     new ScanCommand(
                             out,
@@ -319,7 +331,8 @@ public class CommandRouter {
                  "incremental",
                  "atlas",
                  "mapregion",
-                 "environment" -> true;
+                 "environment",
+                 "resource" -> true;
 
             default -> false;
         };
@@ -380,6 +393,19 @@ public class CommandRouter {
         );
 
         out.println(
+                "  vs-cartographer resource list <save.vcdbs>"
+        );
+
+        out.println(
+                "  vs-cartographer resource inspect <save.vcdbs> <resource>"
+        );
+
+        out.println(
+                "  vs-cartographer resource search <save.vcdbs> <resource> "
+                        + "[--top <n>]"
+        );
+
+        out.println(
                 "  vs-cartographer map render <save.vcdbs> "
                         + "--radius <blocks> "
                         + "--out <map.png> "
@@ -398,6 +424,10 @@ public class CommandRouter {
                 "  vs-cartographer geology surface <save.vcdbs> "
                         + "--radius <blocks> "
                         + "[--center-x <x> --center-z <z>]"
+        );
+
+        out.println(
+                "  vs-cartographer geology strata <save.vcdbs>"
         );
 
         out.println(

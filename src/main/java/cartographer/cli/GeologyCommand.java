@@ -2,8 +2,14 @@ package cartographer.cli;
 
 import cartographer.geology.GeologyAnalyzer;
 import cartographer.geology.GeologyReport;
+import cartographer.geology.GeologicProvinceInterpreter;
+import cartographer.geology.GeologicProvinceSummary;
+import cartographer.geology.RockStrataAnalyzer;
+import cartographer.geology.RockStrataSummary;
+import cartographer.geology.RockStratumSummary;
 import cartographer.model.BlockInfo;
 import cartographer.model.ParsedChunk;
+import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldPosition;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
@@ -34,9 +40,23 @@ public class GeologyCommand implements Command {
 
     @Override
     public int run(String[] args) {
-        if (!"surface".equals(subcommand)) {
-            throw new CommandException("Unknown geology subcommand: " + subcommand);
-        }
+        return switch (subcommand) {
+            case "surface" ->
+                    runSurface(
+                            args
+                    );
+
+            case "strata" ->
+                    runStrata(
+                            args
+                    );
+
+            default ->
+                    throw new CommandException("Unknown geology subcommand: " + subcommand);
+        };
+    }
+
+    private int runSurface(String[] args) {
         if (args.length < 1) {
             throw new CommandException("Usage: geology surface <save.vcdbs> --radius <blocks> [--center-x <x> --center-z <z>]");
         }
@@ -64,11 +84,97 @@ public class GeologyCommand implements Command {
         return 0;
     }
 
+    private int runStrata(String[] args) {
+        if (args.length < 1) {
+            throw new CommandException("Usage: geology strata <save.vcdbs>");
+        }
+
+        Path savePath = Path.of(args[0]);
+        ProgressReporter progress = new ProgressReporter(out);
+        ReadDiagnostics diagnostics = new ReadDiagnostics();
+        List<ServerMapRegion> regions = reader.readMapRegions(savePath, diagnostics, progress);
+        RockStrataAnalyzer strataAnalyzer = new RockStrataAnalyzer();
+        GeologicProvinceInterpreter provinceInterpreter = new GeologicProvinceInterpreter();
+
+        out.println("GEOLOGY STRATA");
+        out.println("Regions parsed: " + diagnostics.parsed());
+        out.println("Regions skipped: " + diagnostics.skipped());
+        out.println("Regions failed: " + diagnostics.failed());
+        printFailureReasons(diagnostics);
+
+        for (ServerMapRegion region : regions) {
+            RockStrataSummary strataSummary = strataAnalyzer.summarize(region);
+            Optional<GeologicProvinceSummary> province = provinceInterpreter.summarize(region);
+
+            if (strataSummary.strata().isEmpty() && province.isEmpty()) {
+                continue;
+            }
+
+            out.println();
+            out.println("Region " + region.coordinate().x() + "," + region.coordinate().z());
+            out.println("  RockStrata maps: " + strataSummary.strata().size());
+
+            for (RockStratumSummary stratum : strataSummary.strata()) {
+                out.println(
+                        "    stratum "
+                                + stratum.index()
+                                + ": size="
+                                + stratum.size()
+                                + "x"
+                                + stratum.size()
+                                + " padding="
+                                + stratum.topLeftPadding()
+                                + "/"
+                                + stratum.bottomRightPadding()
+                                + " innerSize="
+                                + stratum.innerSize()
+                                + " samples="
+                                + stratum.samples()
+                                + " minRawId="
+                                + stratum.minRawId()
+                                + " maxRawId="
+                                + stratum.maxRawId()
+                                + " distinct="
+                                + stratum.distinctCount()
+                                + " dominantRawIds="
+                                + stratum.dominantRawIds()
+                );
+            }
+
+            if (province.isPresent()) {
+                GeologicProvinceSummary summary = province.get();
+                out.println(
+                        "  GeologicProvinceMap: samples="
+                                + summary.samples()
+                                + " distinct="
+                                + summary.distinctCount()
+                                + " dominantRawIds="
+                                + summary.dominantIds()
+                );
+            } else {
+                out.println("  GeologicProvinceMap: missing");
+            }
+        }
+
+        diagnostics.notes().forEach(note -> out.println("Note: " + note));
+        return 0;
+    }
+
     private void printMap(String title, Map<String, Integer> values) {
         out.println(title + ":");
         values.entrySet().stream()
                 .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
                 .forEach(entry -> out.printf("  %s: %d%n", entry.getKey(), entry.getValue()));
+    }
+
+    private void printFailureReasons(ReadDiagnostics diagnostics) {
+        if (diagnostics.failureReasons().isEmpty()) {
+            return;
+        }
+
+        out.println("Failure reasons:");
+        diagnostics.failureReasonLines()
+                .forEach(line -> out.println("  " + line));
     }
 
     private Optional<WorldPosition> center(String[] args) {

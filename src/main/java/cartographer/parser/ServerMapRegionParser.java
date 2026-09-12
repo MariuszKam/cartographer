@@ -6,6 +6,11 @@ import cartographer.model.ParseResult;
 import cartographer.model.ServerMapRegion;
 import cartographer.save.ProtobufWireReader;
 
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class ServerMapRegionParser {
@@ -25,8 +30,20 @@ public class ServerMapRegionParser {
     public static final int GEOLOGIC_PROVINCE_MAP_FIELD =
             4;
 
+    public static final int ORE_MAPS_FIELD =
+            8;
+
+    public static final int ROCK_STRATA_FIELD =
+            12;
+
     public static final int OCEAN_MAP_FIELD =
             18;
+
+    private static final int MAP_ENTRY_KEY_FIELD =
+            1;
+
+    private static final int MAP_ENTRY_VALUE_FIELD =
+            2;
 
     private final IntDataMap2DParser intDataMapParser =
             new IntDataMap2DParser();
@@ -71,6 +88,12 @@ public class ServerMapRegionParser {
                                     payload,
                                     OCEAN_MAP_FIELD,
                                     "OceanMap"
+                            ),
+                            parseOreMaps(
+                                    payload
+                            ),
+                            parseRockStrata(
+                                    payload
                             )
                     )
             );
@@ -113,5 +136,173 @@ public class ServerMapRegionParser {
         }
 
         return parsed.value();
+    }
+
+    private Map<String, IntDataMap2D> parseOreMaps(
+            byte[] payload
+    ) {
+        List<byte[]> entries =
+                ProtobufWireReader.readLengthDelimitedFields(
+                        payload,
+                        ORE_MAPS_FIELD
+                );
+
+        if (entries.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<String, IntDataMap2D> maps =
+                new LinkedHashMap<>();
+
+        for (int index = 0; index < entries.size(); index++) {
+            byte[] entry =
+                    entries.get(
+                            index
+                    );
+
+            String key =
+                    parseOreMapKey(
+                            entry,
+                            index
+                    );
+
+            IntDataMap2D map =
+                    parseRequiredMapEntryValue(
+                            entry,
+                            index,
+                            key
+                    );
+
+            maps.put(
+                    key,
+                    map
+            );
+        }
+
+        return Map.copyOf(
+                maps
+        );
+    }
+
+    private String parseOreMapKey(
+            byte[] entry,
+            int index
+    ) {
+        Optional<byte[]> keyPayload =
+                ProtobufWireReader.readLengthDelimitedField(
+                        entry,
+                        MAP_ENTRY_KEY_FIELD
+                );
+
+        if (keyPayload.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "OreMaps["
+                            + index
+                            + "] is missing key"
+            );
+        }
+
+        String key =
+                new String(
+                        keyPayload.get(),
+                        StandardCharsets.UTF_8
+                );
+
+        if (key.isBlank()) {
+            throw new IllegalArgumentException(
+                    "OreMaps["
+                            + index
+                            + "] has blank key"
+            );
+        }
+
+        return key;
+    }
+
+    private IntDataMap2D parseRequiredMapEntryValue(
+            byte[] entry,
+            int index,
+            String key
+    ) {
+        Optional<byte[]> valuePayload =
+                ProtobufWireReader.readLengthDelimitedField(
+                        entry,
+                        MAP_ENTRY_VALUE_FIELD
+                );
+
+        if (valuePayload.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "OreMaps["
+                            + index
+                            + "] "
+                            + key
+                            + " is missing IntDataMap2D value"
+            );
+        }
+
+        ParseResult<IntDataMap2D> parsed =
+                intDataMapParser.parse(
+                        valuePayload.get()
+                );
+
+        if (!parsed.isSuccess()) {
+            throw new IllegalArgumentException(
+                    "OreMaps["
+                            + index
+                            + "] "
+                            + key
+                            + ": "
+                            + parsed.error()
+                            .orElse("unable to parse IntDataMap2D")
+            );
+        }
+
+        return parsed.value()
+                .orElseThrow();
+    }
+
+    private List<IntDataMap2D> parseRockStrata(
+            byte[] payload
+    ) {
+        List<byte[]> entries =
+                ProtobufWireReader.readLengthDelimitedFields(
+                        payload,
+                        ROCK_STRATA_FIELD
+                );
+
+        if (entries.isEmpty()) {
+            return List.of();
+        }
+
+        List<IntDataMap2D> strata =
+                new ArrayList<>();
+
+        for (int index = 0; index < entries.size(); index++) {
+            ParseResult<IntDataMap2D> parsed =
+                    intDataMapParser.parse(
+                            entries.get(
+                                    index
+                            )
+                    );
+
+            if (!parsed.isSuccess()) {
+                throw new IllegalArgumentException(
+                        "RockStrata["
+                                + index
+                                + "]: "
+                                + parsed.error()
+                                .orElse("unable to parse IntDataMap2D")
+                );
+            }
+
+            strata.add(
+                    parsed.value()
+                            .orElseThrow()
+            );
+        }
+
+        return List.copyOf(
+                strata
+        );
     }
 }
