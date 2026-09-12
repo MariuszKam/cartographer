@@ -22,29 +22,19 @@ public record ServerMapRegion(
         }
 
         climateMap =
-                climateMap.isEmpty()
-                        ? Optional.empty()
-                        : climateMap;
+                climateMap;
 
         forestMap =
-                forestMap.isEmpty()
-                        ? Optional.empty()
-                        : forestMap;
+                forestMap;
 
         landformMap =
-                landformMap.isEmpty()
-                        ? Optional.empty()
-                        : landformMap;
+                landformMap;
 
         geologicProvinceMap =
-                geologicProvinceMap.isEmpty()
-                        ? Optional.empty()
-                        : geologicProvinceMap;
+                geologicProvinceMap;
 
         oceanMap =
-                oceanMap.isEmpty()
-                        ? Optional.empty()
-                        : oceanMap;
+                oceanMap;
 
         oreMaps =
                 oreMaps == null

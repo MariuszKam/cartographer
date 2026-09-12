@@ -18,29 +18,19 @@ public record EnvironmentProfile(
 ) {
     public EnvironmentProfile {
         climate =
-                climate.isEmpty()
-                        ? Optional.empty()
-                        : climate;
+                climate;
 
         forest =
-                forest.isEmpty()
-                        ? Optional.empty()
-                        : forest;
+                forest;
 
         ocean =
-                ocean.isEmpty()
-                        ? Optional.empty()
-                        : ocean;
+                ocean;
 
         landform =
-                landform.isEmpty()
-                        ? Optional.empty()
-                        : landform;
+                landform;
 
         geologicProvince =
-                geologicProvince.isEmpty()
-                        ? Optional.empty()
-                        : geologicProvince;
+                geologicProvince;
 
         labels =
                 labels == null

@@ -119,9 +119,7 @@ public class RegionCoverageRenderer {
                     summary,
                     cellSize,
                     player,
-                    home.isEmpty()
-                            ? Optional.empty()
-                            : home
+                    home
             );
 
             drawLegend(
