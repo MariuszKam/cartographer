@@ -282,7 +282,6 @@ public class MarkerCommand implements Command {
         WorldPosition player =
                 reader.readPlayerPosition(
                         savePath,
-                        Optional.empty(),
                         progress
                 );
 

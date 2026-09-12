@@ -13,7 +13,6 @@ import cartographer.save.WorldMetadataReader;
 import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.Locale;
-import java.util.Optional;
 
 public class NavCommand
         implements Command {
@@ -45,7 +44,9 @@ public class NavCommand
     public int run(
             String[] args
     ) {
-        if (!"home".equals(subcommand)) {
+        if (!"home".equals(
+                subcommand
+        )) {
             throw new CommandException(
                     "Unknown nav subcommand: "
                             + subcommand
@@ -59,15 +60,18 @@ public class NavCommand
         }
 
         Path savePath =
-                Path.of(args[0]);
+                Path.of(
+                        args[0]
+                );
 
         ProgressReporter progress =
-                new ProgressReporter(out);
+                new ProgressReporter(
+                        out
+                );
 
         WorldPosition absolutePlayer =
                 reader.readPlayerPosition(
                         savePath,
-                        Optional.empty(),
                         progress
                 );
 
@@ -84,7 +88,9 @@ public class NavCommand
 
         HomeLocation home =
                 homeStore
-                        .load(savePath)
+                        .load(
+                                savePath
+                        )
                         .orElseThrow(
                                 () ->
                                         new CommandException(

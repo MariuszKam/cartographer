@@ -4,6 +4,7 @@ import cartographer.coverage.RegionCoverageAnalyzer;
 import cartographer.coverage.RegionCoverageRenderer;
 import cartographer.coverage.RegionCoverageSummary;
 import cartographer.model.HomeLocation;
+import cartographer.model.HomeState;
 import cartographer.model.MapRegionCoordinate;
 import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldMetadata;
@@ -30,6 +31,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class CoverageCommandTest {
+
     @TempDir
     Path tempDir;
 
@@ -114,8 +116,7 @@ class CoverageCommandTest {
                         502.0,
                         532.0
                 ),
-                renderer.home()
-                        .orElseThrow()
+                renderer.homeLocation()
         );
     }
 
@@ -179,7 +180,6 @@ class CoverageCommandTest {
         @Override
         public WorldPosition readPlayerPosition(
                 Path savePath,
-                Optional<String> playerSelector,
                 ProgressReporter progress
         ) {
             return new WorldPosition(
@@ -209,14 +209,14 @@ class CoverageCommandTest {
     private static class CapturingRenderer
             extends RegionCoverageRenderer {
 
-        private Optional<HomeLocation> home =
-                Optional.empty();
+        private HomeState home =
+                HomeState.absent();
 
         @Override
         public BufferedImage render(
                 RegionCoverageSummary summary,
                 WorldPosition player,
-                Optional<HomeLocation> home
+                HomeState home
         ) {
             this.home =
                     home;
@@ -228,8 +228,14 @@ class CoverageCommandTest {
             );
         }
 
-        Optional<HomeLocation> home() {
-            return home;
+        HomeLocation homeLocation() {
+            if (home instanceof HomeState.Present(HomeLocation location)) {
+                return location;
+            }
+
+            throw new AssertionError(
+                    "Expected HOME to be present"
+            );
         }
     }
 

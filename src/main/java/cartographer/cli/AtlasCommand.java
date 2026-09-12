@@ -3,6 +3,7 @@ package cartographer.cli;
 import cartographer.atlas.AtlasRenderer;
 import cartographer.model.DisplayPosition;
 import cartographer.model.HomeLocation;
+import cartographer.model.HomeState;
 import cartographer.model.MapChunk;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 
 public class AtlasCommand implements Command {
+
     private final PrintStream out;
     private final VcdbsReader reader;
     private final WorldMetadataReader metadataReader;
@@ -41,8 +43,12 @@ public class AtlasCommand implements Command {
     }
 
     @Override
-    public int run(String[] args) {
-        if (!"render".equals(subcommand)) {
+    public int run(
+            String[] args
+    ) {
+        if (!"render".equals(
+                subcommand
+        )) {
             throw new CommandException(
                     "Unknown atlas subcommand: "
                             + subcommand
@@ -61,18 +67,23 @@ public class AtlasCommand implements Command {
         }
 
         Path savePath =
-                Path.of(args[0]);
+                Path.of(
+                        args[0]
+                );
 
         ProgressReporter progress =
-                new ProgressReporter(out);
+                new ProgressReporter(
+                        out
+                );
 
         WorldPosition center =
-                center(args)
+                center(
+                        args
+                )
                         .orElseGet(
                                 () ->
                                         reader.readPlayerPosition(
                                                 savePath,
-                                                Optional.empty(),
                                                 progress
                                         )
                         );
@@ -101,7 +112,7 @@ public class AtlasCommand implements Command {
         ReadDiagnostics diagnostics =
                 new ReadDiagnostics();
 
-        Optional<HomeLocation> home =
+        HomeState home =
                 absoluteHome(
                         savePath,
                         progress
@@ -126,15 +137,41 @@ public class AtlasCommand implements Command {
                 progress
         );
 
-        out.println("ATLAS");
-        out.println("Output: " + output);
-        out.println("Levels: " + levels);
-        out.println("Parsed mapchunks: " + diagnostics.parsed());
-        out.println("Skipped mapchunks: " + diagnostics.skipped());
-        out.println("Failed mapchunks: " + diagnostics.failed());
+        out.println(
+                "ATLAS"
+        );
 
-        if (!diagnostics.failureReasons().isEmpty()) {
-            out.println("Failure reasons:");
+        out.println(
+                "Output: "
+                        + output
+        );
+
+        out.println(
+                "Levels: "
+                        + levels
+        );
+
+        out.println(
+                "Parsed mapchunks: "
+                        + diagnostics.parsed()
+        );
+
+        out.println(
+                "Skipped mapchunks: "
+                        + diagnostics.skipped()
+        );
+
+        out.println(
+                "Failed mapchunks: "
+                        + diagnostics.failed()
+        );
+
+        if (!diagnostics.failureReasons()
+                .isEmpty()) {
+
+            out.println(
+                    "Failure reasons:"
+            );
 
             diagnostics.failureReasonLines()
                     .forEach(
@@ -149,7 +186,8 @@ public class AtlasCommand implements Command {
                 .forEach(
                         note ->
                                 out.println(
-                                        "Note: " + note
+                                        "Note: "
+                                                + note
                                 )
                 );
 
@@ -173,11 +211,13 @@ public class AtlasCommand implements Command {
 
         if (x.isEmpty()
                 && z.isEmpty()) {
+
             return Optional.empty();
         }
 
         if (x.isEmpty()
                 || z.isEmpty()) {
+
             throw new CommandException(
                     "--center-x and --center-z must be used together"
             );
@@ -186,12 +226,12 @@ public class AtlasCommand implements Command {
         return Optional.of(
                 new WorldPosition(
                         parseDouble(
-                                x.get(),
+                                x.orElseThrow(),
                                 "--center-x"
                         ),
                         0.0,
                         parseDouble(
-                                z.get(),
+                                z.orElseThrow(),
                                 "--center-z"
                         )
                 )
@@ -216,16 +256,19 @@ public class AtlasCommand implements Command {
         try {
             int value =
                     Integer.parseInt(
-                            option.get()
+                            option.orElseThrow()
                     );
 
             int max =
-                    "--levels".equals(optionName)
+                    "--levels".equals(
+                            optionName
+                    )
                             ? 8
                             : 8192;
 
             if (value <= 0
                     || value > max) {
+
                 throw new CommandException(
                         optionName
                                 + " must be between 1 and "
@@ -240,7 +283,7 @@ public class AtlasCommand implements Command {
                     "Invalid "
                             + optionName
                             + ": "
-                            + option.get()
+                            + option.orElse("")
             );
         }
     }
@@ -298,7 +341,7 @@ public class AtlasCommand implements Command {
         }
     }
 
-    private Optional<HomeLocation> absoluteHome(
+    private HomeState absoluteHome(
             Path savePath,
             ProgressReporter progress
     ) {
@@ -308,8 +351,11 @@ public class AtlasCommand implements Command {
                 );
 
         if (displayHome.isEmpty()) {
-            return Optional.empty();
+            return HomeState.absent();
         }
+
+        HomeLocation location =
+                displayHome.orElseThrow();
 
         WorldMetadata metadata =
                 metadataReader.read(
@@ -320,13 +366,13 @@ public class AtlasCommand implements Command {
         WorldPosition absolute =
                 metadata.toAbsolute(
                         new DisplayPosition(
-                                displayHome.get().x(),
+                                location.x(),
                                 0.0,
-                                displayHome.get().z()
+                                location.z()
                         )
                 );
 
-        return Optional.of(
+        return HomeState.present(
                 new HomeLocation(
                         absolute.x(),
                         absolute.z()

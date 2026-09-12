@@ -2,6 +2,7 @@ package cartographer.render;
 
 import cartographer.cli.ProgressReporter;
 import cartographer.model.HomeLocation;
+import cartographer.model.HomeState;
 import cartographer.model.MapChunk;
 import cartographer.model.SurfaceBlock;
 import cartographer.model.SurfaceClass;
@@ -15,7 +16,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -41,7 +42,7 @@ public class MapRenderer {
 
     public BufferedImage render(
             WorldPosition player,
-            Optional<HomeLocation> home,
+            HomeState home,
             List<MapChunk> chunks,
             int radiusBlocks
     ) {
@@ -61,7 +62,7 @@ public class MapRenderer {
 
     public BufferedImage render(
             WorldPosition player,
-            Optional<HomeLocation> home,
+            HomeState home,
             List<MapChunk> chunks,
             int radiusBlocks,
             ProgressReporter progress
@@ -82,7 +83,7 @@ public class MapRenderer {
 
     public RenderedMap render(
             WorldPosition center,
-            Optional<HomeLocation> home,
+            HomeState home,
             List<MapChunk> chunks,
             RenderOptions options,
             ProgressReporter progress
@@ -100,7 +101,7 @@ public class MapRenderer {
 
     public RenderedMap render(
             WorldPosition center,
-            Optional<HomeLocation> home,
+            HomeState home,
             List<MapChunk> chunks,
             List<SurfaceBlock> surfaceBlocks,
             RenderOptions options,
@@ -120,7 +121,7 @@ public class MapRenderer {
     public RenderedMap render(
             WorldPosition center,
             WorldPosition player,
-            Optional<HomeLocation> home,
+            HomeState home,
             List<MapChunk> chunks,
             RenderOptions options,
             ProgressReporter progress
@@ -139,21 +140,26 @@ public class MapRenderer {
     public RenderedMap render(
             WorldPosition center,
             WorldPosition player,
-            Optional<HomeLocation> home,
+            HomeState home,
             List<MapChunk> chunks,
             List<SurfaceBlock> surfaceBlocks,
             RenderOptions options,
             ProgressReporter progress
     ) {
+        Objects.requireNonNull(
+                home,
+                "Home state is required"
+        );
+
         int diameter =
                 Math.clamp(
                         (long) options.radiusBlocks()
                                 * 2
                                 * options.pixelsPerBlock()
-                                + 1
-                        ,
+                                + 1,
                         64,
-                        MAX_IMAGE_SIZE);
+                        MAX_IMAGE_SIZE
+                );
 
         double scale =
                 diameter
@@ -268,10 +274,14 @@ public class MapRenderer {
         String layers =
                 options.layers()
                         .stream()
-                        .map(Enum::name)
+                        .map(
+                                Enum::name
+                        )
                         .sorted()
                         .collect(
-                                Collectors.joining(",")
+                                Collectors.joining(
+                                        ","
+                                )
                         );
 
         return new RenderedMap(
@@ -350,7 +360,8 @@ public class MapRenderer {
                                     * 2
                                     - 1,
                             (int) Math.floor(
-                                    imageY / scale
+                                    imageY
+                                            / scale
                             )
                     );
 
@@ -365,7 +376,8 @@ public class MapRenderer {
                                         * 2
                                         - 1,
                                 (int) Math.floor(
-                                        imageX / scale
+                                        imageX
+                                                / scale
                                 )
                         );
 
@@ -433,7 +445,8 @@ public class MapRenderer {
 
             int startX =
                     (int) Math.floor(
-                            (block.worldX() - minX)
+                            (block.worldX()
+                                    - minX)
                                     * scale
                     );
 
@@ -447,7 +460,8 @@ public class MapRenderer {
 
             int startY =
                     (int) Math.floor(
-                            (block.worldZ() - minZ)
+                            (block.worldZ()
+                                    - minZ)
                                     * scale
                     );
 
@@ -542,7 +556,7 @@ public class MapRenderer {
     private int drawMarkers(
             BufferedImage image,
             WorldPosition player,
-            Optional<HomeLocation> home,
+            HomeState home,
             int minX,
             int minZ,
             double scale,
@@ -567,13 +581,15 @@ public class MapRenderer {
             try {
                 int playerX =
                         (int) Math.round(
-                                (player.x() - minX)
+                                (player.x()
+                                        - minX)
                                         * scale
                         );
 
                 int playerY =
                         (int) Math.round(
-                                (player.z() - minZ)
+                                (player.z()
+                                        - minZ)
                                         * scale
                         );
 
@@ -586,19 +602,19 @@ public class MapRenderer {
 
                 markerCount++;
 
-                if (home.isPresent()) {
-                    HomeLocation location =
-                            home.get();
+                if (home instanceof HomeState.Present(HomeLocation location)) {
 
                     int homeX =
                             (int) Math.round(
-                                    (location.x() - minX)
+                                    (location.x()
+                                            - minX)
                                             * scale
                             );
 
                     int homeY =
                             (int) Math.round(
-                                    (location.z() - minZ)
+                                    (location.z()
+                                            - minZ)
                                             * scale
                             );
 
@@ -872,8 +888,11 @@ public class MapRenderer {
         }
 
         if (heights.isEmpty()) {
-            minHeight = 0;
-            maxHeight = 0;
+            minHeight =
+                    0;
+
+            maxHeight =
+                    0;
         }
 
         return new HeightSamples(
@@ -932,10 +951,10 @@ public class MapRenderer {
                         / 32.0;
 
         return Math.clamp(
-                light
-                ,
+                light,
                 -0.35,
-                0.35);
+                0.35
+        );
     }
 
     private long key(

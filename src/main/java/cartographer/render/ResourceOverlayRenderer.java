@@ -1,6 +1,7 @@
 package cartographer.render;
 
 import cartographer.model.HomeLocation;
+import cartographer.model.HomeState;
 import cartographer.model.WorldPosition;
 import cartographer.resource.ResourceOverlayCell;
 
@@ -10,7 +11,7 @@ import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
+import java.util.Objects;
 
 public class ResourceOverlayRenderer {
 
@@ -31,7 +32,7 @@ public class ResourceOverlayRenderer {
             String resourceKey,
             double minimumSignal,
             WorldPosition player,
-            Optional<HomeLocation> home
+            HomeState home
     ) {
         if (image == null) {
             throw new IllegalArgumentException(
@@ -58,6 +59,11 @@ public class ResourceOverlayRenderer {
                     "Resource key is required"
             );
         }
+
+        Objects.requireNonNull(
+                home,
+                "Home state is required"
+        );
 
         List<ResourceOverlayCell> safeCells =
                 cells == null
@@ -107,7 +113,9 @@ public class ResourceOverlayRenderer {
                     RenderingHints.VALUE_TEXT_ANTIALIAS_ON
             );
 
-            for (ResourceOverlayCell cell : safeCells) {
+            for (ResourceOverlayCell cell :
+                    safeCells) {
+
                 int startX =
                         (int) Math.floor(
                                 (cell.worldMinX()
@@ -220,10 +228,10 @@ public class ResourceOverlayRenderer {
     ) {
         double clamped =
                 Math.clamp(
-                        signal
-                        ,
+                        signal,
                         0.0,
-                        1.0);
+                        1.0
+                );
 
         int green =
                 (int) Math.round(
@@ -366,7 +374,7 @@ public class ResourceOverlayRenderer {
             Graphics2D graphics,
             BufferedImage image,
             WorldPosition player,
-            Optional<HomeLocation> home,
+            HomeState home,
             int minWorldX,
             int minWorldZ,
             double scaleX,
@@ -401,13 +409,9 @@ public class ResourceOverlayRenderer {
             }
         }
 
-        if (home.isEmpty()) {
-
+        if (!(home instanceof HomeState.Present(HomeLocation location))) {
             return;
         }
-
-        HomeLocation location =
-                home.get();
 
         int homeX =
                 (int) Math.round(

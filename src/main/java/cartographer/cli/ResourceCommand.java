@@ -3,6 +3,7 @@ package cartographer.cli;
 import cartographer.model.BlockInfo;
 import cartographer.model.DisplayPosition;
 import cartographer.model.HomeLocation;
+import cartographer.model.HomeState;
 import cartographer.model.MapChunk;
 import cartographer.model.ParsedChunk;
 import cartographer.model.ServerMapRegion;
@@ -126,22 +127,34 @@ public class ResourceCommand implements Command {
     ) {
         switch (subcommand) {
             case "list" ->
-                    list(args);
+                    list(
+                            args
+                    );
 
             case "inspect" ->
-                    inspect(args);
+                    inspect(
+                            args
+                    );
 
             case "search" ->
-                    search(args);
+                    search(
+                            args
+                    );
 
             case "render" ->
-                    render(args);
+                    render(
+                            args
+                    );
 
             case "surface-search" ->
-                    surfaceSearch(args);
+                    surfaceSearch(
+                            args
+                    );
 
             case "surface-render" ->
-                    surfaceRender(args);
+                    surfaceRender(
+                            args
+                    );
 
             default ->
                     throw new CommandException(
@@ -164,7 +177,9 @@ public class ResourceCommand implements Command {
 
         LoadedResources loaded =
                 load(
-                        Path.of(args[0])
+                        Path.of(
+                                args[0]
+                        )
                 );
 
         out.println(
@@ -193,7 +208,8 @@ public class ResourceCommand implements Command {
             keys.forEach(
                     key ->
                             out.println(
-                                    "  " + key
+                                    "  "
+                                            + key
                             )
             );
         }
@@ -210,7 +226,9 @@ public class ResourceCommand implements Command {
 
         LoadedResources loaded =
                 load(
-                        Path.of(args[0])
+                        Path.of(
+                                args[0]
+                        )
                 );
 
         out.println(
@@ -231,17 +249,20 @@ public class ResourceCommand implements Command {
             return;
         }
 
+        String resourceKey =
+                selected.orElseThrow();
+
         ResourceSummary summary =
                 analyzer.summarize(
                                 loaded.regions(),
-                                selected.get(),
+                                resourceKey,
                                 10
                         )
                         .orElseThrow(
                                 () ->
                                         new CommandException(
                                                 "Resource map disappeared during inspection: "
-                                                        + selected.get()
+                                                        + resourceKey
                                         )
                         );
 
@@ -261,7 +282,9 @@ public class ResourceCommand implements Command {
         }
 
         Path savePath =
-                Path.of(args[0]);
+                Path.of(
+                        args[0]
+                );
 
         int top =
                 intOption(
@@ -302,10 +325,13 @@ public class ResourceCommand implements Command {
             return;
         }
 
+        String resourceKey =
+                selected.orElseThrow();
+
         List<ResourceHotspot> hotspots =
                 analyzer.hotspots(
                         loaded.regions(),
-                        selected.get(),
+                        resourceKey,
                         top,
                         separation
                 );
@@ -318,7 +344,7 @@ public class ResourceCommand implements Command {
 
         out.println(
                 "Resource: "
-                        + selected.get()
+                        + resourceKey
         );
 
         out.println(
@@ -344,7 +370,9 @@ public class ResourceCommand implements Command {
              index++) {
 
             ResourceHotspot hotspot =
-                    hotspots.get(index);
+                    hotspots.get(
+                            index
+                    );
 
             DisplayPosition display =
                     metadata.toDisplay(
@@ -399,7 +427,9 @@ public class ResourceCommand implements Command {
         }
 
         Path savePath =
-                Path.of(args[0]);
+                Path.of(
+                        args[0]
+                );
 
         int radius =
                 intOption(
@@ -448,14 +478,16 @@ public class ResourceCommand implements Command {
         }
 
         String resourceKey =
-                selected.get();
+                selected.orElseThrow();
 
         Path output =
                 option(
                         args,
                         "--out"
                 )
-                        .map(Path::of)
+                        .map(
+                                Path::of
+                        )
                         .orElse(
                                 Path.of(
                                         "output",
@@ -465,20 +497,25 @@ public class ResourceCommand implements Command {
                         );
 
         ProgressReporter progress =
-                new ProgressReporter(out);
+                new ProgressReporter(
+                        out
+                );
 
         WorldPosition player =
                 reader.readPlayerPosition(
                         savePath,
-                        Optional.empty(),
                         progress
                 );
 
         WorldPosition center =
-                center(args)
-                        .orElse(player);
+                center(
+                        args
+                )
+                        .orElse(
+                                player
+                        );
 
-        Optional<HomeLocation> home =
+        HomeState home =
                 absoluteHome(
                         savePath,
                         progress
@@ -630,7 +667,9 @@ public class ResourceCommand implements Command {
         }
 
         Path savePath =
-                Path.of(args[0]);
+                Path.of(
+                        args[0]
+                );
 
         String match =
                 args[1];
@@ -671,7 +710,8 @@ public class ResourceCommand implements Command {
 
         out.println(
                 "Match: "
-                        + loaded.analysis().query()
+                        + loaded.analysis()
+                        .query()
         );
 
         out.println(
@@ -741,7 +781,9 @@ public class ResourceCommand implements Command {
              index++) {
 
             SurfaceResourceDeposit deposit =
-                    deposits.get(index);
+                    deposits.get(
+                            index
+                    );
 
             DisplayPosition display =
                     metadata.toDisplay(
@@ -808,7 +850,9 @@ public class ResourceCommand implements Command {
         }
 
         Path savePath =
-                Path.of(args[0]);
+                Path.of(
+                        args[0]
+                );
 
         String match =
                 args[1];
@@ -844,7 +888,9 @@ public class ResourceCommand implements Command {
                         args,
                         "--out"
                 )
-                        .map(Path::of)
+                        .map(
+                                Path::of
+                        )
                         .orElse(
                                 Path.of(
                                         "output",
@@ -864,9 +910,11 @@ public class ResourceCommand implements Command {
                 );
 
         ProgressReporter progress =
-                new ProgressReporter(out);
+                new ProgressReporter(
+                        out
+                );
 
-        Optional<HomeLocation> home =
+        HomeState home =
                 absoluteHome(
                         savePath,
                         progress
@@ -1005,18 +1053,23 @@ public class ResourceCommand implements Command {
             String[] args
     ) {
         ProgressReporter progress =
-                new ProgressReporter(out);
+                new ProgressReporter(
+                        out
+                );
 
         WorldPosition player =
                 reader.readPlayerPosition(
                         savePath,
-                        Optional.empty(),
                         progress
                 );
 
         WorldPosition center =
-                center(args)
-                        .orElse(player);
+                center(
+                        args
+                )
+                        .orElse(
+                                player
+                        );
 
         ReadDiagnostics diagnostics =
                 new ReadDiagnostics();
@@ -1081,7 +1134,9 @@ public class ResourceCommand implements Command {
                 new ReadDiagnostics();
 
         ProgressReporter progress =
-                new ProgressReporter(out);
+                new ProgressReporter(
+                        out
+                );
 
         List<ServerMapRegion> regions =
                 reader.readMapRegions(
@@ -1108,7 +1163,8 @@ public class ResourceCommand implements Command {
 
         if (matches.isEmpty()) {
             out.println(
-                    "Resource: " + query
+                    "Resource: "
+                            + query
             );
 
             out.println(
@@ -1124,7 +1180,8 @@ public class ResourceCommand implements Command {
 
         if (matches.size() > 1) {
             out.println(
-                    "Resource: " + query
+                    "Resource: "
+                            + query
             );
 
             out.println(
@@ -1134,7 +1191,8 @@ public class ResourceCommand implements Command {
             matches.forEach(
                     match ->
                             out.println(
-                                    "  " + match
+                                    "  "
+                                            + match
                             )
             );
 
@@ -1234,7 +1292,8 @@ public class ResourceCommand implements Command {
         keys.forEach(
                 key ->
                         out.println(
-                                "  " + key
+                                "  "
+                                        + key
                         )
         );
     }
@@ -1279,7 +1338,8 @@ public class ResourceCommand implements Command {
                 .forEach(
                         line ->
                                 out.println(
-                                        "  " + line
+                                        "  "
+                                                + line
                                 )
                 );
     }
@@ -1303,7 +1363,7 @@ public class ResourceCommand implements Command {
         try {
             int parsed =
                     Integer.parseInt(
-                            value.get()
+                            value.orElseThrow()
                     );
 
             if (parsed < 1
@@ -1323,7 +1383,7 @@ public class ResourceCommand implements Command {
                     "Invalid "
                             + optionName
                             + ": "
-                            + value.get()
+                            + value.orElse("")
             );
         }
     }
@@ -1344,10 +1404,12 @@ public class ResourceCommand implements Command {
         try {
             double parsed =
                     Double.parseDouble(
-                            value.get()
+                            value.orElseThrow()
                     );
 
-            if (!Double.isFinite(parsed)
+            if (!Double.isFinite(
+                    parsed
+            )
                     || parsed < 0.0
                     || parsed > 1.0) {
 
@@ -1361,7 +1423,7 @@ public class ResourceCommand implements Command {
         } catch (NumberFormatException exception) {
             throw new CommandException(
                     "Invalid --min-signal: "
-                            + value.get()
+                            + value.orElse("")
             );
         }
     }
@@ -1418,12 +1480,12 @@ public class ResourceCommand implements Command {
         return Optional.of(
                 new WorldPosition(
                         parseDouble(
-                                x.get(),
+                                x.orElseThrow(),
                                 "--center-x"
                         ),
                         0.0,
                         parseDouble(
-                                z.get(),
+                                z.orElseThrow(),
                                 "--center-z"
                         )
                 )
@@ -1449,7 +1511,7 @@ public class ResourceCommand implements Command {
         }
     }
 
-    private Optional<HomeLocation> absoluteHome(
+    private HomeState absoluteHome(
             Path savePath,
             ProgressReporter progress
     ) {
@@ -1459,8 +1521,11 @@ public class ResourceCommand implements Command {
                 );
 
         if (displayHome.isEmpty()) {
-            return Optional.empty();
+            return HomeState.absent();
         }
+
+        HomeLocation location =
+                displayHome.orElseThrow();
 
         WorldMetadata metadata =
                 metadataReader.read(
@@ -1471,13 +1536,13 @@ public class ResourceCommand implements Command {
         WorldPosition absolute =
                 metadata.toAbsolute(
                         new DisplayPosition(
-                                displayHome.get().x(),
+                                location.x(),
                                 0.0,
-                                displayHome.get().z()
+                                location.z()
                         )
                 );
 
-        return Optional.of(
+        return HomeState.present(
                 new HomeLocation(
                         absolute.x(),
                         absolute.z()

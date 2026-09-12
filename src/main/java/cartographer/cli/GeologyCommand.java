@@ -101,7 +101,6 @@ public class GeologyCommand implements Command {
                         () ->
                                 reader.readPlayerPosition(
                                         savePath,
-                                        Optional.empty(),
                                         progress
                                 )
                 );

@@ -9,7 +9,6 @@ import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 public class MapRegionCommand implements Command {
@@ -78,6 +77,7 @@ public class MapRegionCommand implements Command {
 
         for (ServerMapRegion region : regions) {
             out.println();
+
             out.println(
                     "Region "
                             + region.coordinate().x()
@@ -85,30 +85,70 @@ public class MapRegionCommand implements Command {
                             + region.coordinate().z()
             );
 
-            printMap(
-                    "ClimateMap",
-                    region.climateMap()
-            );
+            region.climateMap()
+                    .ifPresentOrElse(
+                            map ->
+                                    printMap(
+                                            "ClimateMap",
+                                            map
+                                    ),
+                            () ->
+                                    printMissingMap(
+                                            "ClimateMap"
+                                    )
+                    );
 
-            printMap(
-                    "ForestMap",
-                    region.forestMap()
-            );
+            region.forestMap()
+                    .ifPresentOrElse(
+                            map ->
+                                    printMap(
+                                            "ForestMap",
+                                            map
+                                    ),
+                            () ->
+                                    printMissingMap(
+                                            "ForestMap"
+                                    )
+                    );
 
-            printMap(
-                    "LandformMap",
-                    region.landformMap()
-            );
+            region.landformMap()
+                    .ifPresentOrElse(
+                            map ->
+                                    printMap(
+                                            "LandformMap",
+                                            map
+                                    ),
+                            () ->
+                                    printMissingMap(
+                                            "LandformMap"
+                                    )
+                    );
 
-            printMap(
-                    "GeologicProvinceMap",
-                    region.geologicProvinceMap()
-            );
+            region.geologicProvinceMap()
+                    .ifPresentOrElse(
+                            map ->
+                                    printMap(
+                                            "GeologicProvinceMap",
+                                            map
+                                    ),
+                            () ->
+                                    printMissingMap(
+                                            "GeologicProvinceMap"
+                                    )
+                    );
 
-            printMap(
-                    "OceanMap",
-                    region.oceanMap()
-            );
+            region.oceanMap()
+                    .ifPresentOrElse(
+                            map ->
+                                    printMap(
+                                            "OceanMap",
+                                            map
+                                    ),
+                            () ->
+                                    printMissingMap(
+                                            "OceanMap"
+                                    )
+                    );
         }
 
         diagnostics.notes()
@@ -124,38 +164,28 @@ public class MapRegionCommand implements Command {
 
     private void printMap(
             String name,
-            Optional<IntDataMap2D> map
+            IntDataMap2D map
     ) {
-        if (map.isEmpty()) {
-            out.println(
-                    "  "
-                            + name
-                            + ": missing"
-            );
-
-            return;
-        }
-
         MapStats stats =
                 MapStats.from(
-                        map.get()
+                        map
                 );
 
         out.println(
                 "  "
                         + name
                         + ": size="
-                        + map.get().width()
+                        + map.width()
                         + "x"
-                        + map.get().height()
+                        + map.height()
                         + " values="
-                        + map.get().valueCount()
+                        + map.valueCount()
                         + " padding="
-                        + map.get().topLeftPadding()
+                        + map.topLeftPadding()
                         + "/"
-                        + map.get().bottomRightPadding()
+                        + map.bottomRightPadding()
                         + " innerSize="
-                        + map.get().innerSize()
+                        + map.innerSize()
                         + " min="
                         + stats.min()
                         + " max="
@@ -167,15 +197,28 @@ public class MapRegionCommand implements Command {
         );
     }
 
+    private void printMissingMap(
+            String name
+    ) {
+        out.println(
+                "  "
+                        + name
+                        + ": missing"
+        );
+    }
+
     private void printFailureReasons(
             ReadDiagnostics diagnostics
     ) {
         if (diagnostics.failureReasons()
                 .isEmpty()) {
+
             return;
         }
 
-        out.println("Failure reasons:");
+        out.println(
+                "Failure reasons:"
+        );
 
         diagnostics.failureReasonLines()
                 .forEach(

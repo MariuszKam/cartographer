@@ -1,12 +1,13 @@
 package cartographer.render;
 
 import cartographer.model.HomeLocation;
+import cartographer.model.HomeState;
 import cartographer.model.WorldPosition;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
-import java.util.Optional;
+import java.util.Objects;
 
 public class SystemMarkerOverlayRenderer {
 
@@ -17,7 +18,7 @@ public class SystemMarkerOverlayRenderer {
             BufferedImage image,
             WorldPosition center,
             WorldPosition player,
-            Optional<HomeLocation> home,
+            HomeState home,
             int radiusBlocks
     ) {
         if (image == null
@@ -26,6 +27,11 @@ public class SystemMarkerOverlayRenderer {
 
             return;
         }
+
+        Objects.requireNonNull(
+                home,
+                "Home state is required"
+        );
 
         int minWorldX =
                 (int) Math.floor(
@@ -59,13 +65,15 @@ public class SystemMarkerOverlayRenderer {
         try {
             int playerX =
                     (int) Math.round(
-                            (player.x() - minWorldX)
+                            (player.x()
+                                    - minWorldX)
                                     * scaleX
                     );
 
             int playerY =
                     (int) Math.round(
-                            (player.z() - minWorldZ)
+                            (player.z()
+                                    - minWorldZ)
                                     * scaleZ
                     );
 
@@ -82,39 +90,39 @@ public class SystemMarkerOverlayRenderer {
                 );
             }
 
-            home.ifPresent(
-                    location -> {
-                        int homeX =
-                                (int) Math.round(
-                                        (location.x() - minWorldX)
-                                                * scaleX
-                                );
+            if (home instanceof HomeState.Present(HomeLocation location)) {
 
-                        int homeY =
-                                (int) Math.round(
-                                        (location.z() - minWorldZ)
-                                                * scaleZ
-                                );
+                int homeX =
+                        (int) Math.round(
+                                (location.x()
+                                        - minWorldX)
+                                        * scaleX
+                        );
 
-                        if (inside(
-                                image,
-                                homeX,
-                                homeY
-                        )) {
-                            markerRenderer.drawCross(
-                                    graphics,
-                                    homeX,
-                                    homeY,
-                                    Color.CYAN
-                            );
-                        }
-                    }
-            );
+                int homeY =
+                        (int) Math.round(
+                                (location.z()
+                                        - minWorldZ)
+                                        * scaleZ
+                        );
+
+                if (inside(
+                        image,
+                        homeX,
+                        homeY
+                )) {
+                    markerRenderer.drawCross(
+                            graphics,
+                            homeX,
+                            homeY,
+                            Color.CYAN
+                    );
+                }
+            }
 
         } finally {
             graphics.dispose();
         }
-
     }
 
     private boolean inside(

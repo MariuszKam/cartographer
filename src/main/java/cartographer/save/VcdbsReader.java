@@ -33,6 +33,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 public class VcdbsReader {
@@ -77,8 +78,44 @@ public class VcdbsReader {
     }
 
     public WorldPosition readPlayerPosition(
+            Path savePath
+    ) {
+        return readPlayerPosition(
+                savePath,
+                ProgressReporter.NONE
+        );
+    }
+
+    public WorldPosition readPlayerPosition(
             Path savePath,
-            Optional<String> playerSelector
+            ProgressReporter progress
+    ) {
+        List<SaveRecord> records =
+                readPlayerRecords(
+                        savePath,
+                        progress
+                );
+
+        SaveRecord selected =
+                selectDefaultPlayer(
+                        records
+                )
+                        .orElseThrow(
+                                () ->
+                                        new CommandException(
+                                                "Table playerdata exists but contains no selectable rows"
+                                        )
+                        );
+
+        return parsePlayerPosition(
+                selected,
+                progress
+        );
+    }
+
+    public WorldPosition readPlayerPosition(
+            Path savePath,
+            String playerSelector
     ) {
         return readPlayerPosition(
                 savePath,
@@ -89,7 +126,41 @@ public class VcdbsReader {
 
     public WorldPosition readPlayerPosition(
             Path savePath,
-            Optional<String> playerSelector,
+            String playerSelector,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(
+                playerSelector,
+                "playerSelector is required"
+        );
+
+        List<SaveRecord> records =
+                readPlayerRecords(
+                        savePath,
+                        progress
+                );
+
+        SaveRecord selected =
+                selectPlayer(
+                        records,
+                        playerSelector
+                )
+                        .orElseThrow(
+                                () ->
+                                        new CommandException(
+                                                "No playerdata row matched selector: "
+                                                        + playerSelector
+                                        )
+                        );
+
+        return parsePlayerPosition(
+                selected,
+                progress
+        );
+    }
+
+    private List<SaveRecord> readPlayerRecords(
+            Path savePath,
             ProgressReporter progress
     ) {
         progress.start(
@@ -123,45 +194,7 @@ public class VcdbsReader {
                 );
             }
 
-            progress.start(
-                    "Parsing player position"
-            );
-
-            SaveRecord selected =
-                    selectPlayer(
-                            records,
-                            playerSelector
-                    )
-                            .orElseThrow(
-                                    () ->
-                                            new CommandException(
-                                                    "No playerdata row matched selector: "
-                                                            + playerSelector.orElse("")
-                                            )
-                            );
-
-            ParseResult<WorldPosition> result =
-                    playerDataParser.parse(
-                            selected.payload()
-                    );
-
-            WorldPosition position =
-                    result.value()
-                            .orElseThrow(
-                                    () ->
-                                            new CommandException(
-                                                    result.error()
-                                                            .orElse(
-                                                                    "Unable to parse player position"
-                                                            )
-                                            )
-                            );
-
-            progress.done(
-                    "Player position parsed"
-            );
-
-            return position;
+            return records;
 
         } catch (SQLException exception) {
             throw new CommandException(
@@ -170,6 +203,38 @@ public class VcdbsReader {
                     exception
             );
         }
+    }
+
+    private WorldPosition parsePlayerPosition(
+            SaveRecord selected,
+            ProgressReporter progress
+    ) {
+        progress.start(
+                "Parsing player position"
+        );
+
+        ParseResult<WorldPosition> result =
+                playerDataParser.parse(
+                        selected.payload()
+                );
+
+        WorldPosition position =
+                result.value()
+                        .orElseThrow(
+                                () ->
+                                        new CommandException(
+                                                result.error()
+                                                        .orElse(
+                                                                "Unable to parse player position"
+                                                        )
+                                        )
+                        );
+
+        progress.done(
+                "Player position parsed"
+        );
+
+        return position;
     }
 
     public List<MapChunk> readMapChunksAround(
@@ -406,7 +471,6 @@ public class VcdbsReader {
     private Map<Integer, BlockInfo> readBlockRegistry(
             Connection connection
     ) throws SQLException {
-
         if (tableMissing(
                 connection,
                 SaveTable.GAMEDATA.tableName()
@@ -440,7 +504,6 @@ public class VcdbsReader {
             ReadDiagnostics diagnostics,
             ProgressReporter progress
     ) throws SQLException {
-
         List<ServerMapRegion> regions =
                 new ArrayList<>();
 
@@ -463,7 +526,8 @@ public class VcdbsReader {
              ResultSet resultSet =
                      statement.executeQuery()) {
 
-            int row = 0;
+            int row =
+                    0;
 
             while (resultSet.next()) {
                 row++;
@@ -532,7 +596,6 @@ public class VcdbsReader {
             ReadDiagnostics diagnostics,
             ProgressReporter progress
     ) throws SQLException {
-
         List<MapChunk> chunks =
                 new ArrayList<>();
 
@@ -555,7 +618,8 @@ public class VcdbsReader {
              ResultSet resultSet =
                      statement.executeQuery()) {
 
-            int row = 0;
+            int row =
+                    0;
 
             while (resultSet.next()) {
                 row++;
@@ -640,7 +704,6 @@ public class VcdbsReader {
             ReadDiagnostics diagnostics,
             ProgressReporter progress
     ) throws SQLException {
-
         List<ParsedChunk> chunks =
                 new ArrayList<>();
 
@@ -663,7 +726,8 @@ public class VcdbsReader {
              ResultSet resultSet =
                      statement.executeQuery()) {
 
-            int row = 0;
+            int row =
+                    0;
 
             while (resultSet.next()) {
                 row++;
@@ -753,53 +817,47 @@ public class VcdbsReader {
     private Optional<MapChunkCoordinate> mapChunkCoordinateFromPackedPosition(
             Object rawValue
     ) {
-        Optional<ChunkPosition> decoded =
-                decodePackedPosition(
-                        rawValue
+        return decodePackedPosition(
+                rawValue
+        )
+                .map(
+                        position ->
+                                new MapChunkCoordinate(
+                                        position.x(),
+                                        position.z()
+                                )
                 );
-
-        return decoded.map(
-                position ->
-                        new MapChunkCoordinate(
-                                position.x(),
-                                position.z()
-                        )
-        );
     }
 
     private Optional<ChunkCoordinate> chunkCoordinateFromPackedPosition(
             Object rawValue
     ) {
-        Optional<ChunkPosition> decoded =
-                decodePackedPosition(
-                        rawValue
+        return decodePackedPosition(
+                rawValue
+        )
+                .map(
+                        position ->
+                                new ChunkCoordinate(
+                                        position.x(),
+                                        position.y(),
+                                        position.z()
+                                )
                 );
-
-        return decoded.map(
-                position ->
-                        new ChunkCoordinate(
-                                position.x(),
-                                position.y(),
-                                position.z()
-                        )
-        );
     }
 
     private Optional<MapRegionCoordinate> mapRegionCoordinateFromPackedPosition(
             Object rawValue
     ) {
-        Optional<ChunkPosition> decoded =
-                decodePackedPosition(
-                        rawValue
+        return decodePackedPosition(
+                rawValue
+        )
+                .map(
+                        position ->
+                                new MapRegionCoordinate(
+                                        position.x(),
+                                        position.z()
+                                )
                 );
-
-        return decoded.map(
-                position ->
-                        new MapRegionCoordinate(
-                                position.x(),
-                                position.z()
-                        )
-        );
     }
 
     private Optional<ChunkPosition> decodePackedPosition(
@@ -821,27 +879,28 @@ public class VcdbsReader {
         }
     }
 
+    private Optional<SaveRecord> selectDefaultPlayer(
+            List<SaveRecord> records
+    ) {
+        return records.stream()
+                .min(
+                        Comparator.comparing(
+                                record ->
+                                        String.valueOf(
+                                                record.columns()
+                                        )
+                        )
+                );
+    }
+
     private Optional<SaveRecord> selectPlayer(
             List<SaveRecord> records,
-            Optional<String> selector
+            String selector
     ) {
-        if (selector.isEmpty()) {
-            return records.stream()
-                    .min(
-                            Comparator.comparing(
-                                    record ->
-                                            String.valueOf(
-                                                    record.columns()
-                                            )
-                            )
-                    );
-        }
-
         String wanted =
-                selector.orElseThrow()
-                        .toLowerCase(
-                                Locale.ROOT
-                        );
+                selector.toLowerCase(
+                        Locale.ROOT
+                );
 
         return records.stream()
                 .filter(
@@ -849,7 +908,9 @@ public class VcdbsReader {
                                 record.columns()
                                         .values()
                                         .stream()
-                                        .map(String::valueOf)
+                                        .map(
+                                                String::valueOf
+                                        )
                                         .map(
                                                 value ->
                                                         value.toLowerCase(
@@ -858,8 +919,12 @@ public class VcdbsReader {
                                         )
                                         .anyMatch(
                                                 value ->
-                                                        value.equals(wanted)
-                                                                || value.contains(wanted)
+                                                        value.equals(
+                                                                wanted
+                                                        )
+                                                                || value.contains(
+                                                                wanted
+                                                        )
                                         )
                 )
                 .findFirst();
@@ -870,7 +935,6 @@ public class VcdbsReader {
             String tableName,
             int limit
     ) throws SQLException {
-
         return readRecords(
                 connection,
                 tableName,
@@ -885,7 +949,6 @@ public class VcdbsReader {
             int limit,
             ProgressReporter progress
     ) throws SQLException {
-
         List<SaveRecord> records =
                 new ArrayList<>();
 
@@ -915,7 +978,8 @@ public class VcdbsReader {
             ResultSetMetaData metaData =
                     resultSet.getMetaData();
 
-            int row = 0;
+            int row =
+                    0;
 
             while (resultSet.next()) {
                 row++;
@@ -931,7 +995,8 @@ public class VcdbsReader {
                 Map<String, Object> columns =
                         new LinkedHashMap<>();
 
-                byte[] payload = null;
+                byte[] payload =
+                        null;
 
                 for (int index = 1;
                      index <= metaData.getColumnCount();
@@ -989,7 +1054,6 @@ public class VcdbsReader {
             Connection connection,
             String tableName
     ) throws SQLException {
-
         String sql =
                 "SELECT COUNT(*) FROM \""
                         + tableName
@@ -1096,7 +1160,6 @@ public class VcdbsReader {
     private void ensurePlayerDataTable(
             Connection connection
     ) throws SQLException {
-
         String tableName =
                 SaveTable.PLAYERDATA.tableName();
 
@@ -1104,7 +1167,6 @@ public class VcdbsReader {
                 connection,
                 tableName
         )) {
-
             throw new CommandException(
                     "Missing required table: "
                             + tableName
@@ -1116,7 +1178,6 @@ public class VcdbsReader {
             Connection connection,
             String tableName
     ) throws SQLException {
-
         DatabaseMetaData metaData =
                 connection.getMetaData();
 

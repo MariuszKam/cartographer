@@ -78,7 +78,6 @@ public class ScanCommand implements Command {
         WorldPosition player =
                 reader.readPlayerPosition(
                         savePath,
-                        Optional.empty(),
                         progress
                 );
 
@@ -212,7 +211,6 @@ public class ScanCommand implements Command {
                         () ->
                                 reader.readPlayerPosition(
                                         savePath,
-                                        Optional.empty(),
                                         progress
                                 )
                 );

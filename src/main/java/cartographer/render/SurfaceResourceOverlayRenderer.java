@@ -1,6 +1,7 @@
 package cartographer.render;
 
 import cartographer.model.HomeLocation;
+import cartographer.model.HomeState;
 import cartographer.model.WorldPosition;
 import cartographer.resource.SurfaceResourceAnalysis;
 import cartographer.resource.SurfaceResourceDeposit;
@@ -12,7 +13,7 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.util.List;
-import java.util.Optional;
+import java.util.Objects;
 
 public class SurfaceResourceOverlayRenderer {
 
@@ -31,7 +32,7 @@ public class SurfaceResourceOverlayRenderer {
             int radiusBlocks,
             SurfaceResourceAnalysis analysis,
             WorldPosition player,
-            Optional<HomeLocation> home
+            HomeState home
     ) {
         if (image == null) {
             throw new IllegalArgumentException(
@@ -50,6 +51,11 @@ public class SurfaceResourceOverlayRenderer {
                     "Surface resource analysis is required"
             );
         }
+
+        Objects.requireNonNull(
+                home,
+                "Home state is required"
+        );
 
         double scaleX =
                 image.getWidth()
@@ -385,7 +391,7 @@ public class SurfaceResourceOverlayRenderer {
             Graphics2D graphics,
             BufferedImage image,
             WorldPosition player,
-            Optional<HomeLocation> home,
+            HomeState home,
             int minWorldX,
             int minWorldZ,
             double scaleX,
@@ -420,13 +426,9 @@ public class SurfaceResourceOverlayRenderer {
             }
         }
 
-        if (home.isEmpty()) {
-
+        if (!(home instanceof HomeState.Present(HomeLocation location))) {
             return;
         }
-
-        HomeLocation location =
-                home.get();
 
         int homeX =
                 (int) Math.round(

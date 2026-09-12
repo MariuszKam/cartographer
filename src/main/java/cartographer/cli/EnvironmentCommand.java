@@ -13,7 +13,6 @@ import cartographer.save.VcdbsReader;
 import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Optional;
 
 public class EnvironmentCommand implements Command {
     private final PrintStream out;
@@ -102,6 +101,7 @@ public class EnvironmentCommand implements Command {
             EnvironmentProfile profile
     ) {
         out.println();
+
         out.println(
                 "Region "
                         + profile.coordinate().x()
@@ -109,27 +109,58 @@ public class EnvironmentCommand implements Command {
                         + profile.coordinate().z()
         );
 
-        printClimate(
-                profile.climate()
-        );
+        profile.climate()
+                .ifPresentOrElse(
+                        this::printClimate,
+                        () ->
+                                printMissing(
+                                        "Climate"
+                                )
+                );
 
-        printForest(
-                profile.forest()
-        );
+        profile.forest()
+                .ifPresentOrElse(
+                        this::printForest,
+                        () ->
+                                printMissing(
+                                        "Forest"
+                                )
+                );
 
-        printOcean(
-                profile.ocean()
-        );
+        profile.ocean()
+                .ifPresentOrElse(
+                        this::printOcean,
+                        () ->
+                                printMissing(
+                                        "Ocean"
+                                )
+                );
 
-        printIds(
-                "Landform",
-                profile.landform()
-        );
+        profile.landform()
+                .ifPresentOrElse(
+                        summary ->
+                                printIds(
+                                        "Landform",
+                                        summary
+                                ),
+                        () ->
+                                printMissing(
+                                        "Landform"
+                                )
+                );
 
-        printIds(
-                "GeologicProvince",
-                profile.geologicProvince()
-        );
+        profile.geologicProvince()
+                .ifPresentOrElse(
+                        summary ->
+                                printIds(
+                                        "GeologicProvince",
+                                        summary
+                                ),
+                        () ->
+                                printMissing(
+                                        "GeologicProvince"
+                                )
+                );
 
         out.println(
                 "Derived Cartographer labels: "
@@ -138,90 +169,64 @@ public class EnvironmentCommand implements Command {
     }
 
     private void printClimate(
-            Optional<ClimateSummary> summary
+            ClimateSummary summary
     ) {
-        if (summary.isEmpty()) {
-            out.println("Climate: missing");
-            return;
-        }
-
-        ClimateSummary value =
-                summary.get();
-
         out.printf(
                 "Climate: samples=%d avgTemperatureIndex=%.2f avgRainfallIndex=%.2f rawSample=%s%n",
-                value.samples(),
-                value.averageTemperatureIndex(),
-                value.averageRainfallIndex(),
-                value.rawSample()
+                summary.samples(),
+                summary.averageTemperatureIndex(),
+                summary.averageRainfallIndex(),
+                summary.rawSample()
         );
     }
 
     private void printForest(
-            Optional<ForestSummary> summary
+            ForestSummary summary
     ) {
-        if (summary.isEmpty()) {
-            out.println("Forest: missing");
-            return;
-        }
-
-        ForestSummary value =
-                summary.get();
-
         out.printf(
                 "Forest: samples=%d rawMin=%d rawMax=%d avgNormalizedDensity=%.3f cartographerClass=%s%n",
-                value.samples(),
-                value.rawMin(),
-                value.rawMax(),
-                value.averageNormalizedDensity(),
-                value.averageDensityClass()
+                summary.samples(),
+                summary.rawMin(),
+                summary.rawMax(),
+                summary.averageNormalizedDensity(),
+                summary.averageDensityClass()
         );
     }
 
     private void printOcean(
-            Optional<OceanSummary> summary
+            OceanSummary summary
     ) {
-        if (summary.isEmpty()) {
-            out.println("Ocean: missing");
-            return;
-        }
-
-        OceanSummary value =
-                summary.get();
-
         out.printf(
                 "Ocean: samples=%d rawMin=%d rawMax=%d avgRaw=%.2f%n",
-                value.samples(),
-                value.rawMin(),
-                value.rawMax(),
-                value.averageRawValue()
+                summary.samples(),
+                summary.rawMin(),
+                summary.rawMax(),
+                summary.averageRawValue()
         );
     }
 
     private void printIds(
             String name,
-            Optional<IdMapSummary> summary
+            IdMapSummary summary
     ) {
-        if (summary.isEmpty()) {
-            out.println(
-                    name
-                            + ": missing"
-            );
-            return;
-        }
-
-        IdMapSummary value =
-                summary.get();
-
         out.println(
                 name
                         + ": samples="
-                        + value.samples()
+                        + summary.samples()
                         + " distinct="
-                        + value.distinctCount()
+                        + summary.distinctCount()
                         + " dominantIds="
-                        + value.dominantIds()
+                        + summary.dominantIds()
                         + " names=unavailable"
+        );
+    }
+
+    private void printMissing(
+            String name
+    ) {
+        out.println(
+                name
+                        + ": missing"
         );
     }
 
@@ -230,10 +235,13 @@ public class EnvironmentCommand implements Command {
     ) {
         if (diagnostics.failureReasons()
                 .isEmpty()) {
+
             return;
         }
 
-        out.println("Failure reasons:");
+        out.println(
+                "Failure reasons:"
+        );
 
         diagnostics.failureReasonLines()
                 .forEach(

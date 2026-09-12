@@ -50,23 +50,54 @@ public class EnvironmentInterpreter {
     ) {
         Optional<ClimateSummary> climate =
                 region.climateMap()
-                        .map(this::summarizeClimate);
+                        .map(
+                                this::summarizeClimate
+                        );
 
         Optional<ForestSummary> forest =
                 region.forestMap()
-                        .map(this::summarizeForest);
+                        .map(
+                                this::summarizeForest
+                        );
 
         Optional<OceanSummary> ocean =
                 region.oceanMap()
-                        .map(this::summarizeOcean);
+                        .map(
+                                this::summarizeOcean
+                        );
 
         Optional<IdMapSummary> landform =
                 region.landformMap()
-                        .map(this::summarizeLandforms);
+                        .map(
+                                this::summarizeLandforms
+                        );
 
         Optional<IdMapSummary> geologicProvince =
                 region.geologicProvinceMap()
-                        .map(this::summarizeIds);
+                        .map(
+                                this::summarizeIds
+                        );
+
+        EnumSet<EnvironmentLabel> labels =
+                EnumSet.noneOf(
+                        EnvironmentLabel.class
+                );
+
+        climate.ifPresent(
+                summary ->
+                        addClimateLabels(
+                                labels,
+                                summary
+                        )
+        );
+
+        forest.ifPresent(
+                summary ->
+                        addForestLabels(
+                                labels,
+                                summary
+                        )
+        );
 
         return new EnvironmentProfile(
                 region.coordinate(),
@@ -75,9 +106,8 @@ public class EnvironmentInterpreter {
                 ocean,
                 landform,
                 geologicProvince,
-                labels(
-                        climate,
-                        forest
+                Set.copyOf(
+                        labels
                 )
         );
     }
@@ -97,8 +127,14 @@ public class EnvironmentInterpreter {
         List<Integer> rawSample =
                 new ArrayList<>();
 
-        for (int z = map.innerMin(); z < map.innerMaxExclusive(); z++) {
-            for (int x = map.innerMin(); x < map.innerMaxExclusive(); x++) {
+        for (int z = map.innerMin();
+             z < map.innerMaxExclusive();
+             z++) {
+
+            for (int x = map.innerMin();
+                 x < map.innerMaxExclusive();
+                 x++) {
+
                 ClimateSample sample =
                         climateInterpreter.interpret(
                                 map.valueAt(
@@ -107,7 +143,9 @@ public class EnvironmentInterpreter {
                                 )
                         );
 
-                if (rawSample.size() < SAMPLE_LIMIT) {
+                if (rawSample.size()
+                        < SAMPLE_LIMIT) {
+
                     rawSample.add(
                             sample.rawValue()
                     );
@@ -154,8 +192,14 @@ public class EnvironmentInterpreter {
         double densityTotal =
                 0.0;
 
-        for (int z = map.innerMin(); z < map.innerMaxExclusive(); z++) {
-            for (int x = map.innerMin(); x < map.innerMaxExclusive(); x++) {
+        for (int z = map.innerMin();
+             z < map.innerMaxExclusive();
+             z++) {
+
+            for (int x = map.innerMin();
+                 x < map.innerMaxExclusive();
+                 x++) {
+
                 ForestSample sample =
                         forestInterpreter.interpret(
                                 map.valueAt(
@@ -224,8 +268,14 @@ public class EnvironmentInterpreter {
         long total =
                 0;
 
-        for (int z = map.innerMin(); z < map.innerMaxExclusive(); z++) {
-            for (int x = map.innerMin(); x < map.innerMaxExclusive(); x++) {
+        for (int z = map.innerMin();
+             z < map.innerMaxExclusive();
+             z++) {
+
+            for (int x = map.innerMin();
+                 x < map.innerMaxExclusive();
+                 x++) {
+
                 OceanSample sample =
                         oceanInterpreter.interpret(
                                 map.valueAt(
@@ -279,8 +329,14 @@ public class EnvironmentInterpreter {
         int count =
                 0;
 
-        for (int z = map.innerMin(); z < map.innerMaxExclusive(); z++) {
-            for (int x = map.innerMin(); x < map.innerMaxExclusive(); x++) {
+        for (int z = map.innerMin();
+             z < map.innerMaxExclusive();
+             z++) {
+
+            for (int x = map.innerMin();
+                 x < map.innerMaxExclusive();
+                 x++) {
+
                 LandformSample sample =
                         landformInterpreter.interpret(
                                 map.valueAt(
@@ -314,8 +370,14 @@ public class EnvironmentInterpreter {
         int count =
                 0;
 
-        for (int z = map.innerMin(); z < map.innerMaxExclusive(); z++) {
-            for (int x = map.innerMin(); x < map.innerMaxExclusive(); x++) {
+        for (int z = map.innerMin();
+             z < map.innerMaxExclusive();
+             z++) {
+
+            for (int x = map.innerMin();
+                 x < map.innerMaxExclusive();
+                 x++) {
+
                 counts.merge(
                         map.valueAt(
                                 x,
@@ -343,7 +405,8 @@ public class EnvironmentInterpreter {
                 counts.entrySet()
                         .stream()
                         .sorted(
-                                Map.Entry.<Integer, Integer>comparingByValue()
+                                Map.Entry
+                                        .<Integer, Integer>comparingByValue()
                                         .reversed()
                                         .thenComparing(
                                                 Map.Entry.comparingByKey()
@@ -364,74 +427,62 @@ public class EnvironmentInterpreter {
         );
     }
 
-    private Set<EnvironmentLabel> labels(
-            Optional<ClimateSummary> climate,
-            Optional<ForestSummary> forest
+    private void addClimateLabels(
+            EnumSet<EnvironmentLabel> labels,
+            ClimateSummary summary
     ) {
-        EnumSet<EnvironmentLabel> labels =
-                EnumSet.noneOf(
-                        EnvironmentLabel.class
-                );
+        if (summary.averageTemperatureIndex()
+                <= COLD_TEMPERATURE_INDEX_MAX) {
 
-        climate.ifPresent(
-                summary -> {
-                    if (summary.averageTemperatureIndex()
-                            <= COLD_TEMPERATURE_INDEX_MAX) {
+            labels.add(
+                    EnvironmentLabel.COLD
+            );
+        }
 
-                        labels.add(
-                                EnvironmentLabel.COLD
-                        );
-                    }
+        if (summary.averageTemperatureIndex()
+                >= HOT_TEMPERATURE_INDEX_MIN) {
 
-                    if (summary.averageTemperatureIndex()
-                            >= HOT_TEMPERATURE_INDEX_MIN) {
+            labels.add(
+                    EnvironmentLabel.HOT
+            );
+        }
 
-                        labels.add(
-                                EnvironmentLabel.HOT
-                        );
-                    }
+        if (summary.averageRainfallIndex()
+                <= ARID_RAINFALL_INDEX_MAX) {
 
-                    if (summary.averageRainfallIndex()
-                            <= ARID_RAINFALL_INDEX_MAX) {
+            labels.add(
+                    EnvironmentLabel.ARID
+            );
+        }
 
-                        labels.add(
-                                EnvironmentLabel.ARID
-                        );
-                    }
+        if (summary.averageRainfallIndex()
+                >= HUMID_RAINFALL_INDEX_MIN) {
 
-                    if (summary.averageRainfallIndex()
-                            >= HUMID_RAINFALL_INDEX_MIN) {
+            labels.add(
+                    EnvironmentLabel.HUMID
+            );
+        }
+    }
 
-                        labels.add(
-                                EnvironmentLabel.HUMID
-                        );
-                    }
-                }
-        );
+    private void addForestLabels(
+            EnumSet<EnvironmentLabel> labels,
+            ForestSummary summary
+    ) {
+        if (summary.averageNormalizedDensity()
+                <= OPEN_FOREST_DENSITY_MAX) {
 
-        forest.ifPresent(
-                summary -> {
-                    if (summary.averageNormalizedDensity()
-                            <= OPEN_FOREST_DENSITY_MAX) {
+            labels.add(
+                    EnvironmentLabel.OPEN
+            );
+        }
 
-                        labels.add(
-                                EnvironmentLabel.OPEN
-                        );
-                    }
+        if (summary.averageNormalizedDensity()
+                >= FORESTED_DENSITY_MIN) {
 
-                    if (summary.averageNormalizedDensity()
-                            >= FORESTED_DENSITY_MIN) {
-
-                        labels.add(
-                                EnvironmentLabel.FORESTED
-                        );
-                    }
-                }
-        );
-
-        return Set.copyOf(
-                labels
-        );
+            labels.add(
+                    EnvironmentLabel.FORESTED
+            );
+        }
     }
 
     private double average(

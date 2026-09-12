@@ -11,7 +11,6 @@ import cartographer.save.WorldMetadataReader;
 import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.Locale;
-import java.util.Optional;
 
 public class HomeCommand
         implements Command {
@@ -41,13 +40,17 @@ public class HomeCommand
             String[] args
     ) {
         switch (subcommand) {
-            case "set" -> set(args);
-            case "show" -> show(args);
+            case "set" ->
+                    set(args);
 
-            default -> throw new CommandException(
-                    "Unknown home subcommand: "
-                            + subcommand
-            );
+            case "show" ->
+                    show(args);
+
+            default ->
+                    throw new CommandException(
+                            "Unknown home subcommand: "
+                                    + subcommand
+                    );
         }
 
         return 0;
@@ -66,7 +69,9 @@ public class HomeCommand
         }
 
         Path savePath =
-                Path.of(args[0]);
+                Path.of(
+                        args[0]
+                );
 
         HomeLocation home;
 
@@ -95,7 +100,9 @@ public class HomeCommand
                 home
         );
 
-        out.println("HOME set");
+        out.println(
+                "HOME set"
+        );
 
         out.printf(
                 Locale.ROOT,
@@ -120,11 +127,15 @@ public class HomeCommand
         }
 
         Path savePath =
-                Path.of(args[0]);
+                Path.of(
+                        args[0]
+                );
 
         HomeLocation home =
                 homeStore
-                        .load(savePath)
+                        .load(
+                                savePath
+                        )
                         .orElseThrow(
                                 () ->
                                         new CommandException(
@@ -132,7 +143,9 @@ public class HomeCommand
                                         )
                         );
 
-        out.println("HOME");
+        out.println(
+                "HOME"
+        );
 
         out.printf(
                 Locale.ROOT,
@@ -151,12 +164,13 @@ public class HomeCommand
             Path savePath
     ) {
         ProgressReporter progress =
-                new ProgressReporter(out);
+                new ProgressReporter(
+                        out
+                );
 
         WorldPosition absolute =
                 reader.readPlayerPosition(
                         savePath,
-                        Optional.empty(),
                         progress
                 );
 
@@ -182,7 +196,9 @@ public class HomeCommand
             String name
     ) {
         try {
-            return Double.parseDouble(value);
+            return Double.parseDouble(
+                    value
+            );
 
         } catch (NumberFormatException exception) {
             throw new CommandException(

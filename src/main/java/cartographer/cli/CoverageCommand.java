@@ -5,6 +5,7 @@ import cartographer.coverage.RegionCoverageRenderer;
 import cartographer.coverage.RegionCoverageSummary;
 import cartographer.model.DisplayPosition;
 import cartographer.model.HomeLocation;
+import cartographer.model.HomeState;
 import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
@@ -22,20 +23,14 @@ import java.util.Locale;
 import java.util.Optional;
 
 public class CoverageCommand implements Command {
+
     private final PrintStream out;
-
     private final VcdbsReader reader;
-
     private final WorldMetadataReader metadataReader;
-
     private final HomeStore homeStore;
-
     private final RegionCoverageAnalyzer analyzer;
-
     private final RegionCoverageRenderer renderer;
-
     private final PngWriter pngWriter;
-
     private final String subcommand;
 
     public CoverageCommand(
@@ -48,29 +43,14 @@ public class CoverageCommand implements Command {
             PngWriter pngWriter,
             String subcommand
     ) {
-        this.out =
-                out;
-
-        this.reader =
-                reader;
-
-        this.metadataReader =
-                metadataReader;
-
-        this.homeStore =
-                homeStore;
-
-        this.analyzer =
-                analyzer;
-
-        this.renderer =
-                renderer;
-
-        this.pngWriter =
-                pngWriter;
-
-        this.subcommand =
-                subcommand;
+        this.out = out;
+        this.reader = reader;
+        this.metadataReader = metadataReader;
+        this.homeStore = homeStore;
+        this.analyzer = analyzer;
+        this.renderer = renderer;
+        this.pngWriter = pngWriter;
+        this.subcommand = subcommand;
     }
 
     @Override
@@ -164,11 +144,10 @@ public class CoverageCommand implements Command {
         WorldPosition player =
                 reader.readPlayerPosition(
                         savePath,
-                        Optional.empty(),
                         progress
                 );
 
-        Optional<HomeLocation> home =
+        HomeState home =
                 absoluteHome(
                         savePath,
                         loaded.metadata()
@@ -284,6 +263,7 @@ public class CoverageCommand implements Command {
 
         if (diagnostics.failureReasons()
                 .isEmpty()) {
+
             printNotes(
                     diagnostics
             );
@@ -376,24 +356,28 @@ public class CoverageCommand implements Command {
                 "World bounds: X "
                         + summary.worldMinX()
                         + ".."
-                        + (summary.worldMaxXExclusive() - 1)
+                        + (summary.worldMaxXExclusive()
+                        - 1)
                         + ", Z "
                         + summary.worldMinZ()
                         + ".."
-                        + (summary.worldMaxZExclusive() - 1)
+                        + (summary.worldMaxZExclusive()
+                        - 1)
         );
 
         out.printf(
                 Locale.ROOT,
                 "Display bounds: X %.0f..%.0f, Z %.0f..%.0f%n",
                 summary.displayMinX(),
-                summary.displayMaxXExclusive() - 1.0,
+                summary.displayMaxXExclusive()
+                        - 1.0,
                 summary.displayMinZ(),
-                summary.displayMaxZExclusive() - 1.0
+                summary.displayMaxXExclusive()
+                        - 1.0
         );
     }
 
-    private Optional<HomeLocation> absoluteHome(
+    private HomeState absoluteHome(
             Path savePath,
             WorldMetadata metadata
     ) {
@@ -403,21 +387,22 @@ public class CoverageCommand implements Command {
                 );
 
         if (displayHome.isEmpty()) {
-            return Optional.empty();
+            return HomeState.absent();
         }
+
+        HomeLocation location =
+                displayHome.orElseThrow();
 
         WorldPosition absolute =
                 metadata.toAbsolute(
                         new DisplayPosition(
-                                displayHome.get()
-                                        .x(),
+                                location.x(),
                                 0.0,
-                                displayHome.get()
-                                        .z()
+                                location.z()
                         )
                 );
 
-        return Optional.of(
+        return HomeState.present(
                 new HomeLocation(
                         absolute.x(),
                         absolute.z()

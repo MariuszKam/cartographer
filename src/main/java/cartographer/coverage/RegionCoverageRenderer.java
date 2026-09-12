@@ -1,6 +1,7 @@
 package cartographer.coverage;
 
 import cartographer.model.HomeLocation;
+import cartographer.model.HomeState;
 import cartographer.model.WorldPosition;
 import cartographer.render.MarkerRenderer;
 
@@ -8,9 +9,10 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.util.Optional;
+import java.util.Objects;
 
 public class RegionCoverageRenderer {
+
     private static final int TARGET_CELL_SIZE =
             14;
 
@@ -35,13 +37,18 @@ public class RegionCoverageRenderer {
     public BufferedImage render(
             RegionCoverageSummary summary,
             WorldPosition player,
-            Optional<HomeLocation> home
+            HomeState home
     ) {
         if (summary == null) {
             throw new IllegalArgumentException(
                     "coverage summary is required"
             );
         }
+
+        Objects.requireNonNull(
+                home,
+                "Home state is required"
+        );
 
         if (summary.empty()) {
             return renderEmpty();
@@ -52,7 +59,11 @@ public class RegionCoverageRenderer {
                         summary
                 );
 
-        BufferedImage image = getImage(summary, cellSize);
+        BufferedImage image =
+                getImage(
+                        summary,
+                        cellSize
+                );
 
         Graphics2D graphics =
                 image.createGraphics();
@@ -105,7 +116,10 @@ public class RegionCoverageRenderer {
         return image;
     }
 
-    private static BufferedImage getImage(RegionCoverageSummary summary, int cellSize) {
+    private static BufferedImage getImage(
+            RegionCoverageSummary summary,
+            int cellSize
+    ) {
         int mapWidth =
                 summary.gridWidth()
                         * cellSize;
@@ -197,10 +211,10 @@ public class RegionCoverageRenderer {
                         / Math.max(
                         1,
                         largestDimension
-                )
-                ,
+                ),
                 MIN_CELL_SIZE,
-                TARGET_CELL_SIZE);
+                TARGET_CELL_SIZE
+        );
     }
 
     private void drawCells(
@@ -208,7 +222,9 @@ public class RegionCoverageRenderer {
             RegionCoverageSummary summary,
             int cellSize
     ) {
-        for (RegionCoverageCell cell : summary.cells()) {
+        for (RegionCoverageCell cell :
+                summary.cells()) {
+
             int x =
                     PADDING
                             + (cell.coordinate().x()
@@ -267,7 +283,7 @@ public class RegionCoverageRenderer {
             RegionCoverageSummary summary,
             int cellSize,
             WorldPosition player,
-            Optional<HomeLocation> home
+            HomeState home
     ) {
         if (player != null
                 && insideWorldBounds(
@@ -275,6 +291,7 @@ public class RegionCoverageRenderer {
                 player.x(),
                 player.z()
         )) {
+
             markerRenderer.drawCross(
                     graphics,
                     imageX(
@@ -291,12 +308,9 @@ public class RegionCoverageRenderer {
             );
         }
 
-        if (home.isEmpty()) {
+        if (!(home instanceof HomeState.Present(HomeLocation location))) {
             return;
         }
-
-        HomeLocation location =
-                home.get();
 
         if (!insideWorldBounds(
                 summary,
@@ -339,7 +353,8 @@ public class RegionCoverageRenderer {
             double worldX
     ) {
         double fraction =
-                (worldX - summary.worldMinX())
+                (worldX
+                        - summary.worldMinX())
                         / (summary.worldMaxXExclusive()
                         - (double) summary.worldMinX());
 
@@ -357,7 +372,8 @@ public class RegionCoverageRenderer {
             double worldZ
     ) {
         double fraction =
-                (worldZ - summary.worldMinZ())
+                (worldZ
+                        - summary.worldMinZ())
                         / (summary.worldMaxZExclusive()
                         - (double) summary.worldMinZ());
 

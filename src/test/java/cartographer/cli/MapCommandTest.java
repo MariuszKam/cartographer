@@ -3,6 +3,7 @@ package cartographer.cli;
 import cartographer.marker.MarkerStore;
 import cartographer.model.BlockInfo;
 import cartographer.model.HomeLocation;
+import cartographer.model.HomeState;
 import cartographer.model.MapChunk;
 import cartographer.model.ParsedChunk;
 import cartographer.model.SurfaceBlock;
@@ -32,7 +33,6 @@ import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -111,8 +111,7 @@ class MapCommandTest {
                         502.0,
                         532.0
                 ),
-                renderer.home()
-                        .orElseThrow()
+                renderer.homeLocation()
         );
 
         assertEquals(
@@ -140,7 +139,6 @@ class MapCommandTest {
         @Override
         public WorldPosition readPlayerPosition(
                 Path savePath,
-                Optional<String> playerSelector,
                 ProgressReporter progress
         ) {
             return new WorldPosition(
@@ -200,8 +198,8 @@ class MapCommandTest {
     private static class CapturingRenderer
             extends MapRenderer {
 
-        private Optional<HomeLocation> home =
-                Optional.empty();
+        private HomeState home =
+                HomeState.absent();
 
         private WorldPosition player;
 
@@ -209,7 +207,7 @@ class MapCommandTest {
         public RenderedMap render(
                 WorldPosition center,
                 WorldPosition player,
-                Optional<HomeLocation> home,
+                HomeState home,
                 List<MapChunk> chunks,
                 List<SurfaceBlock> surfaceBlocks,
                 RenderOptions options,
@@ -232,7 +230,7 @@ class MapCommandTest {
                             1,
                             chunks.size(),
                             0,
-                            home.isPresent()
+                            home instanceof HomeState.Present
                                     ? 2
                                     : 1,
                             RenderStyle.SIMPLE,
@@ -241,8 +239,14 @@ class MapCommandTest {
             );
         }
 
-        Optional<HomeLocation> home() {
-            return home;
+        HomeLocation homeLocation() {
+            if (home instanceof HomeState.Present(HomeLocation location)) {
+                return location;
+            }
+
+            throw new AssertionError(
+                    "Expected HOME to be present"
+            );
         }
 
         WorldPosition player() {

@@ -55,11 +55,22 @@ public class WhereamiCommand
                 );
 
         WorldPosition absolutePosition =
-                reader.readPlayerPosition(
-                        savePath,
-                        playerSelector,
-                        progress
-                );
+                playerSelector
+                        .map(
+                                selector ->
+                                        reader.readPlayerPosition(
+                                                savePath,
+                                                selector,
+                                                progress
+                                        )
+                        )
+                        .orElseGet(
+                                () ->
+                                        reader.readPlayerPosition(
+                                                savePath,
+                                                progress
+                                        )
+                        );
 
         WorldMetadata metadata =
                 metadataReader.read(
