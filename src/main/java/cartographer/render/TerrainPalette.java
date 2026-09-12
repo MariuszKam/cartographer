@@ -202,9 +202,9 @@ public class TerrainPalette {
             double value
     ) {
         return Math.clamp(
-                max,
+                value,
                 min,
-                value
+                max
         );
     }
 }

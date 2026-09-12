@@ -473,6 +473,9 @@ public class VcdbsReader {
                     continue;
                 }
 
+                MapRegionCoordinate regionCoordinate =
+                        coordinate.orElseThrow();
+
                 byte[] payload =
                         resultSet.getBytes(
                                 "data"
@@ -480,7 +483,7 @@ public class VcdbsReader {
 
                 ParseResult<ServerMapRegion> parsed =
                         serverMapRegionParser.parse(
-                                coordinate.get(),
+                                regionCoordinate,
                                 payload
                         );
 
@@ -561,8 +564,11 @@ public class VcdbsReader {
                     continue;
                 }
 
+                MapChunkCoordinate chunkCoordinate =
+                        coordinate.orElseThrow();
+
                 if (!withinRadius(
-                        coordinate.get(),
+                        chunkCoordinate,
                         center,
                         radiusBlocks
                 )) {
@@ -584,7 +590,7 @@ public class VcdbsReader {
 
                 ParseResult<MapChunk> parsed =
                         mapChunkParser.parse(
-                                coordinate.get(),
+                                chunkCoordinate,
                                 payload
                         );
 
@@ -665,8 +671,11 @@ public class VcdbsReader {
                     continue;
                 }
 
+                ChunkCoordinate chunkCoordinate =
+                        coordinate.orElseThrow();
+
                 if (!withinRadius(
-                        coordinate.get(),
+                        chunkCoordinate,
                         center,
                         radiusBlocks
                 )) {
@@ -688,7 +697,7 @@ public class VcdbsReader {
 
                 ParseResult<ParsedChunk> parsed =
                         chunkParser.parse(
-                                coordinate.get(),
+                                chunkCoordinate,
                                 payload
                         );
 
@@ -811,7 +820,7 @@ public class VcdbsReader {
         }
 
         String wanted =
-                selector.get()
+                selector.orElseThrow()
                         .toLowerCase(
                                 Locale.ROOT
                         );
@@ -1006,184 +1015,6 @@ public class VcdbsReader {
         return false;
     }
 
-    private Optional<MapChunkCoordinate> inferMapChunkCoordinate(
-            SaveRecord record
-    ) {
-        OptionalChunkPositionParts pair =
-                inferCoordinate(
-                        record,
-                        "mapchunk"
-                );
-
-        if (!pair.present()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(
-                new MapChunkCoordinate(
-                        pair.x(),
-                        pair.z()
-                )
-        );
-    }
-
-    private Optional<ChunkCoordinate> inferChunkCoordinate(
-            SaveRecord record
-    ) {
-        OptionalChunkPositionParts pair =
-                inferCoordinate(
-                        record,
-                        "chunk"
-                );
-
-        if (!pair.present()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(
-                new ChunkCoordinate(
-                        pair.x(),
-                        pair.y(),
-                        pair.z()
-                )
-        );
-    }
-
-    private OptionalChunkPositionParts inferCoordinate(
-            SaveRecord record,
-            String prefix
-    ) {
-        Integer x = null;
-        Integer y = null;
-        Integer z = null;
-
-        Long packedPosition = null;
-
-        for (Map.Entry<String, Object> entry :
-                record.columns().entrySet()) {
-
-            String name =
-                    entry.getKey()
-                            .toLowerCase(
-                                    Locale.ROOT
-                            );
-
-            Object rawValue =
-                    entry.getValue();
-
-            /*
-             * chunk/mapchunk/mapregion store their coordinate
-             * in the packed VCDBS ChunkPos "position" column.
-             */
-            if ("position".equals(name)
-                    && rawValue instanceof Number number) {
-
-                packedPosition =
-                        number.longValue();
-            }
-
-            Integer value =
-                    asInteger(
-                            rawValue
-                    );
-
-            if (value == null) {
-                continue;
-            }
-
-            if (x == null
-                    && (
-                    name.equals("x")
-                            || name.equals(
-                            prefix + "x"
-                    )
-                            || name.endsWith("_x")
-                            || name.endsWith("xpos")
-            )) {
-
-                x = value;
-
-            } else if (z == null
-                    && (
-                    name.equals("z")
-                            || name.equals(
-                            prefix + "z"
-                    )
-                            || name.endsWith("_z")
-                            || name.endsWith("zpos")
-            )) {
-
-                z = value;
-            }
-        }
-
-        /*
-         * Real Vintage Story VCDBS tables normally only give us
-         * the packed "position" long.
-         *
-         * Decode it using the actual ChunkPos bit layout.
-         *
-         * This works for chunk, mapchunk and mapregion.
-         */
-        if ((x == null || z == null)
-                && packedPosition != null) {
-
-            try {
-                ChunkPosition decoded =
-                        ChunkPosDecoder.decode(
-                                packedPosition
-                        );
-
-                if (x == null) {
-                    x = decoded.x();
-                }
-
-                if (y == null) {
-                    y = decoded.y();
-                }
-
-                if (z == null) {
-                    z = decoded.z();
-                }
-
-            } catch (IllegalArgumentException exception) {
-                return OptionalChunkPositionParts.empty();
-            }
-        }
-
-        if (x == null || z == null) {
-            return OptionalChunkPositionParts.empty();
-        }
-
-        return new OptionalChunkPositionParts(
-                x,
-                y == null ? 0 : y,
-                z,
-                true
-        );
-    }
-
-    private Integer asInteger(
-            Object value
-    ) {
-        if (value instanceof Number number) {
-            return number.intValue();
-        }
-
-        if (value instanceof String text) {
-            try {
-                return Integer.parseInt(
-                        text
-                );
-
-            } catch (NumberFormatException ignored) {
-                return null;
-            }
-        }
-
-        return null;
-    }
-
     private boolean withinRadius(
             MapChunkCoordinate coordinate,
             WorldPosition center,
@@ -1289,23 +1120,6 @@ public class VcdbsReader {
                      )) {
 
             return !resultSet.next();
-        }
-    }
-
-    private record OptionalChunkPositionParts(
-            int x,
-            int y,
-            int z,
-            boolean present
-    ) {
-
-        static OptionalChunkPositionParts empty() {
-            return new OptionalChunkPositionParts(
-                    0,
-                    0,
-                    0,
-                    false
-            );
         }
     }
 }

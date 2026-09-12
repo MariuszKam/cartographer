@@ -40,7 +40,7 @@ public class HomeCommand
     public int run(
             String[] args
     ) {
-        return switch (subcommand) {
+        switch (subcommand) {
             case "set" -> set(args);
             case "show" -> show(args);
 
@@ -48,10 +48,12 @@ public class HomeCommand
                     "Unknown home subcommand: "
                             + subcommand
             );
-        };
+        }
+
+        return 0;
     }
 
-    private int set(
+    private void set(
             String[] args
     ) {
         if (args.length != 1
@@ -106,11 +108,9 @@ public class HomeCommand
                 "Z: %.3f%n",
                 home.z()
         );
-
-        return 0;
     }
 
-    private int show(
+    private void show(
             String[] args
     ) {
         if (args.length != 1) {
@@ -145,8 +145,6 @@ public class HomeCommand
                 "Z: %.3f%n",
                 home.z()
         );
-
-        return 0;
     }
 
     private HomeLocation currentPlayerLocation(

@@ -40,7 +40,7 @@ public class GeologyCommand implements Command {
 
     @Override
     public int run(String[] args) {
-        return switch (subcommand) {
+        switch (subcommand) {
             case "surface" ->
                     runSurface(
                             args
@@ -53,10 +53,12 @@ public class GeologyCommand implements Command {
 
             default ->
                     throw new CommandException("Unknown geology subcommand: " + subcommand);
-        };
+        }
+
+        return 0;
     }
 
-    private int runSurface(String[] args) {
+    private void runSurface(String[] args) {
         if (args.length < 1) {
             throw new CommandException("Usage: geology surface <save.vcdbs> --radius <blocks> [--center-x <x> --center-z <z>]");
         }
@@ -81,10 +83,9 @@ public class GeologyCommand implements Command {
         printMap("Rock families", report.rockFamilies());
         printMap("Material types", report.materialTypes());
         diagnostics.notes().forEach(note -> out.println("Note: " + note));
-        return 0;
     }
 
-    private int runStrata(String[] args) {
+    private void runStrata(String[] args) {
         if (args.length < 1) {
             throw new CommandException("Usage: geology strata <save.vcdbs>");
         }
@@ -157,7 +158,6 @@ public class GeologyCommand implements Command {
         }
 
         diagnostics.notes().forEach(note -> out.println("Note: " + note));
-        return 0;
     }
 
     private void printMap(String title, Map<String, Integer> values) {

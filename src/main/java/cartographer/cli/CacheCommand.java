@@ -28,14 +28,16 @@ public class CacheCommand implements Command {
             throw new CommandException("Usage: cache " + subcommand + " <save.vcdbs>");
         }
         Path savePath = Path.of(args[0]);
-        return switch (subcommand) {
+        switch (subcommand) {
             case "warm" -> warm(savePath);
             case "status" -> status(savePath);
             default -> throw new CommandException("Unknown cache subcommand: " + subcommand);
-        };
+        }
+
+        return 0;
     }
 
-    private int warm(Path savePath) {
+    private void warm(Path savePath) {
         ProgressReporter progress = new ProgressReporter(out);
         SaveIndex index = indexReader.read(savePath, progress);
         CacheKey key = cache.key(savePath);
@@ -43,10 +45,9 @@ public class CacheCommand implements Command {
         out.println("CACHE WARMED");
         out.println("Key: " + key.fileName());
         out.println("Path: " + cache.path(key));
-        return 0;
     }
 
-    private int status(Path savePath) {
+    private void status(Path savePath) {
         CacheKey key = cache.key(savePath);
         out.println("CACHE");
         out.println("Key: " + key.fileName());
@@ -54,7 +55,6 @@ public class CacheCommand implements Command {
         if (cache.exists(key)) {
             out.println(cache.read(key));
         }
-        return 0;
     }
 
     private String serialize(SaveIndex index) {

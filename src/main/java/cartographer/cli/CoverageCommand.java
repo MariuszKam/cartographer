@@ -77,7 +77,7 @@ public class CoverageCommand implements Command {
     public int run(
             String[] args
     ) {
-        return switch (subcommand) {
+        switch (subcommand) {
             case "inspect" ->
                     inspect(
                             args
@@ -93,10 +93,12 @@ public class CoverageCommand implements Command {
                             "Unknown coverage subcommand: "
                                     + subcommand
                     );
-        };
+        }
+
+        return 0;
     }
 
-    private int inspect(
+    private void inspect(
             String[] args
     ) {
         if (args.length < 1) {
@@ -126,11 +128,9 @@ public class CoverageCommand implements Command {
         printSummary(
                 loaded.summary()
         );
-
-        return 0;
     }
 
-    private int render(
+    private void render(
             String[] args
     ) {
         if (args.length < 1) {
@@ -226,8 +226,6 @@ public class CoverageCommand implements Command {
         printSummary(
                 loaded.summary()
         );
-
-        return 0;
     }
 
     private LoadedCoverage load(

@@ -32,14 +32,16 @@ public class IncrementalCommand implements Command {
             throw new CommandException("Usage: incremental " + subcommand + " <save.vcdbs>");
         }
         Path savePath = Path.of(args[0]);
-        return switch (subcommand) {
+        switch (subcommand) {
             case "status" -> status(savePath);
             case "update" -> update(savePath);
             default -> throw new CommandException("Unknown incremental subcommand: " + subcommand);
-        };
+        }
+
+        return 0;
     }
 
-    private int status(Path savePath) {
+    private void status(Path savePath) {
         ProgressReporter progress = new ProgressReporter(out);
         CacheKey key = cache.key(savePath);
         SaveIndex index = indexReader.read(savePath, progress);
@@ -49,15 +51,14 @@ public class IncrementalCommand implements Command {
         out.println("Index exists: " + incrementalIndex.exists(key));
         if (!incrementalIndex.exists(key)) {
             out.println("Changed tables: all");
-            return 0;
+            return;
         }
         Map<String, String> changes = incrementalIndex.changes(incrementalIndex.read(key), current);
         out.println("Changed tables: " + changes.size());
         changes.forEach((table, state) -> out.println("  " + table + ": " + state));
-        return 0;
     }
 
-    private int update(Path savePath) {
+    private void update(Path savePath) {
         ProgressReporter progress = new ProgressReporter(out);
         CacheKey key = cache.key(savePath);
         SaveIndex index = indexReader.read(savePath, progress);
@@ -65,6 +66,5 @@ public class IncrementalCommand implements Command {
 
         out.println("INCREMENTAL INDEX UPDATED");
         out.println("Path: " + incrementalIndex.path(key));
-        return 0;
     }
 }
