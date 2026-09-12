@@ -1,6 +1,7 @@
 package cartographer.ui;
 
 import cartographer.model.BlockInfo;
+import cartographer.scanner.OreCodeMatcher;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -39,7 +40,7 @@ public class OreResourceResolver {
                     .map(BlockInfo::code)
                     .filter(Objects::nonNull)
                     .map(code -> code.toLowerCase(Locale.ROOT))
-                    .filter(code -> isOreCodeFor(code, match))
+                    .filter(code -> OreCodeMatcher.matchesOreCode(code, match))
                     .collect(java.util.stream.Collectors.toCollection(TreeSet::new));
 
             resources.putIfAbsent(
@@ -80,11 +81,6 @@ public class OreResourceResolver {
                         )
                 )
         ).getFirst();
-    }
-
-    private boolean isOreCodeFor(String code, String match) {
-        return code.contains("ore")
-                && code.contains(match);
     }
 
     private String resolvedMatch(String shortName) {

@@ -87,6 +87,23 @@ class OreResourceResolverTest {
     }
 
     @Test
+    void onlyRecognizesKnownOreQualitySegments() {
+        List<OreResource> resources = resolver.resolve(
+                List.of("game:cassiterite"),
+                List.of(
+                        block(1, "forest-cassiterite"),
+                        block(2, "rock-cassiterite"),
+                        block(3, "decorative-cassiterite"),
+                        block(4, "GAME:ORE-RICH-CASSITERITE-GRANITE")
+                )
+        );
+
+        OreResource resource = resources.getFirst();
+        assertTrue(resource.registryVerified());
+        assertEquals(1, resource.registryMatchCount());
+    }
+
+    @Test
     void resolvesAndSortsDistinctResources() {
         List<OreResource> resources = resolver.resolve(
                 List.of(

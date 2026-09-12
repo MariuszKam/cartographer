@@ -97,6 +97,23 @@ class MultiActualBlockMapScannerTest {
         );
     }
 
+    @Test
+    void ignoresNonOreRegistryBlocksInMultiMode() {
+        List<ActualBlockMap> maps = new MultiActualBlockMapScanner().scan(
+                List.of(chunk(new BlockAt(0, 5, 0, 3))),
+                Map.of(
+                        3, new BlockInfo(3, "forest-nativecopper")
+                ),
+                0,
+                0,
+                16,
+                List.of("nativecopper"),
+                ActualBlockYFilter.unbounded()
+        );
+
+        assertEquals(0, maps.getFirst().matchingBlocks());
+    }
+
     private List<ActualBlockMap> scan(
             List<ParsedChunk> chunks,
             ActualBlockYFilter yFilter

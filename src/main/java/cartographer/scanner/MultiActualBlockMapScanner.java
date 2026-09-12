@@ -63,7 +63,10 @@ public class MultiActualBlockMapScanner {
             }
             String code = block.code().toLowerCase(Locale.ROOT);
             for (int index = 0; index < normalizedMatches.size(); index++) {
-                if (code.contains(normalizedMatches.get(index))) {
+                if (OreCodeMatcher.matchesOreCode(
+                        code,
+                        normalizedMatches.get(index)
+                )) {
                     blockMatches.computeIfAbsent(block.id(), ignored -> new ArrayList<>())
                             .add(index);
                 }

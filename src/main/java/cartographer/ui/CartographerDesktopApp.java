@@ -53,6 +53,7 @@ import java.util.Optional;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.awt.Color;
 
 public class CartographerDesktopApp extends Application {
 
@@ -66,6 +67,7 @@ public class CartographerDesktopApp extends Application {
     private final Button selectAllButton = new Button("Select all");
     private final Button clearAllButton = new Button("Clear");
     private final Map<OreResource, CheckBox> resourceChecks = new LinkedHashMap<>();
+    private final Map<OreResource, Color> resourceColors = new LinkedHashMap<>();
     private final TextField yMinField = new TextField();
     private final TextField yMaxField = new TextField();
     private final RadioButton allYButton = new RadioButton("All Y");
@@ -517,13 +519,15 @@ public class CartographerDesktopApp extends Application {
 
     private void rebuildResourceChecklist() {
         resourceChecks.clear();
+        resourceColors.clear();
         resourceChecklist.getChildren().clear();
         for (int index = 0; index < discoveredResources.size(); index++) {
             OreResource resource = discoveredResources.get(index);
             CheckBox check = new CheckBox(resource.displayName());
             Region color = new Region();
             color.setPrefSize(12, 12);
-            java.awt.Color awt = OreOverlayPalette.colorFor(resource.match(), index);
+            Color awt = OreOverlayPalette.colorFor(resource.match(), index);
+            resourceColors.put(resource, awt);
             color.setStyle(
                     "-fx-background-color: rgb("
                             + awt.getRed() + "," + awt.getGreen() + "," + awt.getBlue() + ");"
@@ -544,11 +548,17 @@ public class CartographerDesktopApp extends Application {
                     resourceBox.getEditor().getText().trim()
             ).orElse(null);
             String displayName = selected == null ? match : selected.displayName();
+            Color color = selected == null
+                    ? colorForCustomMatch(match)
+                    : resourceColors.getOrDefault(
+                            selected,
+                            colorForCustomMatch(match)
+                    );
             return List.of(
                     new ActualOreOverlaySpec(
                             displayName,
                             match,
-                            OreOverlayPalette.colorFor(match, 0)
+                            color
                     )
             );
         }
@@ -564,11 +574,22 @@ public class CartographerDesktopApp extends Application {
                     new ActualOreOverlaySpec(
                             resource.displayName(),
                             resource.match(),
-                            OreOverlayPalette.colorFor(resource.match(), colorIndex++)
+                            resourceColors.getOrDefault(
+                                    resource,
+                                    OreOverlayPalette.colorFor(
+                                            resource.match(),
+                                            colorIndex
+                                    )
+                            )
                     )
             );
+            colorIndex++;
         }
         return List.copyOf(result);
+    }
+
+    private Color colorForCustomMatch(String match) {
+        return OreOverlayPalette.colorFor(match, 0);
     }
 
     private Optional<OreResource> resourceForDisplayName(String value) {
