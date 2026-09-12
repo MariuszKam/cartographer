@@ -90,6 +90,23 @@ public record IntDataMap2D(
                 - bottomRightPadding;
     }
 
+    public int innerMin() {
+        return topLeftPadding;
+    }
+
+    public int innerMaxExclusive() {
+        return size
+                - bottomRightPadding;
+    }
+
+    public int innerValueCount() {
+        int innerSize =
+                innerSize();
+
+        return innerSize
+                * innerSize;
+    }
+
     public int[] data() {
         return Arrays.copyOf(
                 data,

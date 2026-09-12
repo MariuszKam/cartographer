@@ -3,6 +3,7 @@ package cartographer.cli;
 import cartographer.analysis.BlockScanner;
 import cartographer.atlas.AtlasRenderer;
 import cartographer.atlas.TilePyramid;
+import cartographer.environment.EnvironmentInterpreter;
 import cartographer.geology.GeologyAnalyzer;
 import cartographer.marker.MarkerStore;
 import cartographer.navigation.HomeStore;
@@ -177,6 +178,17 @@ public class CommandRouter {
                             )
                     );
 
+            case "environment" ->
+                    new EnvironmentCommand(
+                            out,
+                            reader,
+                            new EnvironmentInterpreter(),
+                            subcommand(
+                                    args,
+                                    "environment"
+                            )
+                    );
+
             case "scan" ->
                     new ScanCommand(
                             out,
@@ -306,7 +318,8 @@ public class CommandRouter {
                  "cache",
                  "incremental",
                  "atlas",
-                 "mapregion" -> true;
+                 "mapregion",
+                 "environment" -> true;
 
             default -> false;
         };
@@ -360,6 +373,10 @@ public class CommandRouter {
 
         out.println(
                 "  vs-cartographer mapregion inspect <save.vcdbs>"
+        );
+
+        out.println(
+                "  vs-cartographer environment inspect <save.vcdbs>"
         );
 
         out.println(
