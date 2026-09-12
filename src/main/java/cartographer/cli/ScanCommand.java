@@ -7,11 +7,16 @@ import cartographer.model.BlockInfo;
 import cartographer.model.ParsedChunk;
 import cartographer.model.SurfaceBlock;
 import cartographer.model.WorldPosition;
+import cartographer.render.ActualBlockMapRenderer;
+import cartographer.render.PngWriter;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
+import cartographer.scanner.ActualBlockMap;
+import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.SurfaceScanResult;
 import cartographer.scanner.SurfaceScanner;
 
+import java.awt.image.BufferedImage;
 import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.List;
@@ -19,10 +24,31 @@ import java.util.Map;
 import java.util.Optional;
 
 public class ScanCommand implements Command {
+    private static final int DEFAULT_BLOCK_MAP_RADIUS =
+            256;
+
+    private static final int DEFAULT_BLOCK_MAP_SCALE =
+            2;
+
+    private static final int MAX_BLOCK_MAP_RADIUS =
+            1024;
+
+    private static final int MAX_BLOCK_MAP_SCALE =
+            8;
+
+    private static final Path DEFAULT_BLOCK_MAP_OUTPUT =
+            Path.of(
+                    "output",
+                    "actual-block-map.png"
+            );
+
     private final PrintStream out;
     private final VcdbsReader reader;
     private final SurfaceScanner scanner;
     private final BlockScanner blockScanner;
+    private final ActualBlockMapScanner actualBlockMapScanner;
+    private final ActualBlockMapRenderer actualBlockMapRenderer;
+    private final PngWriter pngWriter;
     private final String subcommand;
 
     public ScanCommand(
@@ -32,10 +58,35 @@ public class ScanCommand implements Command {
             BlockScanner blockScanner,
             String subcommand
     ) {
+        this(
+                out,
+                reader,
+                scanner,
+                blockScanner,
+                new ActualBlockMapScanner(),
+                new ActualBlockMapRenderer(),
+                new PngWriter(),
+                subcommand
+        );
+    }
+
+    public ScanCommand(
+            PrintStream out,
+            VcdbsReader reader,
+            SurfaceScanner scanner,
+            BlockScanner blockScanner,
+            ActualBlockMapScanner actualBlockMapScanner,
+            ActualBlockMapRenderer actualBlockMapRenderer,
+            PngWriter pngWriter,
+            String subcommand
+    ) {
         this.out = out;
         this.reader = reader;
         this.scanner = scanner;
         this.blockScanner = blockScanner;
+        this.actualBlockMapScanner = actualBlockMapScanner;
+        this.actualBlockMapRenderer = actualBlockMapRenderer;
+        this.pngWriter = pngWriter;
         this.subcommand = subcommand;
     }
 
@@ -47,6 +98,16 @@ public class ScanCommand implements Command {
                 subcommand
         )) {
             scanBlocks(
+                    args
+            );
+
+            return;
+        }
+
+        if ("blocks-map".equals(
+                subcommand
+        )) {
+            runBlocksMap(
                     args
             );
 
@@ -202,6 +263,250 @@ public class ScanCommand implements Command {
                 .forEach(
                         this::printSurfaceBlock
                 );
+
+        diagnostics.notes()
+                .forEach(
+                        note ->
+                                out.println(
+                                        "Note: "
+                                                + note
+                                )
+                );
+    }
+
+    private void runBlocksMap(
+            String[] args
+    ) {
+        if (args.length < 1) {
+            throw new CommandException(
+                    "Usage: scan blocks-map <save.vcdbs> "
+                            + "--match <text> "
+                            + "[--radius <blocks>] "
+                            + "[--center-x <x> --center-z <z>] "
+                            + "[--scale <1..8>] "
+                            + "[--out <image.png>]"
+            );
+        }
+
+        Path savePath =
+                Path.of(
+                        args[0]
+                );
+
+        String match =
+                option(
+                        args,
+                        "--match"
+                ).orElseThrow(
+                        () ->
+                                new CommandException(
+                                        "Missing required option: --match"
+                                )
+                );
+
+        int radius =
+                intOption(
+                        args,
+                        "--radius",
+                        DEFAULT_BLOCK_MAP_RADIUS,
+                        1,
+                        MAX_BLOCK_MAP_RADIUS
+                );
+
+        int scale =
+                intOption(
+                        args,
+                        "--scale",
+                        DEFAULT_BLOCK_MAP_SCALE,
+                        1,
+                        MAX_BLOCK_MAP_SCALE
+                );
+
+        Path output =
+                option(
+                        args,
+                        "--out"
+                )
+                        .map(
+                                Path::of
+                        )
+                        .orElse(
+                                DEFAULT_BLOCK_MAP_OUTPUT
+                        );
+
+        ProgressReporter progress =
+                new ProgressReporter(
+                        out
+                );
+
+        WorldPosition center =
+                center(
+                        args
+                ).orElseGet(
+                        () ->
+                                reader.readPlayerPosition(
+                                        savePath,
+                                        progress
+                                )
+                );
+
+        int centerX =
+                (int) Math.round(
+                        center.x()
+                );
+
+        int centerZ =
+                (int) Math.round(
+                        center.z()
+                );
+
+        ReadDiagnostics diagnostics =
+                new ReadDiagnostics();
+
+        List<ParsedChunk> chunks =
+                reader.readChunksAround(
+                        savePath,
+                        center,
+                        radius,
+                        diagnostics,
+                        progress
+                );
+
+        Map<Integer, BlockInfo> registry =
+                reader.readBlockRegistry(
+                        savePath,
+                        progress
+                );
+
+        progress.start(
+                "Scanning actual matching blocks"
+        );
+
+        ActualBlockMap map =
+                actualBlockMapScanner.scan(
+                        chunks,
+                        registry,
+                        centerX,
+                        centerZ,
+                        radius,
+                        match
+                );
+
+        progress.done(
+                "Actual matching blocks scanned"
+        );
+
+        progress.start(
+                "Rendering actual block map"
+        );
+
+        BufferedImage image =
+                actualBlockMapRenderer.render(
+                        map,
+                        scale
+                );
+
+        progress.done(
+                "Actual block map rendered"
+        );
+
+        progress.start(
+                "Writing PNG"
+        );
+
+        pngWriter.write(
+                image,
+                output
+        );
+
+        progress.done(
+                "PNG written"
+        );
+
+        out.println(
+                "ACTUAL BLOCK MAP"
+        );
+
+        out.println(
+                "Match: "
+                        + match
+        );
+
+        out.println(
+                "Output: "
+                        + output
+        );
+
+        out.println(
+                "Center: "
+                        + centerX
+                        + ","
+                        + centerZ
+        );
+
+        out.println(
+                "Radius: "
+                        + radius
+        );
+
+        out.println(
+                "Scale: "
+                        + scale
+        );
+
+        out.println(
+                "Matching blocks: "
+                        + map.matchingBlocks()
+        );
+
+        out.println(
+                "Hit columns: "
+                        + map.hitColumns()
+        );
+
+        if (map.cells().isEmpty()) {
+            out.println(
+                    "Y range: none"
+            );
+
+        } else {
+            out.println(
+                    "Y range: "
+                            + map.minMatchedY()
+                            + ".."
+                            + map.maxMatchedY()
+            );
+        }
+
+        out.println(
+                "Image: "
+                        + image.getWidth()
+                        + "x"
+                        + image.getHeight()
+        );
+
+        out.println(
+                "Chunks parsed: "
+                        + diagnostics.parsed()
+        );
+
+        out.println(
+                "Chunks skipped: "
+                        + diagnostics.skipped()
+        );
+
+        out.println(
+                "Chunks failed: "
+                        + diagnostics.failed()
+        );
+
+        printFailureReasons(
+                diagnostics
+        );
+
+        printLiquidFailureReasons(
+                diagnostics
+        );
 
         diagnostics.notes()
                 .forEach(
@@ -454,6 +759,52 @@ public class ScanCommand implements Command {
                 throw new CommandException(
                         optionName
                                 + " must be between 1 and 8192"
+                );
+            }
+
+            return value;
+
+        } catch (NumberFormatException exception) {
+            throw new CommandException(
+                    "Invalid "
+                            + optionName
+                            + ": "
+                            + option.get()
+            );
+        }
+    }
+
+    private int intOption(
+            String[] args,
+            String optionName,
+            int defaultValue,
+            int minValue,
+            int maxValue
+    ) {
+        Optional<String> option =
+                option(
+                        args,
+                        optionName
+                );
+
+        if (option.isEmpty()) {
+            return defaultValue;
+        }
+
+        try {
+            int value =
+                    Integer.parseInt(
+                            option.get()
+                    );
+
+            if (value < minValue
+                    || value > maxValue) {
+                throw new CommandException(
+                        optionName
+                                + " must be between "
+                                + minValue
+                                + " and "
+                                + maxValue
                 );
             }
 

@@ -560,6 +560,15 @@ public class CommandRouter {
                         + "[--limit <n>]"
         );
 
+        out.println(
+                "  vs-cartographer scan blocks-map <save.vcdbs> "
+                        + "--match <text> "
+                        + "[--radius <blocks>] "
+                        + "[--center-x <x> --center-z <z>] "
+                        + "[--scale <n>] "
+                        + "[--out <image.png>]"
+        );
+
         out.println();
 
         out.println(
