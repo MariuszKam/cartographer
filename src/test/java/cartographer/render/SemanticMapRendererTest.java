@@ -2,6 +2,7 @@ package cartographer.render;
 
 import cartographer.cli.ProgressReporter;
 import cartographer.model.BlockInfo;
+import cartographer.model.HomeState;
 import cartographer.model.SurfaceBlock;
 import cartographer.model.SurfaceClass;
 import cartographer.model.WorldPosition;
@@ -9,7 +10,6 @@ import org.junit.jupiter.api.Test;
 
 import java.awt.image.BufferedImage;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,7 +40,7 @@ class SemanticMapRendererTest {
                                         0.0,
                                         16.0
                                 ),
-                                Optional.empty(),
+                                HomeState.absent(),
                                 List.of(),
                                 List.of(
                                         block

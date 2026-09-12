@@ -1,8 +1,9 @@
 package cartographer.render;
 
 import cartographer.cli.ProgressReporter;
-import cartographer.model.HomeLocation;
 import cartographer.model.BlockInfo;
+import cartographer.model.HomeLocation;
+import cartographer.model.HomeState;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.SurfaceBlock;
@@ -10,16 +11,16 @@ import cartographer.model.SurfaceClass;
 import cartographer.model.WorldPosition;
 import org.junit.jupiter.api.Test;
 
-import java.awt.image.BufferedImage;
 import java.awt.Color;
+import java.awt.image.BufferedImage;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 class MapRendererTest {
+
     @Test
     void fillsContiguousMapChunksWithoutBackgroundSeams() {
         RenderOptions options =
@@ -38,7 +39,7 @@ class MapRendererTest {
                                         0.0,
                                         32.0
                                 ),
-                                Optional.empty(),
+                                HomeState.absent(),
                                 List.of(
                                         chunk(0, 0, 70),
                                         chunk(1, 0, 90),
@@ -58,8 +59,14 @@ class MapRendererTest {
                         RenderStyle.TOPOGRAPHIC
                 );
 
-        for (int y = 0; y < image.getHeight(); y++) {
-            for (int x = 0; x < image.getWidth(); x++) {
+        for (int y = 0;
+             y < image.getHeight();
+             y++) {
+
+            for (int x = 0;
+                 x < image.getWidth();
+                 x++) {
+
                 assertNotEquals(
                         background,
                         image.getRGB(
@@ -110,13 +117,15 @@ class MapRendererTest {
                                         0.0,
                                         100.0
                                 ),
-                                Optional.empty(),
+                                HomeState.absent(),
                                 List.of(),
                                 new RenderOptions(
                                         10,
                                         1,
                                         RenderStyle.SIMPLE,
-                                        Set.of(RenderLayer.MARKERS)
+                                        Set.of(
+                                                RenderLayer.MARKERS
+                                        )
                                 ),
                                 ProgressReporter.NONE
                         );
@@ -147,7 +156,7 @@ class MapRendererTest {
                                         0.0,
                                         100.0
                                 ),
-                                Optional.of(
+                                HomeState.present(
                                         new HomeLocation(
                                                 105.0,
                                                 100.0
@@ -158,7 +167,9 @@ class MapRendererTest {
                                         10,
                                         1,
                                         RenderStyle.SIMPLE,
-                                        Set.of(RenderLayer.MARKERS)
+                                        Set.of(
+                                                RenderLayer.MARKERS
+                                        )
                                 ),
                                 ProgressReporter.NONE
                         );
@@ -175,7 +186,7 @@ class MapRendererTest {
                         .getRGB(
                                 48,
                                 32
-                )
+                        )
         );
     }
 
@@ -194,13 +205,15 @@ class MapRendererTest {
                                         0.0,
                                         100.0
                                 ),
-                                Optional.empty(),
+                                HomeState.absent(),
                                 List.of(),
                                 new RenderOptions(
                                         10,
                                         1,
                                         RenderStyle.SIMPLE,
-                                        Set.of(RenderLayer.MARKERS)
+                                        Set.of(
+                                                RenderLayer.MARKERS
+                                        )
                                 ),
                                 ProgressReporter.NONE
                         );
@@ -211,7 +224,7 @@ class MapRendererTest {
                         .getRGB(
                                 48,
                                 32
-                )
+                        )
         );
     }
 
@@ -225,7 +238,7 @@ class MapRendererTest {
                                         0.0,
                                         16.0
                                 ),
-                                Optional.empty(),
+                                HomeState.absent(),
                                 List.of(),
                                 List.of(
                                         new SurfaceBlock(
@@ -283,7 +296,7 @@ class MapRendererTest {
                                         0.0,
                                         128.0
                                 ),
-                                Optional.empty(),
+                                HomeState.absent(),
                                 List.of(),
                                 List.of(
                                         new SurfaceBlock(
@@ -336,8 +349,14 @@ class MapRendererTest {
         int[] heights =
                 new int[MapChunk.HEIGHT_VALUE_COUNT];
 
-        for (int z = 0; z < MapChunk.SIZE; z++) {
-            for (int x = 0; x < MapChunk.SIZE; x++) {
+        for (int z = 0;
+             z < MapChunk.SIZE;
+             z++) {
+
+            for (int x = 0;
+                 x < MapChunk.SIZE;
+                 x++) {
+
                 heights[z * MapChunk.SIZE + x] =
                         baseHeight
                                 + x
