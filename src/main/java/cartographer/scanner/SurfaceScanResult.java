@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.stream.Collectors;
 
 public record SurfaceScanResult(
         List<SurfaceBlock> blocks,
@@ -78,9 +77,7 @@ public record SurfaceScanResult(
                                         entry.getValue()
                                 )
                 )
-                .collect(
-                        Collectors.toUnmodifiableList()
-                );
+                .toList();
     }
 
     public Set<String> distinctSurfaceBlockCodes(

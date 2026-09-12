@@ -76,12 +76,6 @@ public final class DotNetBinaryReader {
         return result;
     }
 
-    public float readFloatLE() {
-        return Float.intBitsToFloat(
-                readInt32LE()
-        );
-    }
-
     public double readDoubleLE() {
         return Double.longBitsToDouble(
                 readInt64LE()

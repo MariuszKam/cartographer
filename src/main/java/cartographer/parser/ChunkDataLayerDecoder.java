@@ -4,6 +4,7 @@ import com.github.luben.zstd.Zstd;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Arrays;
 
 public class ChunkDataLayerDecoder {
     public static final int SIZE = 32;
@@ -251,10 +252,7 @@ public class ChunkDataLayerDecoder {
                 new int[VALUE_COUNT];
 
         if (bitSize == 0) {
-            for (int index = 0; index < values.length; index++) {
-                values[index] =
-                        palette[0];
-            }
+            Arrays.fill(values, palette[0]);
 
             return values;
         }
