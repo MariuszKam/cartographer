@@ -204,36 +204,6 @@ public class GeologyOverlayRenderer {
                                 - clippedMinY
                 );
 
-                graphics.setColor(
-                        new Color(
-                                color.getRed(),
-                                color.getGreen(),
-                                color.getBlue(),
-                                Math.min(
-                                        170,
-                                        ALPHA
-                                                + 70
-                                )
-                        )
-                );
-
-                graphics.drawRect(
-                        clippedMinX,
-                        clippedMinY,
-                        Math.max(
-                                0,
-                                clippedMaxX
-                                        - clippedMinX
-                                        - 1
-                        ),
-                        Math.max(
-                                0,
-                                clippedMaxY
-                                        - clippedMinY
-                                        - 1
-                        )
-                );
-
                 drawn++;
             }
 
