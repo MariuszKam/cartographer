@@ -21,6 +21,7 @@ import java.awt.image.BufferedImage;
 import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -41,6 +42,12 @@ public class ScanCommand implements Command {
             Path.of(
                     "output",
                     "actual-block-map.png"
+            );
+
+    private static final Path DEFAULT_BLOCK_MAP_OUTPUT_DIRECTORY =
+            Path.of(
+                    "output",
+                    "actual-block-map-bands"
             );
 
     private final PrintStream out;
@@ -286,6 +293,8 @@ public class ScanCommand implements Command {
                             + "[--center-x <x> --center-z <z>] "
                             + "[--y-min <y>] "
                             + "[--y-max <y>] "
+                            + "[--split-y <band-size>] "
+                            + "[--out-dir <directory>] "
                             + "[--scale <1..8>] "
                             + "[--out <image.png>]"
             );
@@ -325,22 +334,38 @@ public class ScanCommand implements Command {
                         MAX_BLOCK_MAP_SCALE
                 );
 
-        Path output =
-                option(
-                        args,
-                        "--out"
-                )
-                        .map(
-                                Path::of
-                        )
-                        .orElse(
-                                DEFAULT_BLOCK_MAP_OUTPUT
-                        );
-
         ActualBlockYFilter yFilter =
                 yFilterOption(
                         args
                 );
+
+        Optional<Integer> splitY =
+                optionalPositiveIntegerOption(
+                        args,
+                        "--split-y"
+                );
+
+        if (splitY.isPresent()
+                && option(
+                args,
+                "--out"
+        ).isPresent()) {
+
+            throw new CommandException(
+                    "--out cannot be used with --split-y; use --out-dir"
+            );
+        }
+
+        if (splitY.isEmpty()
+                && option(
+                args,
+                "--out-dir"
+        ).isPresent()) {
+
+            throw new CommandException(
+                    "--out-dir requires --split-y"
+            );
+        }
 
         ProgressReporter progress =
                 new ProgressReporter(
@@ -386,6 +411,25 @@ public class ScanCommand implements Command {
                         progress
                 );
 
+        if (splitY.isPresent()) {
+            runBlocksMapBands(
+                    args,
+                    match,
+                    radius,
+                    scale,
+                    centerX,
+                    centerZ,
+                    chunks,
+                    registry,
+                    yFilter,
+                    splitY.orElseThrow(),
+                    diagnostics,
+                    progress
+            );
+
+            return;
+        }
+
         progress.start(
                 "Scanning actual matching blocks"
         );
@@ -425,7 +469,9 @@ public class ScanCommand implements Command {
 
         pngWriter.write(
                 image,
-                output
+                blockMapOutput(
+                        args
+                )
         );
 
         progress.done(
@@ -443,7 +489,9 @@ public class ScanCommand implements Command {
 
         out.println(
                 "Output: "
-                        + output
+                        + blockMapOutput(
+                        args
+                )
         );
 
         out.println(
@@ -530,6 +578,360 @@ public class ScanCommand implements Command {
                                                 + note
                                 )
                 );
+    }
+
+    private void runBlocksMapBands(
+            String[] args,
+            String match,
+            int radius,
+            int scale,
+            int centerX,
+            int centerZ,
+            List<ParsedChunk> chunks,
+            Map<Integer, BlockInfo> registry,
+            ActualBlockYFilter outerFilter,
+            int bandSize,
+            ReadDiagnostics diagnostics,
+            ProgressReporter progress
+    ) {
+        VerticalRange loadedRange =
+                loadedVerticalRange(
+                        chunks
+                );
+
+        int minY =
+                outerFilter.minInclusive() == null
+                        ? loadedRange.minY()
+                        : outerFilter.minInclusive();
+
+        int maxY =
+                outerFilter.maxInclusive() == null
+                        ? loadedRange.maxY()
+                        : outerFilter.maxInclusive();
+
+        if (minY > maxY) {
+            throw new CommandException(
+                    "Y band range is empty"
+            );
+        }
+
+        Path outputDirectory =
+                option(
+                        args,
+                        "--out-dir"
+                )
+                        .map(
+                                Path::of
+                        )
+                        .orElse(
+                                DEFAULT_BLOCK_MAP_OUTPUT_DIRECTORY
+                        );
+
+        out.println(
+                "ACTUAL BLOCK MAP BANDS"
+        );
+
+        out.println(
+                "Match: "
+                        + match
+        );
+
+        out.println(
+                "Output directory: "
+                        + outputDirectory
+        );
+
+        out.println(
+                "Center: "
+                        + centerX
+                        + ","
+                        + centerZ
+        );
+
+        out.println(
+                "Radius: "
+                        + radius
+        );
+
+        out.println(
+                "Scale: "
+                        + scale
+        );
+
+        out.println(
+                "Band size: "
+                        + bandSize
+        );
+
+        out.println(
+                "Y filter: "
+                        + new ActualBlockYFilter(
+                        minY,
+                        maxY
+                ).description()
+        );
+
+        out.println(
+                "Chunks parsed: "
+                        + diagnostics.parsed()
+        );
+
+        out.println(
+                "Chunks skipped: "
+                        + diagnostics.skipped()
+        );
+
+        out.println(
+                "Chunks failed: "
+                        + diagnostics.failed()
+        );
+
+        printFailureReasons(
+                diagnostics
+        );
+
+        printLiquidFailureReasons(
+                diagnostics
+        );
+
+        for (int bandMin = minY;
+             bandMin <= maxY;
+             bandMin = Math.addExact(
+                     bandMin,
+                     bandSize
+             )) {
+
+            int bandMax =
+                    Math.min(
+                            maxY,
+                            Math.addExact(
+                                    bandMin,
+                                    bandSize - 1
+                            )
+                    );
+
+            ActualBlockYFilter bandFilter =
+                    new ActualBlockYFilter(
+                            bandMin,
+                            bandMax
+                    );
+
+            progress.start(
+                    "Scanning actual matching blocks for Y "
+                            + bandFilter.description()
+            );
+
+            ActualBlockMap map =
+                    actualBlockMapScanner.scan(
+                            chunks,
+                            registry,
+                            centerX,
+                            centerZ,
+                            radius,
+                            match,
+                            bandFilter
+                    );
+
+            progress.done(
+                    "Actual matching blocks scanned"
+            );
+
+            progress.start(
+                    "Rendering actual block map for Y "
+                            + bandFilter.description()
+            );
+
+            BufferedImage image =
+                    actualBlockMapRenderer.render(
+                            map,
+                            scale
+                    );
+
+            progress.done(
+                    "Actual block map rendered"
+            );
+
+            Path output =
+                    outputDirectory.resolve(
+                            bandFilename(
+                                    match,
+                                    bandMin,
+                                    bandMax
+                            )
+                    );
+
+            progress.start(
+                    "Writing PNG"
+            );
+
+            pngWriter.write(
+                    image,
+                    output
+            );
+
+            progress.done(
+                    "PNG written"
+            );
+
+            out.println(
+                    "Band "
+                            + bandFilter.description()
+                            + ": output="
+                            + output
+                            + " matchingBlocks="
+                            + map.matchingBlocks()
+                            + " hitColumns="
+                            + map.hitColumns()
+                            + " yRange="
+                            + yRangeText(
+                            map
+                    )
+                            + " image="
+                            + image.getWidth()
+                            + "x"
+                            + image.getHeight()
+            );
+
+            if (bandMax == Integer.MAX_VALUE) {
+                break;
+            }
+        }
+
+        diagnostics.notes()
+                .forEach(
+                        note ->
+                                out.println(
+                                        "Note: "
+                                                + note
+                                )
+                );
+    }
+
+    private Path blockMapOutput(
+            String[] args
+    ) {
+        return option(
+                args,
+                "--out"
+        )
+                .map(
+                        Path::of
+                )
+                .orElse(
+                        DEFAULT_BLOCK_MAP_OUTPUT
+                );
+    }
+
+    private VerticalRange loadedVerticalRange(
+            List<ParsedChunk> chunks
+    ) {
+        int minY =
+                Integer.MAX_VALUE;
+
+        int maxY =
+                Integer.MIN_VALUE;
+
+        for (ParsedChunk chunk : chunks) {
+            minY =
+                    Math.min(
+                            minY,
+                            chunk.minY()
+                    );
+
+            maxY =
+                    Math.max(
+                            maxY,
+                            Math.addExact(
+                                    chunk.minY(),
+                                    chunk.sizeY() - 1
+                            )
+                    );
+        }
+
+        if (minY == Integer.MAX_VALUE) {
+            throw new CommandException(
+                    "Cannot split Y bands without loaded chunks"
+            );
+        }
+
+        return new VerticalRange(
+                minY,
+                maxY
+        );
+    }
+
+    private String bandFilename(
+            String match,
+            int minY,
+            int maxY
+    ) {
+        return safeFilenamePrefix(
+                match
+        )
+                + "-y"
+                + yToken(
+                minY
+        )
+                + "-"
+                + yToken(
+                maxY
+        )
+                + ".png";
+    }
+
+    private String safeFilenamePrefix(
+            String match
+    ) {
+        String normalized =
+                match.toLowerCase(
+                                Locale.ROOT
+                        )
+                        .replaceAll(
+                                "[^a-z0-9._-]+",
+                                "-"
+                        )
+                        .replaceAll(
+                                "^-+|-+$",
+                                ""
+                        );
+
+        return normalized.isBlank()
+                ? "blocks"
+                : normalized;
+    }
+
+    private String yToken(
+            int y
+    ) {
+        if (y < 0) {
+            return "n"
+                    + String.format(
+                    Locale.ROOT,
+                    "%03d",
+                    Math.abs(
+                            y
+                    )
+            );
+        }
+
+        return String.format(
+                Locale.ROOT,
+                "%03d",
+                y
+        );
+    }
+
+    private String yRangeText(
+            ActualBlockMap map
+    ) {
+        if (map.cells()
+                .isEmpty()) {
+            return "none";
+        }
+
+        return map.minMatchedY()
+                + ".."
+                + map.maxMatchedY();
     }
 
     private void scanBlocks(
@@ -893,6 +1295,47 @@ public class ScanCommand implements Command {
         }
     }
 
+    private Optional<Integer> optionalPositiveIntegerOption(
+            String[] args,
+            String optionName
+    ) {
+        Optional<String> option =
+                option(
+                        args,
+                        optionName
+                );
+
+        if (option.isEmpty()) {
+            return Optional.empty();
+        }
+
+        try {
+            int value =
+                    Integer.parseInt(
+                            option.get()
+                    );
+
+            if (value <= 0) {
+                throw new CommandException(
+                        optionName
+                                + " must be positive"
+                );
+            }
+
+            return Optional.of(
+                    value
+            );
+
+        } catch (NumberFormatException exception) {
+            throw new CommandException(
+                    "Invalid "
+                            + optionName
+                            + ": "
+                            + option.get()
+            );
+        }
+    }
+
     private Optional<String> option(
             String[] args,
             String optionName
@@ -986,5 +1429,11 @@ public class ScanCommand implements Command {
                             + value
             );
         }
+    }
+
+    private record VerticalRange(
+            int minY,
+            int maxY
+    ) {
     }
 }

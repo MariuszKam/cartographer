@@ -567,7 +567,9 @@ public class CommandRouter {
                         + "[--center-x <x> --center-z <z>] "
                         + "[--y-min <y>] "
                         + "[--y-max <y>] "
+                        + "[--split-y <band-size>] "
                         + "[--scale <n>] "
+                        + "[--out-dir <directory>] "
                         + "[--out <image.png>]"
         );
 

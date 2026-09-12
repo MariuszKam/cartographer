@@ -22,6 +22,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -174,6 +175,245 @@ class ScanCommandBlocksMapTest {
     }
 
     @Test
+    void rendersSplitYBandsWithoutRereadingSave() {
+        FakeReader reader =
+                new FakeReader();
+
+        CapturingPngWriter writer =
+                new CapturingPngWriter();
+
+        ByteArrayOutputStream buffer =
+                new ByteArrayOutputStream();
+
+        PrintStream out =
+                new PrintStream(
+                        buffer,
+                        true,
+                        StandardCharsets.UTF_8
+                );
+
+        ScanCommand command =
+                new ScanCommand(
+                        out,
+                        reader,
+                        new SurfaceScanner(),
+                        new BlockScanner(),
+                        new ActualBlockMapScanner(),
+                        new ActualBlockMapRenderer(),
+                        writer,
+                        "blocks-map"
+                );
+
+        command.run(
+                new String[]{
+                        "save.vcdbs",
+                        "--match",
+                        "copper",
+                        "--radius",
+                        "8",
+                        "--split-y",
+                        "16",
+                        "--out-dir",
+                        "output/copper-bands"
+                }
+        );
+
+        assertEquals(
+                1,
+                reader.chunkReads
+        );
+
+        assertEquals(
+                1,
+                reader.registryReads
+        );
+
+        assertEquals(
+                List.of(
+                        Path.of(
+                                "output/copper-bands/copper-y000-015.png"
+                        ),
+                        Path.of(
+                                "output/copper-bands/copper-y016-031.png"
+                        ),
+                        Path.of(
+                                "output/copper-bands/copper-y032-047.png"
+                        ),
+                        Path.of(
+                                "output/copper-bands/copper-y048-063.png"
+                        )
+                ),
+                writer.outputs
+        );
+
+        String output =
+                buffer.toString(
+                        StandardCharsets.UTF_8
+                );
+
+        assertTrue(
+                output.contains(
+                        "ACTUAL BLOCK MAP BANDS"
+                )
+        );
+
+        assertTrue(
+                output.contains(
+                        "Band 0..15: output=output\\copper-bands\\copper-y000-015.png matchingBlocks=2 hitColumns=1 yRange=4..5"
+                )
+                        || output.contains(
+                        "Band 0..15: output=output/copper-bands/copper-y000-015.png matchingBlocks=2 hitColumns=1 yRange=4..5"
+                )
+        );
+
+        assertTrue(
+                output.contains(
+                        "Band 16..31: output=output\\copper-bands\\copper-y016-031.png matchingBlocks=1 hitColumns=1 yRange=20..20"
+                )
+                        || output.contains(
+                        "Band 16..31: output=output/copper-bands/copper-y016-031.png matchingBlocks=1 hitColumns=1 yRange=20..20"
+                )
+        );
+
+        assertTrue(
+                output.contains(
+                        "Band 32..47: output=output\\copper-bands\\copper-y032-047.png matchingBlocks=1 hitColumns=1 yRange=40..40"
+                )
+                        || output.contains(
+                        "Band 32..47: output=output/copper-bands/copper-y032-047.png matchingBlocks=1 hitColumns=1 yRange=40..40"
+                )
+        );
+
+        assertTrue(
+                output.contains(
+                        "Band 48..63: output=output\\copper-bands\\copper-y048-063.png matchingBlocks=0 hitColumns=0 yRange=none"
+                )
+                        || output.contains(
+                        "Band 48..63: output=output/copper-bands/copper-y048-063.png matchingBlocks=0 hitColumns=0 yRange=none"
+                )
+        );
+    }
+
+    @Test
+    void rendersSplitYBandsInsideExplicitYBounds() {
+        FakeReader reader =
+                new FakeReader();
+
+        CapturingPngWriter writer =
+                new CapturingPngWriter();
+
+        ByteArrayOutputStream buffer =
+                new ByteArrayOutputStream();
+
+        PrintStream out =
+                new PrintStream(
+                        buffer,
+                        true,
+                        StandardCharsets.UTF_8
+                );
+
+        ScanCommand command =
+                new ScanCommand(
+                        out,
+                        reader,
+                        new SurfaceScanner(),
+                        new BlockScanner(),
+                        new ActualBlockMapScanner(),
+                        new ActualBlockMapRenderer(),
+                        writer,
+                        "blocks-map"
+                );
+
+        command.run(
+                new String[]{
+                        "save.vcdbs",
+                        "--match",
+                        "copper",
+                        "--radius",
+                        "8",
+                        "--y-min",
+                        "5",
+                        "--y-max",
+                        "36",
+                        "--split-y",
+                        "16",
+                        "--out-dir",
+                        "output/copper-bands"
+                }
+        );
+
+        assertEquals(
+                List.of(
+                        Path.of(
+                                "output/copper-bands/copper-y005-020.png"
+                        ),
+                        Path.of(
+                                "output/copper-bands/copper-y021-036.png"
+                        )
+                ),
+                writer.outputs
+        );
+
+        String output =
+                buffer.toString(
+                        StandardCharsets.UTF_8
+                );
+
+        assertTrue(
+                output.contains(
+                        "Y filter: 5..36"
+                )
+        );
+    }
+
+    @Test
+    void rejectsOutFileWhenSplittingYBands() {
+        ByteArrayOutputStream buffer =
+                new ByteArrayOutputStream();
+
+        PrintStream out =
+                new PrintStream(
+                        buffer,
+                        true,
+                        StandardCharsets.UTF_8
+                );
+
+        ScanCommand command =
+                new ScanCommand(
+                        out,
+                        new FakeReader(),
+                        new SurfaceScanner(),
+                        new BlockScanner(),
+                        new ActualBlockMapScanner(),
+                        new ActualBlockMapRenderer(),
+                        new CapturingPngWriter(),
+                        "blocks-map"
+                );
+
+        CommandException exception =
+                assertThrows(
+                        CommandException.class,
+                        () ->
+                                command.run(
+                                        new String[]{
+                                                "save.vcdbs",
+                                                "--match",
+                                                "copper",
+                                                "--split-y",
+                                                "16",
+                                                "--out",
+                                                "single.png"
+                                        }
+                                )
+                );
+
+        assertEquals(
+                "--out cannot be used with --split-y; use --out-dir",
+                exception.getMessage()
+        );
+    }
+
+    @Test
     void rejectsInvertedYFilter() {
         ByteArrayOutputStream buffer =
                 new ByteArrayOutputStream();
@@ -256,6 +496,15 @@ class ScanCommandBlocksMapTest {
 
         blocks[
                 index(
+                        0,
+                        20,
+                        0
+                )
+                ] =
+                1;
+
+        blocks[
+                index(
                         10,
                         5,
                         0
@@ -270,6 +519,59 @@ class ScanCommandBlocksMapTest {
                         0
                 ),
                 0,
+                size,
+                size,
+                size,
+                blocks
+        );
+    }
+
+    private static List<ParsedChunk> copperChunks() {
+        return List.of(
+                copperChunk(),
+                copperChunk(
+                        1,
+                        8
+                )
+        );
+    }
+
+    private static ParsedChunk copperChunk(
+            int chunkY,
+            int localY
+    ) {
+        int size =
+                ChunkCoordinate.SIZE_BLOCKS;
+
+        int[] blocks =
+                new int[
+                        size
+                                * size
+                                * size
+                        ];
+
+        Arrays.fill(
+                blocks,
+                2
+        );
+
+        blocks[
+                index(
+                        0,
+                        localY,
+                        0
+                )
+                ] =
+                1;
+
+        return new ParsedChunk(
+                new ChunkCoordinate(
+                        0,
+                        chunkY,
+                        0
+                ),
+                chunkY
+                        * size,
                 size,
                 size,
                 size,
@@ -295,6 +597,8 @@ class ScanCommandBlocksMapTest {
 
         private BufferedImage image;
         private Path output;
+        private final List<Path> outputs =
+                new ArrayList<>();
 
         @Override
         public void write(
@@ -306,6 +610,10 @@ class ScanCommandBlocksMapTest {
 
             this.output =
                     output;
+
+            outputs.add(
+                    output
+            );
         }
     }
 
@@ -314,6 +622,8 @@ class ScanCommandBlocksMapTest {
 
         private WorldPosition lastCenter;
         private int lastRadiusBlocks;
+        private int chunkReads;
+        private int registryReads;
 
         private FakeReader() {
             super(
@@ -350,9 +660,9 @@ class ScanCommandBlocksMapTest {
             lastRadiusBlocks =
                     radiusBlocks;
 
-            return List.of(
-                    copperChunk()
-            );
+            chunkReads++;
+
+            return copperChunks();
         }
 
         @Override
@@ -360,6 +670,8 @@ class ScanCommandBlocksMapTest {
                 Path savePath,
                 ProgressReporter progress
         ) {
+            registryReads++;
+
             return Map.of(
                     1,
                     new BlockInfo(
