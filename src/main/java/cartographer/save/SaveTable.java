@@ -3,6 +3,7 @@ package cartographer.save;
 public enum SaveTable {
     PLAYERDATA("playerdata"),
     MAPCHUNK("mapchunk"),
+    MAPREGION("mapregion"),
     CHUNK("chunk"),
     GAMEDATA("gamedata");
 

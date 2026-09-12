@@ -167,6 +167,16 @@ public class CommandRouter {
                             )
                     );
 
+            case "mapregion" ->
+                    new MapRegionCommand(
+                            out,
+                            reader,
+                            subcommand(
+                                    args,
+                                    "mapregion"
+                            )
+                    );
+
             case "scan" ->
                     new ScanCommand(
                             out,
@@ -295,7 +305,8 @@ public class CommandRouter {
                  "markers",
                  "cache",
                  "incremental",
-                 "atlas" -> true;
+                 "atlas",
+                 "mapregion" -> true;
 
             default -> false;
         };
@@ -345,6 +356,10 @@ public class CommandRouter {
 
         out.println(
                 "  vs-cartographer index <save.vcdbs>"
+        );
+
+        out.println(
+                "  vs-cartographer mapregion inspect <save.vcdbs>"
         );
 
         out.println(

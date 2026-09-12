@@ -7,13 +7,16 @@ import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
+import cartographer.model.MapRegionCoordinate;
 import cartographer.model.ParseResult;
 import cartographer.model.ParsedChunk;
+import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldPosition;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
+import cartographer.parser.ServerMapRegionParser;
 
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -38,6 +41,7 @@ public class VcdbsReader {
     private final MapChunkParser mapChunkParser;
     private final ChunkParser chunkParser;
     private final RegistryParser registryParser;
+    private final ServerMapRegionParser serverMapRegionParser;
     private final SqliteSaveConnection connectionFactory;
 
     public VcdbsReader(
@@ -66,6 +70,7 @@ public class VcdbsReader {
         this.mapChunkParser = mapChunkParser;
         this.chunkParser = chunkParser;
         this.registryParser = registryParser;
+        this.serverMapRegionParser = new ServerMapRegionParser();
         this.connectionFactory = connectionFactory;
     }
 
@@ -330,6 +335,59 @@ public class VcdbsReader {
         }
     }
 
+    public List<ServerMapRegion> readMapRegions(
+            Path savePath,
+            ReadDiagnostics diagnostics
+    ) {
+        return readMapRegions(
+                savePath,
+                diagnostics,
+                ProgressReporter.NONE
+        );
+    }
+
+    public List<ServerMapRegion> readMapRegions(
+            Path savePath,
+            ReadDiagnostics diagnostics,
+            ProgressReporter progress
+    ) {
+        progress.start(
+                "Opening save read-only"
+        );
+
+        try (Connection connection =
+                     connectionFactory.openReadOnly(savePath)) {
+
+            progress.done(
+                    "Save opened read-only"
+            );
+
+            if (!tableExists(
+                    connection,
+                    SaveTable.MAPREGION.tableName()
+            )) {
+                diagnostics.missingTable(
+                        SaveTable.MAPREGION.tableName()
+                );
+
+                return List.of();
+            }
+
+            return readMapRegionsFromResultSet(
+                    connection,
+                    diagnostics,
+                    progress
+            );
+
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot read mapregion table: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
     private Map<Integer, BlockInfo> readBlockRegistry(
             Connection connection
     ) throws SQLException {
@@ -360,6 +418,92 @@ public class VcdbsReader {
         }
 
         return blocks;
+    }
+
+    private List<ServerMapRegion> readMapRegionsFromResultSet(
+            Connection connection,
+            ReadDiagnostics diagnostics,
+            ProgressReporter progress
+    ) throws SQLException {
+
+        List<ServerMapRegion> regions =
+                new ArrayList<>();
+
+        int expectedRows =
+                countRows(
+                        connection,
+                        SaveTable.MAPREGION.tableName()
+                );
+
+        String sql =
+                "SELECT position, data FROM \""
+                        + SaveTable.MAPREGION.tableName()
+                        + "\"";
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql);
+
+             ResultSet resultSet =
+                     statement.executeQuery()) {
+
+            int row =
+                    0;
+
+            while (resultSet.next()) {
+                row++;
+
+                progress.progress(
+                        "Parsing mapregions",
+                        row,
+                        expectedRows
+                );
+
+                Optional<MapRegionCoordinate> coordinate =
+                        mapRegionCoordinateFromPackedPosition(
+                                resultSet.getObject(
+                                        "position"
+                                )
+                        );
+
+                if (coordinate.isEmpty()) {
+                    diagnostics.recordSkipped(
+                            "mapregion row has no readable coordinate"
+                    );
+
+                    continue;
+                }
+
+                byte[] payload =
+                        resultSet.getBytes(
+                                "data"
+                        );
+
+                ParseResult<ServerMapRegion> parsed =
+                        serverMapRegionParser.parse(
+                                coordinate.get(),
+                                payload
+                        );
+
+                if (parsed.isSuccess()) {
+                    diagnostics.recordParsed();
+
+                    regions.add(
+                            parsed.value()
+                                    .orElseThrow()
+                    );
+
+                } else {
+                    diagnostics.recordFailed(
+                            parsed.error()
+                                    .orElse(
+                                            "unknown mapregion parse error"
+                                    )
+                    );
+                }
+            }
+        }
+
+        return regions;
     }
 
     private List<MapChunk> readMapChunksAroundFromResultSet(
@@ -609,6 +753,23 @@ public class VcdbsReader {
                         new ChunkCoordinate(
                                 position.x(),
                                 position.y(),
+                                position.z()
+                        )
+        );
+    }
+
+    private Optional<MapRegionCoordinate> mapRegionCoordinateFromPackedPosition(
+            Object rawValue
+    ) {
+        Optional<ChunkPosition> decoded =
+                decodePackedPosition(
+                        rawValue
+                );
+
+        return decoded.map(
+                position ->
+                        MapRegionCoordinate.fromMapChunk(
+                                position.x(),
                                 position.z()
                         )
         );
