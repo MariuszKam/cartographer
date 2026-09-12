@@ -148,7 +148,7 @@ public class ResourceCommand implements Command {
     public int run(
             String[] args
     ) {
-        return switch (subcommand) {
+        switch (subcommand) {
             case "list" ->
                     list(
                             args
@@ -184,10 +184,12 @@ public class ResourceCommand implements Command {
                             "Unknown resource subcommand: "
                                     + subcommand
                     );
-        };
+        }
+
+        return 0;
     }
 
-    private int list(
+    private void list(
             String[] args
     ) {
         if (args.length < 1) {
@@ -234,10 +236,9 @@ public class ResourceCommand implements Command {
             );
         }
 
-        return 0;
     }
 
-    private int inspect(
+    private void inspect(
             String[] args
     ) {
         if (args.length < 2) {
@@ -268,7 +269,7 @@ public class ResourceCommand implements Command {
                 );
 
         if (selected.isEmpty()) {
-            return 0;
+            return;
         }
 
         ResourceSummary summary =
@@ -289,10 +290,9 @@ public class ResourceCommand implements Command {
                 summary
         );
 
-        return 0;
     }
 
-    private int search(
+    private void search(
             String[] args
     ) {
         if (args.length < 2) {
@@ -345,7 +345,7 @@ public class ResourceCommand implements Command {
                 );
 
         if (selected.isEmpty()) {
-            return 0;
+            return;
         }
 
         List<ResourceHotspot> hotspots =
@@ -382,7 +382,7 @@ public class ResourceCommand implements Command {
                     "  none"
             );
 
-            return 0;
+            return;
         }
 
         for (int index = 0;
@@ -430,10 +430,9 @@ public class ResourceCommand implements Command {
             );
         }
 
-        return 0;
     }
 
-    private int render(
+    private void render(
             String[] args
     ) {
         if (args.length < 2) {
@@ -502,7 +501,7 @@ public class ResourceCommand implements Command {
                 );
 
         if (selected.isEmpty()) {
-            return 0;
+            return;
         }
 
         String resourceKey =
@@ -682,10 +681,9 @@ public class ResourceCommand implements Command {
                 mapDiagnostics
         );
 
-        return 0;
     }
 
-    private int surfaceSearch(
+    private void surfaceSearch(
             String[] args
     ) {
         if (args.length < 2) {
@@ -796,7 +794,7 @@ public class ResourceCommand implements Command {
                     "Deposits: none"
             );
 
-            return 0;
+            return;
         }
 
         out.println(
@@ -867,10 +865,9 @@ public class ResourceCommand implements Command {
             );
         }
 
-        return 0;
     }
 
-    private int surfaceRender(
+    private void surfaceRender(
             String[] args
     ) {
         if (args.length < 2) {
@@ -1082,7 +1079,6 @@ public class ResourceCommand implements Command {
                         + mapDiagnostics.failed()
         );
 
-        return 0;
     }
 
     private SurfaceResourceLoad loadSurfaceResource(

@@ -54,7 +54,7 @@ public class MarkerCommand implements Command {
     public int run(
             String[] args
     ) {
-        return switch (subcommand) {
+        switch (subcommand) {
             case "add" ->
                     add(
                             args
@@ -90,7 +90,9 @@ public class MarkerCommand implements Command {
                             "Unknown markers subcommand: "
                                     + subcommand
                     );
-        };
+        }
+
+        return 0;
     }
 
     /*
@@ -103,7 +105,7 @@ public class MarkerCommand implements Command {
      * The final two arguments are always coordinates.
      * Everything between savePath and those coordinates becomes the name.
      */
-    private int add(
+    private void add(
             String[] args
     ) {
         if (args.length < 4) {
@@ -170,15 +172,13 @@ public class MarkerCommand implements Command {
         out.println(
                 "Coordinate space: DISPLAY"
         );
-
-        return 0;
     }
 
     /*
      * Explicit update differs from add/upsert:
      * update requires that the marker already exists.
      */
-    private int update(
+    private void update(
             String[] args
     ) {
         if (args.length < 4) {
@@ -245,8 +245,6 @@ public class MarkerCommand implements Command {
         out.println(
                 "Coordinate space: DISPLAY"
         );
-
-        return 0;
     }
 
     /*
@@ -258,7 +256,7 @@ public class MarkerCommand implements Command {
      *
      * work without nested quoting.
      */
-    private int here(
+    private void here(
             String[] args
     ) {
         if (args.length < 2) {
@@ -335,11 +333,9 @@ public class MarkerCommand implements Command {
         out.println(
                 "Coordinate space: DISPLAY"
         );
-
-        return 0;
     }
 
-    private int list(
+    private void list(
             String[] args
     ) {
         if (args.length < 1) {
@@ -376,7 +372,7 @@ public class MarkerCommand implements Command {
                     "  none"
             );
 
-            return 0;
+            return;
         }
 
         for (UserMarker marker : markers) {
@@ -386,13 +382,11 @@ public class MarkerCommand implements Command {
                     marker.name(),
                     marker.x(),
                     marker.z()
-            );
+                );
         }
-
-        return 0;
     }
 
-    private int remove(
+    private void remove(
             String[] args
     ) {
         if (args.length < 2) {
@@ -427,7 +421,7 @@ public class MarkerCommand implements Command {
                             + name
             );
 
-            return 0;
+            return;
         }
 
         markerStore.remove(
@@ -441,11 +435,9 @@ public class MarkerCommand implements Command {
                         + existing.get()
                         .name()
         );
-
-        return 0;
     }
 
-    private int clear(
+    private void clear(
             String[] args
     ) {
         if (args.length < 1) {
@@ -468,8 +460,6 @@ public class MarkerCommand implements Command {
                 "Markers cleared: "
                         + removed
         );
-
-        return 0;
     }
 
     private Optional<UserMarker> findByName(

@@ -883,22 +883,25 @@ public class MapCommand implements Command {
 
         try {
 
-            return getValue(optionName, option);
+            return getValue(
+                    optionName,
+                    option.orElseThrow()
+            );
 
         } catch (NumberFormatException exception) {
             throw new CommandException(
                     "Invalid "
                             + optionName
                             + ": "
-                            + option.get()
+                            + option.orElse("")
             );
         }
     }
 
-    private static int getValue(String optionName, Optional<String> option) {
+    private static int getValue(String optionName, String option) {
         int value =
                 Integer.parseInt(
-                        option.get()
+                        option
                 );
 
         int max =
@@ -985,15 +988,21 @@ public class MapCommand implements Command {
             );
         }
 
+        String centerX =
+                x.orElseThrow();
+
+        String centerZ =
+                z.orElseThrow();
+
         return Optional.of(
                 new WorldPosition(
                         parseDouble(
-                                x.get(),
+                                centerX,
                                 "--center-x"
                         ),
                         0.0,
                         parseDouble(
-                                z.get(),
+                                centerZ,
                                 "--center-z"
                         )
                 )
@@ -1038,14 +1047,15 @@ public class MapCommand implements Command {
                         progress
                 );
 
+        HomeLocation home =
+                displayHome.orElseThrow();
+
         WorldPosition absolute =
                 metadata.toAbsolute(
                         new DisplayPosition(
-                                displayHome.get()
-                                        .x(),
+                                home.x(),
                                 0.0,
-                                displayHome.get()
-                                        .z()
+                                home.z()
                         )
                 );
 

@@ -36,7 +36,8 @@ public class ScanCommand implements Command {
     @Override
     public int run(String[] args) {
         if ("blocks".equals(subcommand)) {
-            return scanBlocks(args);
+            scanBlocks(args);
+            return 0;
         }
         if (!"surface".equals(subcommand)) {
             throw new CommandException("Unknown scan subcommand: " + subcommand);
@@ -81,7 +82,7 @@ public class ScanCommand implements Command {
         return 0;
     }
 
-    private int scanBlocks(String[] args) {
+    private void scanBlocks(String[] args) {
         if (args.length < 1) {
             throw new CommandException("Usage: scan blocks <save.vcdbs> --match <text> [--radius <blocks>] [--limit <n>]");
         }
@@ -112,7 +113,6 @@ public class ScanCommand implements Command {
         out.println("Truncated: " + result.truncated());
         result.matches().forEach(this::printBlockMatch);
         diagnostics.notes().forEach(note -> out.println("Note: " + note));
-        return 0;
     }
 
     private void printSurfaceBlock(SurfaceBlock block) {

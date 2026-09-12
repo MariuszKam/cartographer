@@ -56,9 +56,6 @@ public class SystemMarkerOverlayRenderer {
         Graphics2D graphics =
                 image.createGraphics();
 
-        int count =
-                0;
-
         try {
             int playerX =
                     (int) Math.round(
@@ -83,41 +80,36 @@ public class SystemMarkerOverlayRenderer {
                         playerY,
                         Color.RED
                 );
-
-                count++;
             }
 
-            if (home.isPresent()) {
-                HomeLocation location =
-                        home.get();
+            home.ifPresent(
+                    location -> {
+                        int homeX =
+                                (int) Math.round(
+                                        (location.x() - minWorldX)
+                                                * scaleX
+                                );
 
-                int homeX =
-                        (int) Math.round(
-                                (location.x() - minWorldX)
-                                        * scaleX
-                        );
+                        int homeY =
+                                (int) Math.round(
+                                        (location.z() - minWorldZ)
+                                                * scaleZ
+                                );
 
-                int homeY =
-                        (int) Math.round(
-                                (location.z() - minWorldZ)
-                                        * scaleZ
-                        );
-
-                if (inside(
-                        image,
-                        homeX,
-                        homeY
-                )) {
-                    markerRenderer.drawCross(
-                            graphics,
-                            homeX,
-                            homeY,
-                            Color.CYAN
-                    );
-
-                    count++;
-                }
-            }
+                        if (inside(
+                                image,
+                                homeX,
+                                homeY
+                        )) {
+                            markerRenderer.drawCross(
+                                    graphics,
+                                    homeX,
+                                    homeY,
+                                    Color.CYAN
+                            );
+                        }
+                    }
+            );
 
         } finally {
             graphics.dispose();
