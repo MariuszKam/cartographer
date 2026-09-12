@@ -768,7 +768,7 @@ public class VcdbsReader {
 
         return decoded.map(
                 position ->
-                        MapRegionCoordinate.fromMapChunk(
+                        new MapRegionCoordinate(
                                 position.x(),
                                 position.z()
                         )
