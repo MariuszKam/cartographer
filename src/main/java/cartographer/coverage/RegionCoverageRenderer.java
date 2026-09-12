@@ -52,37 +52,7 @@ public class RegionCoverageRenderer {
                         summary
                 );
 
-        int mapWidth =
-                summary.gridWidth()
-                        * cellSize;
-
-        int mapHeight =
-                summary.gridHeight()
-                        * cellSize;
-
-        int width =
-                Math.min(
-                        MAX_IMAGE_SIZE,
-                        mapWidth
-                                + PADDING
-                                * 2
-                );
-
-        int height =
-                Math.min(
-                        MAX_IMAGE_SIZE,
-                        mapHeight
-                                + PADDING
-                                * 2
-                                + LEGEND_HEIGHT
-                );
-
-        BufferedImage image =
-                new BufferedImage(
-                        width,
-                        height,
-                        BufferedImage.TYPE_INT_ARGB
-                );
+        BufferedImage image = getImage(summary, cellSize);
 
         Graphics2D graphics =
                 image.createGraphics();
@@ -133,6 +103,39 @@ public class RegionCoverageRenderer {
         }
 
         return image;
+    }
+
+    private static BufferedImage getImage(RegionCoverageSummary summary, int cellSize) {
+        int mapWidth =
+                summary.gridWidth()
+                        * cellSize;
+
+        int mapHeight =
+                summary.gridHeight()
+                        * cellSize;
+
+        int width =
+                Math.min(
+                        MAX_IMAGE_SIZE,
+                        mapWidth
+                                + PADDING
+                                * 2
+                );
+
+        int height =
+                Math.min(
+                        MAX_IMAGE_SIZE,
+                        mapHeight
+                                + PADDING
+                                * 2
+                                + LEGEND_HEIGHT
+                );
+
+        return new BufferedImage(
+                width,
+                height,
+                BufferedImage.TYPE_INT_ARGB
+        );
     }
 
     private BufferedImage renderEmpty() {
