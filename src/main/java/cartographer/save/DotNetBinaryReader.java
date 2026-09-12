@@ -1,7 +1,6 @@
 package cartographer.save;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 
 public final class DotNetBinaryReader {
 
@@ -108,20 +107,6 @@ public final class DotNetBinaryReader {
         );
 
         position += byteLength;
-
-        return result;
-    }
-
-    public byte[] readBytes(int byteCount) {
-        require(byteCount);
-
-        byte[] result = Arrays.copyOfRange(
-                data,
-                position,
-                position + byteCount
-        );
-
-        position += byteCount;
 
         return result;
     }

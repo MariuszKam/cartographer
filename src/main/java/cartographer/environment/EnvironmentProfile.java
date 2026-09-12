@@ -17,20 +17,6 @@ public record EnvironmentProfile(
         Set<EnvironmentLabel> labels
 ) {
     public EnvironmentProfile {
-        climate =
-                climate;
-
-        forest =
-                forest;
-
-        ocean =
-                ocean;
-
-        landform =
-                landform;
-
-        geologicProvince =
-                geologicProvince;
 
         labels =
                 labels == null

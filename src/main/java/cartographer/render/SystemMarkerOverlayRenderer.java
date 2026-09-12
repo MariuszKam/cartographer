@@ -13,7 +13,7 @@ public class SystemMarkerOverlayRenderer {
     private final MarkerRenderer markerRenderer =
             new MarkerRenderer();
 
-    public int draw(
+    public void draw(
             BufferedImage image,
             WorldPosition center,
             WorldPosition player,
@@ -24,7 +24,7 @@ public class SystemMarkerOverlayRenderer {
                 || center == null
                 || player == null) {
 
-            return 0;
+            return;
         }
 
         int minWorldX =
@@ -123,7 +123,6 @@ public class SystemMarkerOverlayRenderer {
             graphics.dispose();
         }
 
-        return count;
     }
 
     private boolean inside(

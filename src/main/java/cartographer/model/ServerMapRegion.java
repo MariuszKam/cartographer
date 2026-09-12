@@ -21,21 +21,6 @@ public record ServerMapRegion(
             );
         }
 
-        climateMap =
-                climateMap;
-
-        forestMap =
-                forestMap;
-
-        landformMap =
-                landformMap;
-
-        geologicProvinceMap =
-                geologicProvinceMap;
-
-        oceanMap =
-                oceanMap;
-
         oreMaps =
                 oreMaps == null
                         ? Map.of()
