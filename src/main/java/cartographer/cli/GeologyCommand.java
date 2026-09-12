@@ -7,19 +7,28 @@ import cartographer.geology.GeologicProvinceSummary;
 import cartographer.geology.RockStrataAnalyzer;
 import cartographer.geology.RockStrataSummary;
 import cartographer.geology.RockStratumSummary;
+import cartographer.geology.crosssection.GeologyCrossSection;
+import cartographer.geology.crosssection.GeologyCrossSectionAnalyzer;
+import cartographer.geology.crosssection.GeologySectionColumn;
+import cartographer.geology.crosssection.GeologySectionRun;
 import cartographer.model.BlockInfo;
+import cartographer.model.ChunkCoordinate;
 import cartographer.model.ParsedChunk;
 import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldPosition;
+import cartographer.render.GeologyCrossSectionRenderer;
+import cartographer.render.PngWriter;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
 import cartographer.scanner.SurfaceScanResult;
 import cartographer.scanner.SurfaceScanner;
 
+import java.awt.image.BufferedImage;
 import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -31,10 +40,31 @@ public class GeologyCommand implements Command {
     private static final int MAX_RADIUS =
             8192;
 
+    private static final int MAX_SECTION_SPAN =
+            4096;
+
+    private static final int DEFAULT_HORIZONTAL_SCALE =
+            1;
+
+    private static final int DEFAULT_VERTICAL_SCALE =
+            2;
+
+    private static final int MAX_SECTION_SCALE =
+            8;
+
+    private static final Path DEFAULT_SECTION_OUTPUT =
+            Path.of(
+                    "output",
+                    "geology-section.png"
+            );
+
     private final PrintStream out;
     private final VcdbsReader reader;
     private final SurfaceScanner surfaceScanner;
     private final GeologyAnalyzer geologyAnalyzer;
+    private final GeologyCrossSectionAnalyzer crossSectionAnalyzer;
+    private final GeologyCrossSectionRenderer crossSectionRenderer;
+    private final PngWriter pngWriter;
     private final String subcommand;
 
     public GeologyCommand(
@@ -44,10 +74,35 @@ public class GeologyCommand implements Command {
             GeologyAnalyzer geologyAnalyzer,
             String subcommand
     ) {
+        this(
+                out,
+                reader,
+                surfaceScanner,
+                geologyAnalyzer,
+                new GeologyCrossSectionAnalyzer(),
+                new GeologyCrossSectionRenderer(),
+                new PngWriter(),
+                subcommand
+        );
+    }
+
+    public GeologyCommand(
+            PrintStream out,
+            VcdbsReader reader,
+            SurfaceScanner surfaceScanner,
+            GeologyAnalyzer geologyAnalyzer,
+            GeologyCrossSectionAnalyzer crossSectionAnalyzer,
+            GeologyCrossSectionRenderer crossSectionRenderer,
+            PngWriter pngWriter,
+            String subcommand
+    ) {
         this.out = out;
         this.reader = reader;
         this.surfaceScanner = surfaceScanner;
         this.geologyAnalyzer = geologyAnalyzer;
+        this.crossSectionAnalyzer = crossSectionAnalyzer;
+        this.crossSectionRenderer = crossSectionRenderer;
+        this.pngWriter = pngWriter;
         this.subcommand = subcommand;
     }
 
@@ -63,6 +118,11 @@ public class GeologyCommand implements Command {
 
             case "strata" ->
                     runStrata(
+                            args
+                    );
+
+            case "section" ->
+                    runSection(
                             args
                     );
 
@@ -344,6 +404,506 @@ public class GeologyCommand implements Command {
                 );
     }
 
+    private void runSection(
+            String[] args
+    ) {
+        if (args.length < 1) {
+            throw new CommandException(
+                    "Usage: geology section <save.vcdbs> "
+                            + "--from-x <world-x> "
+                            + "--from-z <world-z> "
+                            + "--to-x <world-x> "
+                            + "--to-z <world-z> "
+                            + "[--out <section.png>] "
+                            + "[--horizontal-scale <1..8>] "
+                            + "[--vertical-scale <1..8>]"
+            );
+        }
+
+        Path savePath =
+                Path.of(
+                        args[0]
+                );
+
+        int fromX =
+                requiredIntOption(
+                        args,
+                        "--from-x"
+                );
+
+        int fromZ =
+                requiredIntOption(
+                        args,
+                        "--from-z"
+                );
+
+        int toX =
+                requiredIntOption(
+                        args,
+                        "--to-x"
+                );
+
+        int toZ =
+                requiredIntOption(
+                        args,
+                        "--to-z"
+                );
+
+        long span =
+                sectionSpan(
+                        fromX,
+                        fromZ,
+                        toX,
+                        toZ
+                );
+
+        if (span > MAX_SECTION_SPAN) {
+            throw new CommandException(
+                    "Geology section span must not exceed "
+                            + MAX_SECTION_SPAN
+                            + " blocks"
+            );
+        }
+
+        int horizontalScale =
+                scaleOption(
+                        args,
+                        "--horizontal-scale",
+                        DEFAULT_HORIZONTAL_SCALE
+                );
+
+        int verticalScale =
+                scaleOption(
+                        args,
+                        "--vertical-scale",
+                        DEFAULT_VERTICAL_SCALE
+                );
+
+        Path output =
+                option(
+                        args,
+                        "--out"
+                )
+                        .map(
+                                Path::of
+                        )
+                        .orElse(
+                                DEFAULT_SECTION_OUTPUT
+                        );
+
+        WorldPosition center =
+                new WorldPosition(
+                        midpoint(
+                                fromX,
+                                toX
+                        ),
+                        0.0,
+                        midpoint(
+                                fromZ,
+                                toZ
+                        )
+                );
+
+        int readRadius =
+                sectionReadRadius(
+                        span
+                );
+
+        ProgressReporter progress =
+                new ProgressReporter(
+                        out
+                );
+
+        ReadDiagnostics diagnostics =
+                new ReadDiagnostics();
+
+        List<ParsedChunk> chunks =
+                reader.readChunksAround(
+                        savePath,
+                        center,
+                        readRadius,
+                        diagnostics,
+                        progress
+                );
+
+        Map<Integer, BlockInfo> registry =
+                reader.readBlockRegistry(
+                        savePath,
+                        progress
+                );
+
+        progress.start(
+                "Analyzing geology cross-section"
+        );
+
+        GeologyCrossSection section =
+                crossSectionAnalyzer.analyze(
+                        chunks,
+                        registry,
+                        fromX,
+                        fromZ,
+                        toX,
+                        toZ
+                );
+
+        progress.done(
+                "Geology cross-section analyzed"
+        );
+
+        progress.start(
+                "Rendering geology cross-section"
+        );
+
+        BufferedImage image;
+
+        try {
+            image =
+                    crossSectionRenderer.render(
+                            section,
+                            horizontalScale,
+                            verticalScale
+                    );
+
+        } catch (IllegalArgumentException | ArithmeticException exception) {
+            throw new CommandException(
+                    "Cannot render geology section: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+
+        progress.done(
+                "Geology cross-section rendered"
+        );
+
+        progress.start(
+                "Writing PNG"
+        );
+
+        pngWriter.write(
+                image,
+                output
+        );
+
+        progress.done(
+                "PNG written"
+        );
+
+        SectionStats stats =
+                sectionStats(
+                        section
+                );
+
+        out.println(
+                "GEOLOGY SECTION"
+        );
+
+        out.println(
+                "Output: "
+                        + output
+        );
+
+        out.println(
+                "From world: "
+                        + fromX
+                        + ","
+                        + fromZ
+        );
+
+        out.println(
+                "To world: "
+                        + toX
+                        + ","
+                        + toZ
+        );
+
+        out.println(
+                "Columns: "
+                        + section.columns().size()
+        );
+
+        if (section.minYInclusive()
+                == section.maxYExclusive()) {
+
+            out.println(
+                    "Y range: unavailable"
+            );
+
+        } else {
+            out.println(
+                    "Y range: "
+                            + section.minYInclusive()
+                            + ".."
+                            + (section.maxYExclusive() - 1)
+            );
+        }
+
+        out.println(
+                "Observed block samples: "
+                        + stats.observedSamples()
+        );
+
+        out.println(
+                "Unavailable block samples: "
+                        + stats.unavailableSamples()
+        );
+
+        out.println(
+                "Ore block samples: "
+                        + stats.oreSamples()
+        );
+
+        out.println(
+                "Image: "
+                        + image.getWidth()
+                        + "x"
+                        + image.getHeight()
+        );
+
+        out.println(
+                "Horizontal scale: "
+                        + horizontalScale
+        );
+
+        out.println(
+                "Vertical scale: "
+                        + verticalScale
+        );
+
+        out.println(
+                "Chunks parsed: "
+                        + diagnostics.parsed()
+        );
+
+        out.println(
+                "Chunks skipped: "
+                        + diagnostics.skipped()
+        );
+
+        out.println(
+                "Chunks failed: "
+                        + diagnostics.failed()
+        );
+
+        printFailureReasons(
+                diagnostics
+        );
+
+        diagnostics.notes()
+                .forEach(
+                        note ->
+                                out.println(
+                                        "Note: "
+                                                + note
+                                )
+                );
+    }
+
+    private SectionStats sectionStats(
+            GeologyCrossSection section
+    ) {
+        long observed =
+                0L;
+
+        long unavailable =
+                0L;
+
+        long ore =
+                0L;
+
+        for (GeologySectionColumn column :
+                section.columns()) {
+
+            for (GeologySectionRun run :
+                    column.runs()) {
+
+                long samples =
+                        (long) run.maxYExclusive()
+                                - run.minYInclusive();
+
+                if (!run.observed()) {
+                    unavailable +=
+                            samples;
+
+                    continue;
+                }
+
+                observed +=
+                        samples;
+
+                if (isOreCode(
+                        run.blockCode()
+                )) {
+                    ore +=
+                            samples;
+                }
+            }
+        }
+
+        return new SectionStats(
+                observed,
+                unavailable,
+                ore
+        );
+    }
+
+    private boolean isOreCode(
+            String code
+    ) {
+        if (code == null) {
+            return false;
+        }
+
+        String normalized =
+                code.toLowerCase(
+                        Locale.ROOT
+                );
+
+        return normalized.startsWith(
+                "ore-"
+        )
+                || normalized.contains(
+                ":ore-"
+        )
+                || normalized.contains(
+                "-ore-"
+        );
+    }
+
+    private long sectionSpan(
+            int fromX,
+            int fromZ,
+            int toX,
+            int toZ
+    ) {
+        long spanX =
+                Math.abs(
+                        (long) toX
+                                - fromX
+                );
+
+        long spanZ =
+                Math.abs(
+                        (long) toZ
+                                - fromZ
+                );
+
+        return Math.max(
+                spanX,
+                spanZ
+        );
+    }
+
+    private int sectionReadRadius(
+            long span
+    ) {
+        long radius =
+                Math.max(
+                        ChunkCoordinate.SIZE_BLOCKS,
+                        (span + 1L) / 2L
+                                + ChunkCoordinate.SIZE_BLOCKS
+                );
+
+        if (radius > MAX_RADIUS) {
+            throw new CommandException(
+                    "Required geology read radius exceeds "
+                            + MAX_RADIUS
+                            + " blocks"
+            );
+        }
+
+        return Math.toIntExact(
+                radius
+        );
+    }
+
+    private double midpoint(
+            int first,
+            int second
+    ) {
+        return first
+                + (
+                second
+                        - (double) first
+        )
+                / 2.0;
+    }
+
+    private int requiredIntOption(
+            String[] args,
+            String optionName
+    ) {
+        String value =
+                option(
+                        args,
+                        optionName
+                )
+                        .orElseThrow(
+                                () ->
+                                        new CommandException(
+                                                "Missing required option: "
+                                                        + optionName
+                                        )
+                        );
+
+        try {
+            return Integer.parseInt(
+                    value
+            );
+
+        } catch (NumberFormatException exception) {
+            throw new CommandException(
+                    "Invalid "
+                            + optionName
+                            + ": "
+                            + value
+            );
+        }
+    }
+
+    private int scaleOption(
+            String[] args,
+            String optionName,
+            int defaultValue
+    ) {
+        Optional<String> raw =
+                option(
+                        args,
+                        optionName
+                );
+
+        if (raw.isEmpty()) {
+            return defaultValue;
+        }
+
+        try {
+            int value =
+                    Integer.parseInt(
+                            raw.get()
+                    );
+
+            if (value < 1
+                    || value > MAX_SECTION_SCALE) {
+
+                throw new CommandException(
+                        optionName
+                                + " must be between 1 and "
+                                + MAX_SECTION_SCALE
+                );
+            }
+
+            return value;
+
+        } catch (NumberFormatException exception) {
+            throw new CommandException(
+                    "Invalid "
+                            + optionName
+                            + ": "
+                            + raw.get()
+            );
+        }
+    }
+
     private void printMap(
             String title,
             Map<String, Integer> values
@@ -510,5 +1070,12 @@ public class GeologyCommand implements Command {
                             + value
             );
         }
+    }
+
+    private record SectionStats(
+            long observedSamples,
+            long unavailableSamples,
+            long oreSamples
+    ) {
     }
 }
