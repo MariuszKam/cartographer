@@ -13,6 +13,7 @@ import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMapScanner;
+import cartographer.scanner.ActualBlockYFilter;
 import cartographer.scanner.SurfaceScanResult;
 import cartographer.scanner.SurfaceScanner;
 
@@ -283,6 +284,8 @@ public class ScanCommand implements Command {
                             + "--match <text> "
                             + "[--radius <blocks>] "
                             + "[--center-x <x> --center-z <z>] "
+                            + "[--y-min <y>] "
+                            + "[--y-max <y>] "
                             + "[--scale <1..8>] "
                             + "[--out <image.png>]"
             );
@@ -333,6 +336,11 @@ public class ScanCommand implements Command {
                         .orElse(
                                 DEFAULT_BLOCK_MAP_OUTPUT
                         );
+
+        ActualBlockYFilter yFilter =
+                yFilterOption(
+                        args
+                );
 
         ProgressReporter progress =
                 new ProgressReporter(
@@ -389,7 +397,8 @@ public class ScanCommand implements Command {
                         centerX,
                         centerZ,
                         radius,
-                        match
+                        match,
+                        yFilter
                 );
 
         progress.done(
@@ -452,6 +461,11 @@ public class ScanCommand implements Command {
         out.println(
                 "Scale: "
                         + scale
+        );
+
+        out.println(
+                "Y filter: "
+                        + yFilter.description()
         );
 
         out.println(
@@ -809,6 +823,65 @@ public class ScanCommand implements Command {
             }
 
             return value;
+
+        } catch (NumberFormatException exception) {
+            throw new CommandException(
+                    "Invalid "
+                            + optionName
+                            + ": "
+                            + option.get()
+            );
+        }
+    }
+
+    private ActualBlockYFilter yFilterOption(
+            String[] args
+    ) {
+        Integer yMin =
+                optionalIntegerOption(
+                        args,
+                        "--y-min"
+                );
+
+        Integer yMax =
+                optionalIntegerOption(
+                        args,
+                        "--y-max"
+                );
+
+        if (yMin != null
+                && yMax != null
+                && yMin > yMax) {
+
+            throw new CommandException(
+                    "--y-min must not be greater than --y-max"
+            );
+        }
+
+        return new ActualBlockYFilter(
+                yMin,
+                yMax
+        );
+    }
+
+    private Integer optionalIntegerOption(
+            String[] args,
+            String optionName
+    ) {
+        Optional<String> option =
+                option(
+                        args,
+                        optionName
+                );
+
+        if (option.isEmpty()) {
+            return null;
+        }
+
+        try {
+            return Integer.parseInt(
+                    option.get()
+            );
 
         } catch (NumberFormatException exception) {
             throw new CommandException(

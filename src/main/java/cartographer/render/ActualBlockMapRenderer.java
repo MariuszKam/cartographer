@@ -22,7 +22,7 @@ public class ActualBlockMapRenderer {
             24;
 
     private static final int BOTTOM_MARGIN =
-            110;
+            124;
 
     private static final int GRID_STEP_BLOCKS =
             64;
@@ -180,6 +180,7 @@ public class ActualBlockMapRenderer {
 
             drawLegend(
                     graphics,
+                    map,
                     mapHeight
             );
 
@@ -239,6 +240,14 @@ public class ActualBlockMapRenderer {
                             + map.radius(),
                     20,
                     84
+            );
+
+            graphics.drawString(
+                    "Filter Y "
+                            + map.yFilter()
+                            .description(),
+                    20,
+                    106
             );
 
         } finally {
@@ -520,12 +529,20 @@ public class ActualBlockMapRenderer {
         );
 
         graphics.drawString(
+                "Filter Y "
+                        + map.yFilter()
+                        .description(),
+                LEFT_MARGIN,
+                bottom + 54
+        );
+
+        graphics.drawString(
                 "Matching blocks "
                         + map.matchingBlocks()
                         + " | hit columns "
                         + map.hitColumns(),
                 LEFT_MARGIN,
-                bottom + 54
+                bottom + 68
         );
 
         if (!map.cells().isEmpty()) {
@@ -535,35 +552,72 @@ public class ActualBlockMapRenderer {
                             + ".."
                             + map.maxMatchedY(),
                     LEFT_MARGIN,
-                    bottom + 72
+                    bottom + 86
             );
         }
     }
 
     private void drawLegend(
             Graphics2D graphics,
+            ActualBlockMap map,
             int mapHeight
     ) {
         int y =
                 TOP_MARGIN
                         + mapHeight
-                        + 92;
+                        + 108;
 
         graphics.setColor(
                 TEXT
         );
 
-        graphics.drawString(
-                "Legend: brighter = shallower, darker = deeper, more saturated = more blocks in X/Z column",
-                LEFT_MARGIN,
-                y
-        );
+        if (map.yFilter()
+                .enabled()) {
+            graphics.drawString(
+                    "Filtered map: brighter/more saturated = more matching blocks in X/Z column",
+                    LEFT_MARGIN,
+                    y
+            );
+
+        } else {
+            graphics.drawString(
+                    "Legend: brighter = shallower, darker = deeper, more saturated = more blocks in X/Z column",
+                    LEFT_MARGIN,
+                    y
+            );
+        }
     }
 
     private Color colorFor(
             ActualBlockMapCell cell,
             ActualBlockMap map
     ) {
+        if (map.yFilter()
+                .enabled()) {
+
+            double density =
+                    Math.min(
+                            1.0,
+                            Math.log(
+                                    cell.matchCount()
+                                            + 1.0
+                            )
+                                    / Math.log(
+                                    10.0
+                            )
+                    );
+
+            return Color.getHSBColor(
+                    0.055f,
+                    (float) (0.55
+                            + 0.40
+                            * density),
+                    (float) (0.35
+                            + 0.60
+                            * density)
+            );
+        }
+
         double yRange =
                 Math.max(
                         1,

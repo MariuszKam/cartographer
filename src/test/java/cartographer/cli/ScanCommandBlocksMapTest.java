@@ -28,6 +28,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ScanCommandBlocksMapTest {
@@ -69,6 +70,10 @@ class ScanCommandBlocksMapTest {
                         "copper",
                         "--radius",
                         "8",
+                        "--y-min",
+                        "5",
+                        "--y-max",
+                        "5",
                         "--scale",
                         "2",
                         "--out",
@@ -145,7 +150,13 @@ class ScanCommandBlocksMapTest {
 
         assertTrue(
                 output.contains(
-                        "Matching blocks: 2"
+                        "Y filter: 5..5"
+                )
+        );
+
+        assertTrue(
+                output.contains(
+                        "Matching blocks: 1"
                 )
         );
 
@@ -157,8 +168,55 @@ class ScanCommandBlocksMapTest {
 
         assertTrue(
                 output.contains(
-                        "Y range: 4..5"
+                        "Y range: 5..5"
                 )
+        );
+    }
+
+    @Test
+    void rejectsInvertedYFilter() {
+        ByteArrayOutputStream buffer =
+                new ByteArrayOutputStream();
+
+        PrintStream out =
+                new PrintStream(
+                        buffer,
+                        true,
+                        StandardCharsets.UTF_8
+                );
+
+        ScanCommand command =
+                new ScanCommand(
+                        out,
+                        new FakeReader(),
+                        new SurfaceScanner(),
+                        new BlockScanner(),
+                        new ActualBlockMapScanner(),
+                        new ActualBlockMapRenderer(),
+                        new CapturingPngWriter(),
+                        "blocks-map"
+                );
+
+        CommandException exception =
+                assertThrows(
+                        CommandException.class,
+                        () ->
+                                command.run(
+                                        new String[]{
+                                                "save.vcdbs",
+                                                "--match",
+                                                "copper",
+                                                "--y-min",
+                                                "64",
+                                                "--y-max",
+                                                "32"
+                                        }
+                                )
+                );
+
+        assertEquals(
+                "--y-min must not be greater than --y-max",
+                exception.getMessage()
         );
     }
 

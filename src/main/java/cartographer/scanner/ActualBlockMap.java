@@ -8,11 +8,35 @@ public record ActualBlockMap(
         int centerWorldX,
         int centerWorldZ,
         int radius,
+        ActualBlockYFilter yFilter,
         long matchingBlocks,
         int minMatchedY,
         int maxMatchedY,
         List<ActualBlockMapCell> cells
 ) {
+
+    public ActualBlockMap(
+            String match,
+            int centerWorldX,
+            int centerWorldZ,
+            int radius,
+            long matchingBlocks,
+            int minMatchedY,
+            int maxMatchedY,
+            List<ActualBlockMapCell> cells
+    ) {
+        this(
+                match,
+                centerWorldX,
+                centerWorldZ,
+                radius,
+                ActualBlockYFilter.unbounded(),
+                matchingBlocks,
+                minMatchedY,
+                maxMatchedY,
+                cells
+        );
+    }
 
     public ActualBlockMap {
         if (match == null
@@ -33,6 +57,12 @@ public record ActualBlockMap(
                     "ActualBlockMap matchingBlocks must not be negative"
             );
         }
+
+        yFilter =
+                Objects.requireNonNull(
+                        yFilter,
+                        "ActualBlockMap yFilter is required"
+                );
 
         cells =
                 List.copyOf(

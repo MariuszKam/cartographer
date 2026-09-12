@@ -22,6 +22,26 @@ public class ActualBlockMapScanner {
             int radius,
             String match
     ) {
+        return scan(
+                chunks,
+                blockRegistry,
+                centerWorldX,
+                centerWorldZ,
+                radius,
+                match,
+                ActualBlockYFilter.unbounded()
+        );
+    }
+
+    public ActualBlockMap scan(
+            List<ParsedChunk> chunks,
+            Map<Integer, BlockInfo> blockRegistry,
+            int centerWorldX,
+            int centerWorldZ,
+            int radius,
+            String match,
+            ActualBlockYFilter yFilter
+    ) {
         Objects.requireNonNull(
                 chunks,
                 "chunks are required"
@@ -30,6 +50,11 @@ public class ActualBlockMapScanner {
         Objects.requireNonNull(
                 blockRegistry,
                 "blockRegistry is required"
+        );
+
+        Objects.requireNonNull(
+                yFilter,
+                "yFilter is required"
         );
 
         if (radius <= 0) {
@@ -87,6 +112,12 @@ public class ActualBlockMapScanner {
                 int worldY =
                         chunk.minY()
                                 + localY;
+
+                if (!yFilter.includes(
+                        worldY
+                )) {
+                    continue;
+                }
 
                 for (int localZ = 0;
                      localZ < chunk.sizeZ();
@@ -226,6 +257,7 @@ public class ActualBlockMapScanner {
                 centerWorldX,
                 centerWorldZ,
                 radius,
+                yFilter,
                 matchingBlocks,
                 minMatchedY,
                 maxMatchedY,
