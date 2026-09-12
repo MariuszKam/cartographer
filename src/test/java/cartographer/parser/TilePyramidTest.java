@@ -15,9 +15,9 @@ class TilePyramidTest {
         List<AtlasTile> tiles = new TilePyramid().plan(new WorldPosition(100, 0, 100), 64, 3);
 
         assertEquals(21, tiles.size());
-        assertEquals(0, tiles.get(0).level());
-        assertEquals(64, tiles.get(0).radiusBlocks());
-        assertEquals(2, tiles.get(tiles.size() - 1).level());
-        assertEquals(16, tiles.get(tiles.size() - 1).radiusBlocks());
+        assertEquals(0, tiles.getFirst().level());
+        assertEquals(64, tiles.getFirst().radiusBlocks());
+        assertEquals(2, tiles.getLast().level());
+        assertEquals(16, tiles.getLast().radiusBlocks());
     }
 }

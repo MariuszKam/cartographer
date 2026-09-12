@@ -32,9 +32,9 @@ class SurfaceScannerTest {
         SurfaceScanResult result = new SurfaceScanner().scan(List.of(chunk), registry, true);
 
         assertEquals(1, result.blocks().size());
-        assertEquals(11, result.blocks().get(0).y());
-        assertEquals("game:soil-medium", result.blocks().get(0).blockInfo().code());
-        assertEquals(SurfaceClass.SOIL, result.blocks().get(0).surfaceClass());
+        assertEquals(11, result.blocks().getFirst().y());
+        assertEquals("game:soil-medium", result.blocks().getFirst().blockInfo().code());
+        assertEquals(SurfaceClass.SOIL, result.blocks().getFirst().surfaceClass());
     }
 
     @Test
@@ -101,14 +101,14 @@ class SurfaceScannerTest {
         assertEquals(
                 33,
                 result.blocks()
-                        .get(0)
+                        .getFirst()
                         .y()
         );
 
         assertEquals(
                 SurfaceClass.SOIL,
                 result.blocks()
-                        .get(0)
+                        .getFirst()
                         .surfaceClass()
         );
 
@@ -171,7 +171,7 @@ class SurfaceScannerTest {
         assertEquals(
                 SurfaceClass.WATER,
                 result.blocks()
-                        .get(0)
+                        .getFirst()
                         .surfaceClass()
         );
     }

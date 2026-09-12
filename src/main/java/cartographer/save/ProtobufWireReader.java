@@ -24,7 +24,7 @@ public final class ProtobufWireReader {
         return fields.isEmpty()
                 ? Optional.empty()
                 : Optional.of(
-                fields.get(0)
+                fields.getFirst()
         );
     }
 

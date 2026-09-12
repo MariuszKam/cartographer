@@ -189,17 +189,15 @@ public class RegionCoverageRenderer {
                         * 2
                         - LEGEND_HEIGHT;
 
-        return Math.max(
-                MIN_CELL_SIZE,
-                Math.min(
-                        TARGET_CELL_SIZE,
-                        available
-                                / Math.max(
-                                        1,
-                                        largestDimension
-                                )
+        return Math.clamp(
+                available
+                        / Math.max(
+                        1,
+                        largestDimension
                 )
-        );
+                ,
+                MIN_CELL_SIZE,
+                TARGET_CELL_SIZE);
     }
 
     private void drawCells(

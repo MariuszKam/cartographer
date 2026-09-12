@@ -1240,8 +1240,7 @@ public class ResourceCommand implements Command {
         }
 
         return Optional.of(
-                matches.get(
-                        0
+                matches.getFirst(
                 )
         );
     }

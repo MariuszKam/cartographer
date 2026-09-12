@@ -54,12 +54,10 @@ public class ForestInterpreter {
             double min,
             double max
     ) {
-        return Math.max(
+        return Math.clamp(
+                max,
                 min,
-                Math.min(
-                        max,
-                        value
-                )
+                value
         );
     }
 }

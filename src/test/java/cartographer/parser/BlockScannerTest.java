@@ -28,6 +28,6 @@ class BlockScannerTest {
         assertEquals(2, result.blocksScanned());
         assertEquals(1, result.matches().size());
         assertTrue(result.truncated());
-        assertEquals("game:ore-copper", result.matches().get(0).blockInfo().code());
+        assertEquals("game:ore-copper", result.matches().getFirst().blockInfo().code());
     }
 }

@@ -20,7 +20,7 @@ public class TerrainPalette {
     public int tileColor(int argb, int height, RenderStyle style) {
         return switch (style) {
             case SIMPLE -> argb;
-            case TOPOGRAPHIC -> shade(argb, Math.max(0.65, Math.min(1.35, 0.85 + height / 256.0)));
+            case TOPOGRAPHIC -> shade(argb, Math.clamp(0.85 + height / 256.0, 0.65, 1.35));
             case HIGH_CONTRAST -> highContrast(argb);
         };
     }
@@ -31,7 +31,7 @@ public class TerrainPalette {
 
         return switch (style) {
             case SIMPLE -> base;
-            case TOPOGRAPHIC -> shade(base, Math.max(0.65, Math.min(1.35, 0.85 + height / 256.0)));
+            case TOPOGRAPHIC -> shade(base, Math.clamp(0.85 + height / 256.0, 0.65, 1.35));
             case HIGH_CONTRAST -> height > 96 ? 0xFFFFFFFF : 0xFF202020;
         };
     }
@@ -102,12 +102,12 @@ public class TerrainPalette {
     }
 
     public int ground(int height) {
-        int shade = Math.max(60, Math.min(180, 90 + height / 3));
+        int shade = Math.clamp(90 + height / 3, 60, 180);
         return 0xFF000000 | (shade / 2 << 16) | (shade << 8) | (shade / 3);
     }
 
     public int rock(int height) {
-        int shade = Math.max(70, Math.min(210, 100 + height / 4));
+        int shade = Math.clamp(100 + height / 4, 70, 210);
         return 0xFF000000 | (shade << 16) | (shade << 8) | shade;
     }
 
@@ -201,12 +201,10 @@ public class TerrainPalette {
             double max,
             double value
     ) {
-        return Math.max(
+        return Math.clamp(
+                max,
                 min,
-                Math.min(
-                        max,
-                        value
-                )
+                value
         );
     }
 }
