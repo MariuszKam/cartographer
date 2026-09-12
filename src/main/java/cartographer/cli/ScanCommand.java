@@ -25,7 +25,13 @@ public class ScanCommand implements Command {
     private final BlockScanner blockScanner;
     private final String subcommand;
 
-    public ScanCommand(PrintStream out, VcdbsReader reader, SurfaceScanner scanner, BlockScanner blockScanner, String subcommand) {
+    public ScanCommand(
+            PrintStream out,
+            VcdbsReader reader,
+            SurfaceScanner scanner,
+            BlockScanner blockScanner,
+            String subcommand
+    ) {
         this.out = out;
         this.reader = reader;
         this.scanner = scanner;
@@ -37,34 +43,84 @@ public class ScanCommand implements Command {
     public int run(String[] args) {
         if ("blocks".equals(subcommand)) {
             scanBlocks(args);
+
             return 0;
         }
+
         if (!"surface".equals(subcommand)) {
-            throw new CommandException("Unknown scan subcommand: " + subcommand);
-        }
-        if (args.length < 1) {
-            throw new CommandException("Usage: scan surface <save.vcdbs> --radius <blocks> [--include-foliage]");
+            throw new CommandException(
+                    "Unknown scan subcommand: "
+                            + subcommand
+            );
         }
 
-        Path savePath = Path.of(args[0]);
-        int radius = intOption(args, "--radius", 256);
-        ProgressReporter progress = new ProgressReporter(out);
-        WorldPosition player = reader.readPlayerPosition(savePath, Optional.empty(), progress);
-        ReadDiagnostics diagnostics = new ReadDiagnostics();
-        List<ParsedChunk> chunks = reader.readChunksAround(savePath, player, radius, diagnostics, progress);
-        Map<Integer, BlockInfo> registry = reader.readBlockRegistry(savePath, progress);
-        SurfaceScanResult result = scanner.scan(chunks, registry, !hasFlag(args, "--include-foliage"), progress);
+        if (args.length < 1) {
+            throw new CommandException(
+                    "Usage: scan surface <save.vcdbs> "
+                            + "--radius <blocks> "
+                            + "[--include-foliage]"
+            );
+        }
+
+        Path savePath =
+                Path.of(args[0]);
+
+        int radius =
+                intOption(
+                        args,
+                        "--radius",
+                        256
+                );
+
+        ProgressReporter progress =
+                new ProgressReporter(out);
+
+        WorldPosition player =
+                reader.readPlayerPosition(
+                        savePath,
+                        Optional.empty(),
+                        progress
+                );
+
+        ReadDiagnostics diagnostics =
+                new ReadDiagnostics();
+
+        List<ParsedChunk> chunks =
+                reader.readChunksAround(
+                        savePath,
+                        player,
+                        radius,
+                        diagnostics,
+                        progress
+                );
+
+        Map<Integer, BlockInfo> registry =
+                reader.readBlockRegistry(
+                        savePath,
+                        progress
+                );
+
+        SurfaceScanResult result =
+                scanner.scan(
+                        chunks,
+                        registry,
+                        !includeFoliage(args),
+                        progress
+                );
 
         out.println("SURFACE");
         out.println("Chunks parsed: " + diagnostics.parsed());
         out.println("Chunks skipped: " + diagnostics.skipped());
         out.println("Chunks failed: " + diagnostics.failed());
+
         printFailureReasons(
                 diagnostics
         );
+
         printLiquidFailureReasons(
                 diagnostics
         );
+
         out.println("Registry blocks: " + registry.size());
         out.println("Columns scanned: " + result.columnsScanned());
         out.println("Empty columns: " + result.emptyColumns());
@@ -72,65 +128,178 @@ public class ScanCommand implements Command {
         out.println("Surface blocks: " + result.blocks().size());
         out.println("Water columns: " + result.waterColumns());
         out.println("Unknown surface blocks: " + result.unknownSurfaceBlocks());
+
         printTopUnknownSurfaceBlockCodes(
                 result
         );
-        out.println("Distinct surface block codes: " + result.distinctSurfaceBlockCodes(20));
 
-        result.blocks().stream().limit(20).forEach(this::printSurfaceBlock);
-        diagnostics.notes().forEach(note -> out.println("Note: " + note));
+        out.println(
+                "Distinct surface block codes: "
+                        + result.distinctSurfaceBlockCodes(
+                        20
+                )
+        );
+
+        result.blocks()
+                .stream()
+                .limit(20)
+                .forEach(
+                        this::printSurfaceBlock
+                );
+
+        diagnostics.notes()
+                .forEach(
+                        note ->
+                                out.println(
+                                        "Note: " + note
+                                )
+                );
+
         return 0;
     }
 
-    private void scanBlocks(String[] args) {
+    private void scanBlocks(
+            String[] args
+    ) {
         if (args.length < 1) {
-            throw new CommandException("Usage: scan blocks <save.vcdbs> --match <text> [--radius <blocks>] [--limit <n>]");
+            throw new CommandException(
+                    "Usage: scan blocks <save.vcdbs> "
+                            + "--match <text> "
+                            + "[--radius <blocks>] "
+                            + "[--limit <n>]"
+            );
         }
-        Path savePath = Path.of(args[0]);
-        String match = option(args, "--match").orElseThrow(() -> new CommandException("Missing option: --match"));
-        int radius = intOption(args, "--radius", 256);
-        int limit = intOption(args, "--limit", 100);
-        ProgressReporter progress = new ProgressReporter(out);
-        WorldPosition center = center(args).orElseGet(() -> reader.readPlayerPosition(savePath, Optional.empty(), progress));
-        ReadDiagnostics diagnostics = new ReadDiagnostics();
-        List<ParsedChunk> chunks = reader.readChunksAround(savePath, center, radius, diagnostics, progress);
-        Map<Integer, BlockInfo> registry = reader.readBlockRegistry(savePath, progress);
-        BlockScanResult result = blockScanner.scan(chunks, registry, match, limit, progress);
+
+        Path savePath =
+                Path.of(
+                        args[0]
+                );
+
+        String match =
+                option(
+                        args,
+                        "--match"
+                ).orElseThrow(
+                        () ->
+                                new CommandException(
+                                        "Missing option: --match"
+                                )
+                );
+
+        int radius =
+                intOption(
+                        args,
+                        "--radius",
+                        256
+                );
+
+        int limit =
+                intOption(
+                        args,
+                        "--limit",
+                        100
+                );
+
+        ProgressReporter progress =
+                new ProgressReporter(
+                        out
+                );
+
+        WorldPosition center =
+                center(
+                        args
+                ).orElseGet(
+                        () ->
+                                reader.readPlayerPosition(
+                                        savePath,
+                                        Optional.empty(),
+                                        progress
+                                )
+                );
+
+        ReadDiagnostics diagnostics =
+                new ReadDiagnostics();
+
+        List<ParsedChunk> chunks =
+                reader.readChunksAround(
+                        savePath,
+                        center,
+                        radius,
+                        diagnostics,
+                        progress
+                );
+
+        Map<Integer, BlockInfo> registry =
+                reader.readBlockRegistry(
+                        savePath,
+                        progress
+                );
+
+        BlockScanResult result =
+                blockScanner.scan(
+                        chunks,
+                        registry,
+                        match,
+                        limit,
+                        progress
+                );
 
         out.println("BLOCK SCAN");
         out.println("Match: " + match);
         out.println("Chunks parsed: " + diagnostics.parsed());
         out.println("Chunks skipped: " + diagnostics.skipped());
         out.println("Chunks failed: " + diagnostics.failed());
+
         printFailureReasons(
                 diagnostics
         );
+
         printLiquidFailureReasons(
                 diagnostics
         );
+
         out.println("Blocks scanned: " + result.blocksScanned());
         out.println("Matches: " + result.matches().size());
         out.println("Truncated: " + result.truncated());
-        result.matches().forEach(this::printBlockMatch);
-        diagnostics.notes().forEach(note -> out.println("Note: " + note));
+
+        result.matches()
+                .forEach(
+                        this::printBlockMatch
+                );
+
+        diagnostics.notes()
+                .forEach(
+                        note ->
+                                out.println(
+                                        "Note: " + note
+                                )
+                );
     }
 
-    private void printSurfaceBlock(SurfaceBlock block) {
-        out.printf("%d,%d,%d %s %s%n",
+    private void printSurfaceBlock(
+            SurfaceBlock block
+    ) {
+        out.printf(
+                "%d,%d,%d %s %s%n",
                 block.worldX(),
                 block.y(),
                 block.worldZ(),
                 block.blockInfo().code(),
-                block.blockInfo().materialType());
+                block.blockInfo().materialType()
+        );
     }
 
-    private void printBlockMatch(BlockMatch match) {
-        out.printf("%d,%d,%d %s %s%n",
+    private void printBlockMatch(
+            BlockMatch match
+    ) {
+        out.printf(
+                "%d,%d,%d %s %s%n",
                 match.worldX(),
                 match.y(),
                 match.worldZ(),
                 match.blockInfo().code(),
-                match.blockInfo().materialType());
+                match.blockInfo().materialType()
+        );
     }
 
     private void printTopUnknownSurfaceBlockCodes(
@@ -140,9 +309,13 @@ public class ScanCommand implements Command {
             return;
         }
 
-        out.println("Top UNKNOWN surface block codes:");
+        out.println(
+                "Top UNKNOWN surface block codes:"
+        );
 
-        result.topUnknownSurfaceBlockCodes(10)
+        result.topUnknownSurfaceBlockCodes(
+                        10
+                )
                 .forEach(
                         block ->
                                 out.println(
@@ -162,12 +335,16 @@ public class ScanCommand implements Command {
             return;
         }
 
-        out.println("Failure reasons:");
+        out.println(
+                "Failure reasons:"
+        );
 
         diagnostics.failureReasonLines()
                 .forEach(
                         line ->
-                                out.println("  " + line)
+                                out.println(
+                                        "  " + line
+                                )
                 );
     }
 
@@ -179,67 +356,157 @@ public class ScanCommand implements Command {
             return;
         }
 
-        out.println("Liquid decode failures: " + diagnostics.liquidDecodeFailures());
-        out.println("Liquid failure reasons:");
+        out.println(
+                "Liquid decode failures: "
+                        + diagnostics.liquidDecodeFailures()
+        );
+
+        out.println(
+                "Liquid failure reasons:"
+        );
 
         diagnostics.liquidFailureReasonLines()
                 .forEach(
                         line ->
-                                out.println("  " + line)
+                                out.println(
+                                        "  " + line
+                                )
                 );
     }
 
-    private int intOption(String[] args, String optionName, int defaultValue) {
-        Optional<String> option = option(args, optionName);
+    private int intOption(
+            String[] args,
+            String optionName,
+            int defaultValue
+    ) {
+        Optional<String> option =
+                option(
+                        args,
+                        optionName
+                );
+
         if (option.isEmpty()) {
             return defaultValue;
         }
+
         try {
-            int value = Integer.parseInt(option.get());
-            if (value <= 0 || value > 8192) {
-                throw new CommandException(optionName + " must be between 1 and 8192");
+            int value =
+                    Integer.parseInt(
+                            option.get()
+                    );
+
+            if (value <= 0
+                    || value > 8192) {
+                throw new CommandException(
+                        optionName
+                                + " must be between 1 and 8192"
+                );
             }
+
             return value;
+
         } catch (NumberFormatException exception) {
-            throw new CommandException("Invalid " + optionName + ": " + option.get());
+            throw new CommandException(
+                    "Invalid "
+                            + optionName
+                            + ": "
+                            + option.get()
+            );
         }
     }
 
-    private Optional<String> option(String[] args, String optionName) {
-        for (int index = 1; index < args.length - 1; index++) {
-            if (optionName.equals(args[index])) {
-                return Optional.of(args[index + 1]);
+    private Optional<String> option(
+            String[] args,
+            String optionName
+    ) {
+        for (int index = 1;
+             index < args.length - 1;
+             index++) {
+
+            if (optionName.equals(
+                    args[index]
+            )) {
+                return Optional.of(
+                        args[index + 1]
+                );
             }
         }
+
         return Optional.empty();
     }
 
-    private boolean hasFlag(String[] args, String flag) {
+    private boolean includeFoliage(
+            String[] args
+    ) {
         for (String arg : args) {
-            if (flag.equals(arg)) {
+            if ("--include-foliage".equals(
+                    arg
+            )) {
                 return true;
             }
         }
+
         return false;
     }
 
-    private Optional<WorldPosition> center(String[] args) {
-        Optional<String> x = option(args, "--center-x");
-        Optional<String> z = option(args, "--center-z");
-        if (x.isEmpty() && z.isEmpty()) {
+    private Optional<WorldPosition> center(
+            String[] args
+    ) {
+        Optional<String> x =
+                option(
+                        args,
+                        "--center-x"
+                );
+
+        Optional<String> z =
+                option(
+                        args,
+                        "--center-z"
+                );
+
+        if (x.isEmpty()
+                && z.isEmpty()) {
             return Optional.empty();
         }
-        if (x.isEmpty() || z.isEmpty()) {
-            throw new CommandException("--center-x and --center-z must be used together");
+
+        if (x.isEmpty()
+                || z.isEmpty()) {
+            throw new CommandException(
+                    "--center-x and --center-z must be used together"
+            );
         }
-        return Optional.of(new WorldPosition(parseDouble(x.get(), "--center-x"), 0.0, parseDouble(z.get(), "--center-z")));
+
+        return Optional.of(
+                new WorldPosition(
+                        parseDouble(
+                                x.get(),
+                                "--center-x"
+                        ),
+                        0.0,
+                        parseDouble(
+                                z.get(),
+                                "--center-z"
+                        )
+                )
+        );
     }
 
-    private double parseDouble(String value, String optionName) {
+    private double parseDouble(
+            String value,
+            String optionName
+    ) {
         try {
-            return Double.parseDouble(value);
+            return Double.parseDouble(
+                    value
+            );
+
         } catch (NumberFormatException exception) {
-            throw new CommandException("Invalid " + optionName + ": " + value);
+            throw new CommandException(
+                    "Invalid "
+                            + optionName
+                            + ": "
+                            + value
+            );
         }
     }
 }

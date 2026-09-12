@@ -121,9 +121,8 @@ public class MarkerCommand implements Command {
                 );
 
         String name =
-                joinArguments(
+                joinMarkerName(
                         args,
-                        1,
                         args.length - 2
                 );
 
@@ -194,9 +193,8 @@ public class MarkerCommand implements Command {
                 );
 
         String name =
-                joinArguments(
+                joinMarkerName(
                         args,
-                        1,
                         args.length - 2
                 );
 
@@ -271,9 +269,8 @@ public class MarkerCommand implements Command {
                 );
 
         String name =
-                joinArguments(
+                joinMarkerName(
                         args,
-                        1,
                         args.length
                 );
 
@@ -382,7 +379,7 @@ public class MarkerCommand implements Command {
                     marker.name(),
                     marker.x(),
                     marker.z()
-                );
+            );
         }
     }
 
@@ -401,9 +398,8 @@ public class MarkerCommand implements Command {
                 );
 
         String name =
-                joinArguments(
+                joinMarkerName(
                         args,
-                        1,
                         args.length
                 );
 
@@ -477,14 +473,12 @@ public class MarkerCommand implements Command {
                 .findFirst();
     }
 
-    private String joinArguments(
+    private String joinMarkerName(
             String[] args,
-            int startInclusive,
             int endExclusive
     ) {
-        if (startInclusive < 0
-                || endExclusive > args.length
-                || startInclusive >= endExclusive) {
+        if (endExclusive > args.length
+                || endExclusive <= 1) {
 
             throw new CommandException(
                     "Marker name is required"
@@ -496,7 +490,7 @@ public class MarkerCommand implements Command {
                                 " ",
                                 Arrays.copyOfRange(
                                         args,
-                                        startInclusive,
+                                        1,
                                         endExclusive
                                 )
                         )

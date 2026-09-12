@@ -146,9 +146,8 @@ public class CoverageCommand implements Command {
 
         Path output =
                 Path.of(
-                        requiredOption(
-                                args,
-                                "--out"
+                        requiredOutput(
+                                args
                         )
                 );
 
@@ -302,7 +301,7 @@ public class CoverageCommand implements Command {
                                 out.println(
                                         "  "
                                                 + line
-                        )
+                                )
                 );
 
         printNotes(
@@ -426,18 +425,16 @@ public class CoverageCommand implements Command {
         );
     }
 
-    private String requiredOption(
-            String[] args,
-            String optionName
+    private String requiredOutput(
+            String[] args
     ) {
         return option(
                 args,
-                optionName
+                "--out"
         ).orElseThrow(
                 () ->
                         new CommandException(
-                                "Missing option: "
-                                        + optionName
+                                "Missing option: --out"
                         )
         );
     }

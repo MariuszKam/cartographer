@@ -16,12 +16,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ChunkParserTest {
+
     @Test
     void parsesRealServerChunkProtobufFields() {
         byte[] blocks =
                 encodedLayer(
                         new int[]{0, 17},
-                        index -> index == 0 ? 1 : 0
+                        index ->
+                                index == 0
+                                        ? 1
+                                        : 0
                 );
 
         byte[] liquids =
@@ -39,8 +43,11 @@ class ChunkParserTest {
 
         assertTrue(
                 result.isSuccess(),
-                () -> result.error()
-                        .orElse("unknown error")
+                () ->
+                        result.error()
+                                .orElse(
+                                        "unknown error"
+                                )
         );
 
         ServerChunkPayload payload =
@@ -69,22 +76,35 @@ class ChunkParserTest {
     void decodesRawSmallPaletteLayerWithXyzOrientation() {
         byte[] blocks =
                 encodedLayer(
-                        new int[]{0, 11, 22, 33},
+                        new int[]{
+                                0,
+                                11,
+                                22,
+                                33
+                        },
                         index -> {
                             int x =
                                     index & 31;
 
                             int z =
-                                    (index >>> 5) & 31;
+                                    (index >>> 5)
+                                            & 31;
 
                             int y =
-                                    (index >>> 10) & 31;
+                                    (index >>> 10)
+                                            & 31;
 
-                            if (x == 31 && y == 31 && z == 31) {
+                            if (x == 31
+                                    && y == 31
+                                    && z == 31) {
+
                                 return 3;
                             }
 
-                            if (x == 3 && y == 2 && z == 1) {
+                            if (x == 3
+                                    && y == 2
+                                    && z == 1) {
+
                                 return 2;
                             }
 
@@ -109,8 +129,11 @@ class ChunkParserTest {
 
         assertTrue(
                 result.isSuccess(),
-                () -> result.error()
-                        .orElse("unknown error")
+                () ->
+                        result.error()
+                                .orElse(
+                                        "unknown error"
+                                )
         );
 
         ParsedChunk chunk =
@@ -155,7 +178,10 @@ class ChunkParserTest {
         byte[] liquids =
                 encodedLayer(
                         new int[]{0, 200},
-                        index -> index == 0 ? 1 : 0
+                        index ->
+                                index == 0
+                                        ? 1
+                                        : 0
                 );
 
         ParseResult<ParsedChunk> result =
@@ -175,8 +201,11 @@ class ChunkParserTest {
 
         assertTrue(
                 result.isSuccess(),
-                () -> result.error()
-                        .orElse("unknown error")
+                () ->
+                        result.error()
+                                .orElse(
+                                        "unknown error"
+                                )
         );
 
         ParsedChunk chunk =
@@ -221,8 +250,11 @@ class ChunkParserTest {
 
         assertTrue(
                 result.isSuccess(),
-                () -> result.error()
-                        .orElse("unknown error")
+                () ->
+                        result.error()
+                                .orElse(
+                                        "unknown error"
+                                )
         );
 
         assertEquals(
@@ -242,7 +274,10 @@ class ChunkParserTest {
         int[] palette =
                 new int[19];
 
-        for (int index = 0; index < palette.length; index++) {
+        for (int index = 0;
+             index < palette.length;
+             index++) {
+
             palette[index] =
                     index * 10;
         }
@@ -255,16 +290,24 @@ class ChunkParserTest {
                                     index & 31;
 
                             int z =
-                                    (index >>> 5) & 31;
+                                    (index >>> 5)
+                                            & 31;
 
                             int y =
-                                    (index >>> 10) & 31;
+                                    (index >>> 10)
+                                            & 31;
 
-                            if (x == 7 && y == 0 && z == 0) {
+                            if (x == 7
+                                    && y == 0
+                                    && z == 0) {
+
                                 return 18;
                             }
 
-                            if (x == 3 && y == 4 && z == 5) {
+                            if (x == 3
+                                    && y == 4
+                                    && z == 5) {
+
                                 return 17;
                             }
 
@@ -289,8 +332,11 @@ class ChunkParserTest {
 
         assertTrue(
                 result.isSuccess(),
-                () -> result.error()
-                        .orElse("unknown error")
+                () ->
+                        result.error()
+                                .orElse(
+                                        "unknown error"
+                                )
         );
 
         assertEquals(
@@ -319,13 +365,28 @@ class ChunkParserTest {
     @Test
     void ignoresCorruptOptionalLiquidLayerWhenBlocksDecode() {
         ByteBuffer corruptLiquid =
-                ByteBuffer.allocate(16)
-                        .order(ByteOrder.LITTLE_ENDIAN);
+                ByteBuffer.allocate(
+                                16
+                        )
+                        .order(
+                                ByteOrder.LITTLE_ENDIAN
+                        );
 
-        corruptLiquid.putInt(-8);
-        corruptLiquid.putInt(0);
-        corruptLiquid.putInt(1);
-        corruptLiquid.putInt(12345);
+        corruptLiquid.putInt(
+                -8
+        );
+
+        corruptLiquid.putInt(
+                0
+        );
+
+        corruptLiquid.putInt(
+                1
+        );
+
+        corruptLiquid.putInt(
+                12345
+        );
 
         ParseResult<ParsedChunk> result =
                 new ChunkParser()
@@ -338,7 +399,10 @@ class ChunkParserTest {
                                 serverChunk(
                                         encodedLayer(
                                                 new int[]{0, 9},
-                                                index -> index == 0 ? 1 : 0
+                                                index ->
+                                                        index == 0
+                                                                ? 1
+                                                                : 0
                                         ),
                                         corruptLiquid.array(),
                                         2
@@ -347,8 +411,11 @@ class ChunkParserTest {
 
         assertTrue(
                 result.isSuccess(),
-                () -> result.error()
-                        .orElse("unknown error")
+                () ->
+                        result.error()
+                                .orElse(
+                                        "unknown error"
+                                )
         );
 
         assertEquals(
@@ -383,17 +450,25 @@ class ChunkParserTest {
                 result.value()
                         .orElseThrow()
                         .liquidDecodeError()
-                        .contains("liquidsCompressed")
+                        .contains(
+                                "liquidsCompressed"
+                        )
         );
     }
 
     @Test
     void failsWhenCompressedPaletteMarkerExceedsPayload() {
         ByteBuffer corrupt =
-                ByteBuffer.allocate(4)
-                        .order(ByteOrder.LITTLE_ENDIAN);
+                ByteBuffer.allocate(
+                                4
+                        )
+                        .order(
+                                ByteOrder.LITTLE_ENDIAN
+                        );
 
-        corrupt.putInt(99);
+        corrupt.putInt(
+                99
+        );
 
         ParseResult<ParsedChunk> result =
                 new ChunkParser()
@@ -417,18 +492,29 @@ class ChunkParserTest {
         assertTrue(
                 result.error()
                         .orElse("")
-                        .contains("compressed chunk palette exceeds payload length")
+                        .contains(
+                                "compressed chunk palette exceeds payload length"
+                        )
         );
     }
 
     @Test
     void failsWhenCompressedPaletteIsMalformed() {
         ByteBuffer corrupt =
-                ByteBuffer.allocate(8)
-                        .order(ByteOrder.LITTLE_ENDIAN);
+                ByteBuffer.allocate(
+                                8
+                        )
+                        .order(
+                                ByteOrder.LITTLE_ENDIAN
+                        );
 
-        corrupt.putInt(4);
-        corrupt.putInt(12345);
+        corrupt.putInt(
+                4
+        );
+
+        corrupt.putInt(
+                12345
+        );
 
         ParseResult<ParsedChunk> result =
                 new ChunkParser()
@@ -454,7 +540,11 @@ class ChunkParserTest {
     void failsWhenDecompressedPaletteIsNotIntAligned() {
         byte[] malformedPalette =
                 Zstd.compress(
-                        new byte[]{1, 2, 3},
+                        new byte[]{
+                                1,
+                                2,
+                                3
+                        },
                         -3
                 );
 
@@ -463,11 +553,14 @@ class ChunkParserTest {
                                 Integer.BYTES
                                         + malformedPalette.length
                         )
-                        .order(ByteOrder.LITTLE_ENDIAN);
+                        .order(
+                                ByteOrder.LITTLE_ENDIAN
+                        );
 
         corrupt.putInt(
                 malformedPalette.length
         );
+
         corrupt.put(
                 malformedPalette
         );
@@ -494,20 +587,37 @@ class ChunkParserTest {
         assertTrue(
                 result.error()
                         .orElse("")
-                        .contains("not int aligned")
+                        .contains(
+                                "not int aligned"
+                        )
         );
     }
 
     @Test
     void failsWhenCompressedBitPlanesAreCorrupt() {
         ByteBuffer corrupt =
-                ByteBuffer.allocate(16)
-                        .order(ByteOrder.LITTLE_ENDIAN);
+                ByteBuffer.allocate(
+                                16
+                        )
+                        .order(
+                                ByteOrder.LITTLE_ENDIAN
+                        );
 
-        corrupt.putInt(-8);
-        corrupt.putInt(0);
-        corrupt.putInt(1);
-        corrupt.putInt(12345);
+        corrupt.putInt(
+                -8
+        );
+
+        corrupt.putInt(
+                0
+        );
+
+        corrupt.putInt(
+                1
+        );
+
+        corrupt.putInt(
+                12345
+        );
 
         ParseResult<ParsedChunk> result =
                 new ChunkParser()
@@ -531,7 +641,9 @@ class ChunkParserTest {
         assertTrue(
                 result.error()
                         .orElse("")
-                        .contains("bit-plane")
+                        .contains(
+                                "bit-plane"
+                        )
         );
     }
 
@@ -559,7 +671,9 @@ class ChunkParserTest {
         assertTrue(
                 result.error()
                         .orElse("")
-                        .contains("blocksCompressed")
+                        .contains(
+                                "blocksCompressed"
+                        )
         );
     }
 
@@ -587,20 +701,37 @@ class ChunkParserTest {
         assertTrue(
                 result.error()
                         .orElse("")
-                        .contains("blocksCompressed: unsupported chunk compression version")
+                        .contains(
+                                "blocksCompressed: unsupported chunk compression version"
+                        )
         );
     }
 
     @Test
     void failsOnCorruptCompressedData() {
         ByteBuffer corrupt =
-                ByteBuffer.allocate(16)
-                        .order(ByteOrder.LITTLE_ENDIAN);
+                ByteBuffer.allocate(
+                                16
+                        )
+                        .order(
+                                ByteOrder.LITTLE_ENDIAN
+                        );
 
-        corrupt.putInt(-8);
-        corrupt.putInt(0);
-        corrupt.putInt(1);
-        corrupt.putInt(12345);
+        corrupt.putInt(
+                -8
+        );
+
+        corrupt.putInt(
+                0
+        );
+
+        corrupt.putInt(
+                1
+        );
+
+        corrupt.putInt(
+                12345
+        );
 
         ParseResult<ParsedChunk> result =
                 new ChunkParser()
@@ -623,9 +754,15 @@ class ChunkParserTest {
     }
 
     private byte[] emptyLayer() {
-        return ByteBuffer.allocate(4)
-                .order(ByteOrder.LITTLE_ENDIAN)
-                .putInt(0)
+        return ByteBuffer.allocate(
+                        4
+                )
+                .order(
+                        ByteOrder.LITTLE_ENDIAN
+                )
+                .putInt(
+                        0
+                )
                 .array();
     }
 
@@ -640,20 +777,33 @@ class ChunkParserTest {
 
         ByteBuffer bitPlanes =
                 ByteBuffer.allocate(
-                                bitSize * 1024 * Integer.BYTES
+                                bitSize
+                                        * 1024
+                                        * Integer.BYTES
                         )
-                        .order(ByteOrder.LITTLE_ENDIAN);
+                        .order(
+                                ByteOrder.LITTLE_ENDIAN
+                        );
 
         int[][] dataBits =
                 new int[bitSize][1024];
 
-        for (int y = 0; y < 32; y++) {
-            for (int z = 0; z < 32; z++) {
+        for (int y = 0;
+             y < 32;
+             y++) {
+
+            for (int z = 0;
+                 z < 32;
+                 z++) {
+
                 int slice =
                         y * 32
                                 + z;
 
-                for (int x = 0; x < 32; x++) {
+                for (int x = 0;
+                     x < 32;
+                     x++) {
+
                     int index =
                             (y << 10)
                                     | (z << 5)
@@ -664,8 +814,13 @@ class ChunkParserTest {
                                     index
                             );
 
-                    for (int bit = 0; bit < bitSize; bit++) {
-                        if (((paletteIndex >>> bit) & 1) == 1) {
+                    for (int bit = 0;
+                         bit < bitSize;
+                         bit++) {
+
+                        if (((paletteIndex >>> bit)
+                                & 1) == 1) {
+
                             dataBits[bit][slice] |=
                                     1 << x;
                         }
@@ -674,8 +829,14 @@ class ChunkParserTest {
             }
         }
 
-        for (int bit = 0; bit < bitSize; bit++) {
-            for (int slice = 0; slice < 1024; slice++) {
+        for (int bit = 0;
+             bit < bitSize;
+             bit++) {
+
+            for (int slice = 0;
+                 slice < 1024;
+                 slice++) {
+
                 bitPlanes.putInt(
                         dataBits[bit][slice]
                 );
@@ -691,10 +852,13 @@ class ChunkParserTest {
         ByteBuffer out =
                 ByteBuffer.allocate(
                                 Integer.BYTES
-                                        + palette.length * Integer.BYTES
+                                        + palette.length
+                                        * Integer.BYTES
                                         + compressed.length
                         )
-                        .order(ByteOrder.LITTLE_ENDIAN);
+                        .order(
+                                ByteOrder.LITTLE_ENDIAN
+                        );
 
         out.putInt(
                 -palette.length
@@ -727,9 +891,13 @@ class ChunkParserTest {
 
         ByteBuffer bitPlanes =
                 ByteBuffer.allocate(
-                                bitSize * 1024 * Integer.BYTES
+                                bitSize
+                                        * 1024
+                                        * Integer.BYTES
                         )
-                        .order(ByteOrder.LITTLE_ENDIAN);
+                        .order(
+                                ByteOrder.LITTLE_ENDIAN
+                        );
 
         int[][] dataBits =
                 dataBits(
@@ -737,8 +905,14 @@ class ChunkParserTest {
                         paletteIndexAt
                 );
 
-        for (int bit = 0; bit < bitSize; bit++) {
-            for (int slice = 0; slice < 1024; slice++) {
+        for (int bit = 0;
+             bit < bitSize;
+             bit++) {
+
+            for (int slice = 0;
+                 slice < 1024;
+                 slice++) {
+
                 bitPlanes.putInt(
                         dataBits[bit][slice]
                 );
@@ -747,9 +921,12 @@ class ChunkParserTest {
 
         ByteBuffer paletteBytes =
                 ByteBuffer.allocate(
-                                palette.length * Integer.BYTES
+                                palette.length
+                                        * Integer.BYTES
                         )
-                        .order(ByteOrder.LITTLE_ENDIAN);
+                        .order(
+                                ByteOrder.LITTLE_ENDIAN
+                        );
 
         for (int id : palette) {
             paletteBytes.putInt(
@@ -775,7 +952,9 @@ class ChunkParserTest {
                                         + compressedPalette.length
                                         + compressedBitPlanes.length
                         )
-                        .order(ByteOrder.LITTLE_ENDIAN);
+                        .order(
+                                ByteOrder.LITTLE_ENDIAN
+                        );
 
         out.putInt(
                 compressedPalette.length
@@ -799,13 +978,22 @@ class ChunkParserTest {
         int[][] dataBits =
                 new int[bitSize][1024];
 
-        for (int y = 0; y < 32; y++) {
-            for (int z = 0; z < 32; z++) {
+        for (int y = 0;
+             y < 32;
+             y++) {
+
+            for (int z = 0;
+                 z < 32;
+                 z++) {
+
                 int slice =
                         y * 32
                                 + z;
 
-                for (int x = 0; x < 32; x++) {
+                for (int x = 0;
+                     x < 32;
+                     x++) {
+
                     int index =
                             (y << 10)
                                     | (z << 5)
@@ -816,8 +1004,13 @@ class ChunkParserTest {
                                     index
                             );
 
-                    for (int bit = 0; bit < bitSize; bit++) {
-                        if (((paletteIndex >>> bit) & 1) == 1) {
+                    for (int bit = 0;
+                         bit < bitSize;
+                         bit++) {
+
+                        if (((paletteIndex >>> bit)
+                                & 1) == 1) {
+
                             dataBits[bit][slice] |=
                                     1 << x;
                         }
@@ -840,7 +1033,8 @@ class ChunkParserTest {
 
         while (value > 0) {
             bitSize++;
-            value >>>= 1;
+            value >>>=
+                    1;
         }
 
         return bitSize;
@@ -857,7 +1051,8 @@ class ChunkParserTest {
                 1;
 
         while (rounded < value) {
-            rounded <<= 1;
+            rounded <<=
+                    1;
         }
 
         return rounded;
@@ -879,9 +1074,8 @@ class ChunkParserTest {
             );
         }
 
-        writeVarIntField(
+        writeCompressionVersionField(
                 out,
-                15,
                 compressionVersion
         );
 
@@ -903,7 +1097,8 @@ class ChunkParserTest {
     ) {
         writeVarInt(
                 out,
-                (fieldNumber << 3) | 2
+                (fieldNumber << 3)
+                        | 2
         );
 
         writeVarInt(
@@ -916,14 +1111,13 @@ class ChunkParserTest {
         );
     }
 
-    private void writeVarIntField(
+    private void writeCompressionVersionField(
             ByteArrayOutputStream out,
-            int fieldNumber,
             int value
     ) {
         writeVarInt(
                 out,
-                fieldNumber << 3
+                15 << 3
         );
 
         writeVarInt(
@@ -945,7 +1139,8 @@ class ChunkParserTest {
                             | 0x80
             );
 
-            remaining >>>= 7;
+            remaining >>>=
+                    7;
         }
 
         out.write(
@@ -954,6 +1149,8 @@ class ChunkParserTest {
     }
 
     private interface PaletteIndexAt {
-        int paletteIndexAt(int index);
+        int paletteIndexAt(
+                int index
+        );
     }
 }

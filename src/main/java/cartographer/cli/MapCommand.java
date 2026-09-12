@@ -41,21 +41,13 @@ import java.util.Optional;
 public class MapCommand implements Command {
 
     private final PrintStream out;
-
     private final VcdbsReader reader;
-
     private final WorldMetadataReader metadataReader;
-
     private final HomeStore homeStore;
-
     private final MarkerStore markerStore;
-
     private final MapRenderer renderer;
-
     private final UserMarkerRenderer userMarkerRenderer;
-
     private final PngWriter pngWriter;
-
     private final String subcommand;
 
     private final EnvironmentInterpreter environmentInterpreter =
@@ -84,44 +76,22 @@ public class MapCommand implements Command {
             PngWriter pngWriter,
             String subcommand
     ) {
-        this.out =
-                out;
-
-        this.reader =
-                reader;
-
-        this.metadataReader =
-                metadataReader;
-
-        this.homeStore =
-                homeStore;
-
-        this.markerStore =
-                markerStore;
-
-        this.renderer =
-                renderer;
-
-        this.userMarkerRenderer =
-                userMarkerRenderer;
-
-        this.pngWriter =
-                pngWriter;
-
-        this.subcommand =
-                subcommand;
+        this.out = out;
+        this.reader = reader;
+        this.metadataReader = metadataReader;
+        this.homeStore = homeStore;
+        this.markerStore = markerStore;
+        this.renderer = renderer;
+        this.userMarkerRenderer = userMarkerRenderer;
+        this.pngWriter = pngWriter;
+        this.subcommand = subcommand;
     }
 
     @Override
-    public int run(
-            String[] args
-    ) {
-        if (!"render".equals(
-                subcommand
-        )) {
+    public int run(String[] args) {
+        if (!"render".equals(subcommand)) {
             throw new CommandException(
-                    "Unknown map subcommand: "
-                            + subcommand
+                    "Unknown map subcommand: " + subcommand
             );
         }
 
@@ -134,9 +104,7 @@ public class MapCommand implements Command {
         }
 
         Path savePath =
-                Path.of(
-                        args[0]
-                );
+                Path.of(args[0]);
 
         int radius =
                 intOption(
@@ -171,24 +139,17 @@ public class MapCommand implements Command {
                                 option(
                                         args,
                                         "--layers"
-                                ).orElse(
-                                        ""
-                                )
+                                ).orElse("")
                         )
                 );
 
         Path output =
                 Path.of(
-                        requiredOption(
-                                args,
-                                "--out"
-                        )
+                        requiredOutput(args)
                 );
 
         ProgressReporter progress =
-                new ProgressReporter(
-                        out
-                );
+                new ProgressReporter(out);
 
         WorldPosition player =
                 reader.readPlayerPosition(
@@ -198,11 +159,8 @@ public class MapCommand implements Command {
                 );
 
         WorldPosition center =
-                center(
-                        args
-                ).orElse(
-                        player
-                );
+                center(args)
+                        .orElse(player);
 
         Optional<HomeLocation> home =
                 absoluteHome(
@@ -277,13 +235,9 @@ public class MapCommand implements Command {
                         progress
                 );
 
-        if (hasMapRegionOverlay(
-                options
-        )
+        if (hasMapRegionOverlay(options)
                 && options.layers()
-                .contains(
-                        RenderLayer.MARKERS
-                )) {
+                .contains(RenderLayer.MARKERS)) {
 
             progress.start(
                     "Redrawing system markers"
@@ -347,10 +301,7 @@ public class MapCommand implements Command {
             ReadDiagnostics diagnostics,
             ProgressReporter progress
     ) {
-        if (!hasMapRegionOverlay(
-                options
-        )) {
-
+        if (!hasMapRegionOverlay(options)) {
             return List.of();
         }
 
@@ -370,9 +321,7 @@ public class MapCommand implements Command {
             ProgressReporter progress
     ) {
         if (!options.layers()
-                .contains(
-                        RenderLayer.ENVIRONMENT
-                )) {
+                .contains(RenderLayer.ENVIRONMENT)) {
 
             return OverlayRenderReport.none();
         }
@@ -412,9 +361,7 @@ public class MapCommand implements Command {
             ProgressReporter progress
     ) {
         if (!options.layers()
-                .contains(
-                        RenderLayer.GEOLOGY
-                )) {
+                .contains(RenderLayer.GEOLOGY)) {
 
             return OverlayRenderReport.none();
         }
@@ -452,13 +399,9 @@ public class MapCommand implements Command {
             RenderOptions options
     ) {
         return options.layers()
-                .contains(
-                        RenderLayer.ENVIRONMENT
-                )
+                .contains(RenderLayer.ENVIRONMENT)
                 || options.layers()
-                .contains(
-                        RenderLayer.GEOLOGY
-                );
+                .contains(RenderLayer.GEOLOGY);
     }
 
     private void printReport(
@@ -473,46 +416,37 @@ public class MapCommand implements Command {
             OverlayRenderReport environmentOverlay,
             OverlayRenderReport geologyOverlay
     ) {
-        out.println(
-                "MAP"
-        );
+        out.println("MAP");
 
         out.println(
-                "Output: "
-                        + output
+                "Output: " + output
         );
 
         out.println(
                 "Image: "
-                        + rendered.report()
-                        .width()
+                        + rendered.report().width()
                         + "x"
-                        + rendered.report()
-                        .height()
+                        + rendered.report().height()
         );
 
         out.println(
                 "Style: "
-                        + rendered.report()
-                        .style()
+                        + rendered.report().style()
         );
 
         out.println(
                 "Layers: "
-                        + rendered.report()
-                        .layers()
+                        + rendered.report().layers()
         );
 
         out.println(
                 "Tiles drawn: "
-                        + rendered.report()
-                        .tilesDrawn()
+                        + rendered.report().tilesDrawn()
         );
 
         out.println(
                 "System markers: "
-                        + rendered.report()
-                        .markerCount()
+                        + rendered.report().markerCount()
         );
 
         out.println(
@@ -541,9 +475,7 @@ public class MapCommand implements Command {
         );
 
         if (options.layers()
-                .contains(
-                        RenderLayer.SURFACE
-                )) {
+                .contains(RenderLayer.SURFACE)) {
 
             out.println(
                     "Parsed chunks: "
@@ -595,16 +527,11 @@ public class MapCommand implements Command {
 
             out.println(
                     "Distinct surface block codes: "
-                            + surface.distinctSurfaceBlockCodes(
-                            20
-                    )
+                            + surface.distinctSurfaceBlockCodes(20)
             );
         }
 
-        if (hasMapRegionOverlay(
-                options
-        )) {
-
+        if (hasMapRegionOverlay(options)) {
             out.println(
                     "Parsed mapregions: "
                             + mapRegionDiagnostics.parsed()
@@ -627,9 +554,7 @@ public class MapCommand implements Command {
         }
 
         if (options.layers()
-                .contains(
-                        RenderLayer.ENVIRONMENT
-                )) {
+                .contains(RenderLayer.ENVIRONMENT)) {
 
             printOverlayReport(
                     "Environment overlay",
@@ -638,9 +563,7 @@ public class MapCommand implements Command {
         }
 
         if (options.layers()
-                .contains(
-                        RenderLayer.GEOLOGY
-                )) {
+                .contains(RenderLayer.GEOLOGY)) {
 
             printOverlayReport(
                     "Geology overlay",
@@ -648,17 +571,9 @@ public class MapCommand implements Command {
             );
         }
 
-        printNotes(
-                mapChunkDiagnostics
-        );
-
-        printNotes(
-                chunkDiagnostics
-        );
-
-        printNotes(
-                mapRegionDiagnostics
-        );
+        printNotes(mapChunkDiagnostics);
+        printNotes(chunkDiagnostics);
+        printNotes(mapRegionDiagnostics);
     }
 
     private void printOverlayReport(
@@ -685,9 +600,7 @@ public class MapCommand implements Command {
             ProgressReporter progress
     ) {
         if (!options.layers()
-                .contains(
-                        RenderLayer.MARKERS
-                )) {
+                .contains(RenderLayer.MARKERS)) {
 
             return 0;
         }
@@ -738,16 +651,14 @@ public class MapCommand implements Command {
         }
 
         out.println(
-                title
-                        + ":"
+                title + ":"
         );
 
         diagnostics.failureReasonLines()
                 .forEach(
                         line ->
                                 out.println(
-                                        "  "
-                                                + line
+                                        "  " + line
                                 )
                 );
     }
@@ -774,8 +685,7 @@ public class MapCommand implements Command {
                 .forEach(
                         line ->
                                 out.println(
-                                        "  "
-                                                + line
+                                        "  " + line
                                 )
                 );
     }
@@ -783,9 +693,7 @@ public class MapCommand implements Command {
     private void printTopUnknownSurfaceBlockCodes(
             SurfaceScanResult result
     ) {
-        if (result.unknownSurfaceBlocks()
-                <= 0) {
-
+        if (result.unknownSurfaceBlocks() <= 0) {
             return;
         }
 
@@ -793,9 +701,7 @@ public class MapCommand implements Command {
                 "Top UNKNOWN surface block codes:"
         );
 
-        result.topUnknownSurfaceBlockCodes(
-                        10
-                )
+        result.topUnknownSurfaceBlockCodes(10)
                 .forEach(
                         block ->
                                 out.println(
@@ -814,8 +720,7 @@ public class MapCommand implements Command {
                 .forEach(
                         note ->
                                 out.println(
-                                        "Note: "
-                                                + note
+                                        "Note: " + note
                                 )
                 );
     }
@@ -829,9 +734,7 @@ public class MapCommand implements Command {
             ProgressReporter progress
     ) {
         if (!options.layers()
-                .contains(
-                        RenderLayer.SURFACE
-                )) {
+                .contains(RenderLayer.SURFACE)) {
 
             return new SurfaceScanResult(
                     List.of(),
@@ -882,7 +785,6 @@ public class MapCommand implements Command {
         }
 
         try {
-
             return getValue(
                     optionName,
                     option.orElseThrow()
@@ -898,16 +800,17 @@ public class MapCommand implements Command {
         }
     }
 
-    private static int getValue(String optionName, String option) {
+    private static int getValue(
+            String optionName,
+            String option
+    ) {
         int value =
                 Integer.parseInt(
                         option
                 );
 
         int max =
-                "--scale".equals(
-                        optionName
-                )
+                "--scale".equals(optionName)
                         ? 16
                         : 8192;
 
@@ -920,21 +823,20 @@ public class MapCommand implements Command {
                             + max
             );
         }
+
         return value;
     }
 
-    private String requiredOption(
-            String[] args,
-            String optionName
+    private String requiredOutput(
+            String[] args
     ) {
         return option(
                 args,
-                optionName
+                "--out"
         ).orElseThrow(
                 () ->
                         new CommandException(
-                                "Missing option: "
-                                        + optionName
+                                "Missing option: --out"
                         )
         );
     }

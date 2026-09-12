@@ -11,24 +11,33 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SaveGameParserTest {
 
+    private static final int MAP_SIZE_X =
+            1_024_000;
+
+    private static final int MAP_SIZE_Y =
+            256;
+
+    private static final int MAP_SIZE_Z =
+            1_024_000;
+
     @Test
     void parsesWorldSizeFromSaveGame() {
         byte[] payload =
-                createSaveGame(
-                        1_024_000,
-                        256,
-                        1_024_000
-                );
+                createSaveGame();
 
         ParseResult<WorldMetadata> result =
                 new SaveGameParser()
-                        .parse(payload);
+                        .parse(
+                                payload
+                        );
 
         assertTrue(
                 result.isSuccess(),
-                () -> result
-                        .error()
-                        .orElse("unknown error")
+                () ->
+                        result.error()
+                                .orElse(
+                                        "unknown error"
+                                )
         );
 
         WorldMetadata metadata =
@@ -36,40 +45,54 @@ class SaveGameParserTest {
                         .orElseThrow();
 
         assertEquals(
-                1_024_000,
+                MAP_SIZE_X,
                 metadata.mapSizeX()
         );
 
         assertEquals(
-                256,
+                MAP_SIZE_Y,
                 metadata.mapSizeY()
         );
 
         assertEquals(
-                1_024_000,
+                MAP_SIZE_Z,
                 metadata.mapSizeZ()
         );
     }
 
-    private byte[] createSaveGame(
-            int x,
-            int y,
-            int z
-    ) {
+    private byte[] createSaveGame() {
         ByteArrayOutputStream out =
                 new ByteArrayOutputStream();
 
         // field 1, wire type 0
-        out.write(0x08);
-        writeVarInt(out, x);
+        out.write(
+                0x08
+        );
+
+        writeVarInt(
+                out,
+                MAP_SIZE_X
+        );
 
         // field 2, wire type 0
-        out.write(0x10);
-        writeVarInt(out, y);
+        out.write(
+                0x10
+        );
+
+        writeVarInt(
+                out,
+                MAP_SIZE_Y
+        );
 
         // field 3, wire type 0
-        out.write(0x18);
-        writeVarInt(out, z);
+        out.write(
+                0x18
+        );
+
+        writeVarInt(
+                out,
+                MAP_SIZE_Z
+        );
 
         return out.toByteArray();
     }
@@ -78,7 +101,8 @@ class SaveGameParserTest {
             ByteArrayOutputStream out,
             int value
     ) {
-        int remaining = value;
+        int remaining =
+                value;
 
         while (remaining >= 0x80) {
             out.write(
@@ -86,9 +110,12 @@ class SaveGameParserTest {
                             | 0x80
             );
 
-            remaining >>>= 7;
+            remaining >>>=
+                    7;
         }
 
-        out.write(remaining);
+        out.write(
+                remaining
+        );
     }
 }

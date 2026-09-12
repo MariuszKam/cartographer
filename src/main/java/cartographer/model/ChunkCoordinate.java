@@ -1,7 +1,12 @@
 package cartographer.model;
 
-public record ChunkCoordinate(int x, int y, int z) {
-    public static final int SIZE_BLOCKS = 32;
+public record ChunkCoordinate(
+        int x,
+        int y,
+        int z
+) {
+    public static final int SIZE_BLOCKS =
+            32;
 
     public ChunkCoordinate(
             int x,
@@ -14,11 +19,29 @@ public record ChunkCoordinate(int x, int y, int z) {
         );
     }
 
-    public static ChunkCoordinate fromWorld(double worldX, double worldZ) {
-        return new ChunkCoordinate(floorDiv(worldX, SIZE_BLOCKS), 0, floorDiv(worldZ, SIZE_BLOCKS));
+    public static ChunkCoordinate fromWorld(
+            double worldX,
+            double worldZ
+    ) {
+        return new ChunkCoordinate(
+                floorDiv(
+                        worldX
+                ),
+                0,
+                floorDiv(
+                        worldZ
+                )
+        );
     }
 
-    private static int floorDiv(double value, int divisor) {
-        return Math.floorDiv((int) Math.floor(value), divisor);
+    private static int floorDiv(
+            double value
+    ) {
+        return Math.floorDiv(
+                (int) Math.floor(
+                        value
+                ),
+                SIZE_BLOCKS
+        );
     }
 }

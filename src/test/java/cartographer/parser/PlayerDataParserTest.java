@@ -13,42 +13,58 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PlayerDataParserTest {
 
+    private static final double PLAYER_X =
+            512341.4;
+
+    private static final double PLAYER_Y =
+            112.0;
+
+    private static final double PLAYER_Z =
+            511782.7;
+
     @Test
     void parsesVintageStoryEntityPlayerSerializedFromField3() {
-        byte[] entityPlayer = createEntityPlayer(
-                512341.4,
-                112.0,
-                511782.7
-        );
+        byte[] entityPlayer =
+                createEntityPlayer();
 
         byte[] playerData =
-                wrapAsEntityPlayerSerializedField(entityPlayer);
+                wrapAsEntityPlayerSerializedField(
+                        entityPlayer
+                );
 
         ParseResult<WorldPosition> result =
-                new PlayerDataParser().parse(playerData);
+                new PlayerDataParser()
+                        .parse(
+                                playerData
+                        );
 
         assertTrue(
                 result.isSuccess(),
-                () -> result.error().orElse("unknown error")
+                () ->
+                        result.error()
+                                .orElse(
+                                        "unknown error"
+                                )
         );
 
         WorldPosition position =
-                result.value().orElseThrow();
+                result.value()
+                        .orElseThrow();
 
         assertEquals(
-                512341.4,
+                PLAYER_X,
                 position.x(),
                 0.0001
         );
 
         assertEquals(
-                112.0,
+                PLAYER_Y,
                 position.y(),
                 0.0001
         );
 
         assertEquals(
-                511782.7,
+                PLAYER_Z,
                 position.z(),
                 0.0001
         );
@@ -66,16 +82,16 @@ class PlayerDataParserTest {
 
         ParseResult<WorldPosition> result =
                 new PlayerDataParser()
-                        .parse(invalidPlayerData);
+                        .parse(
+                                invalidPlayerData
+                        );
 
-        assertFalse(result.isSuccess());
+        assertFalse(
+                result.isSuccess()
+        );
     }
 
-    private byte[] createEntityPlayer(
-            double x,
-            double y,
-            double z
-    ) {
+    private byte[] createEntityPlayer() {
         ByteArrayOutputStream out =
                 new ByteArrayOutputStream();
 
@@ -102,9 +118,20 @@ class PlayerDataParserTest {
         out.write(0);
 
         // EntityPos
-        writeDoubleLE(out, x);
-        writeDoubleLE(out, y);
-        writeDoubleLE(out, z);
+        writeDoubleLE(
+                out,
+                PLAYER_X
+        );
+
+        writeDoubleLE(
+                out,
+                PLAYER_Y
+        );
+
+        writeDoubleLE(
+                out,
+                PLAYER_Z
+        );
 
         /*
          * EntityPos contains more fields after XYZ,
@@ -127,14 +154,18 @@ class PlayerDataParserTest {
          *
          * (3 << 3) | 2 = 26 = 0x1A
          */
-        out.write(0x1A);
+        out.write(
+                0x1A
+        );
 
         writeVarInt(
                 out,
                 entityPlayer.length
         );
 
-        out.writeBytes(entityPlayer);
+        out.writeBytes(
+                entityPlayer
+        );
 
         return out.toByteArray();
     }
@@ -144,14 +175,18 @@ class PlayerDataParserTest {
             String value
     ) {
         byte[] bytes =
-                value.getBytes(StandardCharsets.UTF_8);
+                value.getBytes(
+                        StandardCharsets.UTF_8
+                );
 
         writeVarInt(
                 out,
                 bytes.length
         );
 
-        out.writeBytes(bytes);
+        out.writeBytes(
+                bytes
+        );
     }
 
     private void writeDoubleLE(
@@ -160,7 +195,9 @@ class PlayerDataParserTest {
     ) {
         writeLongLE(
                 out,
-                Double.doubleToLongBits(value)
+                Double.doubleToLongBits(
+                        value
+                )
         );
     }
 
@@ -168,9 +205,15 @@ class PlayerDataParserTest {
             ByteArrayOutputStream out,
             long value
     ) {
-        for (int index = 0; index < 8; index++) {
+        for (int index = 0;
+             index < 8;
+             index++) {
+
             out.write(
-                    (int) ((value >>> (index * 8)) & 0xFF)
+                    (int) (
+                            (value >>> (index * 8))
+                                    & 0xFF
+                    )
             );
         }
     }
@@ -179,16 +222,21 @@ class PlayerDataParserTest {
             ByteArrayOutputStream out,
             int value
     ) {
-        int remaining = value;
+        int remaining =
+                value;
 
         while (remaining >= 0x80) {
             out.write(
-                    (remaining & 0x7F) | 0x80
+                    (remaining & 0x7F)
+                            | 0x80
             );
 
-            remaining >>>= 7;
+            remaining >>>=
+                    7;
         }
 
-        out.write(remaining);
+        out.write(
+                remaining
+        );
     }
 }

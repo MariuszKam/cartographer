@@ -24,13 +24,22 @@ import java.util.Map;
 import java.util.Optional;
 
 public class GeologyCommand implements Command {
+    private static final int DEFAULT_RADIUS = 512;
+    private static final int MAX_RADIUS = 8192;
+
     private final PrintStream out;
     private final VcdbsReader reader;
     private final SurfaceScanner surfaceScanner;
     private final GeologyAnalyzer geologyAnalyzer;
     private final String subcommand;
 
-    public GeologyCommand(PrintStream out, VcdbsReader reader, SurfaceScanner surfaceScanner, GeologyAnalyzer geologyAnalyzer, String subcommand) {
+    public GeologyCommand(
+            PrintStream out,
+            VcdbsReader reader,
+            SurfaceScanner surfaceScanner,
+            GeologyAnalyzer geologyAnalyzer,
+            String subcommand
+    ) {
         this.out = out;
         this.reader = reader;
         this.surfaceScanner = surfaceScanner;
@@ -52,7 +61,10 @@ public class GeologyCommand implements Command {
                     );
 
             default ->
-                    throw new CommandException("Unknown geology subcommand: " + subcommand);
+                    throw new CommandException(
+                            "Unknown geology subcommand: "
+                                    + subcommand
+                    );
         }
 
         return 0;
@@ -60,18 +72,70 @@ public class GeologyCommand implements Command {
 
     private void runSurface(String[] args) {
         if (args.length < 1) {
-            throw new CommandException("Usage: geology surface <save.vcdbs> --radius <blocks> [--center-x <x> --center-z <z>]");
+            throw new CommandException(
+                    "Usage: geology surface <save.vcdbs> "
+                            + "--radius <blocks> "
+                            + "[--center-x <x> --center-z <z>]"
+            );
         }
 
-        Path savePath = Path.of(args[0]);
-        int radius = intOption(args, "--radius", 512);
-        ProgressReporter progress = new ProgressReporter(out);
-        WorldPosition center = center(args).orElseGet(() -> reader.readPlayerPosition(savePath, Optional.empty(), progress));
-        ReadDiagnostics diagnostics = new ReadDiagnostics();
-        List<ParsedChunk> chunks = reader.readChunksAround(savePath, center, radius, diagnostics, progress);
-        Map<Integer, BlockInfo> registry = reader.readBlockRegistry(savePath, progress);
-        SurfaceScanResult surface = surfaceScanner.scan(chunks, registry, true, progress);
-        GeologyReport report = geologyAnalyzer.analyze(surface.blocks());
+        Path savePath =
+                Path.of(
+                        args[0]
+                );
+
+        int radius =
+                radiusOption(
+                        args
+                );
+
+        ProgressReporter progress =
+                new ProgressReporter(
+                        out
+                );
+
+        WorldPosition center =
+                center(
+                        args
+                ).orElseGet(
+                        () ->
+                                reader.readPlayerPosition(
+                                        savePath,
+                                        Optional.empty(),
+                                        progress
+                                )
+                );
+
+        ReadDiagnostics diagnostics =
+                new ReadDiagnostics();
+
+        List<ParsedChunk> chunks =
+                reader.readChunksAround(
+                        savePath,
+                        center,
+                        radius,
+                        diagnostics,
+                        progress
+                );
+
+        Map<Integer, BlockInfo> registry =
+                reader.readBlockRegistry(
+                        savePath,
+                        progress
+                );
+
+        SurfaceScanResult surface =
+                surfaceScanner.scan(
+                        chunks,
+                        registry,
+                        true,
+                        progress
+                );
+
+        GeologyReport report =
+                geologyAnalyzer.analyze(
+                        surface.blocks()
+                );
 
         out.println("GEOLOGY SURFACE");
         out.println("Chunks parsed: " + diagnostics.parsed());
@@ -80,42 +144,101 @@ public class GeologyCommand implements Command {
         out.println("Surface samples: " + report.samples());
         out.println("Geological samples: " + report.geologicalSamples());
         out.println("Unknown samples: " + report.unknownSamples());
-        printMap("Rock families", report.rockFamilies());
-        printMap("Material types", report.materialTypes());
-        diagnostics.notes().forEach(note -> out.println("Note: " + note));
+
+        printMap(
+                "Rock families",
+                report.rockFamilies()
+        );
+
+        printMap(
+                "Material types",
+                report.materialTypes()
+        );
+
+        diagnostics.notes()
+                .forEach(
+                        note ->
+                                out.println(
+                                        "Note: " + note
+                                )
+                );
     }
 
     private void runStrata(String[] args) {
         if (args.length < 1) {
-            throw new CommandException("Usage: geology strata <save.vcdbs>");
+            throw new CommandException(
+                    "Usage: geology strata <save.vcdbs>"
+            );
         }
 
-        Path savePath = Path.of(args[0]);
-        ProgressReporter progress = new ProgressReporter(out);
-        ReadDiagnostics diagnostics = new ReadDiagnostics();
-        List<ServerMapRegion> regions = reader.readMapRegions(savePath, diagnostics, progress);
-        RockStrataAnalyzer strataAnalyzer = new RockStrataAnalyzer();
-        GeologicProvinceInterpreter provinceInterpreter = new GeologicProvinceInterpreter();
+        Path savePath =
+                Path.of(
+                        args[0]
+                );
+
+        ProgressReporter progress =
+                new ProgressReporter(
+                        out
+                );
+
+        ReadDiagnostics diagnostics =
+                new ReadDiagnostics();
+
+        List<ServerMapRegion> regions =
+                reader.readMapRegions(
+                        savePath,
+                        diagnostics,
+                        progress
+                );
+
+        RockStrataAnalyzer strataAnalyzer =
+                new RockStrataAnalyzer();
+
+        GeologicProvinceInterpreter provinceInterpreter =
+                new GeologicProvinceInterpreter();
 
         out.println("GEOLOGY STRATA");
         out.println("Regions parsed: " + diagnostics.parsed());
         out.println("Regions skipped: " + diagnostics.skipped());
         out.println("Regions failed: " + diagnostics.failed());
-        printFailureReasons(diagnostics);
+
+        printFailureReasons(
+                diagnostics
+        );
 
         for (ServerMapRegion region : regions) {
-            RockStrataSummary strataSummary = strataAnalyzer.summarize(region);
-            Optional<GeologicProvinceSummary> province = provinceInterpreter.summarize(region);
+            RockStrataSummary strataSummary =
+                    strataAnalyzer.summarize(
+                            region
+                    );
 
-            if (strataSummary.strata().isEmpty() && province.isEmpty()) {
+            Optional<GeologicProvinceSummary> province =
+                    provinceInterpreter.summarize(
+                            region
+                    );
+
+            if (strataSummary.strata().isEmpty()
+                    && province.isEmpty()) {
                 continue;
             }
 
             out.println();
-            out.println("Region " + region.coordinate().x() + "," + region.coordinate().z());
-            out.println("  RockStrata maps: " + strataSummary.strata().size());
 
-            for (RockStratumSummary stratum : strataSummary.strata()) {
+            out.println(
+                    "Region "
+                            + region.coordinate().x()
+                            + ","
+                            + region.coordinate().z()
+            );
+
+            out.println(
+                    "  RockStrata maps: "
+                            + strataSummary.strata().size()
+            );
+
+            for (RockStratumSummary stratum :
+                    strataSummary.strata()) {
+
                 out.println(
                         "    stratum "
                                 + stratum.index()
@@ -143,7 +266,9 @@ public class GeologyCommand implements Command {
             }
 
             if (province.isPresent()) {
-                GeologicProvinceSummary summary = province.get();
+                GeologicProvinceSummary summary =
+                        province.get();
+
                 out.println(
                         "  GeologicProvinceMap: samples="
                                 + summary.samples()
@@ -152,73 +277,183 @@ public class GeologyCommand implements Command {
                                 + " dominantRawIds="
                                 + summary.dominantIds()
                 );
+
             } else {
-                out.println("  GeologicProvinceMap: missing");
+                out.println(
+                        "  GeologicProvinceMap: missing"
+                );
             }
         }
 
-        diagnostics.notes().forEach(note -> out.println("Note: " + note));
+        diagnostics.notes()
+                .forEach(
+                        note ->
+                                out.println(
+                                        "Note: " + note
+                                )
+                );
     }
 
-    private void printMap(String title, Map<String, Integer> values) {
-        out.println(title + ":");
-        values.entrySet().stream()
-                .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
-                .forEach(entry -> out.printf("  %s: %d%n", entry.getKey(), entry.getValue()));
+    private void printMap(
+            String title,
+            Map<String, Integer> values
+    ) {
+        out.println(
+                title + ":"
+        );
+
+        values.entrySet()
+                .stream()
+                .sorted(
+                        Map.Entry.comparingByValue(
+                                Comparator.reverseOrder()
+                        )
+                )
+                .forEach(
+                        entry ->
+                                out.printf(
+                                        "  %s: %d%n",
+                                        entry.getKey(),
+                                        entry.getValue()
+                                )
+                );
     }
 
-    private void printFailureReasons(ReadDiagnostics diagnostics) {
+    private void printFailureReasons(
+            ReadDiagnostics diagnostics
+    ) {
         if (diagnostics.failureReasons().isEmpty()) {
             return;
         }
 
-        out.println("Failure reasons:");
+        out.println(
+                "Failure reasons:"
+        );
+
         diagnostics.failureReasonLines()
-                .forEach(line -> out.println("  " + line));
+                .forEach(
+                        line ->
+                                out.println(
+                                        "  " + line
+                                )
+                );
     }
 
-    private Optional<WorldPosition> center(String[] args) {
-        Optional<String> x = option(args, "--center-x");
-        Optional<String> z = option(args, "--center-z");
-        if (x.isEmpty() && z.isEmpty()) {
+    private Optional<WorldPosition> center(
+            String[] args
+    ) {
+        Optional<String> x =
+                option(
+                        args,
+                        "--center-x"
+                );
+
+        Optional<String> z =
+                option(
+                        args,
+                        "--center-z"
+                );
+
+        if (x.isEmpty()
+                && z.isEmpty()) {
             return Optional.empty();
         }
-        if (x.isEmpty() || z.isEmpty()) {
-            throw new CommandException("--center-x and --center-z must be used together");
+
+        if (x.isEmpty()
+                || z.isEmpty()) {
+            throw new CommandException(
+                    "--center-x and --center-z must be used together"
+            );
         }
-        return Optional.of(new WorldPosition(parseDouble(x.get(), "--center-x"), 0.0, parseDouble(z.get(), "--center-z")));
+
+        return Optional.of(
+                new WorldPosition(
+                        parseDouble(
+                                x.get(),
+                                "--center-x"
+                        ),
+                        0.0,
+                        parseDouble(
+                                z.get(),
+                                "--center-z"
+                        )
+                )
+        );
     }
 
-    private int intOption(String[] args, String optionName, int defaultValue) {
-        Optional<String> option = option(args, optionName);
+    private int radiusOption(
+            String[] args
+    ) {
+        Optional<String> option =
+                option(
+                        args,
+                        "--radius"
+                );
+
         if (option.isEmpty()) {
-            return defaultValue;
+            return DEFAULT_RADIUS;
         }
+
         try {
-            int value = Integer.parseInt(option.get());
-            if (value <= 0 || value > 8192) {
-                throw new CommandException(optionName + " must be between 1 and 8192");
+            int value =
+                    Integer.parseInt(
+                            option.get()
+                    );
+
+            if (value <= 0
+                    || value > MAX_RADIUS) {
+                throw new CommandException(
+                        "--radius must be between 1 and "
+                                + MAX_RADIUS
+                );
             }
+
             return value;
+
         } catch (NumberFormatException exception) {
-            throw new CommandException("Invalid " + optionName + ": " + option.get());
+            throw new CommandException(
+                    "Invalid --radius: "
+                            + option.get()
+            );
         }
     }
 
-    private Optional<String> option(String[] args, String optionName) {
-        for (int index = 1; index < args.length - 1; index++) {
-            if (optionName.equals(args[index])) {
-                return Optional.of(args[index + 1]);
+    private Optional<String> option(
+            String[] args,
+            String optionName
+    ) {
+        for (int index = 1;
+             index < args.length - 1;
+             index++) {
+
+            if (optionName.equals(
+                    args[index]
+            )) {
+                return Optional.of(
+                        args[index + 1]
+                );
             }
         }
+
         return Optional.empty();
     }
 
-    private double parseDouble(String value, String optionName) {
+    private double parseDouble(
+            String value,
+            String optionName
+    ) {
         try {
-            return Double.parseDouble(value);
+            return Double.parseDouble(
+                    value
+            );
+
         } catch (NumberFormatException exception) {
-            throw new CommandException("Invalid " + optionName + ": " + value);
+            throw new CommandException(
+                    "Invalid "
+                            + optionName
+                            + ": "
+                            + value
+            );
         }
     }
 }

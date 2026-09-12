@@ -70,8 +70,10 @@ public class VcdbsReader {
         this.mapChunkParser = mapChunkParser;
         this.chunkParser = chunkParser;
         this.registryParser = registryParser;
-        this.serverMapRegionParser = new ServerMapRegionParser();
-        this.connectionFactory = connectionFactory;
+        this.serverMapRegionParser =
+                new ServerMapRegionParser();
+        this.connectionFactory =
+                connectionFactory;
     }
 
     public WorldPosition readPlayerPosition(
@@ -90,16 +92,21 @@ public class VcdbsReader {
             Optional<String> playerSelector,
             ProgressReporter progress
     ) {
-        progress.start("Opening save read-only");
+        progress.start(
+                "Opening save read-only"
+        );
 
         try (Connection connection =
-                     connectionFactory.openReadOnly(savePath)) {
+                     connectionFactory.openReadOnly(
+                             savePath
+                     )) {
 
-            progress.done("Save opened read-only");
+            progress.done(
+                    "Save opened read-only"
+            );
 
-            ensureTable(
-                    connection,
-                    SaveTable.PLAYERDATA
+            ensurePlayerDataTable(
+                    connection
             );
 
             List<SaveRecord> records =
@@ -192,7 +199,9 @@ public class VcdbsReader {
         );
 
         try (Connection connection =
-                     connectionFactory.openReadOnly(savePath)) {
+                     connectionFactory.openReadOnly(
+                             savePath
+                     )) {
 
             progress.done(
                     "Save opened read-only"
@@ -253,7 +262,9 @@ public class VcdbsReader {
         );
 
         try (Connection connection =
-                     connectionFactory.openReadOnly(savePath)) {
+                     connectionFactory.openReadOnly(
+                             savePath
+                     )) {
 
             progress.done(
                     "Save opened read-only"
@@ -305,7 +316,9 @@ public class VcdbsReader {
         );
 
         try (Connection connection =
-                     connectionFactory.openReadOnly(savePath)) {
+                     connectionFactory.openReadOnly(
+                             savePath
+                     )) {
 
             progress.done(
                     "Save opened read-only"
@@ -356,7 +369,9 @@ public class VcdbsReader {
         );
 
         try (Connection connection =
-                     connectionFactory.openReadOnly(savePath)) {
+                     connectionFactory.openReadOnly(
+                             savePath
+                     )) {
 
             progress.done(
                     "Save opened read-only"
@@ -441,13 +456,14 @@ public class VcdbsReader {
                         + "\"";
 
         try (PreparedStatement statement =
-                     connection.prepareStatement(sql);
+                     connection.prepareStatement(
+                             sql
+                     );
 
              ResultSet resultSet =
                      statement.executeQuery()) {
 
-            int row =
-                    0;
+            int row = 0;
 
             while (resultSet.next()) {
                 row++;
@@ -532,13 +548,14 @@ public class VcdbsReader {
                         + "\"";
 
         try (PreparedStatement statement =
-                     connection.prepareStatement(sql);
+                     connection.prepareStatement(
+                             sql
+                     );
 
              ResultSet resultSet =
                      statement.executeQuery()) {
 
-            int row =
-                    0;
+            int row = 0;
 
             while (resultSet.next()) {
                 row++;
@@ -639,13 +656,14 @@ public class VcdbsReader {
                         + "\"";
 
         try (PreparedStatement statement =
-                     connection.prepareStatement(sql);
+                     connection.prepareStatement(
+                             sql
+                     );
 
              ResultSet resultSet =
                      statement.executeQuery()) {
 
-            int row =
-                    0;
+            int row = 0;
 
             while (resultSet.next()) {
                 row++;
@@ -890,7 +908,9 @@ public class VcdbsReader {
                      connection.createStatement();
 
              ResultSet resultSet =
-                     statement.executeQuery(sql)) {
+                     statement.executeQuery(
+                             sql
+                     )) {
 
             ResultSetMetaData metaData =
                     resultSet.getMetaData();
@@ -979,7 +999,9 @@ public class VcdbsReader {
                      connection.createStatement();
 
              ResultSet resultSet =
-                     statement.executeQuery(sql)) {
+                     statement.executeQuery(
+                             sql
+                     )) {
 
             return resultSet.next()
                     ? resultSet.getInt(1)
@@ -1071,19 +1093,21 @@ public class VcdbsReader {
         ) <= radiusChunks;
     }
 
-    private void ensureTable(
-            Connection connection,
-            SaveTable table
+    private void ensurePlayerDataTable(
+            Connection connection
     ) throws SQLException {
+
+        String tableName =
+                SaveTable.PLAYERDATA.tableName();
 
         if (tableMissing(
                 connection,
-                table.tableName()
+                tableName
         )) {
 
             throw new CommandException(
                     "Missing required table: "
-                            + table.tableName()
+                            + tableName
             );
         }
     }

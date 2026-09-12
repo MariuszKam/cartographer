@@ -40,16 +40,19 @@ public class WhereamiCommand
         }
 
         Path savePath =
-                Path.of(args[0]);
+                Path.of(
+                        args[0]
+                );
 
         Optional<String> playerSelector =
-                option(
-                        args,
-                        "--player"
+                playerSelector(
+                        args
                 );
 
         ProgressReporter progress =
-                new ProgressReporter(out);
+                new ProgressReporter(
+                        out
+                );
 
         WorldPosition absolutePosition =
                 reader.readPlayerPosition(
@@ -151,15 +154,16 @@ public class WhereamiCommand
         return 0;
     }
 
-    private Optional<String> option(
-            String[] args,
-            String optionName
+    private Optional<String> playerSelector(
+            String[] args
     ) {
         for (int index = 1;
              index < args.length - 1;
              index++) {
 
-            if (optionName.equals(args[index])) {
+            if ("--player".equals(
+                    args[index]
+            )) {
                 return Optional.of(
                         args[index + 1]
                 );

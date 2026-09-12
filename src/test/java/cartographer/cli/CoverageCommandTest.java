@@ -38,8 +38,7 @@ class CoverageCommandTest {
         CoverageCommand command =
                 command(
                         new CapturingRenderer(),
-                        new NoopPngWriter(),
-                        "render"
+                        new NoopPngWriter()
                 );
 
         org.junit.jupiter.api.Assertions.assertThrows(
@@ -122,8 +121,7 @@ class CoverageCommandTest {
 
     private CoverageCommand command(
             RegionCoverageRenderer renderer,
-            PngWriter pngWriter,
-            String subcommand
+            PngWriter pngWriter
     ) {
         return new CoverageCommand(
                 new PrintStream(
@@ -139,7 +137,7 @@ class CoverageCommandTest {
                 new RegionCoverageAnalyzer(),
                 renderer,
                 pngWriter,
-                subcommand
+                "render"
         );
     }
 
@@ -210,6 +208,7 @@ class CoverageCommandTest {
 
     private static class CapturingRenderer
             extends RegionCoverageRenderer {
+
         private Optional<HomeLocation> home =
                 Optional.empty();
 

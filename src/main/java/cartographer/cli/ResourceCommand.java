@@ -60,19 +60,12 @@ public class ResourceCommand implements Command {
             0.50;
 
     private final PrintStream out;
-
     private final VcdbsReader reader;
-
     private final ResourceAnalyzer analyzer;
-
     private final WorldMetadataReader metadataReader;
-
     private final HomeStore homeStore;
-
     private final MapRenderer mapRenderer;
-
     private final ResourceOverlayRenderer overlayRenderer;
-
     private final PngWriter pngWriter;
 
     private final SurfaceScanner surfaceScanner =
@@ -116,32 +109,15 @@ public class ResourceCommand implements Command {
             PngWriter pngWriter,
             String subcommand
     ) {
-        this.out =
-                out;
-
-        this.reader =
-                reader;
-
-        this.analyzer =
-                analyzer;
-
-        this.metadataReader =
-                metadataReader;
-
-        this.homeStore =
-                homeStore;
-
-        this.mapRenderer =
-                mapRenderer;
-
-        this.overlayRenderer =
-                overlayRenderer;
-
-        this.pngWriter =
-                pngWriter;
-
-        this.subcommand =
-                subcommand;
+        this.out = out;
+        this.reader = reader;
+        this.analyzer = analyzer;
+        this.metadataReader = metadataReader;
+        this.homeStore = homeStore;
+        this.mapRenderer = mapRenderer;
+        this.overlayRenderer = overlayRenderer;
+        this.pngWriter = pngWriter;
+        this.subcommand = subcommand;
     }
 
     @Override
@@ -150,34 +126,22 @@ public class ResourceCommand implements Command {
     ) {
         switch (subcommand) {
             case "list" ->
-                    list(
-                            args
-                    );
+                    list(args);
 
             case "inspect" ->
-                    inspect(
-                            args
-                    );
+                    inspect(args);
 
             case "search" ->
-                    search(
-                            args
-                    );
+                    search(args);
 
             case "render" ->
-                    render(
-                            args
-                    );
+                    render(args);
 
             case "surface-search" ->
-                    surfaceSearch(
-                            args
-                    );
+                    surfaceSearch(args);
 
             case "surface-render" ->
-                    surfaceRender(
-                            args
-                    );
+                    surfaceRender(args);
 
             default ->
                     throw new CommandException(
@@ -200,9 +164,7 @@ public class ResourceCommand implements Command {
 
         LoadedResources loaded =
                 load(
-                        Path.of(
-                                args[0]
-                        )
+                        Path.of(args[0])
                 );
 
         out.println(
@@ -235,7 +197,6 @@ public class ResourceCommand implements Command {
                             )
             );
         }
-
     }
 
     private void inspect(
@@ -249,9 +210,7 @@ public class ResourceCommand implements Command {
 
         LoadedResources loaded =
                 load(
-                        Path.of(
-                                args[0]
-                        )
+                        Path.of(args[0])
                 );
 
         out.println(
@@ -289,7 +248,6 @@ public class ResourceCommand implements Command {
         printSummary(
                 summary
         );
-
     }
 
     private void search(
@@ -303,16 +261,13 @@ public class ResourceCommand implements Command {
         }
 
         Path savePath =
-                Path.of(
-                        args[0]
-                );
+                Path.of(args[0]);
 
         int top =
                 intOption(
                         args,
                         "--top",
                         DEFAULT_TOP,
-                        1,
                         MAX_TOP
                 );
 
@@ -321,7 +276,6 @@ public class ResourceCommand implements Command {
                         args,
                         "--separation",
                         DEFAULT_HOTSPOT_SEPARATION,
-                        1,
                         8192
                 );
 
@@ -390,9 +344,7 @@ public class ResourceCommand implements Command {
              index++) {
 
             ResourceHotspot hotspot =
-                    hotspots.get(
-                            index
-                    );
+                    hotspots.get(index);
 
             DisplayPosition display =
                     metadata.toDisplay(
@@ -429,7 +381,6 @@ public class ResourceCommand implements Command {
                     display.z()
             );
         }
-
     }
 
     private void render(
@@ -448,16 +399,13 @@ public class ResourceCommand implements Command {
         }
 
         Path savePath =
-                Path.of(
-                        args[0]
-                );
+                Path.of(args[0]);
 
         int radius =
                 intOption(
                         args,
                         "--radius",
                         DEFAULT_RENDER_RADIUS,
-                        1,
                         8192
                 );
 
@@ -466,17 +414,12 @@ public class ResourceCommand implements Command {
                         args,
                         "--scale",
                         1,
-                        1,
                         16
                 );
 
         double minimumSignal =
-                doubleOption(
-                        args,
-                        "--min-signal",
-                        DEFAULT_MINIMUM_SIGNAL,
-                        0.0,
-                        1.0
+                minimumSignalOption(
+                        args
                 );
 
         RenderStyle style =
@@ -512,9 +455,7 @@ public class ResourceCommand implements Command {
                         args,
                         "--out"
                 )
-                        .map(
-                                Path::of
-                        )
+                        .map(Path::of)
                         .orElse(
                                 Path.of(
                                         "output",
@@ -524,9 +465,7 @@ public class ResourceCommand implements Command {
                         );
 
         ProgressReporter progress =
-                new ProgressReporter(
-                        out
-                );
+                new ProgressReporter(out);
 
         WorldPosition player =
                 reader.readPlayerPosition(
@@ -536,12 +475,8 @@ public class ResourceCommand implements Command {
                 );
 
         WorldPosition center =
-                center(
-                        args
-                )
-                        .orElse(
-                                player
-                        );
+                center(args)
+                        .orElse(player);
 
         Optional<HomeLocation> home =
                 absoluteHome(
@@ -680,7 +615,6 @@ public class ResourceCommand implements Command {
         printFailureReasons(
                 mapDiagnostics
         );
-
     }
 
     private void surfaceSearch(
@@ -696,9 +630,7 @@ public class ResourceCommand implements Command {
         }
 
         Path savePath =
-                Path.of(
-                        args[0]
-                );
+                Path.of(args[0]);
 
         String match =
                 args[1];
@@ -708,7 +640,6 @@ public class ResourceCommand implements Command {
                         args,
                         "--radius",
                         DEFAULT_SURFACE_RADIUS,
-                        1,
                         8192
                 );
 
@@ -717,7 +648,6 @@ public class ResourceCommand implements Command {
                         args,
                         "--top",
                         DEFAULT_TOP,
-                        1,
                         MAX_TOP
                 );
 
@@ -741,8 +671,7 @@ public class ResourceCommand implements Command {
 
         out.println(
                 "Match: "
-                        + loaded.analysis()
-                        .query()
+                        + loaded.analysis().query()
         );
 
         out.println(
@@ -812,9 +741,7 @@ public class ResourceCommand implements Command {
              index++) {
 
             SurfaceResourceDeposit deposit =
-                    deposits.get(
-                            index
-                    );
+                    deposits.get(index);
 
             DisplayPosition display =
                     metadata.toDisplay(
@@ -864,7 +791,6 @@ public class ResourceCommand implements Command {
                     deposit.maxWorldZ()
             );
         }
-
     }
 
     private void surfaceRender(
@@ -882,9 +808,7 @@ public class ResourceCommand implements Command {
         }
 
         Path savePath =
-                Path.of(
-                        args[0]
-                );
+                Path.of(args[0]);
 
         String match =
                 args[1];
@@ -894,7 +818,6 @@ public class ResourceCommand implements Command {
                         args,
                         "--radius",
                         DEFAULT_SURFACE_RADIUS,
-                        1,
                         8192
                 );
 
@@ -902,7 +825,6 @@ public class ResourceCommand implements Command {
                 intOption(
                         args,
                         "--scale",
-                        1,
                         1,
                         16
                 );
@@ -922,9 +844,7 @@ public class ResourceCommand implements Command {
                         args,
                         "--out"
                 )
-                        .map(
-                                Path::of
-                        )
+                        .map(Path::of)
                         .orElse(
                                 Path.of(
                                         "output",
@@ -944,9 +864,7 @@ public class ResourceCommand implements Command {
                 );
 
         ProgressReporter progress =
-                new ProgressReporter(
-                        out
-                );
+                new ProgressReporter(out);
 
         Optional<HomeLocation> home =
                 absoluteHome(
@@ -1078,7 +996,6 @@ public class ResourceCommand implements Command {
                 "Failed mapchunks: "
                         + mapDiagnostics.failed()
         );
-
     }
 
     private SurfaceResourceLoad loadSurfaceResource(
@@ -1088,9 +1005,7 @@ public class ResourceCommand implements Command {
             String[] args
     ) {
         ProgressReporter progress =
-                new ProgressReporter(
-                        out
-                );
+                new ProgressReporter(out);
 
         WorldPosition player =
                 reader.readPlayerPosition(
@@ -1100,12 +1015,8 @@ public class ResourceCommand implements Command {
                 );
 
         WorldPosition center =
-                center(
-                        args
-                )
-                        .orElse(
-                                player
-                        );
+                center(args)
+                        .orElse(player);
 
         ReadDiagnostics diagnostics =
                 new ReadDiagnostics();
@@ -1170,9 +1081,7 @@ public class ResourceCommand implements Command {
                 new ReadDiagnostics();
 
         ProgressReporter progress =
-                new ProgressReporter(
-                        out
-                );
+                new ProgressReporter(out);
 
         List<ServerMapRegion> regions =
                 reader.readMapRegions(
@@ -1199,8 +1108,7 @@ public class ResourceCommand implements Command {
 
         if (matches.isEmpty()) {
             out.println(
-                    "Resource: "
-                            + query
+                    "Resource: " + query
             );
 
             out.println(
@@ -1216,8 +1124,7 @@ public class ResourceCommand implements Command {
 
         if (matches.size() > 1) {
             out.println(
-                    "Resource: "
-                            + query
+                    "Resource: " + query
             );
 
             out.println(
@@ -1227,8 +1134,7 @@ public class ResourceCommand implements Command {
             matches.forEach(
                     match ->
                             out.println(
-                                    "  "
-                                            + match
+                                    "  " + match
                             )
             );
 
@@ -1236,8 +1142,7 @@ public class ResourceCommand implements Command {
         }
 
         return Optional.of(
-                matches.getFirst(
-                )
+                matches.getFirst()
         );
     }
 
@@ -1329,8 +1234,7 @@ public class ResourceCommand implements Command {
         keys.forEach(
                 key ->
                         out.println(
-                                "  "
-                                        + key
+                                "  " + key
                         )
         );
     }
@@ -1375,8 +1279,7 @@ public class ResourceCommand implements Command {
                 .forEach(
                         line ->
                                 out.println(
-                                        "  "
-                                                + line
+                                        "  " + line
                                 )
                 );
     }
@@ -1385,7 +1288,6 @@ public class ResourceCommand implements Command {
             String[] args,
             String optionName,
             int defaultValue,
-            int minimum,
             int maximum
     ) {
         Optional<String> value =
@@ -1404,14 +1306,12 @@ public class ResourceCommand implements Command {
                             value.get()
                     );
 
-            if (parsed < minimum
+            if (parsed < 1
                     || parsed > maximum) {
 
                 throw new CommandException(
                         optionName
-                                + " must be between "
-                                + minimum
-                                + " and "
+                                + " must be between 1 and "
                                 + maximum
                 );
             }
@@ -1428,21 +1328,17 @@ public class ResourceCommand implements Command {
         }
     }
 
-    private double doubleOption(
-            String[] args,
-            String optionName,
-            double defaultValue,
-            double minimum,
-            double maximum
+    private double minimumSignalOption(
+            String[] args
     ) {
         Optional<String> value =
                 option(
                         args,
-                        optionName
+                        "--min-signal"
                 );
 
         if (value.isEmpty()) {
-            return defaultValue;
+            return DEFAULT_MINIMUM_SIGNAL;
         }
 
         try {
@@ -1451,18 +1347,12 @@ public class ResourceCommand implements Command {
                             value.get()
                     );
 
-            if (!Double.isFinite(
-                    parsed
-            )
-                    || parsed < minimum
-                    || parsed > maximum) {
+            if (!Double.isFinite(parsed)
+                    || parsed < 0.0
+                    || parsed > 1.0) {
 
                 throw new CommandException(
-                        optionName
-                                + " must be between "
-                                + minimum
-                                + " and "
-                                + maximum
+                        "--min-signal must be between 0.0 and 1.0"
                 );
             }
 
@@ -1470,9 +1360,7 @@ public class ResourceCommand implements Command {
 
         } catch (NumberFormatException exception) {
             throw new CommandException(
-                    "Invalid "
-                            + optionName
-                            + ": "
+                    "Invalid --min-signal: "
                             + value.get()
             );
         }

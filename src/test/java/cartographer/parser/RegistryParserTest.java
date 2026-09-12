@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RegistryParserTest {
+
     @Test
     void parsesSaveGameModDataBlockIdsRegistry() {
         byte[] saveGame =
@@ -33,7 +34,9 @@ class RegistryParserTest {
 
         Map<Integer, BlockInfo> blocks =
                 new RegistryParser()
-                        .parse(saveGame);
+                        .parse(
+                                saveGame
+                        );
 
         assertEquals(
                 "air",
@@ -146,9 +149,8 @@ class RegistryParserTest {
         ByteArrayOutputStream out =
                 new ByteArrayOutputStream();
 
-        writeVarIntField(
+        writeBlockIdValue(
                 out,
-                1,
                 id
         );
 
@@ -182,7 +184,8 @@ class RegistryParserTest {
     ) {
         writeVarInt(
                 out,
-                (fieldNumber << 3) | 2
+                (fieldNumber << 3)
+                        | 2
         );
 
         writeVarInt(
@@ -195,14 +198,13 @@ class RegistryParserTest {
         );
     }
 
-    private void writeVarIntField(
+    private void writeBlockIdValue(
             ByteArrayOutputStream out,
-            int fieldNumber,
             int value
     ) {
         writeVarInt(
                 out,
-                fieldNumber << 3
+                1 << 3
         );
 
         writeVarInt(
@@ -224,7 +226,8 @@ class RegistryParserTest {
                             | 0x80
             );
 
-            remaining >>>= 7;
+            remaining >>>=
+                    7;
         }
 
         out.write(
