@@ -58,7 +58,7 @@ class PlayerPositionServiceTest {
                 Path savePath,
                 cartographer.cli.ProgressReporter progress
         ) {
-            return new WorldMetadata(512000, 256, 512000);
+            return new WorldMetadata(1024000, 256, 1024000);
         }
     }
 }
