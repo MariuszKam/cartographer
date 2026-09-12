@@ -413,35 +413,20 @@ public class CoverageCommand implements Command {
     private String requiredOutput(
             String[] args
     ) {
-        return option(
-                args,
-                "--out"
-        ).orElseThrow(
-                () ->
-                        new CommandException(
-                                "Missing option: --out"
-                        )
-        );
-    }
-
-    private Optional<String> option(
-            String[] args,
-            String optionName
-    ) {
         for (int index = 1;
              index < args.length - 1;
              index++) {
 
-            if (optionName.equals(
+            if ("--out".equals(
                     args[index]
             )) {
-                return Optional.of(
-                        args[index + 1]
-                );
+                return args[index + 1];
             }
         }
 
-        return Optional.empty();
+        throw new CommandException(
+                "Missing option: --out"
+        );
     }
 
     private record LoadedCoverage(

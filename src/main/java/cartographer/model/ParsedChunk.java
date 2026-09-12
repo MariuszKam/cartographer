@@ -29,7 +29,11 @@ public record ParsedChunk(
                 sizeY,
                 sizeZ,
                 blockIds,
-                new int[sizeX * sizeY * sizeZ],
+                new int[
+                        sizeX
+                                * sizeY
+                                * sizeZ
+                        ],
                 0,
                 true,
                 ""
@@ -85,34 +89,75 @@ public record ParsedChunk(
                         : liquidDecodeError;
     }
 
-    public int blockIdAt(int x, int y, int z) {
-        if (x < 0 || x >= sizeX || y < 0 || y >= sizeY || z < 0 || z >= sizeZ) {
-            throw new IndexOutOfBoundsException("Chunk coordinate out of bounds");
+    public int blockIdAt(
+            int x,
+            int y,
+            int z
+    ) {
+        if (x < 0
+                || x >= sizeX
+                || y < 0
+                || y >= sizeY
+                || z < 0
+                || z >= sizeZ) {
+
+            throw new IndexOutOfBoundsException(
+                    "Chunk coordinate out of bounds"
+            );
         }
-        return blockIds[(y * sizeZ + z) * sizeX + x];
+
+        return blockIds[
+                (y * sizeZ + z)
+                        * sizeX
+                        + x
+                ];
     }
 
-    public int liquidIdAt(int x, int y, int z) {
-        if (x < 0 || x >= sizeX || y < 0 || y >= sizeY || z < 0 || z >= sizeZ) {
-            throw new IndexOutOfBoundsException("Chunk coordinate out of bounds");
+    public int liquidIdAt(
+            int x,
+            int y,
+            int z
+    ) {
+        if (x < 0
+                || x >= sizeX
+                || y < 0
+                || y >= sizeY
+                || z < 0
+                || z >= sizeZ) {
+
+            throw new IndexOutOfBoundsException(
+                    "Chunk coordinate out of bounds"
+            );
         }
-        return liquidIds[(y * sizeZ + z) * sizeX + x];
+
+        return liquidIds[
+                (y * sizeZ + z)
+                        * sizeX
+                        + x
+                ];
     }
 
-    public boolean hasLiquidAt(int x, int y, int z) {
-        return liquidIdAt(x, y, z) != 0;
+    public int worldX(
+            int localX
+    ) {
+        return coordinate.x()
+                * ChunkCoordinate.SIZE_BLOCKS
+                + localX;
     }
 
-    public int worldX(int localX) {
-        return coordinate.x() * ChunkCoordinate.SIZE_BLOCKS + localX;
+    public int worldZ(
+            int localZ
+    ) {
+        return coordinate.z()
+                * ChunkCoordinate.SIZE_BLOCKS
+                + localZ;
     }
 
-    public int worldZ(int localZ) {
-        return coordinate.z() * ChunkCoordinate.SIZE_BLOCKS + localZ;
-    }
-
-    public int worldY(int localY) {
-        return minY + localY;
+    public int worldY(
+            int localY
+    ) {
+        return minY
+                + localY;
     }
 
     public int[] blockIds() {
@@ -137,9 +182,14 @@ public record ParsedChunk(
             String name
     ) {
         int expected =
-                sizeX * sizeY * sizeZ;
+                sizeX
+                        * sizeY
+                        * sizeZ;
 
-        if (values == null || values.length != expected) {
+        if (values == null
+                || values.length
+                != expected) {
+
             throw new IllegalArgumentException(
                     name
                             + " layer must contain "

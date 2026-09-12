@@ -18,15 +18,10 @@ public class ReadDiagnostics {
 
     private int failed;
 
-    private int registryBlocks;
-
     private int liquidDecodeFailures;
 
     private final Map<String, Integer> skippedReasons =
             new LinkedHashMap<>();
-
-    private final List<String> failureSamples =
-            new ArrayList<>();
 
     private final Map<String, Integer> failureReasons =
             new LinkedHashMap<>();
@@ -73,15 +68,6 @@ public class ReadDiagnostics {
                 1,
                 Integer::sum
         );
-
-        if (failureSamples.size()
-                < SAMPLE_LIMIT) {
-
-            failureSamples.add(
-                    "failed: "
-                            + normalized
-            );
-        }
     }
 
     public void recordLiquidDecodeFailure(
@@ -119,13 +105,6 @@ public class ReadDiagnostics {
         );
     }
 
-    public void registryBlocks(
-            int registryBlocks
-    ) {
-        this.registryBlocks =
-                registryBlocks;
-    }
-
     public int parsed() {
         return parsed;
     }
@@ -136,10 +115,6 @@ public class ReadDiagnostics {
 
     public int failed() {
         return failed;
-    }
-
-    public int registryBlocks() {
-        return registryBlocks;
     }
 
     public int liquidDecodeFailures() {
@@ -195,12 +170,6 @@ public class ReadDiagnostics {
                                         + entry.getKey()
                 )
                 .toList();
-    }
-
-    public List<String> failureSamples() {
-        return List.copyOf(
-                failureSamples
-        );
     }
 
     public Map<String, Integer> failureReasons() {

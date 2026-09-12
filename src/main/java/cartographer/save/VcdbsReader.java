@@ -67,23 +67,23 @@ public class VcdbsReader {
             RegistryParser registryParser,
             SqliteSaveConnection connectionFactory
     ) {
-        this.playerDataParser = playerDataParser;
-        this.mapChunkParser = mapChunkParser;
-        this.chunkParser = chunkParser;
-        this.registryParser = registryParser;
+        this.playerDataParser =
+                playerDataParser;
+
+        this.mapChunkParser =
+                mapChunkParser;
+
+        this.chunkParser =
+                chunkParser;
+
+        this.registryParser =
+                registryParser;
+
         this.serverMapRegionParser =
                 new ServerMapRegionParser();
+
         this.connectionFactory =
                 connectionFactory;
-    }
-
-    public WorldPosition readPlayerPosition(
-            Path savePath
-    ) {
-        return readPlayerPosition(
-                savePath,
-                ProgressReporter.NONE
-        );
     }
 
     public WorldPosition readPlayerPosition(
@@ -110,17 +110,6 @@ public class VcdbsReader {
         return parsePlayerPosition(
                 selected,
                 progress
-        );
-    }
-
-    public WorldPosition readPlayerPosition(
-            Path savePath,
-            String playerSelector
-    ) {
-        return readPlayerPosition(
-                savePath,
-                playerSelector,
-                ProgressReporter.NONE
         );
     }
 
@@ -241,21 +230,6 @@ public class VcdbsReader {
             Path savePath,
             WorldPosition center,
             int radiusBlocks,
-            ReadDiagnostics diagnostics
-    ) {
-        return readMapChunksAround(
-                savePath,
-                center,
-                radiusBlocks,
-                diagnostics,
-                ProgressReporter.NONE
-        );
-    }
-
-    public List<MapChunk> readMapChunksAround(
-            Path savePath,
-            WorldPosition center,
-            int radiusBlocks,
             ReadDiagnostics diagnostics,
             ProgressReporter progress
     ) {
@@ -298,21 +272,6 @@ public class VcdbsReader {
                     exception
             );
         }
-    }
-
-    public List<ParsedChunk> readChunksAround(
-            Path savePath,
-            WorldPosition center,
-            int radiusBlocks,
-            ReadDiagnostics diagnostics
-    ) {
-        return readChunksAround(
-                savePath,
-                center,
-                radiusBlocks,
-                diagnostics,
-                ProgressReporter.NONE
-        );
     }
 
     public List<ParsedChunk> readChunksAround(
@@ -364,15 +323,6 @@ public class VcdbsReader {
     }
 
     public Map<Integer, BlockInfo> readBlockRegistry(
-            Path savePath
-    ) {
-        return readBlockRegistry(
-                savePath,
-                ProgressReporter.NONE
-        );
-    }
-
-    public Map<Integer, BlockInfo> readBlockRegistry(
             Path savePath,
             ProgressReporter progress
     ) {
@@ -411,17 +361,6 @@ public class VcdbsReader {
                     exception
             );
         }
-    }
-
-    public List<ServerMapRegion> readMapRegions(
-            Path savePath,
-            ReadDiagnostics diagnostics
-    ) {
-        return readMapRegions(
-                savePath,
-                diagnostics,
-                ProgressReporter.NONE
-        );
     }
 
     public List<ServerMapRegion> readMapRegions(
@@ -928,19 +867,6 @@ public class VcdbsReader {
                                         )
                 )
                 .findFirst();
-    }
-
-    private List<SaveRecord> readRecords(
-            Connection connection,
-            String tableName,
-            int limit
-    ) throws SQLException {
-        return readRecords(
-                connection,
-                tableName,
-                limit,
-                ProgressReporter.NONE
-        );
     }
 
     private List<SaveRecord> readRecords(

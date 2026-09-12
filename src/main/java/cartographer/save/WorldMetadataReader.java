@@ -36,15 +36,6 @@ public class WorldMetadataReader {
     }
 
     public WorldMetadata read(
-            Path savePath
-    ) {
-        return read(
-                savePath,
-                ProgressReporter.NONE
-        );
-    }
-
-    public WorldMetadata read(
             Path savePath,
             ProgressReporter progress
     ) {
@@ -53,7 +44,9 @@ public class WorldMetadataReader {
         );
 
         try (Connection connection =
-                     connectionFactory.openReadOnly(savePath);
+                     connectionFactory.openReadOnly(
+                             savePath
+                     );
 
              Statement statement =
                      connection.createStatement();
@@ -75,19 +68,26 @@ public class WorldMetadataReader {
             }
 
             byte[] payload =
-                    resultSet.getBytes("data");
+                    resultSet.getBytes(
+                            "data"
+                    );
 
             ParseResult<WorldMetadata> result =
-                    parser.parse(payload);
+                    parser.parse(
+                            payload
+                    );
 
             WorldMetadata metadata =
-                    result.value().orElseThrow(
-                            () -> new CommandException(
-                                    result.error().orElse(
-                                            "Unable to read world metadata"
-                                    )
-                            )
-                    );
+                    result.value()
+                            .orElseThrow(
+                                    () ->
+                                            new CommandException(
+                                                    result.error()
+                                                            .orElse(
+                                                                    "Unable to read world metadata"
+                                                            )
+                                            )
+                            );
 
             progress.done(
                     "World metadata read"

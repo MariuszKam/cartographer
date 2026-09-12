@@ -3,7 +3,6 @@ package cartographer.scanner;
 import cartographer.model.SurfaceBlock;
 import cartographer.model.SurfaceClass;
 
-import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +20,8 @@ public record SurfaceScanResult(
         return blocks.stream()
                 .filter(
                         block ->
-                                block.surfaceClass() == SurfaceClass.WATER
+                                block.surfaceClass()
+                                        == SurfaceClass.WATER
                 )
                 .count();
     }
@@ -30,7 +30,8 @@ public record SurfaceScanResult(
         return blocks.stream()
                 .filter(
                         block ->
-                                block.surfaceClass() == SurfaceClass.UNKNOWN
+                                block.surfaceClass()
+                                        == SurfaceClass.UNKNOWN
                 )
                 .count();
     }
@@ -46,7 +47,9 @@ public record SurfaceScanResult(
                 new LinkedHashMap<>();
 
         for (SurfaceBlock block : blocks) {
-            if (block.surfaceClass() != SurfaceClass.UNKNOWN) {
+            if (block.surfaceClass()
+                    != SurfaceClass.UNKNOWN) {
+
                 continue;
             }
 
@@ -99,25 +102,6 @@ public record SurfaceScanResult(
 
         return Set.copyOf(
                 codes
-        );
-    }
-
-    public Map<SurfaceClass, Integer> classCounts() {
-        Map<SurfaceClass, Integer> counts =
-                new EnumMap<>(
-                        SurfaceClass.class
-                );
-
-        for (SurfaceBlock block : blocks) {
-            counts.merge(
-                    block.surfaceClass(),
-                    1,
-                    Integer::sum
-            );
-        }
-
-        return Map.copyOf(
-                counts
         );
     }
 

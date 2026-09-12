@@ -40,47 +40,6 @@ public class MapRenderer {
     private final MarkerRenderer markers =
             new MarkerRenderer();
 
-    public BufferedImage render(
-            WorldPosition player,
-            HomeState home,
-            List<MapChunk> chunks,
-            int radiusBlocks
-    ) {
-        return render(
-                player,
-                home,
-                chunks,
-                new RenderOptions(
-                        radiusBlocks,
-                        1,
-                        RenderStyle.SIMPLE,
-                        RenderLayer.defaults()
-                ),
-                ProgressReporter.NONE
-        ).image();
-    }
-
-    public BufferedImage render(
-            WorldPosition player,
-            HomeState home,
-            List<MapChunk> chunks,
-            int radiusBlocks,
-            ProgressReporter progress
-    ) {
-        return render(
-                player,
-                home,
-                chunks,
-                new RenderOptions(
-                        radiusBlocks,
-                        1,
-                        RenderStyle.SIMPLE,
-                        RenderLayer.defaults()
-                ),
-                progress
-        ).image();
-    }
-
     public RenderedMap render(
             WorldPosition center,
             HomeState home,

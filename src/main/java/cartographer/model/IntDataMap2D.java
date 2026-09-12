@@ -27,7 +27,10 @@ public record IntDataMap2D(
             );
         }
 
-        if (topLeftPadding + bottomRightPadding > size) {
+        if (topLeftPadding
+                + bottomRightPadding
+                > size) {
+
             throw new IllegalArgumentException(
                     "IntDataMap2D padding must not exceed size"
             );
@@ -77,7 +80,10 @@ public record IntDataMap2D(
             );
         }
 
-        return data[localZ * size + localX];
+        return data[
+                localZ * size
+                        + localX
+                ];
     }
 
     public int valueCount() {
@@ -97,14 +103,6 @@ public record IntDataMap2D(
     public int innerMaxExclusive() {
         return size
                 - bottomRightPadding;
-    }
-
-    public int innerValueCount() {
-        int innerSize =
-                innerSize();
-
-        return innerSize
-                * innerSize;
     }
 
     public int[] data() {

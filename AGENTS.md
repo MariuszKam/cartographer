@@ -464,7 +464,7 @@ Once 1.0a is complete:
 
 # Future roadmap
 
-## 1.5 Geology Map / Cross Sections
+## 1.5 Geology Map / Cross-Sections
 
 Goals:
 
@@ -760,4 +760,4 @@ Implement:
 1.0a Explored World Coverage
 ```
 
-Do not start 1.5 geology cross sections before 1.0a is reviewed and marked complete.
+Do not start 1.5 geology cross-sections before 1.0a is reviewed and marked complete.

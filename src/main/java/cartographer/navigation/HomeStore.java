@@ -26,26 +26,6 @@ public class HomeStore {
                 legacyConfigPath;
     }
 
-    /*
-     * Legacy methods kept so older unfinished map/atlas code
-     * still compiles.
-     */
-    public Optional<HomeLocation> load() {
-        return loadFrom(
-                legacyConfigPath
-        );
-    }
-
-    public void save(
-            HomeLocation home
-    ) {
-        saveTo(
-                legacyConfigPath,
-                home,
-                null
-        );
-    }
-
     public Optional<HomeLocation> load(
             Path savePath
     ) {

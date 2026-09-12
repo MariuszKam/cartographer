@@ -25,8 +25,4 @@ public record SurfaceBlock(
                 SurfaceClass.UNKNOWN
         );
     }
-
-    public boolean hasLiquid() {
-        return liquidBlockId != 0;
-    }
 }
