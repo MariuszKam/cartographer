@@ -4,8 +4,6 @@ import cartographer.application.RenderActualOreMapRequest;
 import cartographer.application.RenderActualOreMapResult;
 import cartographer.application.RenderActualOreMapUseCase;
 import cartographer.marker.MarkerStore;
-import cartographer.model.BlockInfo;
-import cartographer.model.ParsedChunk;
 import cartographer.navigation.HomeStore;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
@@ -25,7 +23,6 @@ import javafx.application.Application;
 import javafx.concurrent.Task;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
@@ -40,7 +37,6 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -68,20 +64,27 @@ public class CartographerDesktopApp extends Application {
     private final ProgressIndicator progress = new ProgressIndicator();
     private final Label statusLabel = new Label();
     private final Label resourceStatusLabel = new Label();
+    private final Label playerStatusLabel = new Label("Player: not loaded");
     private final Label resultLabel = new Label("Select a save and render an ore map.");
     private final ImageView imageView = new ImageView();
     private final ScrollPane preview = new ScrollPane(imageView);
 
     private RenderActualOreMapUseCase useCase;
     private ResourceCatalogService resourceCatalogService;
+    private PlayerPositionService playerPositionService;
 
     @Override
     public void start(Stage stage) {
         VcdbsReader reader = createReader();
-        useCase = createUseCase(reader);
+        WorldMetadataReader metadataReader = new WorldMetadataReader();
+        useCase = createUseCase(reader, metadataReader);
         resourceCatalogService = new ResourceCatalogService(
                 reader,
                 new ResourceAnalyzer()
+        );
+        playerPositionService = new PlayerPositionService(
+                reader,
+                metadataReader
         );
         stage.setTitle("VS Cartographer");
 
@@ -151,6 +154,7 @@ public class CartographerDesktopApp extends Application {
         progress.setPrefSize(28, 28);
         statusLabel.setWrapText(true);
         resourceStatusLabel.setWrapText(true);
+        playerStatusLabel.setWrapText(true);
         resultLabel.setWrapText(true);
         updateResourceStatus();
     }
@@ -162,20 +166,22 @@ public class CartographerDesktopApp extends Application {
         grid.add(new Label("SAVE"), 0, 0);
         grid.add(saveField, 0, 1, 2, 1);
         grid.add(browseButton, 1, 1);
+        grid.add(new Label("PLAYER"), 0, 2);
+        grid.add(playerStatusLabel, 0, 3, 2, 1);
 
-        grid.add(new Label("RESOURCE"), 0, 2);
-        grid.add(resourceBox, 0, 3, 2, 1);
-        grid.add(resourceStatusLabel, 0, 4, 2, 1);
+        grid.add(new Label("RESOURCE"), 0, 4);
+        grid.add(resourceBox, 0, 5, 2, 1);
+        grid.add(resourceStatusLabel, 0, 6, 2, 1);
 
-        grid.add(new Label("RADIUS"), 0, 5);
+        grid.add(new Label("RADIUS"), 0, 7);
         HBox radiusBox = new HBox(8, radius128Button, radius256Button, radius512Button);
-        grid.add(radiusBox, 0, 6, 2, 1);
+        grid.add(radiusBox, 0, 8, 2, 1);
 
-        grid.add(new Label("Y FILTER"), 0, 7);
-        grid.add(allYButton, 0, 8);
-        grid.add(customYButton, 1, 8);
-        grid.add(yMinField, 0, 9);
-        grid.add(yMaxField, 1, 9);
+        grid.add(new Label("Y FILTER"), 0, 9);
+        grid.add(allYButton, 0, 10);
+        grid.add(customYButton, 1, 10);
+        grid.add(yMinField, 0, 11);
+        grid.add(yMaxField, 1, 11);
 
         VBox box = new VBox(
                 12,
@@ -207,22 +213,32 @@ public class CartographerDesktopApp extends Application {
         if (selected != null) {
             saveField.setText(selected.toPath().toString());
             statusLabel.setText("");
-            discoverResources(selected.toPath());
+            loadSaveData(selected.toPath());
         }
     }
 
-    private void discoverResources(Path savePath) {
+    private void loadSaveData(Path savePath) {
         setDiscoveryBusy(true);
-        statusLabel.setText("Loading resources...");
+        statusLabel.setText("Loading resources and player position...");
+        playerStatusLabel.setText("Player: loading...");
 
-        Task<List<OreResource>> task = new Task<>() {
+        Task<SaveLoadResult> task = new Task<>() {
             @Override
-            protected List<OreResource> call() {
-                return resourceCatalogService.discover(savePath);
+            protected SaveLoadResult call() {
+                List<OreResource> resources = resourceCatalogService.discover(savePath);
+                try {
+                    return new SaveLoadResult(
+                            resources,
+                            Optional.of(playerPositionService.load(savePath))
+                    );
+                } catch (RuntimeException exception) {
+                    return new SaveLoadResult(resources, Optional.empty());
+                }
             }
         };
         task.setOnSucceeded(event -> {
-            List<OreResource> discovered = task.getValue();
+            SaveLoadResult loaded = task.getValue();
+            List<OreResource> discovered = loaded.resources();
             resourceBox.getItems().setAll(
                     discovered.isEmpty()
                             ? presetResources()
@@ -232,6 +248,9 @@ public class CartographerDesktopApp extends Application {
                 resourceBox.setValue(resourceBox.getItems().getFirst());
             }
             updateResourceStatus();
+            playerStatusLabel.setText(
+                    loaded.player().map(this::formatPlayer).orElse("Player: unavailable")
+            );
             statusLabel.setText(
                     discovered.isEmpty()
                             ? "No resource maps found; custom matches are available."
@@ -243,6 +262,7 @@ public class CartographerDesktopApp extends Application {
             resourceBox.getItems().setAll(presetResources());
             resourceBox.setValue(resourceBox.getItems().getFirst());
             resourceStatusLabel.setText("Registry match: unavailable");
+            playerStatusLabel.setText("Player: unavailable");
             showFailure(task.getException());
             setDiscoveryBusy(false);
         });
@@ -325,6 +345,18 @@ public class CartographerDesktopApp extends Application {
         return map.cells().isEmpty()
                 ? "none"
                 : map.minMatchedY() + ".." + map.maxMatchedY();
+    }
+
+    private String formatPlayer(PlayerPositionView player) {
+        return String.format(
+                java.util.Locale.ROOT,
+                "X: %.1f%nY: %.1f%nZ: %.1f%nChunk: %d, %d",
+                player.x(),
+                player.y(),
+                player.z(),
+                player.chunkX(),
+                player.chunkZ()
+        );
     }
 
     private void showFailure(Throwable failure) {
@@ -446,11 +478,14 @@ public class CartographerDesktopApp extends Application {
         );
     }
 
-    private RenderActualOreMapUseCase createUseCase(VcdbsReader reader) {
+    private RenderActualOreMapUseCase createUseCase(
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader
+    ) {
         Path config = Path.of(System.getProperty("user.home"), ".vs-cartographer");
         return new RenderActualOreMapUseCase(
                 reader,
-                new WorldMetadataReader(),
+                metadataReader,
                 new HomeStore(config.resolve("home.properties")),
                 new MarkerStore(config.resolve("markers.csv")),
                 new MapRenderer(),
@@ -458,5 +493,11 @@ public class CartographerDesktopApp extends Application {
                 new ActualBlockMapScanner(),
                 new ActualOreOverlayPainter()
         );
+    }
+
+    private record SaveLoadResult(
+            List<OreResource> resources,
+            Optional<PlayerPositionView> player
+    ) {
     }
 }
