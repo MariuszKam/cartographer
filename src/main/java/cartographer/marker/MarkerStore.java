@@ -377,17 +377,15 @@ public class MarkerStore {
                         .toAbsolutePath()
                         .normalize();
 
-        Path baseDirectory =
-                Optional.ofNullable(
-                                absoluteLegacy
-                                        .getParent()
-                        )
-                        .orElse(
-                                Path.of(".")
-                                        .toAbsolutePath()
-                                        .normalize()
-                        );
-        return baseDirectory;
+        return Optional.ofNullable(
+                        absoluteLegacy
+                                .getParent()
+                )
+                .orElse(
+                        Path.of(".")
+                                .toAbsolutePath()
+                                .normalize()
+                );
     }
 
     private String shortHash(

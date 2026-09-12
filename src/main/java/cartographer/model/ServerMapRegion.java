@@ -22,27 +22,27 @@ public record ServerMapRegion(
         }
 
         climateMap =
-                climateMap == null
+                climateMap.isEmpty()
                         ? Optional.empty()
                         : climateMap;
 
         forestMap =
-                forestMap == null
+                forestMap.isEmpty()
                         ? Optional.empty()
                         : forestMap;
 
         landformMap =
-                landformMap == null
+                landformMap.isEmpty()
                         ? Optional.empty()
                         : landformMap;
 
         geologicProvinceMap =
-                geologicProvinceMap == null
+                geologicProvinceMap.isEmpty()
                         ? Optional.empty()
                         : geologicProvinceMap;
 
         oceanMap =
-                oceanMap == null
+                oceanMap.isEmpty()
                         ? Optional.empty()
                         : oceanMap;
 

@@ -119,7 +119,7 @@ public class RegionCoverageRenderer {
                     summary,
                     cellSize,
                     player,
-                    home == null
+                    home.isEmpty()
                             ? Optional.empty()
                             : home
             );

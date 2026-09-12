@@ -401,8 +401,7 @@ public class ResourceOverlayRenderer {
             }
         }
 
-        if (home == null
-                || home.isEmpty()) {
+        if (home.isEmpty()) {
 
             return;
         }

@@ -6,7 +6,7 @@ public final class Main {
     private Main() {
     }
 
-    public static void main(String[] args) {
+    static void main(String[] args) {
         int exitCode = new CommandRouter().run(args);
         if (exitCode != 0) {
             System.exit(exitCode);

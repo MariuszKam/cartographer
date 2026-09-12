@@ -26,25 +26,7 @@ public class RegionCoverageAnalyzer {
             );
         }
 
-        Set<MapRegionCoordinate> coordinates =
-                new TreeSet<>(
-                        Comparator.comparingInt(
-                                        MapRegionCoordinate::x
-                                )
-                                .thenComparingInt(
-                                        MapRegionCoordinate::z
-                                )
-                );
-
-        if (regions != null) {
-            for (ServerMapRegion region : regions) {
-                if (region != null) {
-                    coordinates.add(
-                            region.coordinate()
-                    );
-                }
-            }
-        }
+        Set<MapRegionCoordinate> coordinates = createCoordinates(regions);
 
         if (coordinates.isEmpty()) {
             return RegionCoverageSummary.emptySummary();
@@ -175,6 +157,29 @@ public class RegionCoverageAnalyzer {
                         metadata
                 )
         );
+    }
+
+    private static Set<MapRegionCoordinate> createCoordinates(List<ServerMapRegion> regions) {
+        Set<MapRegionCoordinate> coordinates =
+                new TreeSet<>(
+                        Comparator.comparingInt(
+                                        MapRegionCoordinate::x
+                                )
+                                .thenComparingInt(
+                                        MapRegionCoordinate::z
+                                )
+                );
+
+        if (regions != null) {
+            for (ServerMapRegion region : regions) {
+                if (region != null) {
+                    coordinates.add(
+                            region.coordinate()
+                    );
+                }
+            }
+        }
+        return coordinates;
     }
 
     private List<RegionCoverageCell> buildCells(

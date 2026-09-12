@@ -420,8 +420,7 @@ public class SurfaceResourceOverlayRenderer {
             }
         }
 
-        if (home == null
-                || home.isEmpty()) {
+        if (home.isEmpty()) {
 
             return;
         }
