@@ -136,51 +136,59 @@ public class EnvironmentOverlayRenderer {
                         );
 
                 int imageMinX =
-                        (int) Math.floor(
-                                (regionMinX - minWorldX)
-                                        * scaleX
+                        imageCoordinate(
+                                regionMinX,
+                                minWorldX,
+                                scaleX
                         );
 
                 int imageMinY =
-                        (int) Math.floor(
-                                (regionMinZ - minWorldZ)
-                                        * scaleZ
+                        imageCoordinate(
+                                regionMinZ,
+                                minWorldZ,
+                                scaleZ
                         );
 
                 int imageMaxX =
-                        (int) Math.ceil(
-                                (regionMaxXExclusive - minWorldX)
-                                        * scaleX
+                        imageCoordinate(
+                                regionMaxXExclusive,
+                                minWorldX,
+                                scaleX
                         );
 
                 int imageMaxY =
-                        (int) Math.ceil(
-                                (regionMaxZExclusive - minWorldZ)
-                                        * scaleZ
+                        imageCoordinate(
+                                regionMaxZExclusive,
+                                minWorldZ,
+                                scaleZ
                         );
 
                 int clippedMinX =
-                        Math.max(
+                        Math.clamp(
+                                imageMinX,
                                 0,
-                                imageMinX
+                                image.getWidth()
                         );
 
                 int clippedMinY =
-                        Math.max(
+                        Math.clamp(
+                                imageMinY,
                                 0,
-                                imageMinY
+                                image.getHeight()
                         );
 
                 int clippedMaxX =
-                        Math.min(
-                                image.getWidth(),
-                                imageMaxX
+                        Math.clamp(
+                                imageMaxX,
+                                0,
+                                image.getWidth()
                         );
 
                 int clippedMaxY =
-                        Math.min(
-                                image.getHeight(),
-                                imageMaxY
+                        Math.clamp(
+                                imageMaxY,
+                                0,
+                                image.getHeight()
                         );
 
                 if (clippedMinX >= clippedMaxX
@@ -213,6 +221,18 @@ public class EnvironmentOverlayRenderer {
                 candidates,
                 drawn,
                 unavailable
+        );
+    }
+
+    private int imageCoordinate(
+            int worldCoordinate,
+            int minWorldCoordinate,
+            double scale
+    ) {
+        return (int) Math.floor(
+                (worldCoordinate
+                        - minWorldCoordinate)
+                        * scale
         );
     }
 
@@ -344,50 +364,74 @@ public class EnvironmentOverlayRenderer {
                                 / 255.0;
 
                 red =
-                        clamp(
+                        Math.clamp(
                                 (int) Math.round(
                                         red
                                                 + temperature
                                                 * 55
-                                )
+                                ),
+                                0,
+                                255
                         );
 
                 green =
-                        clamp(
+                        Math.clamp(
                                 (int) Math.round(
                                         green
                                                 + rainfall
                                                 * 45
-                                )
+                                ),
+                                0,
+                                255
                         );
 
                 blue =
-                        clamp(
+                        Math.clamp(
                                 (int) Math.round(
                                         blue
                                                 + (1.0 - temperature)
                                                 * 40
-                                )
+                                ),
+                                0,
+                                255
                         );
             }
 
             return new Color(
-                    clamp(red),
-                    clamp(green),
-                    clamp(blue),
+                    Math.clamp(
+                            red,
+                            0,
+                            255
+                    ),
+                    Math.clamp(
+                            green,
+                            0,
+                            255
+                    ),
+                    Math.clamp(
+                            blue,
+                            0,
+                            255
+                    ),
                     ALPHA
             );
         }
 
         return new Color(
-                clamp(
-                        red / contributors
+                Math.clamp(
+                        red / contributors,
+                        0,
+                        255
                 ),
-                clamp(
-                        green / contributors
+                Math.clamp(
+                        green / contributors,
+                        0,
+                        255
                 ),
-                clamp(
-                        blue / contributors
+                Math.clamp(
+                        blue / contributors,
+                        0,
+                        255
                 ),
                 ALPHA
         );
@@ -407,15 +451,5 @@ public class EnvironmentOverlayRenderer {
                 && firstMaxX > secondMinX
                 && firstMinZ < secondMaxZ
                 && firstMaxZ > secondMinZ;
-    }
-
-    private int clamp(
-            int value
-    ) {
-        return Math.clamp(
-                value
-                ,
-                0,
-                255);
     }
 }

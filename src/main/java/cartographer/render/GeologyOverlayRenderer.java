@@ -138,51 +138,59 @@ public class GeologyOverlayRenderer {
                         );
 
                 int imageMinX =
-                        (int) Math.floor(
-                                (regionMinX - minWorldX)
-                                        * scaleX
+                        imageCoordinate(
+                                regionMinX,
+                                minWorldX,
+                                scaleX
                         );
 
                 int imageMinY =
-                        (int) Math.floor(
-                                (regionMinZ - minWorldZ)
-                                        * scaleZ
+                        imageCoordinate(
+                                regionMinZ,
+                                minWorldZ,
+                                scaleZ
                         );
 
                 int imageMaxX =
-                        (int) Math.ceil(
-                                (regionMaxXExclusive - minWorldX)
-                                        * scaleX
+                        imageCoordinate(
+                                regionMaxXExclusive,
+                                minWorldX,
+                                scaleX
                         );
 
                 int imageMaxY =
-                        (int) Math.ceil(
-                                (regionMaxZExclusive - minWorldZ)
-                                        * scaleZ
+                        imageCoordinate(
+                                regionMaxZExclusive,
+                                minWorldZ,
+                                scaleZ
                         );
 
                 int clippedMinX =
-                        Math.max(
+                        Math.clamp(
+                                imageMinX,
                                 0,
-                                imageMinX
+                                image.getWidth()
                         );
 
                 int clippedMinY =
-                        Math.max(
+                        Math.clamp(
+                                imageMinY,
                                 0,
-                                imageMinY
+                                image.getHeight()
                         );
 
                 int clippedMaxX =
-                        Math.min(
-                                image.getWidth(),
-                                imageMaxX
+                        Math.clamp(
+                                imageMaxX,
+                                0,
+                                image.getWidth()
                         );
 
                 int clippedMaxY =
-                        Math.min(
-                                image.getHeight(),
-                                imageMaxY
+                        Math.clamp(
+                                imageMaxY,
+                                0,
+                                image.getHeight()
                         );
 
                 if (clippedMinX >= clippedMaxX
@@ -215,6 +223,18 @@ public class GeologyOverlayRenderer {
                 candidates,
                 drawn,
                 unavailable
+        );
+    }
+
+    private int imageCoordinate(
+            int worldCoordinate,
+            int minWorldCoordinate,
+            double scale
+    ) {
+        return (int) Math.floor(
+                (worldCoordinate
+                        - minWorldCoordinate)
+                        * scale
         );
     }
 
