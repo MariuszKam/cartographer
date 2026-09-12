@@ -16,6 +16,7 @@ import cartographer.render.MapRenderer;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.render.UserMarkerRenderer;
+import cartographer.resource.ResourceAnalyzer;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMapScanner;
@@ -49,11 +50,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.EnumSet;
 import java.util.Optional;
+import java.util.List;
 
 public class CartographerDesktopApp extends Application {
 
     private final TextField saveField = new TextField();
-    private final ComboBox<OrePreset> resourceBox = new ComboBox<>();
+    private final Button browseButton = new Button("Browse...");
+    private final ComboBox<OreResource> resourceBox = new ComboBox<>();
     private final TextField yMinField = new TextField();
     private final TextField yMaxField = new TextField();
     private final RadioButton allYButton = new RadioButton("All Y");
@@ -69,10 +72,16 @@ public class CartographerDesktopApp extends Application {
     private final ScrollPane preview = new ScrollPane(imageView);
 
     private RenderActualOreMapUseCase useCase;
+    private ResourceCatalogService resourceCatalogService;
 
     @Override
     public void start(Stage stage) {
-        useCase = createUseCase();
+        VcdbsReader reader = createReader();
+        useCase = createUseCase(reader);
+        resourceCatalogService = new ResourceCatalogService(
+                reader,
+                new ResourceAnalyzer()
+        );
         stage.setTitle("VS Cartographer");
 
         configureControls(stage);
@@ -92,18 +101,18 @@ public class CartographerDesktopApp extends Application {
         saveField.setEditable(false);
         saveField.setPromptText("Select a .vcdbs save");
 
-        resourceBox.getItems().setAll(OrePreset.values());
-        resourceBox.setValue(OrePreset.NATIVE_COPPER);
+        resourceBox.getItems().setAll(presetResources());
+        resourceBox.setValue(presetResources().getFirst());
         resourceBox.setEditable(true);
-        resourceBox.setConverter(new StringConverter<>() {
+        resourceBox.setConverter(new StringConverter<OreResource>() {
             @Override
-            public String toString(OrePreset preset) {
-                return preset == null ? "" : preset.label();
+            public String toString(OreResource resource) {
+                return resource == null ? "" : resource.displayName();
             }
 
             @Override
-            public OrePreset fromString(String value) {
-                return presetForLabel(value).orElse(null);
+            public OreResource fromString(String value) {
+                return resourceForDisplayName(value).orElse(null);
             }
         });
 
@@ -124,6 +133,7 @@ public class CartographerDesktopApp extends Application {
         );
         updateYFields();
 
+        browseButton.setOnAction(event -> chooseSave(stage));
         renderButton.setOnAction(event -> render());
         preview.setPannable(true);
         preview.setFitToWidth(false);
@@ -142,9 +152,7 @@ public class CartographerDesktopApp extends Application {
         grid.setVgap(8);
         grid.add(new Label("SAVE"), 0, 0);
         grid.add(saveField, 0, 1, 2, 1);
-        grid.add(new Button("Browse..."), 1, 1);
-        ((Button) grid.getChildren().getLast()).setOnAction(event ->
-                chooseSave((Stage) grid.getScene().getWindow()));
+        grid.add(browseButton, 1, 1);
 
         grid.add(new Label("RESOURCE"), 0, 2);
         grid.add(resourceBox, 0, 3, 2, 1);
@@ -189,7 +197,47 @@ public class CartographerDesktopApp extends Application {
         if (selected != null) {
             saveField.setText(selected.toPath().toString());
             statusLabel.setText("");
+            discoverResources(selected.toPath());
         }
+    }
+
+    private void discoverResources(Path savePath) {
+        setDiscoveryBusy(true);
+        statusLabel.setText("Loading resources...");
+
+        Task<List<OreResource>> task = new Task<>() {
+            @Override
+            protected List<OreResource> call() {
+                return resourceCatalogService.discover(savePath);
+            }
+        };
+        task.setOnSucceeded(event -> {
+            List<OreResource> discovered = task.getValue();
+            resourceBox.getItems().setAll(
+                    discovered.isEmpty()
+                            ? presetResources()
+                            : discovered
+            );
+            if (!resourceBox.getItems().isEmpty()) {
+                resourceBox.setValue(resourceBox.getItems().getFirst());
+            }
+            statusLabel.setText(
+                    discovered.isEmpty()
+                            ? "No resource maps found; custom matches are available."
+                            : "Loaded " + discovered.size() + " resources."
+            );
+            setDiscoveryBusy(false);
+        });
+        task.setOnFailed(event -> {
+            resourceBox.getItems().setAll(presetResources());
+            resourceBox.setValue(resourceBox.getItems().getFirst());
+            showFailure(task.getException());
+            setDiscoveryBusy(false);
+        });
+
+        Thread worker = new Thread(task, "cartographer-resource-discovery");
+        worker.setDaemon(true);
+        worker.start();
     }
 
     private void render() {
@@ -282,6 +330,7 @@ public class CartographerDesktopApp extends Application {
 
     private void setBusy(boolean busy) {
         renderButton.setDisable(busy);
+        browseButton.setDisable(busy);
         saveField.setDisable(busy);
         resourceBox.setDisable(busy);
         radius128Button.setDisable(busy);
@@ -292,6 +341,13 @@ public class CartographerDesktopApp extends Application {
         yMinField.setDisable(busy || allYButton.isSelected());
         yMaxField.setDisable(busy || allYButton.isSelected());
         progress.setVisible(busy);
+    }
+
+    private void setDiscoveryBusy(boolean busy) {
+        renderButton.setDisable(busy);
+        browseButton.setDisable(busy);
+        saveField.setDisable(busy);
+        resourceBox.setDisable(busy);
     }
 
     private void updateYFields() {
@@ -312,15 +368,25 @@ public class CartographerDesktopApp extends Application {
 
     private String resourceMatch() {
         String editor = resourceBox.getEditor().getText().trim();
-        return presetForLabel(editor)
-                .map(OrePreset::match)
+        return resourceForDisplayName(editor)
+                .map(OreResource::match)
                 .orElse(editor);
     }
 
-    private Optional<OrePreset> presetForLabel(String value) {
-        return java.util.Arrays.stream(OrePreset.values())
-                .filter(preset -> preset.label().equalsIgnoreCase(value.trim()))
+    private Optional<OreResource> resourceForDisplayName(String value) {
+        return resourceBox.getItems().stream()
+                .filter(resource -> resource.displayName().equalsIgnoreCase(value.trim()))
                 .findFirst();
+    }
+
+    private List<OreResource> presetResources() {
+        return java.util.Arrays.stream(OrePreset.values())
+                .map(preset -> new OreResource(
+                        preset.label(),
+                        preset.match(),
+                        preset.match()
+                ))
+                .toList();
     }
 
     private Integer parseOptionalInteger(TextField field, String label) {
@@ -334,14 +400,17 @@ public class CartographerDesktopApp extends Application {
         }
     }
 
-    private RenderActualOreMapUseCase createUseCase() {
-        Path config = Path.of(System.getProperty("user.home"), ".vs-cartographer");
-        VcdbsReader reader = new VcdbsReader(
+    private VcdbsReader createReader() {
+        return new VcdbsReader(
                 new PlayerDataParser(),
                 new MapChunkParser(),
                 new ChunkParser(),
                 new RegistryParser()
         );
+    }
+
+    private RenderActualOreMapUseCase createUseCase(VcdbsReader reader) {
+        Path config = Path.of(System.getProperty("user.home"), ".vs-cartographer");
         return new RenderActualOreMapUseCase(
                 reader,
                 new WorldMetadataReader(),
