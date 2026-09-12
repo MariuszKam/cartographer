@@ -44,6 +44,9 @@ public class GeologyCommand implements Command {
     private static final int MAX_SECTION_SPAN =
             4096;
 
+    private static final int DEFAULT_SECTION_RADIUS =
+            500;
+
     private static final int DEFAULT_HORIZONTAL_SCALE =
             1;
 
@@ -411,10 +414,12 @@ public class GeologyCommand implements Command {
         if (args.length < 1) {
             throw new CommandException(
                     "Usage: geology section <save.vcdbs> "
-                            + "--from-x <world-x> "
+                            + "[--axis east-west|north-south] "
+                            + "[--radius <blocks>] "
+                            + "[--from-x <world-x> "
                             + "--from-z <world-z> "
                             + "--to-x <world-x> "
-                            + "--to-z <world-z> "
+                            + "--to-z <world-z>] "
                             + "[--out <section.png>] "
                             + "[--horizontal-scale <1..8>] "
                             + "[--vertical-scale <1..8>]"
@@ -426,36 +431,35 @@ public class GeologyCommand implements Command {
                         args[0]
                 );
 
-        int fromX =
-                requiredIntOption(
-                        args,
-                        "--from-x"
+        ProgressReporter progress =
+                new ProgressReporter(
+                        out
                 );
 
-        int fromZ =
-                requiredIntOption(
-                        args,
-                        "--from-z"
+        WorldPosition player =
+                reader.readPlayerPosition(
+                        savePath,
+                        progress
                 );
 
-        int toX =
-                requiredIntOption(
+        SectionRequest request =
+                manualSectionRequested(
+                        args
+                )
+                        ? manualSection(
+                        args
+                )
+                        : playerCenteredSection(
                         args,
-                        "--to-x"
-                );
-
-        int toZ =
-                requiredIntOption(
-                        args,
-                        "--to-z"
+                        player
                 );
 
         long span =
                 sectionSpan(
-                        fromX,
-                        fromZ,
-                        toX,
-                        toZ
+                        request.fromX(),
+                        request.fromZ(),
+                        request.toX(),
+                        request.toZ()
                 );
 
         if (span > MAX_SECTION_SPAN) {
@@ -495,24 +499,19 @@ public class GeologyCommand implements Command {
         WorldPosition center =
                 new WorldPosition(
                         midpoint(
-                                fromX,
-                                toX
+                                request.fromX(),
+                                request.toX()
                         ),
                         0.0,
                         midpoint(
-                                fromZ,
-                                toZ
+                                request.fromZ(),
+                                request.toZ()
                         )
                 );
 
         int readRadius =
                 sectionReadRadius(
                         span
-                );
-
-        ProgressReporter progress =
-                new ProgressReporter(
-                        out
                 );
 
         ReadDiagnostics diagnostics =
@@ -541,16 +540,10 @@ public class GeologyCommand implements Command {
                 crossSectionAnalyzer.analyze(
                         chunks,
                         registry,
-                        fromX,
-                        fromZ,
-                        toX,
-                        toZ
-                );
-
-        WorldPosition player =
-                reader.readPlayerPosition(
-                        savePath,
-                        progress
+                        request.fromX(),
+                        request.fromZ(),
+                        request.toX(),
+                        request.toZ()
                 );
 
         GeologySectionMarker playerMarker =
@@ -613,22 +606,48 @@ public class GeologyCommand implements Command {
         );
 
         out.println(
+                "Mode: "
+                        + request.mode()
+        );
+
+        out.printf(
+                Locale.ROOT,
+                "Player world: %.3f,%.3f,%.3f%n",
+                player.x(),
+                player.y(),
+                player.z()
+        );
+
+        if (request.playerCentered()) {
+            out.println(
+                    "Axis: "
+                            + request.axis()
+            );
+
+            out.println(
+                    "Radius: "
+                            + request.radius()
+                            + " blocks"
+            );
+        }
+
+        out.println(
                 "Output: "
                         + output
         );
 
         out.println(
                 "From world: "
-                        + fromX
+                        + request.fromX()
                         + ","
-                        + fromZ
+                        + request.fromZ()
         );
 
         out.println(
                 "To world: "
-                        + toX
+                        + request.toX()
                         + ","
-                        + toZ
+                        + request.toZ()
         );
 
         out.println(
@@ -820,6 +839,183 @@ public class GeologyCommand implements Command {
                 spanX,
                 spanZ
         );
+    }
+
+    private boolean manualSectionRequested(
+            String[] args
+    ) {
+        return option(
+                args,
+                "--from-x"
+        ).isPresent()
+                || option(
+                args,
+                "--from-z"
+        ).isPresent()
+                || option(
+                args,
+                "--to-x"
+        ).isPresent()
+                || option(
+                args,
+                "--to-z"
+        ).isPresent();
+    }
+
+    private SectionRequest manualSection(
+            String[] args
+    ) {
+        if (option(
+                args,
+                "--axis"
+        ).isPresent()
+                || option(
+                args,
+                "--radius"
+        ).isPresent()) {
+
+            throw new CommandException(
+                    "--axis and --radius cannot be combined with manual --from/--to coordinates"
+            );
+        }
+
+        return new SectionRequest(
+                requiredIntOption(
+                        args,
+                        "--from-x"
+                ),
+                requiredIntOption(
+                        args,
+                        "--from-z"
+                ),
+                requiredIntOption(
+                        args,
+                        "--to-x"
+                ),
+                requiredIntOption(
+                        args,
+                        "--to-z"
+                ),
+                null,
+                0,
+                false
+        );
+    }
+
+    private SectionRequest playerCenteredSection(
+            String[] args,
+            WorldPosition player
+    ) {
+        int playerX =
+                (int) Math.round(
+                        player.x()
+                );
+
+        int playerZ =
+                (int) Math.round(
+                        player.z()
+                );
+
+        int radius =
+                sectionRadiusOption(
+                        args
+                );
+
+        SectionAxis axis =
+                sectionAxisOption(
+                        args
+                );
+
+        return switch (axis) {
+            case EAST_WEST ->
+                    new SectionRequest(
+                            playerX - radius,
+                            playerZ,
+                            playerX + radius,
+                            playerZ,
+                            axis,
+                            radius,
+                            true
+                    );
+
+            case NORTH_SOUTH ->
+                    new SectionRequest(
+                            playerX,
+                            playerZ - radius,
+                            playerX,
+                            playerZ + radius,
+                            axis,
+                            radius,
+                            true
+                    );
+        };
+    }
+
+    private int sectionRadiusOption(
+            String[] args
+    ) {
+        Optional<String> raw =
+                option(
+                        args,
+                        "--radius"
+                );
+
+        if (raw.isEmpty()) {
+            return DEFAULT_SECTION_RADIUS;
+        }
+
+        try {
+            int value =
+                    Integer.parseInt(
+                            raw.get()
+                    );
+
+            if (value <= 0) {
+                throw new CommandException(
+                        "--radius must be positive"
+                );
+            }
+
+            return value;
+
+        } catch (NumberFormatException exception) {
+            throw new CommandException(
+                    "Invalid --radius: "
+                            + raw.get()
+            );
+        }
+    }
+
+    private SectionAxis sectionAxisOption(
+            String[] args
+    ) {
+        Optional<String> raw =
+                option(
+                        args,
+                        "--axis"
+                );
+
+        if (raw.isEmpty()) {
+            return SectionAxis.EAST_WEST;
+        }
+
+        return switch (raw.get()
+                .toLowerCase(
+                        Locale.ROOT
+                )) {
+            case "east-west", "ew", "x" ->
+                    SectionAxis.EAST_WEST;
+
+            case "north-south", "ns", "z" ->
+                    SectionAxis.NORTH_SOUTH;
+
+            default ->
+                    throw new CommandException(
+                            "Invalid --axis: "
+                                    + raw.get()
+                                    + " (expected east-west or north-south)"
+                    );
+        };
     }
 
     private int sectionReadRadius(
@@ -1102,12 +1298,19 @@ public class GeologyCommand implements Command {
             String optionName
     ) {
         for (int index = 1;
-             index < args.length - 1;
+             index < args.length;
              index++) {
 
             if (optionName.equals(
                     args[index]
             )) {
+                if (index == args.length - 1) {
+                    throw new CommandException(
+                            "Missing value for option: "
+                                    + optionName
+                    );
+                }
+
                 return Optional.of(
                         args[index + 1]
                 );
@@ -1141,5 +1344,27 @@ public class GeologyCommand implements Command {
             long unavailableSamples,
             long oreSamples
     ) {
+    }
+
+    private enum SectionAxis {
+        EAST_WEST,
+        NORTH_SOUTH
+    }
+
+    private record SectionRequest(
+            int fromX,
+            int fromZ,
+            int toX,
+            int toZ,
+            SectionAxis axis,
+            int radius,
+            boolean playerCentered
+    ) {
+
+        private String mode() {
+            return playerCentered
+                    ? "PLAYER_CENTERED"
+                    : "MANUAL";
+        }
     }
 }
