@@ -1,8 +1,10 @@
 package cartographer.cli;
 
+import cartographer.model.BlockInfo;
 import cartographer.model.DisplayPosition;
 import cartographer.model.HomeLocation;
 import cartographer.model.MapChunk;
+import cartographer.model.ParsedChunk;
 import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
@@ -14,20 +16,27 @@ import cartographer.render.RenderOptions;
 import cartographer.render.RenderStyle;
 import cartographer.render.RenderedMap;
 import cartographer.render.ResourceOverlayRenderer;
+import cartographer.render.SurfaceResourceOverlayRenderer;
 import cartographer.resource.ResourceAnalyzer;
 import cartographer.resource.ResourceCandidate;
 import cartographer.resource.ResourceHotspot;
 import cartographer.resource.ResourceOverlayCell;
 import cartographer.resource.ResourceSummary;
+import cartographer.resource.SurfaceResourceAnalysis;
+import cartographer.resource.SurfaceResourceAnalyzer;
+import cartographer.resource.SurfaceResourceDeposit;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
+import cartographer.scanner.SurfaceScanResult;
+import cartographer.scanner.SurfaceScanner;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 public class ResourceCommand implements Command {
@@ -43,6 +52,9 @@ public class ResourceCommand implements Command {
 
     private static final int DEFAULT_RENDER_RADIUS =
             1024;
+
+    private static final int DEFAULT_SURFACE_RADIUS =
+            512;
 
     private static final double DEFAULT_MINIMUM_SIGNAL =
             0.50;
@@ -62,6 +74,15 @@ public class ResourceCommand implements Command {
     private final ResourceOverlayRenderer overlayRenderer;
 
     private final PngWriter pngWriter;
+
+    private final SurfaceScanner surfaceScanner =
+            new SurfaceScanner();
+
+    private final SurfaceResourceAnalyzer surfaceResourceAnalyzer =
+            new SurfaceResourceAnalyzer();
+
+    private final SurfaceResourceOverlayRenderer surfaceResourceOverlayRenderer =
+            new SurfaceResourceOverlayRenderer();
 
     private final String subcommand;
 
@@ -145,6 +166,16 @@ public class ResourceCommand implements Command {
 
             case "render" ->
                     render(
+                            args
+                    );
+
+            case "surface-search" ->
+                    surfaceSearch(
+                            args
+                    );
+
+            case "surface-render" ->
+                    surfaceRender(
                             args
                     );
 
@@ -532,13 +563,10 @@ public class ResourceCommand implements Command {
                 );
 
         RenderOptions renderOptions =
-                new RenderOptions(
+                terrainRenderOptions(
                         radius,
                         scale,
-                        style,
-                        EnumSet.of(
-                                RenderLayer.TERRAIN
-                        )
+                        style
                 );
 
         RenderedMap rendered =
@@ -655,6 +683,488 @@ public class ResourceCommand implements Command {
         );
 
         return 0;
+    }
+
+    private int surfaceSearch(
+            String[] args
+    ) {
+        if (args.length < 2) {
+            throw new CommandException(
+                    "Usage: resource surface-search <save.vcdbs> <match> "
+                            + "[--radius <blocks>] "
+                            + "[--top <n>] "
+                            + "[--center-x <x> --center-z <z>]"
+            );
+        }
+
+        Path savePath =
+                Path.of(
+                        args[0]
+                );
+
+        String match =
+                args[1];
+
+        int radius =
+                intOption(
+                        args,
+                        "--radius",
+                        DEFAULT_SURFACE_RADIUS,
+                        1,
+                        8192
+                );
+
+        int top =
+                intOption(
+                        args,
+                        "--top",
+                        DEFAULT_TOP,
+                        1,
+                        MAX_TOP
+                );
+
+        SurfaceResourceLoad loaded =
+                loadSurfaceResource(
+                        savePath,
+                        match,
+                        radius,
+                        args
+                );
+
+        WorldMetadata metadata =
+                metadataReader.read(
+                        savePath,
+                        ProgressReporter.NONE
+                );
+
+        out.println(
+                "SURFACE RESOURCE SEARCH"
+        );
+
+        out.println(
+                "Match: "
+                        + loaded.analysis()
+                        .query()
+        );
+
+        out.println(
+                "Radius: "
+                        + radius
+                        + " blocks"
+        );
+
+        out.println(
+                "Parsed chunks: "
+                        + loaded.chunkDiagnostics()
+                        .parsed()
+        );
+
+        out.println(
+                "Failed chunks: "
+                        + loaded.chunkDiagnostics()
+                        .failed()
+        );
+
+        printFailureReasons(
+                loaded.chunkDiagnostics()
+        );
+
+        out.println(
+                "Surface columns: "
+                        + loaded.surface()
+                        .columnsScanned()
+        );
+
+        out.println(
+                "Matching surface blocks: "
+                        + loaded.analysis()
+                        .matchingBlockCount()
+        );
+
+        out.println(
+                "Connected deposits: "
+                        + loaded.analysis()
+                        .depositCount()
+        );
+
+        List<SurfaceResourceDeposit> deposits =
+                loaded.analysis()
+                        .deposits();
+
+        if (deposits.isEmpty()) {
+            out.println(
+                    "Deposits: none"
+            );
+
+            return 0;
+        }
+
+        out.println(
+                "Largest deposits:"
+        );
+
+        int count =
+                Math.min(
+                        top,
+                        deposits.size()
+                );
+
+        for (int index = 0;
+             index < count;
+             index++) {
+
+            SurfaceResourceDeposit deposit =
+                    deposits.get(
+                            index
+                    );
+
+            DisplayPosition display =
+                    metadata.toDisplay(
+                            new WorldPosition(
+                                    deposit.centerWorldX(),
+                                    0.0,
+                                    deposit.centerWorldZ()
+                            )
+                    );
+
+            out.printf(
+                    Locale.ROOT,
+                    "%d. blocks=%d size=%dx%d y=%d..%d%n",
+                    index + 1,
+                    deposit.blockCount(),
+                    deposit.widthBlocks(),
+                    deposit.depthBlocks(),
+                    deposit.minY(),
+                    deposit.maxY()
+            );
+
+            out.println(
+                    "   codes: "
+                            + deposit.blockCodes()
+            );
+
+            out.printf(
+                    Locale.ROOT,
+                    "   absolute center: %.0f,%.0f%n",
+                    deposit.centerWorldX(),
+                    deposit.centerWorldZ()
+            );
+
+            out.printf(
+                    Locale.ROOT,
+                    "   display center: %.0f,%.0f%n",
+                    display.x(),
+                    display.z()
+            );
+
+            out.printf(
+                    Locale.ROOT,
+                    "   bounds: x=%d..%d z=%d..%d%n",
+                    deposit.minWorldX(),
+                    deposit.maxWorldX(),
+                    deposit.minWorldZ(),
+                    deposit.maxWorldZ()
+            );
+        }
+
+        return 0;
+    }
+
+    private int surfaceRender(
+            String[] args
+    ) {
+        if (args.length < 2) {
+            throw new CommandException(
+                    "Usage: resource surface-render <save.vcdbs> <match> "
+                            + "[--radius <blocks>] "
+                            + "[--out <map.png>] "
+                            + "[--scale <n>] "
+                            + "[--style simple|topographic|high-contrast] "
+                            + "[--center-x <x> --center-z <z>]"
+            );
+        }
+
+        Path savePath =
+                Path.of(
+                        args[0]
+                );
+
+        String match =
+                args[1];
+
+        int radius =
+                intOption(
+                        args,
+                        "--radius",
+                        DEFAULT_SURFACE_RADIUS,
+                        1,
+                        8192
+                );
+
+        int scale =
+                intOption(
+                        args,
+                        "--scale",
+                        1,
+                        1,
+                        16
+                );
+
+        RenderStyle style =
+                RenderStyle.parse(
+                        option(
+                                args,
+                                "--style"
+                        ).orElse(
+                                "topographic"
+                        )
+                );
+
+        Path output =
+                option(
+                        args,
+                        "--out"
+                )
+                        .map(
+                                Path::of
+                        )
+                        .orElse(
+                                Path.of(
+                                        "output",
+                                        safeFileName(
+                                                match
+                                        )
+                                                + "-surface-search.png"
+                                )
+                        );
+
+        SurfaceResourceLoad loaded =
+                loadSurfaceResource(
+                        savePath,
+                        match,
+                        radius,
+                        args
+                );
+
+        ProgressReporter progress =
+                new ProgressReporter(
+                        out
+                );
+
+        Optional<HomeLocation> home =
+                absoluteHome(
+                        savePath,
+                        progress
+                );
+
+        ReadDiagnostics mapDiagnostics =
+                new ReadDiagnostics();
+
+        List<MapChunk> mapChunks =
+                reader.readMapChunksAround(
+                        savePath,
+                        loaded.center(),
+                        radius,
+                        mapDiagnostics,
+                        progress
+                );
+
+        RenderedMap rendered =
+                mapRenderer.render(
+                        loaded.center(),
+                        loaded.player(),
+                        home,
+                        mapChunks,
+                        List.of(),
+                        terrainRenderOptions(
+                                radius,
+                                scale,
+                                style
+                        ),
+                        progress
+                );
+
+        progress.start(
+                "Drawing surface resource overlay"
+        );
+
+        int blocksDrawn =
+                surfaceResourceOverlayRenderer.draw(
+                        rendered.image(),
+                        loaded.center(),
+                        radius,
+                        loaded.analysis(),
+                        loaded.player(),
+                        home
+                );
+
+        progress.done(
+                "Surface resource overlay drawn"
+        );
+
+        progress.start(
+                "Writing PNG"
+        );
+
+        pngWriter.write(
+                rendered.image(),
+                output
+        );
+
+        progress.done(
+                "PNG written"
+        );
+
+        out.println(
+                "SURFACE RESOURCE MAP"
+        );
+
+        out.println(
+                "Match: "
+                        + loaded.analysis()
+                        .query()
+        );
+
+        out.println(
+                "Output: "
+                        + output
+        );
+
+        out.println(
+                "Image: "
+                        + rendered.report().width()
+                        + "x"
+                        + rendered.report().height()
+        );
+
+        out.println(
+                "Radius: "
+                        + radius
+                        + " blocks"
+        );
+
+        out.println(
+                "Matching blocks: "
+                        + loaded.analysis()
+                        .matchingBlockCount()
+        );
+
+        out.println(
+                "Connected deposits: "
+                        + loaded.analysis()
+                        .depositCount()
+        );
+
+        out.println(
+                "Overlay blocks drawn: "
+                        + blocksDrawn
+        );
+
+        out.println(
+                "Parsed chunks: "
+                        + loaded.chunkDiagnostics()
+                        .parsed()
+        );
+
+        out.println(
+                "Failed chunks: "
+                        + loaded.chunkDiagnostics()
+                        .failed()
+        );
+
+        out.println(
+                "Parsed mapchunks: "
+                        + mapDiagnostics.parsed()
+        );
+
+        out.println(
+                "Failed mapchunks: "
+                        + mapDiagnostics.failed()
+        );
+
+        return 0;
+    }
+
+    private SurfaceResourceLoad loadSurfaceResource(
+            Path savePath,
+            String match,
+            int radius,
+            String[] args
+    ) {
+        ProgressReporter progress =
+                new ProgressReporter(
+                        out
+                );
+
+        WorldPosition player =
+                reader.readPlayerPosition(
+                        savePath,
+                        Optional.empty(),
+                        progress
+                );
+
+        WorldPosition center =
+                center(
+                        args
+                )
+                        .orElse(
+                                player
+                        );
+
+        ReadDiagnostics diagnostics =
+                new ReadDiagnostics();
+
+        List<ParsedChunk> chunks =
+                reader.readChunksAround(
+                        savePath,
+                        center,
+                        radius,
+                        diagnostics,
+                        progress
+                );
+
+        Map<Integer, BlockInfo> registry =
+                reader.readBlockRegistry(
+                        savePath,
+                        progress
+                );
+
+        SurfaceScanResult surface =
+                surfaceScanner.scan(
+                        chunks,
+                        registry,
+                        true,
+                        progress
+                );
+
+        SurfaceResourceAnalysis analysis =
+                surfaceResourceAnalyzer.analyze(
+                        surface.blocks(),
+                        match
+                );
+
+        return new SurfaceResourceLoad(
+                player,
+                center,
+                diagnostics,
+                surface,
+                analysis
+        );
+    }
+
+    private RenderOptions terrainRenderOptions(
+            int radius,
+            int scale,
+            RenderStyle style
+    ) {
+        return new RenderOptions(
+                radius,
+                scale,
+                style,
+                EnumSet.of(
+                        RenderLayer.TERRAIN
+                )
+        );
     }
 
     private LoadedResources load(
@@ -1092,6 +1602,28 @@ public class ResourceCommand implements Command {
         );
     }
 
+    private String safeFileName(
+            String value
+    ) {
+        String safe =
+                value == null
+                        ? ""
+                        : value.trim()
+                        .toLowerCase(
+                                Locale.ROOT
+                        )
+                        .replaceAll(
+                                "[^a-z0-9._-]+",
+                                "-"
+                        );
+
+        if (safe.isBlank()) {
+            return "surface-resource";
+        }
+
+        return safe;
+    }
+
     private static HomeStore defaultHomeStore() {
         Path configDirectory =
                 Path.of(
@@ -1111,6 +1643,15 @@ public class ResourceCommand implements Command {
     private record LoadedResources(
             List<ServerMapRegion> regions,
             ReadDiagnostics diagnostics
+    ) {
+    }
+
+    private record SurfaceResourceLoad(
+            WorldPosition player,
+            WorldPosition center,
+            ReadDiagnostics chunkDiagnostics,
+            SurfaceScanResult surface,
+            SurfaceResourceAnalysis analysis
     ) {
     }
 }
