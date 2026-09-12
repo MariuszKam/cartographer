@@ -112,11 +112,11 @@ class OreResourceResolverTest {
     void recognizesOrePathAndRejectsUnrelatedBlocks() {
         List<OreResource> resources = resolver.resolve(
                 List.of("game:cassiterite"),
-                List.of(
-                        block(1, "forest-cassiterite"),
-                        block(2, "rock-cassiterite"),
-                        block(3, "decorative-cassiterite"),
-                        block(4, "GAME:ORE-RICH-CASSITERITE-GRANITE")
+                Map.of(
+                        1, block(1, "forest-cassiterite"),
+                        2, block(2, "rock-cassiterite"),
+                        3, block(3, "decorative-cassiterite"),
+                        4, block(4, "GAME:ORE-RICH-CASSITERITE-GRANITE")
                 )
         );
 
