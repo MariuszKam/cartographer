@@ -122,7 +122,7 @@ final class DenseHeightGrid {
         }
 
         void accept(MapChunk chunk) {
-            chunk = Objects.requireNonNull(chunk, "chunks cannot contain null");
+            Objects.requireNonNull(chunk, "chunks cannot contain null");
             acceptedChunks++;
             progress.progress(
                     "Indexing mapchunk heights",

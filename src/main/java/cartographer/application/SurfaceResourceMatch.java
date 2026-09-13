@@ -20,7 +20,7 @@ public record SurfaceResourceMatch(
                 requiredTokens,
                 "Surface resource tokens are required"
         )).stream()
-                .map(token -> token == null ? "" : token.trim().toLowerCase(Locale.ROOT))
+                .map(token -> token.trim().toLowerCase(Locale.ROOT))
                 .filter(token -> !token.isBlank())
                 .toList();
 

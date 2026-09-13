@@ -58,11 +58,10 @@ public record ActualBlockMap(
             );
         }
 
-        yFilter =
-                Objects.requireNonNull(
-                        yFilter,
-                        "ActualBlockMap yFilter is required"
-                );
+        Objects.requireNonNull(
+                yFilter,
+                "ActualBlockMap yFilter is required"
+        );
 
         cells =
                 List.copyOf(

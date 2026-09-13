@@ -218,13 +218,16 @@ public class GeologyCrossSectionAnalyzer {
         List<GeologySectionRun> runs =
                 new ArrayList<>();
 
-        SampleState current =
-                null;
+        int runStartY = bounds.minYInclusive();
+        SampleState current = sample(
+                chunks,
+                blockRegistry,
+                worldX,
+                runStartY,
+                worldZ
+        );
 
-        int runStartY =
-                bounds.minYInclusive();
-
-        for (int worldY = bounds.minYInclusive();
+        for (int worldY = runStartY + 1;
              worldY < bounds.maxYExclusive();
              worldY++) {
 
@@ -236,16 +239,6 @@ public class GeologyCrossSectionAnalyzer {
                             worldY,
                             worldZ
                     );
-
-            if (current == null) {
-                current =
-                        sample;
-
-                runStartY =
-                        worldY;
-
-                continue;
-            }
 
             if (!current.equals(
                     sample
