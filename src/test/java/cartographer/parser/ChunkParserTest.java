@@ -140,6 +140,32 @@ class ChunkParserTest {
         );
     }
 
+    @Test
+    void alreadyParsedServerChunkDoesNotParseProtobufAgain() {
+        byte[] blocks =
+                encodedLayer(
+                        new int[]{0, 11},
+                        index -> index == 0 ? 1 : 0
+                );
+        ChunkParser parser = new ChunkParser() {
+            @Override
+            public ParseResult<ServerChunkPayload> parsePayload(
+                    byte[] payload
+            ) {
+                throw new AssertionError("parsePayload must not be called");
+            }
+        };
+
+        ParseResult<ParsedChunk> result =
+                parser.parse(
+                        new ChunkCoordinate(0, 0, 0),
+                        new ServerChunkPayload(blocks, emptyLayer(), 2),
+                        ChunkDecodeProfile.BLOCKS_ONLY
+                );
+
+        assertTrue(result.isSuccess());
+    }
+
     private static final class RecordingLayerDecoder
             extends ChunkDataLayerDecoder {
         private int decodeCalls;

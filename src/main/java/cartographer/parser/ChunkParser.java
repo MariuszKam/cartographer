@@ -60,9 +60,26 @@ public class ChunkParser {
             );
         }
 
-        ServerChunkPayload serverChunk =
-                parsedPayload.value()
-                        .orElseThrow();
+        return parse(
+                coordinate,
+                parsedPayload.value().orElseThrow(),
+                profile
+        );
+    }
+
+    public ParseResult<ParsedChunk> parse(
+            ChunkCoordinate coordinate,
+            ServerChunkPayload serverChunk,
+            ChunkDecodeProfile profile
+    ) {
+        Objects.requireNonNull(
+                serverChunk,
+                "serverChunk is required"
+        );
+        Objects.requireNonNull(
+                profile,
+                "profile is required"
+        );
 
         try {
             int[] blockIds =
@@ -99,6 +116,29 @@ public class ChunkParser {
         } catch (IllegalArgumentException exception) {
             return ParseResult.failure(
                     "blocksCompressed: "
+                            + exception.getMessage()
+            );
+        }
+    }
+
+    public ParseResult<ChunkPaletteProbe> probeBlockPalette(
+            ServerChunkPayload serverChunk
+    ) {
+        Objects.requireNonNull(
+                serverChunk,
+                "serverChunk is required"
+        );
+
+        try {
+            return ParseResult.success(
+                    layerDecoder.probePalette(
+                            serverChunk.blocksCompressed(),
+                            serverChunk.savedCompressionVersion()
+                    )
+            );
+        } catch (IllegalArgumentException exception) {
+            return ParseResult.failure(
+                    "blocksCompressed palette: "
                             + exception.getMessage()
             );
         }
