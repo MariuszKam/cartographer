@@ -48,6 +48,9 @@ public class VcdbsReader {
     private static final int DIRECT_CHUNK_BATCH_SIZE =
             256;
 
+    private static final int DIRECT_MAPCHUNK_BATCH_SIZE =
+            256;
+
     private final PlayerDataParser playerDataParser;
     private final MapChunkParser mapChunkParser;
     private final ChunkParser chunkParser;
@@ -77,6 +80,121 @@ public class VcdbsReader {
                 diagnostics,
                 ProgressReporter.NONE
         );
+    }
+
+    public MapChunkStreamStats forEachMapChunkByCoordinate(
+            Path savePath,
+            Collection<MapChunkCoordinate> coordinates,
+            ReadDiagnostics diagnostics,
+            Consumer<MapChunk> consumer
+    ) {
+        return forEachMapChunkByCoordinate(
+                savePath,
+                coordinates,
+                diagnostics,
+                consumer,
+                ProgressReporter.NONE
+        );
+    }
+
+    /**
+     * Visits main-world mapchunks by exact INTEGER PRIMARY KEY lookup.
+     * Each requested coordinate is packed as x, y=0, z, dimension=0.
+     * SQLite result order is unspecified and must not be relied upon.
+     */
+    public MapChunkStreamStats forEachMapChunkByCoordinate(
+            Path savePath,
+            Collection<MapChunkCoordinate> coordinates,
+            ReadDiagnostics diagnostics,
+            Consumer<MapChunk> consumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(savePath, "savePath is required");
+        Objects.requireNonNull(coordinates, "coordinates is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(consumer, "consumer is required");
+        Objects.requireNonNull(progress, "progress is required");
+
+        Set<Long> packedPositions = new LinkedHashSet<>();
+        for (MapChunkCoordinate coordinate : coordinates) {
+            Objects.requireNonNull(
+                    coordinate,
+                    "coordinates cannot contain null"
+            );
+            packedPositions.add(
+                    ChunkPosEncoder.encode(
+                            coordinate.x(),
+                            0,
+                            coordinate.z(),
+                            0
+                    )
+            );
+        }
+
+        if (packedPositions.isEmpty()) {
+            return new MapChunkStreamStats(0, 0, 0, 0, 0, 0);
+        }
+
+        progress.start("Reading mapchunks by exact position");
+        int batchesExecuted = 0;
+        int rowsFound = 0;
+        int parsedMapChunks = 0;
+        int failedMapChunks = 0;
+        long payloadBytes = 0;
+
+        try (Connection connection = connectionFactory.openReadOnly(savePath)) {
+            if (tableMissing(connection, SaveTable.MAPCHUNK.tableName())) {
+                diagnostics.missingTable(SaveTable.MAPCHUNK.tableName());
+                progress.done(
+                        "Exact mapchunk lookup unavailable: mapchunk table missing"
+                );
+                return new MapChunkStreamStats(
+                        packedPositions.size(), 0, 0, 0, 0, 0
+                );
+            }
+
+            List<Long> requested = new ArrayList<>(packedPositions);
+            for (int start = 0;
+                 start < requested.size();
+                 start += DIRECT_MAPCHUNK_BATCH_SIZE) {
+                int end = Math.min(
+                        start + DIRECT_MAPCHUNK_BATCH_SIZE,
+                        requested.size()
+                );
+                MapChunkBatchStats batch = readMapChunkBatch(
+                        connection,
+                        requested.subList(start, end),
+                        diagnostics,
+                        consumer
+                );
+                batchesExecuted++;
+                rowsFound += batch.rowsFound();
+                parsedMapChunks += batch.parsedMapChunks();
+                failedMapChunks += batch.failedMapChunks();
+                payloadBytes += batch.payloadBytes();
+                progress.progress(
+                        "Reading mapchunks by exact position",
+                        end,
+                        requested.size()
+                );
+            }
+
+            progress.done("Exact mapchunk lookup complete");
+            return new MapChunkStreamStats(
+                    packedPositions.size(),
+                    batchesExecuted,
+                    rowsFound,
+                    parsedMapChunks,
+                    failedMapChunks,
+                    payloadBytes
+            );
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot read mapchunk table by exact position: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
     }
 
     public List<ParsedChunk> readChunksAround(
@@ -523,6 +641,80 @@ public class VcdbsReader {
         );
     }
 
+    private MapChunkBatchStats readMapChunkBatch(
+            Connection connection,
+            List<Long> packedPositions,
+            ReadDiagnostics diagnostics,
+            Consumer<MapChunk> consumer
+    ) throws SQLException {
+        String sql =
+                "SELECT position, data FROM \""
+                        + SaveTable.MAPCHUNK.tableName()
+                        + "\" WHERE position IN ("
+                        + sqlPlaceholders(packedPositions.size())
+                        + ")";
+
+        int rowsFound = 0;
+        int parsedMapChunks = 0;
+        int failedMapChunks = 0;
+        long payloadBytes = 0;
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            for (int index = 0; index < packedPositions.size(); index++) {
+                statement.setLong(index + 1, packedPositions.get(index));
+            }
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    rowsFound++;
+
+                    ChunkPosition position = ChunkPosDecoder.decode(
+                            resultSet.getLong("position")
+                    );
+                    MapChunkCoordinate coordinate = new MapChunkCoordinate(
+                            position.x(),
+                            position.z()
+                    );
+                    byte[] payload = resultSet.getBytes("data");
+
+                    if (payload == null) {
+                        diagnostics.recordSkipped(
+                                "mapchunk row has null payload"
+                        );
+                        continue;
+                    }
+
+                    payloadBytes += payload.length;
+                    ParseResult<MapChunk> parsed = mapChunkParser.parse(
+                            coordinate,
+                            payload
+                    );
+
+                    if (parsed.isSuccess()) {
+                        MapChunk mapChunk = parsed.value().orElseThrow();
+                        diagnostics.recordParsed();
+                        consumer.accept(mapChunk);
+                        parsedMapChunks++;
+                    } else {
+                        diagnostics.recordFailed(
+                                parsed.error().orElse(
+                                        "unknown mapchunk parse error"
+                                )
+                        );
+                        failedMapChunks++;
+                    }
+                }
+            }
+        }
+
+        return new MapChunkBatchStats(
+                rowsFound,
+                parsedMapChunks,
+                failedMapChunks,
+                payloadBytes
+        );
+    }
+
     private SelectiveBatchStats readSelectiveChunkBatch(
             Connection connection,
             List<Long> packedPositions,
@@ -677,6 +869,14 @@ public class VcdbsReader {
             int rowsFound,
             int parsedChunks,
             int failedChunks,
+            long payloadBytes
+    ) {
+    }
+
+    private record MapChunkBatchStats(
+            int rowsFound,
+            int parsedMapChunks,
+            int failedMapChunks,
             long payloadBytes
     ) {
     }
