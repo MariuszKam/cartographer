@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VcdbsReaderDirectChunkLookupTest {
@@ -287,7 +288,7 @@ class VcdbsReaderDirectChunkLookupTest {
         parser.release.countDown();
         caller.join();
 
-        assertEquals(null, failure.get());
+        assertNull(failure.get());
         assertEquals(callerThread.get(), consumerThread.get());
         assertEquals(2, parser.workerThreads.size());
         assertTrue(parser.workerThreads.stream().noneMatch(Thread::isVirtual));
@@ -324,7 +325,7 @@ class VcdbsReaderDirectChunkLookupTest {
         parser.release.countDown();
         caller.join();
 
-        assertEquals(null, failure.get());
+        assertNull(failure.get());
         assertEquals(callerThread.get(), consumerThread.get());
         assertEquals(2, parser.workerThreads.size());
         assertTrue(parser.workerThreads.stream().noneMatch(Thread::isVirtual));

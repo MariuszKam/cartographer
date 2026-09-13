@@ -38,6 +38,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -106,7 +107,7 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(1, reader.selectiveCalls);
         assertEquals(0, reader.legacyChunkCalls);
         assertArrayEquals(new int[]{1}, reader.lastWantedBlockIds);
-        assertTrue(!reader.lastPositions.isEmpty());
+        assertFalse(reader.lastPositions.isEmpty());
         assertEquals(1, result.actualOreOverlays().getFirst().map().matchingBlocks());
         assertEquals(
                 ActualBlockMatchMode.ORE_CODE,

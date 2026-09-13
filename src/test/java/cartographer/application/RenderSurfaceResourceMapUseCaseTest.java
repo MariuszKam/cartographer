@@ -175,7 +175,7 @@ class RenderSurfaceResourceMapUseCaseTest {
 
         assertEquals(1, reader.directMapChunkCalls);
         assertTrue(reader.directMapChunkRequests.getFirst().contains(surfaceOnly));
-        assertTrue(reader.exactChunkCalls == 1);
+        assertEquals(1, reader.exactChunkCalls);
         assertTrue(reader.exactRequests.getFirst().stream().anyMatch(
                 position -> position.x() == surfaceOnly.x()
                         && position.z() == surfaceOnly.z()

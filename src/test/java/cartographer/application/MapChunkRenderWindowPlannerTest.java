@@ -103,6 +103,6 @@ class MapChunkRenderWindowPlannerTest {
                 33
         );
 
-        assertEquals((long) result.size(), result.stream().distinct().count());
+        assertEquals(result.size(), result.stream().distinct().count());
     }
 }
