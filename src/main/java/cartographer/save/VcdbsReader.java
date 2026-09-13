@@ -30,13 +30,20 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Collection;
+import java.util.Set;
+import java.util.function.Consumer;
 
 public class VcdbsReader {
+
+    private static final int DIRECT_CHUNK_BATCH_SIZE =
+            256;
 
     private final PlayerDataParser playerDataParser;
     private final MapChunkParser mapChunkParser;
@@ -82,6 +89,258 @@ public class VcdbsReader {
                 diagnostics,
                 ProgressReporter.NONE
         );
+    }
+
+    public ChunkStreamStats forEachChunkByPosition(
+            Path savePath,
+            Collection<ChunkPosition> positions,
+            ReadDiagnostics diagnostics,
+            Consumer<ParsedChunk> consumer
+    ) {
+        return forEachChunkByPosition(
+                savePath,
+                positions,
+                diagnostics,
+                consumer,
+                ProgressReporter.NONE
+        );
+    }
+
+    /**
+     * Visits chunks found by exact packed primary-key lookup. SQL result order
+     * is unspecified and must not be treated as request order.
+     */
+    public ChunkStreamStats forEachChunkByPosition(
+            Path savePath,
+            Collection<ChunkPosition> positions,
+            ReadDiagnostics diagnostics,
+            Consumer<ParsedChunk> consumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(savePath, "savePath is required");
+        Objects.requireNonNull(positions, "positions is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(consumer, "consumer is required");
+        Objects.requireNonNull(progress, "progress is required");
+
+        Set<Long> packedPositions =
+                packedUniquePositions(positions);
+
+        if (packedPositions.isEmpty()) {
+            return new ChunkStreamStats(0, 0, 0, 0, 0, 0);
+        }
+
+        progress.start(
+                "Reading chunks by exact position"
+        );
+
+        int batchesExecuted = 0;
+        int rowsFound = 0;
+        int parsedChunks = 0;
+        int failedChunks = 0;
+        long payloadBytes = 0;
+
+        try (Connection connection =
+                     connectionFactory.openReadOnly(savePath)) {
+
+            if (tableMissing(
+                    connection,
+                    SaveTable.CHUNK.tableName()
+            )) {
+                diagnostics.missingTable(
+                        SaveTable.CHUNK.tableName()
+                );
+
+                return new ChunkStreamStats(
+                        packedPositions.size(),
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                );
+            }
+
+            List<Long> requested =
+                    new ArrayList<>(packedPositions);
+
+            for (int start = 0;
+                 start < requested.size();
+                 start += DIRECT_CHUNK_BATCH_SIZE) {
+
+                int end =
+                        Math.min(
+                                start + DIRECT_CHUNK_BATCH_SIZE,
+                                requested.size()
+                        );
+
+                BatchStats batch =
+                        readChunkBatch(
+                                connection,
+                                requested.subList(start, end),
+                                diagnostics,
+                                consumer
+                        );
+
+                batchesExecuted++;
+                rowsFound += batch.rowsFound();
+                parsedChunks += batch.parsedChunks();
+                failedChunks += batch.failedChunks();
+                payloadBytes += batch.payloadBytes();
+
+                progress.progress(
+                        "Reading chunks by exact position",
+                        end,
+                        requested.size()
+                );
+            }
+
+            progress.done(
+                    "Exact chunk lookup complete"
+            );
+
+            return new ChunkStreamStats(
+                    packedPositions.size(),
+                    batchesExecuted,
+                    rowsFound,
+                    parsedChunks,
+                    failedChunks,
+                    payloadBytes
+            );
+
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot read chunk table by exact position: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
+    private Set<Long> packedUniquePositions(
+            Collection<ChunkPosition> positions
+    ) {
+        Set<Long> packed =
+                new LinkedHashSet<>();
+
+        for (ChunkPosition position : positions) {
+            packed.add(
+                    ChunkPosEncoder.encode(
+                            Objects.requireNonNull(
+                                    position,
+                                    "positions cannot contain null"
+                            )
+                    )
+            );
+        }
+
+        return packed;
+    }
+
+    private BatchStats readChunkBatch(
+            Connection connection,
+            List<Long> packedPositions,
+            ReadDiagnostics diagnostics,
+            Consumer<ParsedChunk> consumer
+    ) throws SQLException {
+        String sql =
+                "SELECT position, data FROM \""
+                        + SaveTable.CHUNK.tableName()
+                        + "\" WHERE position IN ("
+                        + sqlPlaceholders(packedPositions.size())
+                        + ")";
+
+        int rowsFound = 0;
+        int parsedChunks = 0;
+        int failedChunks = 0;
+        long payloadBytes = 0;
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            for (int index = 0;
+                 index < packedPositions.size();
+                 index++) {
+                statement.setLong(
+                        index + 1,
+                        packedPositions.get(index)
+                );
+            }
+
+            try (ResultSet resultSet =
+                         statement.executeQuery()) {
+                while (resultSet.next()) {
+                    rowsFound++;
+
+                    ChunkPosition position =
+                            ChunkPosDecoder.decode(
+                                    resultSet.getLong("position")
+                            );
+
+                    ChunkCoordinate coordinate =
+                            new ChunkCoordinate(
+                                    position.x(),
+                                    position.y(),
+                                    position.z()
+                            );
+
+                    byte[] payload =
+                            resultSet.getBytes("data");
+
+                    if (payload == null) {
+                        diagnostics.recordSkipped(
+                                "chunk row has null payload"
+                        );
+                        continue;
+                    }
+
+                    payloadBytes += payload.length;
+
+                    ParseResult<ParsedChunk> parsed =
+                            chunkParser.parse(
+                                    coordinate,
+                                    payload
+                            );
+
+                    if (parsed.isSuccess()) {
+                        ParsedChunk chunk =
+                                parsed.value().orElseThrow();
+
+                        diagnostics.recordParsed();
+                        consumer.accept(chunk);
+                        parsedChunks++;
+                    } else {
+                        diagnostics.recordFailed(
+                                parsed.error().orElse(
+                                        "unknown chunk parse error"
+                                )
+                        );
+                        failedChunks++;
+                    }
+                }
+            }
+        }
+
+        return new BatchStats(
+                rowsFound,
+                parsedChunks,
+                failedChunks,
+                payloadBytes
+        );
+    }
+
+    private String sqlPlaceholders(
+            int count
+    ) {
+        return "?, ".repeat(count - 1) + "?";
+    }
+
+    private record BatchStats(
+            int rowsFound,
+            int parsedChunks,
+            int failedChunks,
+            long payloadBytes
+    ) {
     }
 
     public Map<Integer, BlockInfo> readBlockRegistry(
