@@ -122,10 +122,41 @@ public class MapRenderer {
             RenderOptions options,
             ProgressReporter progress
     ) {
+        MapTerrainPreparation.Builder terrainBuilder =
+                MapTerrainPreparation.builder(
+                        center,
+                        options,
+                        chunks.size(),
+                        progress
+                );
+        for (MapChunk chunk : chunks) {
+            terrainBuilder.accept(chunk);
+        }
+        return render(
+                center,
+                player,
+                home,
+                terrainBuilder.finish(),
+                surfaceBlocks,
+                options,
+                progress
+        );
+    }
+
+    public RenderedMap render(
+            WorldPosition center,
+            WorldPosition player,
+            HomeState home,
+            MapTerrainPreparation terrain,
+            List<SurfaceBlock> surfaceBlocks,
+            RenderOptions options,
+            ProgressReporter progress
+    ) {
         Objects.requireNonNull(
                 home,
                 "Home state is required"
         );
+        Objects.requireNonNull(terrain, "terrain preparation is required");
 
         int diameter =
                 Math.clamp(
@@ -181,22 +212,7 @@ public class MapRenderer {
                                 RenderLayer.SURFACE
                         );
 
-        DenseHeightGrid samples =
-                DenseHeightGrid.empty();
-
-        if (terrainEnabled
-                || surfaceEnabled) {
-
-            samples =
-                    collectHeightSamples(
-                            chunks,
-                            minX,
-                            minZ,
-                            options.radiusBlocks()
-                                    * 2,
-                            progress
-                    );
-        }
+        DenseHeightGrid samples = terrain.heights();
 
         int tilesDrawn =
                 0;
@@ -265,12 +281,31 @@ public class MapRenderer {
                 new MapRenderReport(
                         diameter,
                         diameter,
-                        chunks.size(),
+                        terrain.mapChunkCount(),
                         tilesDrawn,
                         markerCount,
                         options.style(),
                         layers
                 )
+        );
+    }
+
+    public RenderedMap render(
+            WorldPosition center,
+            WorldPosition player,
+            HomeState home,
+            MapTerrainPreparation terrain,
+            List<SurfaceBlock> surfaceBlocks,
+            RenderOptions options
+    ) {
+        return render(
+                center,
+                player,
+                home,
+                terrain,
+                surfaceBlocks,
+                options,
+                ProgressReporter.NONE
         );
     }
 
@@ -758,23 +793,6 @@ public class MapRenderer {
         } finally {
             graphics.dispose();
         }
-    }
-
-    private DenseHeightGrid collectHeightSamples(
-            List<MapChunk> chunks,
-            int minX,
-            int minZ,
-            int sizeBlocks,
-            ProgressReporter progress
-    ) {
-        return DenseHeightGrid.fromMapChunks(
-                chunks,
-                minX,
-                minZ,
-                sizeBlocks,
-                sizeBlocks,
-                progress
-        );
     }
 
     private double hillshade(

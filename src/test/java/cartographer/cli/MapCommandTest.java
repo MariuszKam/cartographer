@@ -21,6 +21,7 @@ import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.render.MapRenderReport;
 import cartographer.render.MapRenderer;
+import cartographer.render.MapTerrainPreparation;
 import cartographer.render.OverlayRenderReport;
 import cartographer.render.PngWriter;
 import cartographer.render.RenderOptions;
@@ -628,6 +629,36 @@ class MapCommandTest {
                             home instanceof HomeState.Present
                                     ? 2
                                     : 1,
+                            RenderStyle.SIMPLE,
+                            "MARKERS"
+                    )
+            );
+        }
+
+        @Override
+        public RenderedMap render(
+                WorldPosition center,
+                WorldPosition player,
+                HomeState home,
+                MapTerrainPreparation terrain,
+                List<SurfaceBlock> surfaceBlocks,
+                RenderOptions options,
+                ProgressReporter progress
+        ) {
+            this.player = player;
+            this.home = home;
+            return new RenderedMap(
+                    new BufferedImage(
+                            32,
+                            32,
+                            BufferedImage.TYPE_INT_ARGB
+                    ),
+                    new MapRenderReport(
+                            32,
+                            32,
+                            terrain.mapChunkCount(),
+                            0,
+                            home instanceof HomeState.Present ? 2 : 1,
                             RenderStyle.SIMPLE,
                             "MARKERS"
                     )

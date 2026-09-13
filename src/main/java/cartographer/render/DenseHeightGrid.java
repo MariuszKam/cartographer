@@ -54,43 +54,100 @@ final class DenseHeightGrid {
             );
         }
 
-        int cellCount = Math.multiplyExact(width, height);
-        int[] values = new int[cellCount];
-        BitSet present = new BitSet(cellCount);
+        Builder builder = builder(
+                minWorldX,
+                minWorldZ,
+                width,
+                height,
+                progress,
+                chunks.size()
+        );
+        for (MapChunk chunk : chunks) {
+            builder.accept(chunk);
+        }
+        return builder.finish();
+    }
 
-        for (int chunkIndex = 0; chunkIndex < chunks.size(); chunkIndex++) {
-            MapChunk chunk = Objects.requireNonNull(
-                    chunks.get(chunkIndex),
-                    "chunks cannot contain null"
-            );
+    static Builder builder(
+            int minWorldX,
+            int minWorldZ,
+            int width,
+            int height,
+            ProgressReporter progress,
+            int expectedChunks
+    ) {
+        return new Builder(
+                minWorldX,
+                minWorldZ,
+                width,
+                height,
+                progress,
+                expectedChunks
+        );
+    }
 
+    static final class Builder {
+        private final int minWorldX;
+        private final int minWorldZ;
+        private final int width;
+        private final int height;
+        private final int[] values;
+        private final BitSet present;
+        private final ProgressReporter progress;
+        private final int expectedChunks;
+        private int acceptedChunks;
+
+        private Builder(
+                int minWorldX,
+                int minWorldZ,
+                int width,
+                int height,
+                ProgressReporter progress,
+                int expectedChunks
+        ) {
+            if (width < 0 || height < 0 || expectedChunks < 0) {
+                throw new IllegalArgumentException(
+                        "grid dimensions and expected chunks cannot be negative"
+                );
+            }
+            this.minWorldX = minWorldX;
+            this.minWorldZ = minWorldZ;
+            this.width = width;
+            this.height = height;
+            int cellCount = Math.multiplyExact(width, height);
+            this.values = new int[cellCount];
+            this.present = new BitSet(cellCount);
+            this.progress = Objects.requireNonNull(progress, "progress is required");
+            this.expectedChunks = expectedChunks;
+        }
+
+        void accept(MapChunk chunk) {
+            chunk = Objects.requireNonNull(chunk, "chunks cannot contain null");
+            acceptedChunks++;
             progress.progress(
                     "Indexing mapchunk heights",
-                    chunkIndex + 1,
-                    chunks.size()
+                    acceptedChunks,
+                    expectedChunks
             );
 
             long originX = (long) chunk.coordinate().x() * MapChunk.SIZE;
             long originZ = (long) chunk.coordinate().z() * MapChunk.SIZE;
-
             for (int localZ = 0; localZ < MapChunk.SIZE; localZ++) {
                 for (int localX = 0; localX < MapChunk.SIZE; localX++) {
-                    long worldX = originX + localX;
-                    long worldZ = originZ + localZ;
-                    long relativeX = worldX - minWorldX;
-                    long relativeZ = worldZ - minWorldZ;
-
+                    long relativeX = originX + localX - minWorldX;
+                    long relativeZ = originZ + localZ - minWorldZ;
                     if (relativeX < 0 || relativeX >= width
                             || relativeZ < 0 || relativeZ >= height) {
                         continue;
                     }
-
                     int index = Math.toIntExact(relativeZ * width + relativeX);
                     values[index] = chunk.heightAt(localX, localZ);
                     present.set(index);
                 }
             }
         }
+
+        DenseHeightGrid finish() {
 
         int minHeight = 0;
         int maxHeight = 0;
@@ -109,16 +166,17 @@ final class DenseHeightGrid {
             }
         }
 
-        return new DenseHeightGrid(
-                minWorldX,
-                minWorldZ,
-                width,
-                height,
-                values,
-                present,
-                minHeight,
-                maxHeight
-        );
+            return new DenseHeightGrid(
+                    minWorldX,
+                    minWorldZ,
+                    width,
+                    height,
+                    values,
+                    present,
+                    minHeight,
+                    maxHeight
+            );
+        }
     }
 
     static DenseHeightGrid empty() {

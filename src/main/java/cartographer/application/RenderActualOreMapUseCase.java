@@ -8,7 +8,6 @@ import cartographer.marker.MarkerStore;
 import cartographer.model.BlockInfo;
 import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
-import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParsedChunk;
 import cartographer.model.SurfaceBlock;
@@ -21,6 +20,7 @@ import cartographer.render.ActualOreOverlayPainter;
 import cartographer.render.EnvironmentOverlayRenderer;
 import cartographer.render.GeologyOverlayRenderer;
 import cartographer.render.MapRenderer;
+import cartographer.render.MapTerrainPreparation;
 import cartographer.render.OverlayRenderReport;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderOptions;
@@ -214,7 +214,12 @@ public class RenderActualOreMapUseCase {
                                 .thenComparingInt(MapChunkCoordinate::x)
                 )
                 .toList();
-        List<MapChunk> chunks = new ArrayList<>();
+        MapTerrainPreparation.Builder terrainBuilder =
+                MapTerrainPreparation.builder(
+                        center,
+                        options,
+                        renderMapChunkCoordinates.size()
+                );
         RainHeightSurfacePlanner.StreamingSession rainPlannerSession =
                 surfaceEnabled
                         ? rainHeightSurfacePlanner.begin(
@@ -230,7 +235,7 @@ public class RenderActualOreMapUseCase {
                 mapChunkDiagnostics,
                 mapChunk -> {
                     if (renderMapChunkSet.contains(mapChunk.coordinate())) {
-                        chunks.add(mapChunk);
+                        terrainBuilder.accept(mapChunk);
                     }
                     if (surfaceEnabled
                             && surfaceSearchSet.contains(mapChunk.coordinate())) {
@@ -239,10 +244,7 @@ public class RenderActualOreMapUseCase {
                     }
                 }
         );
-        chunks.sort(
-                Comparator.comparingInt((MapChunk mapChunk) -> mapChunk.coordinate().z())
-                        .thenComparingInt(mapChunk -> mapChunk.coordinate().x())
-        );
+        MapTerrainPreparation terrain = terrainBuilder.finish();
         SurfaceScanResult surface = surfaceEnabled
                 ? readSurface(
                         request.savePath(),
@@ -257,7 +259,7 @@ public class RenderActualOreMapUseCase {
                 )
                 : new SurfaceScanResult(List.of(), 0, 0, 0, 0);
         RenderedMap rendered = renderer.render(
-                center, player, home, chunks, surface.blocks(), options
+                center, player, home, terrain, surface.blocks(), options
         );
 
         ReadDiagnostics mapRegionDiagnostics = new ReadDiagnostics();

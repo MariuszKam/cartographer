@@ -4,7 +4,6 @@ import cartographer.marker.MarkerStore;
 import cartographer.model.DisplayPosition;
 import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
-import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParsedChunk;
 import cartographer.model.SurfaceBlock;
@@ -14,6 +13,7 @@ import cartographer.model.ChunkPosition;
 import cartographer.model.BlockInfo;
 import cartographer.navigation.HomeStore;
 import cartographer.render.MapRenderer;
+import cartographer.render.MapTerrainPreparation;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderOptions;
 import cartographer.render.RenderedMap;
@@ -141,7 +141,12 @@ public class RenderSurfaceResourceMapUseCase {
                 .toList();
         Set<MapChunkCoordinate> deliveredSurfaceMapChunks =
                 new HashSet<>();
-        List<MapChunk> mapChunks = new ArrayList<>();
+        MapTerrainPreparation.Builder terrainBuilder =
+                MapTerrainPreparation.builder(
+                        center,
+                        options,
+                        renderMapChunkCoordinates.size()
+                );
         RainHeightSurfacePlanner.StreamingSession rainPlannerSession =
                 rainHeightSurfacePlanner.begin(
                         metadata,
@@ -155,7 +160,7 @@ public class RenderSurfaceResourceMapUseCase {
                 mapChunkDiagnostics,
                 mapChunk -> {
                     if (renderMapChunkSet.contains(mapChunk.coordinate())) {
-                        mapChunks.add(mapChunk);
+                        terrainBuilder.accept(mapChunk);
                     }
                     if (surfaceSearchSet.contains(mapChunk.coordinate())) {
                         deliveredSurfaceMapChunks.add(mapChunk.coordinate());
@@ -163,10 +168,7 @@ public class RenderSurfaceResourceMapUseCase {
                     }
                 }
         );
-        mapChunks.sort(
-                Comparator.comparingInt((MapChunk mapChunk) -> mapChunk.coordinate().z())
-                        .thenComparingInt(mapChunk -> mapChunk.coordinate().x())
-        );
+        MapTerrainPreparation terrain = terrainBuilder.finish();
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
         Map<Integer, BlockInfo> registry = reader.readBlockRegistry(request.savePath());
         RainHeightSurfacePlan rainPlan = rainPlannerSession.finish();
@@ -254,7 +256,7 @@ public class RenderSurfaceResourceMapUseCase {
                 center,
                 player,
                 home,
-                mapChunks,
+                terrain,
                 surface.blocks(),
                 options
         );

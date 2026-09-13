@@ -108,6 +108,55 @@ class MapRendererTest {
     }
 
     @Test
+    void preparedTerrainRenderingMatchesListBasedRendering() {
+        WorldPosition center = new WorldPosition(32.0, 0.0, 32.0);
+        RenderOptions options = new RenderOptions(
+                32,
+                1,
+                RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.TERRAIN)
+        );
+        List<MapChunk> chunks = List.of(
+                chunk(0, 0, 70),
+                chunk(1, 0, 90),
+                chunk(0, 1, 110),
+                chunk(1, 1, 130)
+        );
+
+        RenderedMap listRendered = new MapRenderer().render(
+                center,
+                HomeState.absent(),
+                chunks,
+                options,
+                ProgressReporter.NONE
+        );
+        MapTerrainPreparation.Builder builder = MapTerrainPreparation.builder(
+                center, options, chunks.size()
+        );
+        chunks.forEach(builder::accept);
+        RenderedMap preparedRendered = new MapRenderer().render(
+                center,
+                center,
+                HomeState.absent(),
+                builder.finish(),
+                List.of(),
+                options
+        );
+
+        assertEquals(listRendered.image().getWidth(), preparedRendered.image().getWidth());
+        assertEquals(listRendered.image().getHeight(), preparedRendered.image().getHeight());
+        assertEquals(listRendered.report(), preparedRendered.report());
+        for (int y = 0; y < listRendered.image().getHeight(); y++) {
+            for (int x = 0; x < listRendered.image().getWidth(); x++) {
+                assertEquals(
+                        listRendered.image().getRGB(x, y),
+                        preparedRendered.image().getRGB(x, y)
+                );
+            }
+        }
+    }
+
+    @Test
     void denseHeightGridKeepsTerrainOutputStableAcrossChunkBoundary() {
         RenderedMap rendered = new MapRenderer().render(
                 new WorldPosition(32.0, 0.0, 16.0),
