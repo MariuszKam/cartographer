@@ -6,6 +6,7 @@ import cartographer.model.ParsedChunk;
 import cartographer.model.ServerChunkPayload;
 import cartographer.save.ProtobufWireReader;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -30,6 +31,23 @@ public class ChunkParser {
     }
 
     public ParseResult<ParsedChunk> parse(ChunkCoordinate coordinate, byte[] payload) {
+        return parse(
+                coordinate,
+                payload,
+                ChunkDecodeProfile.BLOCKS_AND_LIQUIDS
+        );
+    }
+
+    public ParseResult<ParsedChunk> parse(
+            ChunkCoordinate coordinate,
+            byte[] payload,
+            ChunkDecodeProfile profile
+    ) {
+        Objects.requireNonNull(
+                profile,
+                "profile is required"
+        );
+
         ParseResult<ServerChunkPayload> parsedPayload =
                 parsePayload(
                         payload
@@ -54,7 +72,11 @@ public class ChunkParser {
                     );
 
             DecodedLiquids liquids =
-                    decodeLiquidsOrEmpty(
+                    profile == ChunkDecodeProfile.BLOCKS_ONLY
+                            ? DecodedLiquids.unavailable(
+                            "liquid layer not decoded"
+                    )
+                            : decodeLiquidsOrEmpty(
                             serverChunk
                     );
 

@@ -12,10 +12,150 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ChunkParserTest {
+
+    @Test
+    void existingParseStillDecodesLiquids() {
+        byte[] blocks =
+                encodedLayer(
+                        new int[]{0, 11},
+                        index -> index == 0 ? 1 : 0
+                );
+        byte[] liquids =
+                encodedLayer(
+                        new int[]{0, 200},
+                        index -> index == 0 ? 1 : 0
+                );
+
+        ParseResult<ParsedChunk> result =
+                new ChunkParser()
+                        .parse(
+                                new ChunkCoordinate(0, 0, 0),
+                                serverChunk(blocks, liquids, 2)
+                        );
+
+        assertTrue(result.isSuccess());
+        assertEquals(200, result.value().orElseThrow().liquidIdAt(0, 0, 0));
+        assertTrue(result.value().orElseThrow().liquidLayerAvailable());
+    }
+
+    @Test
+    void blocksAndLiquidsProfileMatchesLegacyParse() {
+        byte[] blocks =
+                encodedLayer(
+                        new int[]{0, 11},
+                        index -> index == 0 ? 1 : 0
+                );
+        byte[] liquids =
+                encodedLayer(
+                        new int[]{0, 200},
+                        index -> index == 0 ? 1 : 0
+                );
+        ChunkCoordinate coordinate = new ChunkCoordinate(0, 0, 0);
+        ChunkParser parser = new ChunkParser();
+
+        ParsedChunk legacy =
+                parser.parse(coordinate, serverChunk(blocks, liquids, 2))
+                        .value()
+                        .orElseThrow();
+        ParsedChunk explicit =
+                parser.parse(
+                                coordinate,
+                                serverChunk(blocks, liquids, 2),
+                                ChunkDecodeProfile.BLOCKS_AND_LIQUIDS
+                        )
+                        .value()
+                        .orElseThrow();
+
+        assertEquals(legacy.coordinate(), explicit.coordinate());
+        assertEquals(legacy.minY(), explicit.minY());
+        assertArrayEquals(legacy.blockIds(), explicit.blockIds());
+        assertArrayEquals(legacy.liquidIds(), explicit.liquidIds());
+        assertEquals(legacy.liquidLayerAvailable(), explicit.liquidLayerAvailable());
+    }
+
+    @Test
+    void blocksOnlyDoesNotDecodeLiquids() {
+        byte[] blocks =
+                encodedLayer(
+                        new int[]{0, 11},
+                        index -> index == 0 ? 1 : 0
+                );
+        byte[] liquids =
+                encodedLayer(
+                        new int[]{0, 200},
+                        index -> index == 0 ? 1 : 0
+                );
+        RecordingLayerDecoder decoder = new RecordingLayerDecoder();
+
+        ParseResult<ParsedChunk> result =
+                new ChunkParser(decoder)
+                        .parse(
+                                new ChunkCoordinate(0, 0, 0),
+                                serverChunk(blocks, liquids, 2),
+                                ChunkDecodeProfile.BLOCKS_ONLY
+                        );
+
+        assertTrue(result.isSuccess());
+        assertEquals(1, decoder.decodeCalls);
+    }
+
+    @Test
+    void blocksOnlyMarksLiquidsUnavailableAndKeepsSolidBlocks() {
+        byte[] blocks =
+                encodedLayer(
+                        new int[]{0, 11},
+                        index -> index == 0 ? 1 : 0
+                );
+
+        ParsedChunk chunk =
+                new ChunkParser()
+                        .parse(
+                                new ChunkCoordinate(0, 0, 0),
+                                serverChunk(blocks, emptyLayer(), 2),
+                                ChunkDecodeProfile.BLOCKS_ONLY
+                        )
+                        .value()
+                        .orElseThrow();
+
+        assertEquals(11, chunk.blockIdAt(0, 0, 0));
+        assertFalse(chunk.liquidLayerAvailable());
+        assertEquals("liquid layer not decoded", chunk.liquidDecodeError());
+    }
+
+    @Test
+    void nullProfileRejected() {
+        assertThrows(
+                NullPointerException.class,
+                () -> new ChunkParser().parse(
+                        new ChunkCoordinate(0, 0, 0),
+                        new byte[0],
+                        null
+                )
+        );
+    }
+
+    private static final class RecordingLayerDecoder
+            extends ChunkDataLayerDecoder {
+        private int decodeCalls;
+
+        @Override
+        public int[] decode(
+                byte[] payload,
+                int savedCompressionVersion
+        ) {
+            decodeCalls++;
+            return super.decode(
+                    payload,
+                    savedCompressionVersion
+            );
+        }
+    }
 
     @Test
     void parsesRealServerChunkProtobufFields() {

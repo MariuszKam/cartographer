@@ -16,6 +16,59 @@ public class ChunkDataLayerDecoder {
             byte[] payload,
             int savedCompressionVersion
     ) {
+        DecodedPalette decodedPalette =
+                readPalette(
+                        payload,
+                        savedCompressionVersion
+                );
+
+        if (decodedPalette.values().length == 0) {
+            return new int[VALUE_COUNT];
+        }
+
+        int[] palette =
+                decodedPalette.values();
+
+        int[] roundedPalette =
+                roundedPalette(
+                        palette
+                );
+
+        int bitSize =
+                bitSize(
+                        roundedPalette.length
+                );
+
+        byte[] dataBitsBytes =
+                readCompressedDataBits(
+                        payload,
+                        decodedPalette.nextOffset(),
+                        bitSize
+                );
+
+        return decodePaletteBits(
+                roundedPalette,
+                dataBitsBytes,
+                bitSize
+        );
+    }
+
+    public ChunkPaletteProbe probePalette(
+            byte[] payload,
+            int savedCompressionVersion
+    ) {
+        return new ChunkPaletteProbe(
+                readPalette(
+                        payload,
+                        savedCompressionVersion
+                ).values()
+        );
+    }
+
+    private DecodedPalette readPalette(
+            byte[] payload,
+            int savedCompressionVersion
+    ) {
         if (savedCompressionVersion != SUPPORTED_COMPRESSION_VERSION) {
             throw new IllegalArgumentException(
                     "unsupported chunk compression version: "
@@ -43,7 +96,10 @@ public class ChunkDataLayerDecoder {
                 buffer.getInt();
 
         if (paletteByteLengthMarker == 0) {
-            return new int[VALUE_COUNT];
+            return new DecodedPalette(
+                    new int[0],
+                    buffer.position()
+            );
         }
 
         int[] palette =
@@ -57,31 +113,9 @@ public class ChunkDataLayerDecoder {
                         paletteByteLengthMarker
                 );
 
-        if (palette.length == 0) {
-            return new int[VALUE_COUNT];
-        }
-
-        int[] roundedPalette =
-                roundedPalette(
-                        palette
-                );
-
-        int bitSize =
-                bitSize(
-                        roundedPalette.length
-                );
-
-        byte[] dataBitsBytes =
-                readCompressedDataBits(
-                        payload,
-                        buffer.position(),
-                        bitSize
-                );
-
-        return decodePaletteBits(
-                roundedPalette,
-                dataBitsBytes,
-                bitSize
+        return new DecodedPalette(
+                palette,
+                buffer.position()
         );
     }
 
@@ -365,5 +399,11 @@ public class ChunkDataLayerDecoder {
         }
 
         return rounded;
+    }
+
+    private record DecodedPalette(
+            int[] values,
+            int nextOffset
+    ) {
     }
 }
