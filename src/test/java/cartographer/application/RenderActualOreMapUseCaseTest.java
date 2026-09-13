@@ -4,7 +4,9 @@ import cartographer.cli.ProgressReporter;
 import cartographer.marker.MarkerStore;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
+import cartographer.model.ChunkPosition;
 import cartographer.model.MapChunk;
+import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParsedChunk;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
@@ -16,6 +18,8 @@ import cartographer.render.RenderStyle;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SelectiveChunkStreamStats;
+import cartographer.save.ChunkStreamStats;
+import cartographer.save.MapChunkStreamStats;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMapScanner;
@@ -27,6 +31,8 @@ import org.junit.jupiter.api.io.TempDir;
 import java.awt.Color;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -121,6 +127,181 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(0, ore.actualOreOverlays().getFirst().map().matchingBlocks());
     }
 
+    @Test
+    void surfaceDisabledDoesNotReadSurfaceChunks() {
+        FakeReader reader = new FakeReader(Map.of());
+
+        execute(reader, List.of(), Set.of(RenderLayer.TERRAIN), 64, 64, 16);
+
+        assertEquals(1, reader.directMapChunkCalls);
+        assertEquals(0, reader.exactChunkCalls);
+        assertEquals(0, reader.legacyMapChunkCalls);
+        assertEquals(0, reader.legacyChunkCalls);
+        assertEquals(0, reader.registryCalls);
+    }
+
+    @Test
+    void surfaceLayerUsesRainHeightFastPath() {
+        FakeReader reader = surfaceReader(true, true);
+
+        RenderActualOreMapResult result = execute(
+                reader,
+                List.of(),
+                Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
+                16,
+                16,
+                1
+        );
+
+        assertEquals(1, reader.directMapChunkCalls);
+        assertEquals(1, reader.exactChunkCalls);
+        assertEquals(1, reader.exactRequests.getFirst().size());
+        assertTrue(result.surface().blocks().stream()
+                .anyMatch(block -> block.blockInfo().id() == 1));
+        assertEquals(0, reader.legacyMapChunkCalls);
+        assertEquals(0, reader.legacyChunkCalls);
+    }
+
+    @Test
+    void surfaceFallbackIsLocalToProblematicMapChunk() {
+        FakeReader reader = surfaceReader(true, true);
+        MapChunkCoordinate fallback = new MapChunkCoordinate(1, 0);
+        for (int z = 0; z <= 1; z++) {
+            for (int x = 0; x <= 2; x++) {
+                MapChunkCoordinate coordinate = new MapChunkCoordinate(x, z);
+                if (coordinate.equals(fallback)) {
+                    continue;
+                }
+                reader.mapChunks.put(
+                        coordinate,
+                        new MapChunk(coordinate, filledHeights(5), new int[0])
+                );
+                reader.chunks.put(
+                        new ChunkPosition(x, 0, z, 0),
+                        surfaceChunk(new ChunkCoordinate(x, 0, z), 1, true)
+                );
+            }
+        }
+        reader.mapChunks.put(fallback, new MapChunk(fallback, new int[0], filledHeights(5)));
+        for (int y = 0; y < 8; y++) {
+            reader.chunks.put(
+                    new ChunkPosition(fallback.x(), y, fallback.z(), 0),
+                    surfaceChunk(new ChunkCoordinate(fallback.x(), y, fallback.z()), 1, true)
+            );
+        }
+
+        RenderActualOreMapResult result = execute(
+                reader,
+                List.of(),
+                Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
+                32,
+                0,
+                32
+        );
+
+        assertEquals(2, reader.exactChunkCalls);
+        assertTrue(reader.exactRequests.getFirst().stream()
+                .noneMatch(position -> position.x() == fallback.x()
+                        && position.z() == fallback.z()));
+        assertEquals(8, reader.exactRequests.get(1).size());
+        assertTrue(reader.exactRequests.get(1).stream()
+                .allMatch(position -> position.x() == fallback.x()
+                        && position.z() == fallback.z()));
+        assertTrue(result.surface().blocks().stream()
+                .anyMatch(block -> block.worldX() < 32));
+        assertTrue(result.surface().blocks().stream()
+                .anyMatch(block -> block.worldX() >= 32));
+    }
+
+    @Test
+    void fractionalCenterSurfaceSearchUsesUnionMapChunkLookup() {
+        FakeReader reader = new FakeReader(Map.of());
+        MapChunkCoordinate surfaceOnly = new MapChunkCoordinate(2, 1);
+        reader.mapChunks.put(surfaceOnly, new MapChunk(surfaceOnly, filledHeights(5), new int[0]));
+        reader.chunks.put(
+                new ChunkPosition(2, 0, 1, 0),
+                surfaceChunk(new ChunkCoordinate(2, 0, 1), 1, true)
+        );
+        for (int z = 0; z <= 2; z++) {
+            for (int x = 0; x <= 1; x++) {
+                MapChunkCoordinate coordinate = new MapChunkCoordinate(x, z);
+                reader.mapChunks.put(coordinate, new MapChunk(coordinate, filledHeights(5), new int[0]));
+                reader.chunks.put(
+                        new ChunkPosition(x, 0, z, 0),
+                        surfaceChunk(new ChunkCoordinate(x, 0, z), 1, true)
+                );
+            }
+        }
+
+        execute(
+                reader,
+                List.of(),
+                Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
+                31.6,
+                48.0,
+                32,
+                new WorldMetadata(128, 256, 128)
+        );
+
+        assertEquals(1, reader.directMapChunkCalls);
+        assertTrue(reader.directMapChunkRequests.getFirst().contains(surfaceOnly));
+        assertEquals(1, reader.exactChunkCalls);
+        assertTrue(reader.exactRequests.getFirst().stream()
+                .anyMatch(position -> position.x() == surfaceOnly.x()
+                        && position.z() == surfaceOnly.z()));
+    }
+
+    @Test
+    void unresolvedFastTargetFallsBackWholeMapChunk() {
+        FakeReader reader = surfaceReader(true, false);
+        for (int y = 0; y < 8; y++) {
+            reader.chunks.put(
+                    new ChunkPosition(0, y, 0, 0),
+                    surfaceChunk(new ChunkCoordinate(0, y, 0), 1, false)
+            );
+        }
+
+        RenderActualOreMapResult result = execute(
+                reader,
+                List.of(),
+                Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
+                16,
+                16,
+                1
+        );
+
+        assertEquals(2, reader.exactChunkCalls);
+        assertEquals(8, reader.exactRequests.get(1).size());
+        assertTrue(result.actualOreMap().isEmpty());
+        assertTrue(result.surface().blocks().stream()
+                .anyMatch(block -> block.blockInfo().id() == 1));
+    }
+
+    @Test
+    void resultSurfaceContainsMergedFastAndFallbackBlocks() {
+        FakeReader reader = surfaceReader(true, true);
+        MapChunkCoordinate fallback = new MapChunkCoordinate(1, 0);
+        reader.mapChunks.put(fallback, new MapChunk(fallback, new int[0], filledHeights(5)));
+        for (int y = 0; y < 8; y++) {
+            reader.chunks.put(
+                    new ChunkPosition(1, y, 0, 0),
+                    surfaceChunk(new ChunkCoordinate(1, y, 0), 1, true)
+            );
+        }
+
+        RenderActualOreMapResult result = execute(
+                reader,
+                List.of(),
+                Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
+                32,
+                0,
+                32
+        );
+
+        assertTrue(result.surface().blocks().stream().anyMatch(block -> block.worldX() < 32));
+        assertTrue(result.surface().blocks().stream().anyMatch(block -> block.worldX() >= 32));
+    }
+
     private RenderActualOreMapResult execute(FakeReader reader) {
         return execute(
                 reader,
@@ -167,9 +348,105 @@ class RenderActualOreMapUseCaseTest {
         return useCase.execute(request);
     }
 
+    private RenderActualOreMapResult execute(
+            FakeReader reader,
+            List<ActualOreOverlaySpec> specs,
+            Set<RenderLayer> layers,
+            double centerX,
+            double centerZ,
+            int radius
+    ) {
+        return execute(reader, specs, layers, centerX, centerZ, radius,
+                new WorldMetadata(128, 256, 128));
+    }
+
+    private RenderActualOreMapResult execute(
+            FakeReader reader,
+            List<ActualOreOverlaySpec> specs,
+            Set<RenderLayer> layers,
+            double centerX,
+            double centerZ,
+            int radius,
+            WorldMetadata metadata
+    ) {
+        WorldMetadataReader metadataReader = new WorldMetadataReader() {
+            @Override
+            public WorldMetadata read(Path savePath) {
+                return metadata;
+            }
+        };
+        RenderActualOreMapUseCase useCase = new RenderActualOreMapUseCase(
+                reader, metadataReader,
+                new HomeStore(temporaryDirectory.resolve("home-surface.properties")),
+                new MarkerStore(temporaryDirectory.resolve("markers-surface.csv")),
+                new MapRenderer(), new UserMarkerRenderer(), new ActualBlockMapScanner(),
+                new ActualOreOverlayPainter()
+        );
+        return useCase.execute(new RenderActualOreMapRequest(
+                temporaryDirectory.resolve("surface-save.vcdbs"), radius, 1,
+                RenderStyle.TOPOGRAPHIC, layers, Optional.empty(),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(centerX, 64, centerZ)), specs
+        ));
+    }
+
+    private FakeReader surfaceReader(boolean rainAvailable, boolean liquidAvailable) {
+        FakeReader reader = new FakeReader(fireClayRegistry());
+        MapChunkCoordinate coordinate = new MapChunkCoordinate(0, 0);
+        reader.mapChunks.put(
+                coordinate,
+                rainAvailable
+                        ? new MapChunk(coordinate, filledHeights(5), new int[0])
+                        : new MapChunk(coordinate, new int[0], filledHeights(5))
+        );
+        reader.chunks.put(
+                new ChunkPosition(0, 0, 0, 0),
+                surfaceChunk(new ChunkCoordinate(0, 0, 0), 1, liquidAvailable)
+        );
+        return reader;
+    }
+
+    private Map<Integer, BlockInfo> fireClayRegistry() {
+        return Map.of(
+                0, new BlockInfo(0, "air"),
+                1, new BlockInfo(1, "game:fire-clay-blue")
+        );
+    }
+
+    private ParsedChunk surfaceChunk(
+            ChunkCoordinate coordinate,
+            int blockId,
+            boolean liquidAvailable
+    ) {
+        int size = ChunkCoordinate.SIZE_BLOCKS;
+        int[] blocks = new int[size * size * size];
+        int[] liquids = new int[blocks.length];
+        for (int z = 0; z < size; z++) {
+            for (int x = 0; x < size; x++) {
+                blocks[(5 * size + z) * size + x] = blockId;
+            }
+        }
+        return new ParsedChunk(coordinate, 0, size, size, size, blocks, liquids,
+                0, liquidAvailable, "");
+    }
+
+    private static int[] filledHeights(int value) {
+        int[] heights = new int[MapChunk.HEIGHT_VALUE_COUNT];
+        java.util.Arrays.fill(heights, value);
+        return heights;
+    }
+
     private static final class FakeReader extends VcdbsReader {
         private final Map<Integer, BlockInfo> registry;
+        private final Map<ChunkPosition, ParsedChunk> chunks = new HashMap<>();
+        private final Map<MapChunkCoordinate, MapChunk> mapChunks = new HashMap<>();
+        private final List<List<MapChunkCoordinate>> directMapChunkRequests = new ArrayList<>();
+        private final List<List<ChunkPosition>> exactRequests = new ArrayList<>();
         private int selectiveCalls;
+        private int directMapChunkCalls;
+        private int exactChunkCalls;
+        private int registryCalls;
+        private int legacyMapChunkCalls;
         private int legacyChunkCalls;
         private final int fakeBlockId;
         private int[] lastWantedBlockIds = new int[0];
@@ -191,13 +468,68 @@ class RenderActualOreMapUseCaseTest {
         }
 
         @Override
+        public MapChunkStreamStats forEachMapChunkByCoordinate(
+                Path savePath,
+                java.util.Collection<MapChunkCoordinate> coordinates,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<MapChunk> consumer
+        ) {
+            directMapChunkCalls++;
+            directMapChunkRequests.add(List.copyOf(coordinates));
+            int delivered = 0;
+            for (MapChunkCoordinate coordinate : coordinates) {
+                MapChunk mapChunk = mapChunks.get(coordinate);
+                if (mapChunk != null) {
+                    delivered++;
+                    consumer.accept(mapChunk);
+                }
+            }
+            return new MapChunkStreamStats(
+                    coordinates.size(),
+                    coordinates.isEmpty() ? 0 : 1,
+                    delivered,
+                    delivered,
+                    0,
+                    0
+            );
+        }
+
+        @Override
+        public ChunkStreamStats forEachChunkByPosition(
+                Path savePath,
+                java.util.Collection<ChunkPosition> positions,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer
+        ) {
+            exactChunkCalls++;
+            exactRequests.add(List.copyOf(positions));
+            int delivered = 0;
+            for (ChunkPosition position : positions) {
+                ParsedChunk chunk = chunks.get(position);
+                if (chunk != null) {
+                    delivered++;
+                    consumer.accept(chunk);
+                }
+            }
+            return new ChunkStreamStats(
+                    positions.size(),
+                    positions.isEmpty() ? 0 : 1,
+                    delivered,
+                    delivered,
+                    0,
+                    0
+            );
+        }
+
+        @Override
         public List<MapChunk> readMapChunksAround(
                 Path savePath,
                 WorldPosition center,
                 int radius,
                 ReadDiagnostics diagnostics
         ) {
-            return List.of();
+            legacyMapChunkCalls++;
+            throw new AssertionError("legacy mapchunk lookup must not be used");
         }
 
         @Override
@@ -213,6 +545,7 @@ class RenderActualOreMapUseCaseTest {
 
         @Override
         public Map<Integer, BlockInfo> readBlockRegistry(Path savePath) {
+            registryCalls++;
             return registry;
         }
 
