@@ -1411,12 +1411,10 @@ public class VcdbsReader {
     }
 
     private static int defaultChunkDecodeWorkerCount() {
-        return Math.max(
+        return Math.clamp(
+                Runtime.getRuntime().availableProcessors(),
                 1,
-                Math.min(
-                        4,
-                        Runtime.getRuntime().availableProcessors()
-                )
+                4
         );
     }
 

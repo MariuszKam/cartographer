@@ -104,8 +104,8 @@ public class ActualOreOverlayPainter {
 
             startX = Math.max(0, startX);
             startY = Math.max(0, startY);
-            endX = Math.min(image.getWidth(), Math.max(startX + 1, endX));
-            endY = Math.min(image.getHeight(), Math.max(startY + 1, endY));
+            endX = Math.clamp(endX, startX + 1, image.getWidth());
+            endY = Math.clamp(endY, startY + 1, image.getHeight());
 
             double density = Math.min(
                     1.0,
