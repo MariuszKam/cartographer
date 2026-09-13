@@ -8,6 +8,10 @@ import cartographer.application.RenderSurfaceResourceMapRequest;
 import cartographer.application.RenderSurfaceResourceMapResult;
 import cartographer.application.RenderSurfaceResourceMapUseCase;
 import cartographer.application.SurfaceResourceMatch;
+import cartographer.application.RenderRockMapRequest;
+import cartographer.application.RenderRockMapResult;
+import cartographer.application.RenderRockMapUseCase;
+import cartographer.geology.rock.RockMapMode;
 import cartographer.marker.MarkerStore;
 import cartographer.navigation.HomeStore;
 import cartographer.parser.ChunkParser;
@@ -21,6 +25,7 @@ import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.render.SurfaceResourceOverlayRenderer;
+import cartographer.render.RockLegendEntry;
 import cartographer.resource.ResourceAnalyzer;
 import cartographer.resource.SurfaceResourceAnalyzer;
 import cartographer.model.BlockInfo;
@@ -63,6 +68,7 @@ import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.awt.Color;
+import java.util.OptionalInt;
 
 public class CartographerDesktopApp extends Application {
 
@@ -70,6 +76,7 @@ public class CartographerDesktopApp extends Application {
     private final Button browseButton = new Button("Browse...");
     private final RadioButton oreSearchButton = new RadioButton("Ore deposits");
     private final RadioButton surfaceSearchButton = new RadioButton("Surface resources");
+    private final RadioButton rockSearchButton = new RadioButton("Rock geology");
     private final ComboBox<OreResource> resourceBox = new ComboBox<>();
     private final ComboBox<SurfaceResourcePreset> surfaceResourceBox = new ComboBox<>();
     private final RadioButton singleResourceButton = new RadioButton("Single resource");
@@ -82,6 +89,11 @@ public class CartographerDesktopApp extends Application {
     private final Map<OreResource, Color> resourceColors = new LinkedHashMap<>();
     private final TextField yMinField = new TextField();
     private final TextField yMaxField = new TextField();
+    private final RadioButton rockUpperButton = new RadioButton("Upper rock");
+    private final RadioButton rockAtYButton = new RadioButton("At Y");
+    private final TextField rockYField = new TextField();
+    private final VBox rockLegendBox = new VBox(4);
+    private final ScrollPane rockLegendScroll = new ScrollPane(rockLegendBox);
     private final RadioButton allYButton = new RadioButton("All Y");
     private final RadioButton customYButton = new RadioButton("Custom range");
     private final RadioButton radius128Button = new RadioButton("128");
@@ -103,7 +115,9 @@ public class CartographerDesktopApp extends Application {
 
     private RenderActualOreMapUseCase useCase;
     private RenderSurfaceResourceMapUseCase surfaceUseCase;
+    private RenderRockMapUseCase rockUseCase;
     private VcdbsReader reader;
+    private WorldMetadataReader metadataReader;
     private ResourceCatalogService resourceCatalogService;
     private PlayerPositionService playerPositionService;
     private List<OreResource> discoveredResources = List.of();
@@ -112,9 +126,14 @@ public class CartographerDesktopApp extends Application {
     @Override
     public void start(Stage stage) {
         reader = createReader();
-        WorldMetadataReader metadataReader = new WorldMetadataReader();
+        metadataReader = new WorldMetadataReader();
         useCase = createUseCase(reader, metadataReader);
         surfaceUseCase = createSurfaceUseCase(reader, metadataReader);
+        rockUseCase = new RenderRockMapUseCase(
+                reader,
+                metadataReader,
+                new cartographer.render.RockMapRenderer()
+        );
         resourceCatalogService = new ResourceCatalogService(
                 reader,
                 new ResourceAnalyzer()
@@ -183,6 +202,7 @@ public class CartographerDesktopApp extends Application {
         ToggleGroup searchType = new ToggleGroup();
         oreSearchButton.setToggleGroup(searchType);
         surfaceSearchButton.setToggleGroup(searchType);
+        rockSearchButton.setToggleGroup(searchType);
         oreSearchButton.setSelected(true);
         searchType.selectedToggleProperty().addListener(
                 (observable, oldValue, selected) -> updateSearchType()
@@ -217,10 +237,19 @@ public class CartographerDesktopApp extends Application {
         allYButton.setSelected(true);
         yMinField.setPromptText("min");
         yMaxField.setPromptText("max");
+        rockYField.setPromptText("world Y");
+        ToggleGroup rockMode = new ToggleGroup();
+        rockUpperButton.setToggleGroup(rockMode);
+        rockAtYButton.setToggleGroup(rockMode);
+        rockUpperButton.setSelected(true);
+        rockAtYButton.selectedProperty().addListener(
+                (observable, oldValue, selected) -> updateRockMode()
+        );
         allYButton.selectedProperty().addListener(
                 (observable, oldValue, selected) -> updateYFields()
         );
         updateYFields();
+        updateRockMode();
 
         browseButton.setOnAction(event -> chooseSave(stage));
         renderButton.setOnAction(event -> render());
@@ -250,7 +279,7 @@ public class CartographerDesktopApp extends Application {
         grid.add(playerStatusLabel, 0, 3, 2, 1);
 
         grid.add(new Label("SEARCH TYPE"), 0, 4);
-        grid.add(new HBox(8, oreSearchButton, surfaceSearchButton), 0, 5, 2, 1);
+        grid.add(new FlowPane(8, 4, oreSearchButton, surfaceSearchButton, rockSearchButton), 0, 5, 2, 1);
         grid.add(new Label("RESOURCE"), 0, 6);
         HBox resourceMode = new HBox(8, singleResourceButton, multipleResourcesButton);
         grid.add(resourceMode, 0, 7, 2, 1);
@@ -261,10 +290,16 @@ public class CartographerDesktopApp extends Application {
         resourceChecklistScroll.setPrefViewportHeight(130);
         VBox multiResourcePanel = new VBox(4, multiActions, resourceChecklistScroll);
         grid.add(multiResourcePanel, 0, 9, 2, 1);
-        singleResourcePanel.visibleProperty().bind(singleResourceButton.selectedProperty());
         singleResourcePanel.managedProperty().bind(singleResourcePanel.visibleProperty());
-        multiResourcePanel.visibleProperty().bind(multipleResourcesButton.selectedProperty());
         multiResourcePanel.managedProperty().bind(multiResourcePanel.visibleProperty());
+        resourceMode.visibleProperty().bind(oreSearchButton.selectedProperty());
+        resourceMode.managedProperty().bind(resourceMode.visibleProperty());
+        singleResourcePanel.visibleProperty().bind(
+                oreSearchButton.selectedProperty().and(singleResourceButton.selectedProperty())
+        );
+        multiResourcePanel.visibleProperty().bind(
+                oreSearchButton.selectedProperty().and(multipleResourcesButton.selectedProperty())
+        );
 
         VBox surfacePanel = new VBox(
                 4,
@@ -274,6 +309,18 @@ public class CartographerDesktopApp extends Application {
         grid.add(surfacePanel, 0, 7, 2, 3);
         surfacePanel.visibleProperty().bind(surfaceSearchButton.selectedProperty());
         surfacePanel.managedProperty().bind(surfacePanel.visibleProperty());
+
+        VBox rockPanel = new VBox(
+                4,
+                new HBox(8, rockUpperButton, rockAtYButton),
+                rockYField,
+                rockLegendScroll
+        );
+        rockLegendScroll.setFitToWidth(true);
+        rockLegendScroll.setPrefViewportHeight(130);
+        grid.add(rockPanel, 0, 7, 2, 3);
+        rockPanel.visibleProperty().bind(rockSearchButton.selectedProperty());
+        rockPanel.managedProperty().bind(rockPanel.visibleProperty());
 
         grid.add(new Label("RADIUS"), 0, 10);
         FlowPane radiusBox = new FlowPane(
@@ -389,6 +436,10 @@ public class CartographerDesktopApp extends Application {
 
     private void render() {
         try {
+            if (rockSearchButton.isSelected()) {
+                renderRockMap();
+                return;
+            }
             if (surfaceSearchButton.isSelected()) {
                 renderSurfaceResource();
                 return;
@@ -410,6 +461,46 @@ public class CartographerDesktopApp extends Application {
         } catch (RuntimeException exception) {
             showFailure(exception);
         }
+    }
+
+    private void renderRockMap() {
+        RenderRockMapRequest request = rockRequestFromControls();
+        setBusy(true);
+        statusLabel.setText("Rendering observed rock geology...");
+        Task<RenderRockMapResult> task = new Task<>() {
+            @Override
+            protected RenderRockMapResult call() {
+                return rockUseCase.execute(request);
+            }
+        };
+        task.setOnSucceeded(event -> showRockResult(task.getValue(), request));
+        task.setOnFailed(event -> showFailure(task.getException()));
+        Thread worker = new Thread(task, "cartographer-rock-map-render");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    private RenderRockMapRequest rockRequestFromControls() {
+        if (saveField.getText().isBlank()) {
+            throw new IllegalArgumentException("Select a .vcdbs save.");
+        }
+        OptionalInt y = OptionalInt.empty();
+        if (rockAtYButton.isSelected()) {
+            Integer value = parseOptionalInteger(rockYField, "Rock Y");
+            if (value == null) {
+                throw new IllegalArgumentException("Enter a world Y for At Y mode.");
+            }
+            y = OptionalInt.of(value);
+        }
+        return new RenderRockMapRequest(
+                Path.of(saveField.getText()),
+                rockAtYButton.isSelected() ? RockMapMode.AT_Y : RockMapMode.UPPER_ROCK,
+                selectedRadius(),
+                Optional.empty(),
+                y,
+                OptionalInt.empty(),
+                OptionalInt.empty()
+        );
     }
 
     private void renderSurfaceResource() {
@@ -555,6 +646,54 @@ public class CartographerDesktopApp extends Application {
         setBusy(false);
     }
 
+    private void showRockResult(
+            RenderRockMapResult result,
+            RenderRockMapRequest request
+    ) {
+        imageView.setImage(SwingFXUtils.toFXImage(result.rendered().image(), null));
+        imageView.setFitWidth(Math.max(720, result.rendered().image().getWidth()));
+        imageView.setFitHeight(Math.max(620, result.rendered().image().getHeight()));
+        rockLegendBox.getChildren().clear();
+        for (RockLegendEntry entry : result.rendered().legend()) {
+            Region swatch = new Region();
+            swatch.setPrefSize(12, 12);
+            int rgb = entry.argb();
+            swatch.setStyle(
+                    "-fx-background-color: rgb("
+                            + ((rgb >> 16) & 0xff) + ","
+                            + ((rgb >> 8) & 0xff) + ","
+                            + (rgb & 0xff) + ");"
+            );
+            Label label = new Label(
+                    entry.rock().code()
+                            + " (" + entry.observedCellCount()
+                            + ", " + String.format(
+                                    java.util.Locale.ROOT,
+                                    "%.2f%%",
+                                    entry.observedPercentage()
+                            ) + ")"
+            );
+            rockLegendBox.getChildren().add(new HBox(6, swatch, label));
+        }
+        StringBuilder text = new StringBuilder("Observed saved geology")
+                .append("\nMode: ").append(request.mode())
+                .append("\nRadius: ").append(request.radius());
+        if (request.mode() == RockMapMode.AT_Y) {
+            text.append("\nY: ").append(request.y().orElseThrow());
+        } else {
+            text.append("\nY range: ")
+                    .append(result.minY()).append("..")
+                    .append(result.maxYExclusive()).append(" (exclusive)");
+        }
+        text.append("\nRecognized rock types: ").append(result.catalog().rocks().size())
+                .append("\nObserved: ").append(result.rendered().observedCount())
+                .append("\nNo rock: ").append(result.rendered().noRockCount())
+                .append("\nUnavailable: ").append(result.rendered().unavailableCount());
+        resultLabel.setText(text.toString());
+        statusLabel.setText("Rock map rendered.");
+        setBusy(false);
+    }
+
     private String foundY(cartographer.scanner.ActualBlockMap map) {
         return map.cells().isEmpty()
                 ? "none"
@@ -594,6 +733,10 @@ public class CartographerDesktopApp extends Application {
         surfaceResourceBox.setDisable(busy);
         oreSearchButton.setDisable(busy);
         surfaceSearchButton.setDisable(busy);
+        rockSearchButton.setDisable(busy);
+        rockUpperButton.setDisable(busy);
+        rockAtYButton.setDisable(busy);
+        rockYField.setDisable(busy || !rockAtYButton.isSelected() || !rockSearchButton.isSelected());
         singleResourceButton.setDisable(busy);
         multipleResourcesButton.setDisable(busy);
         selectAllButton.setDisable(busy);
@@ -617,6 +760,7 @@ public class CartographerDesktopApp extends Application {
         surfaceResourceBox.setDisable(busy);
         oreSearchButton.setDisable(busy);
         surfaceSearchButton.setDisable(busy);
+        rockSearchButton.setDisable(busy);
         singleResourceButton.setDisable(busy);
         multipleResourcesButton.setDisable(busy);
         selectAllButton.setDisable(busy);
@@ -624,9 +768,18 @@ public class CartographerDesktopApp extends Application {
     }
 
     private void updateYFields() {
-        boolean disabled = allYButton.isSelected() || surfaceSearchButton.isSelected();
+        boolean disabled = allYButton.isSelected()
+                || surfaceSearchButton.isSelected()
+                || rockSearchButton.isSelected();
         yMinField.setDisable(disabled);
         yMaxField.setDisable(disabled);
+        updateRockMode();
+    }
+
+    private void updateRockMode() {
+        rockYField.setDisable(
+                !rockSearchButton.isSelected() || !rockAtYButton.isSelected()
+        );
     }
 
     private int selectedRadius() {
@@ -703,6 +856,7 @@ public class CartographerDesktopApp extends Application {
 
     private void updateSearchType() {
         updateYFields();
+        updateRockMode();
         updateResourceStatus();
         updateSurfaceResourceStatus();
     }

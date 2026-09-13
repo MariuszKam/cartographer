@@ -1,31 +1,20 @@
 package cartographer.cli;
 
 import cartographer.geology.rock.RockCatalog;
-import cartographer.geology.rock.RockChunkCoverage;
-import cartographer.geology.rock.RockColumnScanner;
-import cartographer.geology.rock.RockMap;
 import cartographer.geology.rock.RockMapMode;
-import cartographer.geology.rock.RockAtYScanner;
+import cartographer.application.RenderRockMapRequest;
+import cartographer.application.RenderRockMapResult;
+import cartographer.application.RenderRockMapUseCase;
 import cartographer.model.ChunkPosition;
-import cartographer.model.ParsedChunk;
-import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
-import cartographer.application.OreChunkPositionPlanner;
 import cartographer.render.PngWriter;
 import cartographer.render.RockLegendEntry;
-import cartographer.render.RockMapRenderResult;
 import cartographer.render.RockMapRenderer;
-import cartographer.save.ReadDiagnostics;
-import cartographer.save.SelectiveChunkStreamStats;
-import cartographer.save.SelectiveChunkVisitStatus;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
-import cartographer.scanner.ActualBlockYFilter;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -37,7 +26,7 @@ public final class RockCommand implements Command {
     private final PrintStream out;
     private final VcdbsReader reader;
     private final WorldMetadataReader metadataReader;
-    private final RockMapRenderer renderer;
+    private final RenderRockMapUseCase useCase;
     private final PngWriter pngWriter;
     private final String subcommand;
 
@@ -52,7 +41,13 @@ public final class RockCommand implements Command {
         this.out = out;
         this.reader = reader;
         this.metadataReader = metadataReader;
-        this.renderer = renderer;
+        this.useCase = renderer == null
+                ? null
+                : new RenderRockMapUseCase(
+                        reader,
+                        metadataReader,
+                        renderer
+                );
         this.pngWriter = pngWriter;
         this.subcommand = subcommand;
     }
@@ -95,121 +90,36 @@ public final class RockCommand implements Command {
             );
         }
 
-        Path savePath = Path.of(args[0]);
-        RockMapMode mode = mode(args);
-
-        ProgressReporter progress = new ProgressReporter(out);
-        ReadDiagnostics diagnostics = new ReadDiagnostics();
-        WorldMetadata metadata = metadataReader.read(savePath, progress);
-        WorldPosition center = center(args).orElseGet(
-                () -> reader.readPlayerPosition(savePath, progress)
-        );
-        int radius = intOption(args, "--radius", DEFAULT_RADIUS, MAX_RADIUS);
-        Optional<String> requestedY = option(args, "--y");
-        int minY = mode == RockMapMode.UPPER_ROCK
-                ? integerOption(args, "--min-y", 0)
-                : requestedY.map(value -> integerValue(value, "--y")).orElse(0);
-        int maxY = mode == RockMapMode.UPPER_ROCK
-                ? integerOption(args, "--max-y", metadata.mapSizeY())
-                : minY + 1;
-        if (mode == RockMapMode.AT_Y) {
-            if (requestedY.isEmpty()) {
-                throw new CommandException("--mode at-y requires --y");
-            }
-            if (option(args, "--min-y").isPresent()
-                    || option(args, "--max-y").isPresent()) {
-                throw new CommandException("--min-y and --max-y are only valid for upper-rock");
-            }
-            if (minY < 0 || minY >= metadata.mapSizeY()) {
-                throw new CommandException("--y must be within the world vertical range");
-            }
-        } else if (requestedY.isPresent()) {
-            throw new CommandException("--y is only valid with --mode at-y");
+        RenderRockMapRequest request = request(args);
+        if (useCase == null) {
+            throw new CommandException("Rock render renderer is unavailable");
         }
-        if (minY >= maxY) {
-            throw new CommandException("--min-y must be less than --max-y");
-        }
-
-        RockCatalog catalog = catalog(savePath);
-        if (catalog.rocks().isEmpty()) {
-            throw new CommandException(
-                    "No natural rock blocks (rock-*) were discovered in the save registry"
-            );
-        }
-
-        List<ChunkPosition> positions = new OreChunkPositionPlanner().plan(
-                metadata,
-                floor(center.x()),
-                floor(center.z()),
-                radius,
-                new ActualBlockYFilter(minY, maxY - 1)
-        );
-        List<ParsedChunk> chunks = new ArrayList<>();
-        List<ChunkPosition> available = new ArrayList<>();
-        SelectiveChunkStreamStats readStats =
-                reader.forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                savePath,
-                positions,
-                catalog.rockBlockIds().stream().mapToInt(Integer::intValue).toArray(),
-                diagnostics,
-                visit -> {
-                    if (visit.status() == SelectiveChunkVisitStatus.DECODED) {
-                        available.add(visit.position());
-                        chunks.add(visit.chunk());
-                    } else if (visit.status() == SelectiveChunkVisitStatus.PALETTE_REJECTED) {
-                        available.add(visit.position());
-                    }
-                },
-                        progress
-                );
-
-        RockChunkCoverage coverage = RockChunkCoverage.fromChunkPositions(available);
-        RockMap rockMap = mode == RockMapMode.UPPER_ROCK
-                ? new RockColumnScanner().scan(
-                        chunks,
-                        catalog,
-                        center,
-                        radius,
-                        minY,
-                        maxY,
-                        coverage
-                )
-                : new RockAtYScanner().scan(
-                        chunks,
-                        catalog,
-                        coverage,
-                        center,
-                        radius,
-                        minY
-                );
-        RockMapRenderResult rendered = renderer.render(rockMap);
+        RenderRockMapResult result = useCase.execute(request);
         Path output = Path.of(option(args, "--out").orElse(DEFAULT_OUTPUT.toString()));
-        progress.start("Writing PNG");
-        pngWriter.write(rendered.image(), output);
-        progress.done("PNG written");
+        pngWriter.write(result.rendered().image(), output);
 
         out.println("ROCK MAP");
         out.println("Description: Observed saved geology");
-        out.println("Mode: " + mode);
-        if (mode == RockMapMode.AT_Y) {
-            out.println("Y: " + minY);
+        out.println("Mode: " + request.mode());
+        if (request.mode() == RockMapMode.AT_Y) {
+            out.println("Y: " + request.y().orElseThrow());
         }
-        out.println("Center world: " + center.x() + "," + center.z());
-        out.println("Radius: " + radius);
-        out.println("Y range: " + minY + ".." + maxY + " (exclusive)");
+        out.println("Center world: " + result.center().x() + "," + result.center().z());
+        out.println("Radius: " + request.radius());
+        out.println("Y range: " + result.minY() + ".." + result.maxYExclusive() + " (exclusive)");
         out.println("Output: " + output);
-        out.println("Recognized rock block types: " + catalog.rocks().size());
-        out.println("Observed cells: " + rendered.observedCount());
-        out.println("No-rock cells: " + rendered.noRockCount());
-        out.println("Unavailable cells: " + rendered.unavailableCount());
-        out.println("Read parsed: " + diagnostics.parsed());
-        out.println("Read skipped: " + diagnostics.skipped());
-        out.println("Read failed: " + diagnostics.failed());
-        out.println("Chunk batches: " + readStats.batchesExecuted());
-        out.println("Chunk rows found: " + readStats.rowsFound());
-        out.println("Payload bytes: " + readStats.payloadBytes());
+        out.println("Recognized rock block types: " + result.catalog().rocks().size());
+        out.println("Observed cells: " + result.rendered().observedCount());
+        out.println("No-rock cells: " + result.rendered().noRockCount());
+        out.println("Unavailable cells: " + result.rendered().unavailableCount());
+        out.println("Read parsed: " + result.diagnostics().parsed());
+        out.println("Read skipped: " + result.diagnostics().skipped());
+        out.println("Read failed: " + result.diagnostics().failed());
+        out.println("Chunk batches: " + result.chunkStats().batchesExecuted());
+        out.println("Chunk rows found: " + result.chunkStats().rowsFound());
+        out.println("Payload bytes: " + result.chunkStats().payloadBytes());
         out.println("Observed rock distribution:");
-        for (RockLegendEntry entry : rendered.legend()) {
+        for (RockLegendEntry entry : result.rendered().legend()) {
             out.printf(
                     Locale.ROOT,
                     "  %s: %d (%.2f%%)%n",
@@ -218,6 +128,42 @@ public final class RockCommand implements Command {
                     entry.observedPercentage()
             );
         }
+    }
+
+    private RenderRockMapRequest request(String[] args) {
+        RockMapMode selectedMode = mode(args);
+        Optional<String> y = option(args, "--y");
+        if (selectedMode == RockMapMode.AT_Y && y.isEmpty()) {
+            throw new CommandException("--mode at-y requires --y");
+        }
+        if (selectedMode == RockMapMode.UPPER_ROCK && y.isPresent()) {
+            throw new CommandException("--y is only valid with --mode at-y");
+        }
+        if (selectedMode == RockMapMode.AT_Y
+                && (option(args, "--min-y").isPresent()
+                || option(args, "--max-y").isPresent())) {
+            throw new CommandException("--min-y and --max-y are only valid for upper-rock");
+        }
+        return new RenderRockMapRequest(
+                Path.of(args[0]),
+                selectedMode,
+                intOption(args, "--radius", DEFAULT_RADIUS, MAX_RADIUS),
+                center(args),
+                y.map(value -> integerValue(value, "--y"))
+                        .stream()
+                        .mapToInt(Integer::intValue)
+                        .findFirst(),
+                option(args, "--min-y")
+                        .map(value -> integerValue(value, "--min-y"))
+                        .stream()
+                        .mapToInt(Integer::intValue)
+                        .findFirst(),
+                option(args, "--max-y")
+                        .map(value -> integerValue(value, "--max-y"))
+                        .stream()
+                        .mapToInt(Integer::intValue)
+                        .findFirst()
+        );
     }
 
     private RockCatalog catalog(Path savePath) {
