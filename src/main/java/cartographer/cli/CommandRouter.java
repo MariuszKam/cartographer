@@ -20,6 +20,7 @@ import cartographer.render.PngWriter;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.render.RockMapRenderer;
 import cartographer.resource.ResourceAnalyzer;
+import cartographer.prospecting.SavedOreObservationProvider;
 import cartographer.save.SaveIndexReader;
 import cartographer.save.SaveInspector;
 import cartographer.save.VcdbsReader;
@@ -287,7 +288,9 @@ public class CommandRouter {
                                             metadataReader,
                                             new RockMapRenderer()
                                     ),
-                                    new ResourceAnalyzer()
+                                    new ResourceAnalyzer(),
+                                    cartographer.prospecting.OreRockCompatibilityProvider.unknown(),
+                                    new SavedOreObservationProvider(reader, metadataReader)
                             ),
                             subcommand(args, "prospecting")
                     );

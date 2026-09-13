@@ -13,6 +13,17 @@ public interface ActualOreObservationProvider {
             int radius
     );
 
+    default ActualOreObservation observation(
+            String resourceKey,
+            Path savePath,
+            WorldPosition center,
+            int radius
+    ) {
+        return observed(resourceKey, savePath, center, radius)
+                ? ActualOreObservation.OBSERVED
+                : ActualOreObservation.NOT_OBSERVED;
+    }
+
     static ActualOreObservationProvider none() {
         return (resourceKey, savePath, center, radius) -> false;
     }

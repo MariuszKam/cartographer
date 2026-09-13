@@ -101,6 +101,50 @@ class ProspectingEvaluatorTest {
     }
 
     @Test
+    void partialGeologyStillUsesObservedCompatibleRock() {
+        ProspectingAssessment assessment = evaluator.assess(
+                new ProspectingCandidate(
+                        "cassiterite",
+                        new ProspectingEvidence(
+                                OptionalDouble.of(0.8),
+                                RockColumnState.OBSERVED,
+                                List.of(GRANITE),
+                                ActualOreObservation.NOT_OBSERVED,
+                                100,
+                                20,
+                                1
+                        )
+                ),
+                (resource, rock) -> OreRockCompatibility.COMPATIBLE
+        );
+
+        assertEquals(ProspectingRank.STRONG, assessment.rank());
+        assertTrue(assessment.reasons().contains("observed geology coverage is partial"));
+    }
+
+    @Test
+    void unavailableActualOreScanIsNotReportedAsNotObserved() {
+        ProspectingAssessment assessment = evaluator.assess(
+                new ProspectingCandidate(
+                        "cassiterite",
+                        new ProspectingEvidence(
+                                OptionalDouble.empty(),
+                                RockColumnState.UNAVAILABLE,
+                                List.of(),
+                                ActualOreObservation.UNAVAILABLE,
+                                0,
+                                0,
+                                4
+                        )
+                ),
+                OreRockCompatibilityProvider.unknown()
+        );
+
+        assertEquals(ActualOreObservation.UNAVAILABLE, assessment.candidate().evidence().actualOreObservation());
+        assertTrue(assessment.reasons().contains("actual ore observation is unavailable"));
+    }
+
+    @Test
     void assessmentsAreOrderedByRankThenResourceKey() {
         List<ProspectingAssessment> result = evaluator.assessAll(
                 List.of(

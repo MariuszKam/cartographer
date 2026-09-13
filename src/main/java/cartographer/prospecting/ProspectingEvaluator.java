@@ -58,9 +58,19 @@ public final class ProspectingEvaluator {
             reasons.add("worldgen signal unavailable");
         }
         reasons.add("observed geology=" + evidence.geologyState());
+        reasons.add(
+                "geology coverage: observed=" + evidence.observedGeologyColumns()
+                        + ", no-rock=" + evidence.noRockGeologyColumns()
+                        + ", unavailable=" + evidence.unavailableGeologyColumns()
+        );
+        if (evidence.partialGeologyCoverage()) {
+            reasons.add("observed geology coverage is partial");
+        }
         reasons.add("host compatibility=" + compatibility);
-        if (!evidence.actualOreObserved()) {
-            reasons.add("actual ore not observed");
+        if (evidence.actualOreObservation() == ActualOreObservation.NOT_OBSERVED) {
+            reasons.add("actual ore scan completed without an observation");
+        } else if (evidence.actualOreObservation() == ActualOreObservation.UNAVAILABLE) {
+            reasons.add("actual ore observation is unavailable");
         }
         return new ProspectingAssessment(candidate, compatibility, rank, reasons);
     }

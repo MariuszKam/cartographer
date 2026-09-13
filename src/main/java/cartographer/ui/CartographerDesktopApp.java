@@ -16,6 +16,7 @@ import cartographer.application.ProspectingAreaRequest;
 import cartographer.application.ProspectingAreaResult;
 import cartographer.geology.rock.RockMapMode;
 import cartographer.prospecting.ProspectingAssessment;
+import cartographer.prospecting.SavedOreObservationProvider;
 import cartographer.marker.MarkerStore;
 import cartographer.navigation.HomeStore;
 import cartographer.parser.ChunkParser;
@@ -146,7 +147,9 @@ public class CartographerDesktopApp extends Application {
         prospectingUseCase = new AnalyzeProspectingAreaUseCase(
                 reader,
                 rockUseCase,
-                new ResourceAnalyzer()
+                new ResourceAnalyzer(),
+                cartographer.prospecting.OreRockCompatibilityProvider.unknown(),
+                new SavedOreObservationProvider(reader, metadataReader)
         );
         resourceCatalogService = new ResourceCatalogService(
                 reader,
@@ -770,8 +773,7 @@ public class CartographerDesktopApp extends Application {
                                     + " | compatibility: "
                                     + assessment.compatibility()
                                     + " | actual ore: "
-                                    + (assessment.candidate().evidence().actualOreObserved()
-                                    ? "observed" : "not observed")
+                                    + actualOreText(assessment)
                                     + "\n  " + String.join(
                                     "; ",
                                     assessment.reasons()
@@ -796,6 +798,14 @@ public class CartographerDesktopApp extends Application {
                         assessment.candidate().evidence().worldgenSignal().getAsDouble()
                 )
                 : "unavailable";
+    }
+
+    private String actualOreText(ProspectingAssessment assessment) {
+        return switch (assessment.candidate().evidence().actualOreObservation()) {
+            case OBSERVED -> "observed";
+            case NOT_OBSERVED -> "not observed";
+            case UNAVAILABLE -> "unavailable";
+        };
     }
 
     private String foundY(cartographer.scanner.ActualBlockMap map) {

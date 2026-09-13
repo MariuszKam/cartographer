@@ -11,11 +11,34 @@ public record ProspectingEvidence(
         OptionalDouble worldgenSignal,
         RockColumnState geologyState,
         List<RockIdentity> observedHostRocks,
-        boolean actualOreObserved
+        ActualOreObservation actualOreObservation,
+        int observedGeologyColumns,
+        int noRockGeologyColumns,
+        int unavailableGeologyColumns
 ) {
+    public ProspectingEvidence(
+            OptionalDouble worldgenSignal,
+            RockColumnState geologyState,
+            List<RockIdentity> observedHostRocks,
+            boolean actualOreObserved
+    ) {
+        this(
+                worldgenSignal,
+                geologyState,
+                observedHostRocks,
+                actualOreObserved
+                        ? ActualOreObservation.OBSERVED
+                        : ActualOreObservation.NOT_OBSERVED,
+                geologyState == RockColumnState.OBSERVED ? 1 : 0,
+                geologyState == RockColumnState.NO_ROCK ? 1 : 0,
+                geologyState == RockColumnState.UNAVAILABLE ? 1 : 0
+        );
+    }
+
     public ProspectingEvidence {
         Objects.requireNonNull(worldgenSignal, "worldgen signal is required");
         Objects.requireNonNull(geologyState, "geology state is required");
+        Objects.requireNonNull(actualOreObservation, "actual ore observation is required");
         observedHostRocks = List.copyOf(
                 Objects.requireNonNull(observedHostRocks, "observed rocks are required")
         );
@@ -39,9 +62,26 @@ public record ProspectingEvidence(
                 );
             }
         }
+        if (observedGeologyColumns < 0
+                || noRockGeologyColumns < 0
+                || unavailableGeologyColumns < 0) {
+            throw new IllegalArgumentException("geology coverage counts must not be negative");
+        }
+        if (unavailableGeologyColumns > 0 && geologyState == RockColumnState.NO_ROCK) {
+            throw new IllegalArgumentException("partial geology cannot be classified as NO_ROCK");
+        }
     }
 
     public boolean hasPositiveWorldgenSignal() {
         return worldgenSignal.isPresent() && worldgenSignal.getAsDouble() > 0.0;
+    }
+
+    public boolean actualOreObserved() {
+        return actualOreObservation == ActualOreObservation.OBSERVED;
+    }
+
+    public boolean partialGeologyCoverage() {
+        return unavailableGeologyColumns > 0
+                && observedGeologyColumns + noRockGeologyColumns > 0;
     }
 }

@@ -62,7 +62,11 @@ public final class ProspectingCommand implements Command {
                     .sorted()
                     .toList());
             out.println("Host compatibility: " + assessment.compatibility());
-            out.println("Actual ore: " + (evidence.actualOreObserved() ? "observed" : "not observed"));
+            out.println("Actual ore: " + switch (evidence.actualOreObservation()) {
+                case OBSERVED -> "observed";
+                case NOT_OBSERVED -> "not observed";
+                case UNAVAILABLE -> "unavailable";
+            });
             out.println("Reasons: " + String.join("; ", assessment.reasons()));
         }
     }

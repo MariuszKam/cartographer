@@ -6,6 +6,7 @@ import cartographer.geology.rock.RockMap;
 import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldPosition;
 import cartographer.prospecting.ActualOreObservationProvider;
+import cartographer.prospecting.ActualOreObservation;
 import cartographer.prospecting.OreRockCompatibilityProvider;
 import cartographer.prospecting.ProspectingCandidate;
 import cartographer.prospecting.ProspectingEvidence;
@@ -112,12 +113,15 @@ public final class AnalyzeProspectingAreaUseCase {
                                     signal,
                                     geology.state(),
                                     geology.rocks(),
-                                    actualOreProvider.observed(
+                                    actualOreProvider.observation(
                                             resource,
                                             request.savePath(),
                                             center,
                                             request.radius()
-                                    )
+                                    ),
+                                    geology.observedColumns(),
+                                    geology.noRockColumns(),
+                                    geology.unavailableColumns()
                             )
                     )
             );
@@ -173,25 +177,39 @@ public final class AnalyzeProspectingAreaUseCase {
         Set<cartographer.geology.rock.RockIdentity> rocks = new TreeSet<>(
                 Comparator.comparing(cartographer.geology.rock.RockIdentity::code)
         );
-        boolean unavailable = false;
+        int observedColumns = 0;
+        int noRockColumns = 0;
+        int unavailableColumns = 0;
         for (RockColumnSample sample : map.columns()) {
             if (sample.state() == RockColumnState.UNAVAILABLE) {
-                unavailable = true;
+                unavailableColumns++;
             } else if (sample.state() == RockColumnState.OBSERVED) {
+                observedColumns++;
                 sample.rock().ifPresent(rocks::add);
+            } else {
+                noRockColumns++;
             }
         }
-        RockColumnState state = unavailable
+        RockColumnState state = observedColumns > 0
+                ? RockColumnState.OBSERVED
+                : unavailableColumns > 0
                 ? RockColumnState.UNAVAILABLE
-                : rocks.isEmpty()
-                ? RockColumnState.NO_ROCK
-                : RockColumnState.OBSERVED;
-        return new RockEvidence(state, List.copyOf(rocks));
+                : RockColumnState.NO_ROCK;
+        return new RockEvidence(
+                state,
+                List.copyOf(rocks),
+                observedColumns,
+                noRockColumns,
+                unavailableColumns
+        );
     }
 
     private record RockEvidence(
             RockColumnState state,
-            List<cartographer.geology.rock.RockIdentity> rocks
+            List<cartographer.geology.rock.RockIdentity> rocks,
+            int observedColumns,
+            int noRockColumns,
+            int unavailableColumns
     ) {
     }
 }
