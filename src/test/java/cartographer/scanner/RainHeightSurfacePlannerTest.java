@@ -23,6 +23,7 @@ class RainHeightSurfacePlannerTest {
 
         RainHeightSurfacePlan plan = session.finish();
 
+        assertEquals(5, plan.targets().size());
         assertTrue(plan.targets().stream().allMatch(target -> target.worldY() == 45));
     }
 
@@ -56,7 +57,7 @@ class RainHeightSurfacePlannerTest {
     @Test
     void invalidHeightFallsBackWholeMapChunkAndEmitsNoPartialTargets() {
         int[] heights = filledHeights(45);
-        heights[0] = 256;
+        heights[31 + 31 * MapChunk.SIZE] = 256;
         RainHeightSurfacePlanner.StreamingSession session = planner(16, 16, 32);
         session.accept(new MapChunk(
                 new MapChunkCoordinate(0, 0), heights, new int[0]
@@ -65,7 +66,10 @@ class RainHeightSurfacePlannerTest {
         RainHeightSurfacePlan plan = session.finish();
 
         assertTrue(plan.targets().isEmpty());
-        assertEquals(1, plan.fallbackMapChunks().size());
+        assertEquals(
+                List.of(new MapChunkCoordinate(0, 0)),
+                plan.fallbackMapChunks()
+        );
     }
 
     @Test
@@ -82,8 +86,13 @@ class RainHeightSurfacePlannerTest {
                 .begin(new WorldMetadata(20, 256, 20), 0, 0, 20);
         session.accept(mapChunk(new MapChunkCoordinate(0, 0), 45));
 
-        assertTrue(session.finish().targets().stream().allMatch(
-                target -> target.worldX() < 20 && target.worldZ() < 20
+        RainHeightSurfacePlan plan = session.finish();
+        assertFalse(plan.targets().isEmpty());
+        assertTrue(plan.targets().stream().allMatch(
+                target -> target.worldX() >= 0
+                        && target.worldX() < 20
+                        && target.worldZ() >= 0
+                        && target.worldZ() < 20
         ));
     }
 
@@ -140,7 +149,9 @@ class RainHeightSurfacePlannerTest {
         RainHeightSurfacePlanner.StreamingSession session = planner(16, 16, 1);
         session.accept(mapChunk(new MapChunkCoordinate(0, 0), 45));
 
-        assertTrue(session.finish().chunkPositions().stream()
+        RainHeightSurfacePlan plan = session.finish();
+        assertFalse(plan.chunkPositions().isEmpty());
+        assertTrue(plan.chunkPositions().stream()
                 .allMatch(position -> position.dimension() == 0));
     }
 

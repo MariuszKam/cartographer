@@ -104,16 +104,32 @@ class RainHeightSurfaceScannerTest {
 
     @Test
     void targetOutsideParsedChunkGeometryIsUnresolved() {
+        RainHeightSurfaceTarget target = new RainHeightSurfaceTarget(31, 45, 1);
         RainHeightSurfacePlan plan = new RainHeightSurfacePlan(
-                List.of(new RainHeightSurfaceTarget(31, 45, 1)),
+                List.of(target),
                 List.of(new cartographer.model.ChunkPosition(0, 1, 0, 0)),
                 List.of()
         );
         RainHeightSurfaceScanner.StreamingSession session = new RainHeightSurfaceScanner()
                 .begin(plan, registry(), false, false);
-        session.accept(chunkWith(TARGET, 7, 0, 0));
+        int[] blocks = new int[2 * 32 * 2];
+        int[] liquids = new int[blocks.length];
+        session.accept(new ParsedChunk(
+                new ChunkCoordinate(0, 1, 0),
+                32,
+                2,
+                32,
+                2,
+                blocks,
+                liquids,
+                0,
+                true,
+                ""
+        ));
 
-        assertEquals(1, session.finish().unresolvedTargets().size());
+        RainHeightSurfaceScanResult result = session.finish();
+        assertTrue(result.blocks().isEmpty());
+        assertEquals(List.of(target), result.unresolvedTargets());
     }
 
     @Test
@@ -141,11 +157,28 @@ class RainHeightSurfaceScannerTest {
         );
         RainHeightSurfaceScanner.StreamingSession session = new RainHeightSurfaceScanner()
                 .begin(plan, registry(), false, false);
-        session.accept(chunkWith(first, 7, 0, 0));
         session.accept(chunkWith(second, 8, 0, 0));
+        session.accept(chunkWith(first, 7, 0, 0));
 
         List<SurfaceBlock> blocks = session.finish().blocks();
         assertEquals(List.of(1, 34), blocks.stream().map(SurfaceBlock::worldZ).toList());
+    }
+
+    @Test
+    void duplicateDeliveredChunkDoesNotDuplicateResolvedBlock() {
+        RainHeightSurfacePlan plan = new RainHeightSurfacePlan(
+                List.of(TARGET), List.of(TARGET.chunkPosition()), List.of()
+        );
+        RainHeightSurfaceScanner.StreamingSession session = new RainHeightSurfaceScanner()
+                .begin(plan, registry(), false, false);
+        ParsedChunk chunk = chunkWith(TARGET, 7, 0, 0);
+
+        session.accept(chunk);
+        session.accept(chunk);
+
+        RainHeightSurfaceScanResult result = session.finish();
+        assertEquals(1, result.blocks().size());
+        assertTrue(result.unresolvedTargets().isEmpty());
     }
 
     private RainHeightSurfaceScanResult scan(
