@@ -67,18 +67,17 @@ class RockAtYScannerTest {
 
     @Test
     void distinguishesPaletteRejectedFromMissingChunk() {
-        ParsedChunk lower = chunk(new ChunkCoordinate(0, 0, 0));
         RockChunkCoverage available = RockChunkCoverage.fromChunkCoordinates(
                 List.of(new ChunkCoordinate(0, 0, 0))
         );
 
         assertEquals(
                 RockColumnState.NO_ROCK,
-                sample(List.of(lower), available, 1).state()
+                sample(List.of(), available, 1).state()
         );
         assertEquals(
                 RockColumnState.UNAVAILABLE,
-                sample(List.of(), available, 1).state()
+                sample(List.of(), RockChunkCoverage.fromChunkCoordinates(List.of()), 1).state()
         );
     }
 
