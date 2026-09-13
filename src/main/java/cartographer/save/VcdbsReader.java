@@ -343,6 +343,7 @@ public class VcdbsReader {
                             connection,
                             requested.subList(start, end),
                             uniqueWantedBlockIds,
+                            diagnostics,
                             pipeline
                     );
                     batchesExecuted++;
@@ -463,6 +464,7 @@ public class VcdbsReader {
                             readChunkBatch(
                                     connection,
                                     requested.subList(start, end),
+                                    diagnostics,
                                     pipeline
                             );
 
@@ -556,6 +558,7 @@ public class VcdbsReader {
     private BatchStats readChunkBatch(
             Connection connection,
             List<Long> packedPositions,
+            ReadDiagnostics diagnostics,
             BoundedOrderedDecodePipeline<ChunkDecodeOutcome> pipeline
     ) throws SQLException {
         String sql =
@@ -698,6 +701,7 @@ public class VcdbsReader {
             Connection connection,
             List<Long> packedPositions,
             int[] wantedBlockIds,
+            ReadDiagnostics diagnostics,
             BoundedOrderedDecodePipeline<SelectiveDecodeOutcome> pipeline
     ) throws SQLException {
         String sql =
@@ -811,7 +815,7 @@ public class VcdbsReader {
         }
 
         if (!containsWantedBlock(palette.value().orElseThrow(), wantedBlockIds)) {
-            return SelectiveDecodeOutcome.paletteRejected();
+            return SelectiveDecodeOutcome.rejected();
         }
 
         ParseResult<ParsedChunk> parsedChunk = chunkParser.parse(
@@ -951,7 +955,7 @@ public class VcdbsReader {
             }
         }
 
-        private static SelectiveDecodeOutcome paletteRejected() {
+        private static SelectiveDecodeOutcome rejected() {
             return new SelectiveDecodeOutcome(true, true, null, null);
         }
 
