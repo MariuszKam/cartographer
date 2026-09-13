@@ -128,7 +128,11 @@ class VcdbsReaderDirectChunkLookupTest {
         assertEquals(0, stats.parsedChunks());
         assertEquals(0, stats.failedChunks());
         assertEquals(0, stats.payloadBytes());
-        assertTrue(diagnostics.notes().contains("chunk row has null payload"));
+        assertTrue(
+                diagnostics.skippedNotes().contains(
+                        "skipped: 1 x chunk row has null payload"
+                )
+        );
     }
 
     @Test
