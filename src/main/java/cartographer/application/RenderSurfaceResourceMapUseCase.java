@@ -5,10 +5,13 @@ import cartographer.model.DisplayPosition;
 import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
 import cartographer.model.MapChunk;
+import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParsedChunk;
 import cartographer.model.SurfaceBlock;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
+import cartographer.model.ChunkPosition;
+import cartographer.model.BlockInfo;
 import cartographer.navigation.HomeStore;
 import cartographer.render.MapRenderer;
 import cartographer.render.RenderLayer;
@@ -19,15 +22,27 @@ import cartographer.render.UserMarkerRenderer;
 import cartographer.resource.SurfaceResourceAnalysis;
 import cartographer.resource.SurfaceResourceAnalyzer;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.ChunkStreamStats;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
+import cartographer.scanner.RainHeightSurfacePlan;
+import cartographer.scanner.RainHeightSurfacePlanner;
+import cartographer.scanner.RainHeightSurfaceScanResult;
+import cartographer.scanner.RainHeightSurfaceScanner;
+import cartographer.scanner.SurfaceFallbackChunkPlanner;
+import cartographer.scanner.SurfaceFallbackMapChunks;
+import cartographer.scanner.SurfaceFastPathMerger;
 import cartographer.scanner.SurfaceScanResult;
 import cartographer.scanner.SurfaceScanner;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 public class RenderSurfaceResourceMapUseCase {
 
@@ -40,6 +55,20 @@ public class RenderSurfaceResourceMapUseCase {
     private final SurfaceScanner surfaceScanner;
     private final SurfaceResourceAnalyzer surfaceResourceAnalyzer;
     private final SurfaceResourceOverlayRenderer overlayRenderer;
+    private final MapChunkRenderWindowPlanner mapChunkRenderWindowPlanner =
+            new MapChunkRenderWindowPlanner();
+    private final MapChunkPositionPlanner mapChunkPositionPlanner =
+            new MapChunkPositionPlanner();
+    private final RainHeightSurfacePlanner rainHeightSurfacePlanner =
+            new RainHeightSurfacePlanner();
+    private final RainHeightSurfaceScanner rainHeightSurfaceScanner =
+            new RainHeightSurfaceScanner();
+    private final SurfaceFallbackMapChunks surfaceFallbackMapChunks =
+            new SurfaceFallbackMapChunks();
+    private final SurfaceFallbackChunkPlanner surfaceFallbackChunkPlanner =
+            new SurfaceFallbackChunkPlanner();
+    private final SurfaceFastPathMerger surfaceFastPathMerger =
+            new SurfaceFastPathMerger();
 
     public RenderSurfaceResourceMapUseCase(
             VcdbsReader reader,
@@ -69,8 +98,11 @@ public class RenderSurfaceResourceMapUseCase {
     public RenderSurfaceResourceMapResult execute(RenderSurfaceResourceMapRequest request) {
         Objects.requireNonNull(request, "request is required");
 
+        WorldMetadata metadata = metadataReader.read(request.savePath());
         WorldPosition player = reader.readPlayerPosition(request.savePath());
         WorldPosition center = request.center().orElse(player);
+        int centerWorldX = (int) Math.round(center.x());
+        int centerWorldZ = (int) Math.round(center.z());
         RenderOptions options = new RenderOptions(
                 request.radius(),
                 request.pixelsPerBlock(),
@@ -78,18 +110,120 @@ public class RenderSurfaceResourceMapUseCase {
                 request.layers()
         );
 
-        HomeState home = absoluteHome(request.savePath());
+        HomeState home = absoluteHome(request.savePath(), metadata);
         ReadDiagnostics mapChunkDiagnostics = new ReadDiagnostics();
-        List<MapChunk> mapChunks = reader.readMapChunksAround(
-                request.savePath(), center, request.radius(), mapChunkDiagnostics
+        List<MapChunkCoordinate> renderMapChunkCoordinates =
+                mapChunkRenderWindowPlanner.plan(
+                        metadata,
+                        center,
+                        request.radius()
+                );
+        List<MapChunkCoordinate> surfaceMapChunkCoordinates =
+                mapChunkPositionPlanner.plan(
+                        metadata,
+                        centerWorldX,
+                        centerWorldZ,
+                        request.radius()
+                );
+        Set<MapChunkCoordinate> surfaceSearchSet =
+                new HashSet<>(surfaceMapChunkCoordinates);
+        Set<MapChunkCoordinate> deliveredSurfaceMapChunks =
+                new HashSet<>();
+        List<MapChunk> mapChunks = new ArrayList<>();
+        RainHeightSurfacePlanner.StreamingSession rainPlannerSession =
+                rainHeightSurfacePlanner.begin(
+                        metadata,
+                        centerWorldX,
+                        centerWorldZ,
+                        request.radius()
+                );
+        reader.forEachMapChunkByCoordinate(
+                request.savePath(),
+                renderMapChunkCoordinates,
+                mapChunkDiagnostics,
+                mapChunk -> {
+                    mapChunks.add(mapChunk);
+                    if (surfaceSearchSet.contains(mapChunk.coordinate())) {
+                        deliveredSurfaceMapChunks.add(mapChunk.coordinate());
+                        rainPlannerSession.accept(mapChunk);
+                    }
+                }
         );
-
+        mapChunks.sort(
+                Comparator.comparingInt((MapChunk mapChunk) -> mapChunk.coordinate().z())
+                        .thenComparingInt(mapChunk -> mapChunk.coordinate().x())
+        );
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
-        List<ParsedChunk> chunks = reader.readChunksAround(
-                request.savePath(), center, request.radius(), chunkDiagnostics
+        Map<Integer, BlockInfo> registry = reader.readBlockRegistry(request.savePath());
+        RainHeightSurfacePlan rainPlan = rainPlannerSession.finish();
+        RainHeightSurfaceScanner.StreamingSession fastSession =
+                rainHeightSurfaceScanner.begin(
+                        rainPlan,
+                        registry,
+                        true,
+                        true
+                );
+        ChunkStreamStats fastChunkStats = new ChunkStreamStats(0, 0, 0, 0, 0, 0);
+        if (!rainPlan.chunkPositions().isEmpty()) {
+            fastChunkStats = reader.forEachChunkByPosition(
+                    request.savePath(),
+                    rainPlan.chunkPositions(),
+                    chunkDiagnostics,
+                    fastSession::accept
+            );
+        }
+        RainHeightSurfaceScanResult fastResult = fastSession.finish();
+        List<MapChunkCoordinate> fallbackMapChunks = surfaceFallbackMapChunks.collect(
+                surfaceMapChunkCoordinates,
+                deliveredSurfaceMapChunks,
+                rainPlan,
+                fastResult
         );
-        Map<Integer, cartographer.model.BlockInfo> registry = reader.readBlockRegistry(request.savePath());
-        SurfaceScanResult surface = surfaceScanner.scan(chunks, registry, true);
+        List<ChunkPosition> fallbackChunkPositions = surfaceFallbackChunkPlanner.plan(
+                metadata,
+                fallbackMapChunks
+        );
+        List<ParsedChunk> fallbackChunks = new ArrayList<>();
+        ChunkStreamStats fallbackChunkStats = new ChunkStreamStats(0, 0, 0, 0, 0, 0);
+        if (!fallbackChunkPositions.isEmpty()) {
+            fallbackChunkStats = reader.forEachChunkByPosition(
+                    request.savePath(),
+                    fallbackChunkPositions,
+                    chunkDiagnostics,
+                    fallbackChunks::add
+            );
+        }
+        SurfaceScanResult fallbackSurface = fallbackMapChunks.isEmpty()
+                ? new SurfaceScanResult(List.of(), 0, 0, 0, 0)
+                : surfaceScanner.scan(fallbackChunks, registry, true);
+        int healthyFastColumns = rainPlan.targets().stream()
+                .filter(target -> !fallbackMapChunks.contains(target.mapChunkCoordinate()))
+                .toList()
+                .size();
+        int chunksScanned = Math.addExact(
+                fastChunkStats.parsedChunks(),
+                fallbackChunkStats.parsedChunks()
+        );
+        int columnsScanned = Math.addExact(
+                healthyFastColumns,
+                fallbackSurface.columnsScanned()
+        );
+        List<SurfaceBlock> mergedSurfaceBlocks = surfaceFastPathMerger.merge(
+                fastResult.blocks(),
+                fallbackSurface.blocks(),
+                fallbackMapChunks,
+                metadata,
+                centerWorldX,
+                centerWorldZ,
+                request.radius()
+        );
+        SurfaceScanResult surface = new SurfaceScanResult(
+                mergedSurfaceBlocks,
+                chunksScanned,
+                columnsScanned,
+                fallbackSurface.emptyColumns(),
+                fallbackSurface.liquidUnavailableColumns()
+        );
         List<SurfaceBlock> matchingBlocks = request.match().matchingBlocks(surface.blocks());
         SurfaceResourceAnalysis groupedAnalysis = surfaceResourceAnalyzer.analyze(
                 matchingBlocks,
@@ -124,7 +258,6 @@ public class RenderSurfaceResourceMapUseCase {
         if (options.layers().contains(RenderLayer.MARKERS)) {
             List<cartographer.marker.UserMarker> markers = markerStore.load(request.savePath());
             if (!markers.isEmpty()) {
-                WorldMetadata metadata = metadataReader.read(request.savePath());
                 userMarkersDrawn = userMarkerRenderer.draw(
                         rendered.image(), center, request.radius(), markers, metadata
                 );
@@ -142,13 +275,15 @@ public class RenderSurfaceResourceMapUseCase {
         );
     }
 
-    private HomeState absoluteHome(java.nio.file.Path savePath) {
+    private HomeState absoluteHome(
+            java.nio.file.Path savePath,
+            WorldMetadata metadata
+    ) {
         Optional<HomeLocation> displayHome = homeStore.load(savePath);
         if (displayHome.isEmpty()) {
             return HomeState.absent();
         }
         HomeLocation location = displayHome.orElseThrow();
-        WorldMetadata metadata = metadataReader.read(savePath);
         WorldPosition absolute = metadata.toAbsolute(
                 new DisplayPosition(location.x(), 0.0, location.z())
         );
