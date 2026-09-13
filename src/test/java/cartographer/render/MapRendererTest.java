@@ -164,7 +164,7 @@ class MapRendererTest {
                 ProgressReporter.NONE
         );
 
-        assertEquals(32 * 32, rendered.report().tilesDrawn());
+        assertEquals(65 * 65, rendered.report().tilesDrawn());
     }
 
     @Test

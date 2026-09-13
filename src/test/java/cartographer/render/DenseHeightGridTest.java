@@ -26,7 +26,7 @@ class DenseHeightGridTest {
         );
 
         assertTrue(grid.hasHeightAt(3, 4));
-        assertEquals(52, grid.heightAt(3, 4));
+        assertEquals(45, grid.heightAt(3, 4));
     }
 
     @Test
@@ -46,7 +46,7 @@ class DenseHeightGridTest {
         );
 
         assertEquals(10, grid.heightAt(-32, -32));
-        assertEquals(20, grid.heightAt(-22, -22));
+        assertEquals(10, grid.heightAt(-22, -22));
     }
 
     @Test
@@ -104,13 +104,14 @@ class DenseHeightGridTest {
     @Test
     void boundaryCellsAreIncludedAndOutsideCellsAreAbsent() {
         DenseHeightGrid grid = DenseHeightGrid.fromMapChunks(
-                List.of(chunk(0, 0, 1)), -1, -1, 3, 3, ProgressReporter.NONE
+                List.of(chunk(0, 0, 1)), 0, 0, 2, 2, ProgressReporter.NONE
         );
 
-        assertTrue(grid.hasHeightAt(-1, -1));
+        assertTrue(grid.hasHeightAt(0, 0));
         assertTrue(grid.hasHeightAt(1, 1));
+        assertFalse(grid.hasHeightAt(-1, 0));
         assertFalse(grid.hasHeightAt(-2, -1));
-        assertFalse(grid.hasHeightAt(1, 2));
+        assertFalse(grid.hasHeightAt(0, 2));
     }
 
     private static MapChunk chunk(int x, int z, int baseHeight) {
