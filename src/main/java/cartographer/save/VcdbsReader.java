@@ -381,6 +381,194 @@ public class VcdbsReader {
         }
     }
 
+    ChunkStreamStats forEachChunkByPositionTableStream(
+            Path savePath,
+            Collection<ChunkPosition> positions,
+            ReadDiagnostics diagnostics,
+            Consumer<ParsedChunk> consumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(savePath, "savePath is required");
+        Objects.requireNonNull(positions, "positions is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(consumer, "consumer is required");
+        Objects.requireNonNull(progress, "progress is required");
+
+        Set<Long> packedPositions = packedUniquePositions(positions);
+        if (packedPositions.isEmpty()) {
+            return new ChunkStreamStats(0, 0, 0, 0, 0, 0);
+        }
+
+        progress.start("Scanning chunk table for exact positions");
+        ChunkDecodeCounters counters = new ChunkDecodeCounters();
+        int rowsFound = 0;
+
+        try (Connection connection = connectionFactory.openReadOnly(savePath)) {
+            if (tableMissing(connection, SaveTable.CHUNK.tableName())) {
+                diagnostics.missingTable(SaveTable.CHUNK.tableName());
+                progress.done("Exact chunk table scan unavailable: chunk table missing");
+                return new ChunkStreamStats(
+                        packedPositions.size(), 0, 0, 0, 0, 0
+                );
+            }
+
+            try (BoundedOrderedDecodePipeline<ChunkDecodeOutcome> pipeline =
+                         new BoundedOrderedDecodePipeline<>(
+                                 chunkDecodeWorkerCount,
+                                 chunkDecodeMaxInFlight,
+                                 outcome -> applyChunkOutcome(
+                                         outcome,
+                                         diagnostics,
+                                         consumer,
+                                         counters
+                                 )
+                         );
+                 PreparedStatement statement = connection.prepareStatement(
+                         "SELECT position, data FROM \""
+                                 + SaveTable.CHUNK.tableName()
+                                 + "\""
+                 );
+                 ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    long packedPosition = resultSet.getLong("position");
+                    if (!packedPositions.contains(packedPosition)) {
+                        continue;
+                    }
+                    rowsFound++;
+                    ChunkPosition position = ChunkPosDecoder.decode(packedPosition);
+                    byte[] payload = resultSet.getBytes("data");
+                    if (payload == null) {
+                        diagnostics.recordSkipped("chunk row has null payload");
+                        continue;
+                    }
+                    counters.payloadBytes += payload.length;
+                    ChunkCoordinate coordinate = new ChunkCoordinate(
+                            position.x(), position.y(), position.z()
+                    );
+                    pipeline.submit(() -> decodeChunk(coordinate, payload));
+                }
+                pipeline.finish();
+            }
+
+            progress.done("Exact chunk table scan complete");
+            return new ChunkStreamStats(
+                    packedPositions.size(),
+                    1,
+                    rowsFound,
+                    counters.parsedChunks,
+                    counters.failedChunks,
+                    counters.payloadBytes
+            );
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot scan chunk table for exact positions: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
+    SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsTableStream(
+            Path savePath,
+            Collection<ChunkPosition> positions,
+            int[] wantedBlockIds,
+            ReadDiagnostics diagnostics,
+            Consumer<ParsedChunk> consumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(savePath, "savePath is required");
+        Objects.requireNonNull(positions, "positions is required");
+        Objects.requireNonNull(wantedBlockIds, "wantedBlockIds is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(consumer, "consumer is required");
+        Objects.requireNonNull(progress, "progress is required");
+
+        int[] uniqueWantedBlockIds = uniqueWantedBlockIds(wantedBlockIds);
+        if (uniqueWantedBlockIds.length == 0) {
+            throw new IllegalArgumentException("wantedBlockIds cannot be empty");
+        }
+        Set<Long> packedPositions = packedUniquePositions(positions);
+        if (packedPositions.isEmpty()) {
+            return new SelectiveChunkStreamStats(0, 0, 0, 0, 0, 0, 0, 0);
+        }
+
+        progress.start("Scanning chunk table selectively for exact positions");
+        SelectiveDecodeCounters counters = new SelectiveDecodeCounters();
+        int rowsFound = 0;
+
+        try (Connection connection = connectionFactory.openReadOnly(savePath)) {
+            if (tableMissing(connection, SaveTable.CHUNK.tableName())) {
+                diagnostics.missingTable(SaveTable.CHUNK.tableName());
+                progress.done(
+                        "Selective chunk table scan unavailable: chunk table missing"
+                );
+                return new SelectiveChunkStreamStats(
+                        packedPositions.size(), 0, 0, 0, 0, 0, 0, 0
+                );
+            }
+
+            try (BoundedOrderedDecodePipeline<SelectiveDecodeOutcome> pipeline =
+                         new BoundedOrderedDecodePipeline<>(
+                                 chunkDecodeWorkerCount,
+                                 chunkDecodeMaxInFlight,
+                                 outcome -> applySelectiveOutcome(
+                                         outcome,
+                                         diagnostics,
+                                         consumer,
+                                         counters
+                                 )
+                         );
+                 PreparedStatement statement = connection.prepareStatement(
+                         "SELECT position, data FROM \""
+                                 + SaveTable.CHUNK.tableName()
+                                 + "\""
+                 );
+                 ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    long packedPosition = resultSet.getLong("position");
+                    if (!packedPositions.contains(packedPosition)) {
+                        continue;
+                    }
+                    rowsFound++;
+                    ChunkPosition position = ChunkPosDecoder.decode(packedPosition);
+                    byte[] payload = resultSet.getBytes("data");
+                    if (payload == null) {
+                        diagnostics.recordSkipped("chunk row has null payload");
+                        continue;
+                    }
+                    counters.payloadBytes += payload.length;
+                    ChunkCoordinate coordinate = new ChunkCoordinate(
+                            position.x(), position.y(), position.z()
+                    );
+                    pipeline.submit(() -> decodeSelectiveChunk(
+                            coordinate,
+                            payload,
+                            uniqueWantedBlockIds
+                    ));
+                }
+                pipeline.finish();
+            }
+
+            progress.done("Selective chunk table scan complete");
+            return new SelectiveChunkStreamStats(
+                    packedPositions.size(),
+                    1,
+                    rowsFound,
+                    counters.payloadsParsed,
+                    counters.paletteRejectedChunks,
+                    counters.fullyDecodedChunks,
+                    counters.failedChunks,
+                    counters.payloadBytes
+            );
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot scan chunk table selectively for exact positions: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
     /**
      * Visits chunks found by exact packed primary-key lookup. SQL result order
      * is unspecified and must not be treated as request order.

@@ -244,6 +244,75 @@ class VcdbsReaderSelectiveChunkLookupTest {
         );
     }
 
+    @Test
+    void selectiveTableStreamMatchesDirectLookupSemantics() throws Exception {
+        ChunkPosition requested = new ChunkPosition(1, 0, 2, 0);
+        ChunkPosition unrequested = new ChunkPosition(3, 0, 4, 0);
+        Path database = databaseWithRow(requested, new byte[]{7});
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database);
+             PreparedStatement statement = connection.prepareStatement(
+                     "INSERT INTO chunk(position, data) VALUES (?, ?)")) {
+            statement.setLong(1, ChunkPosEncoder.encode(unrequested));
+            statement.setBytes(2, new byte[]{7});
+            statement.executeUpdate();
+        }
+        RecordingChunkParser directParser = parserWithPalette(99);
+        RecordingChunkParser tableParser = parserWithPalette(99);
+
+        SelectiveChunkStreamStats direct = read(
+                database, directParser, List.of(requested), new int[]{99}
+        );
+        SelectiveChunkStreamStats table = new VcdbsReader(
+                null, null, tableParser, null
+        ).forEachChunkByPositionMatchingBlockIdsTableStream(
+                database,
+                List.of(requested),
+                new int[]{99},
+                new ReadDiagnostics(),
+                tableParser.delivered::add,
+                new ProgressReporter(null)
+        );
+
+        assertEquals(direct.uniquePositionsRequested(), table.uniquePositionsRequested());
+        assertEquals(direct.rowsFound(), table.rowsFound());
+        assertEquals(direct.payloadsParsed(), table.payloadsParsed());
+        assertEquals(direct.paletteRejectedChunks(), table.paletteRejectedChunks());
+        assertEquals(direct.fullyDecodedChunks(), table.fullyDecodedChunks());
+        assertEquals(direct.failedChunks(), table.failedChunks());
+        assertEquals(direct.payloadBytes(), table.payloadBytes());
+        assertEquals(1, tableParser.parsePayloadCalls.get());
+        assertEquals(ChunkDecodeProfile.BLOCKS_ONLY, tableParser.lastProfile.get());
+    }
+
+    @Test
+    void selectiveTableStreamDoesNotInspectUnrequestedPayload() throws Exception {
+        ChunkPosition requested = new ChunkPosition(1, 0, 2, 0);
+        ChunkPosition unrequested = new ChunkPosition(3, 0, 4, 0);
+        Path database = databaseWithRow(requested, new byte[]{7});
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database);
+             PreparedStatement statement = connection.prepareStatement(
+                     "INSERT INTO chunk(position, data) VALUES (?, ?)")) {
+            statement.setLong(1, ChunkPosEncoder.encode(unrequested));
+            statement.setBytes(2, new byte[]{7});
+            statement.executeUpdate();
+        }
+        RecordingChunkParser parser = parserWithPalette(99);
+
+        new VcdbsReader(null, null, parser, null)
+                .forEachChunkByPositionMatchingBlockIdsTableStream(
+                        database,
+                        List.of(requested),
+                        new int[]{99},
+                        new ReadDiagnostics(),
+                        parser.delivered::add,
+                        new ProgressReporter(null)
+                );
+
+        assertEquals(1, parser.parsePayloadCalls.get());
+        assertEquals(1, parser.paletteProbeCalls.get());
+        assertEquals(1, parser.parseServerChunkCalls.get());
+    }
+
     private SelectiveChunkStreamStats read(
             Path database,
             RecordingChunkParser parser,

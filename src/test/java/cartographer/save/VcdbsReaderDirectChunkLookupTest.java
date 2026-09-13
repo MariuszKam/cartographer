@@ -60,6 +60,137 @@ class VcdbsReaderDirectChunkLookupTest {
     }
 
     @Test
+    void tableStreamMatchesDirectLookupSemantics() throws Exception {
+        ChunkPosition first = new ChunkPosition(1, 0, 2, 0);
+        ChunkPosition second = new ChunkPosition(3, 0, 4, 0);
+        ChunkPosition unrequested = new ChunkPosition(5, 0, 6, 0);
+        Path database = databaseWithRows(first, second, unrequested);
+        StubChunkParser directParser = new StubChunkParser();
+        StubChunkParser tableParser = new StubChunkParser();
+
+        ChunkStreamStats direct = read(database, directParser, List.of(first, second));
+        ChunkStreamStats table = new VcdbsReader(
+                null, null, tableParser, null
+        ).forEachChunkByPositionTableStream(
+                database,
+                List.of(first, second),
+                new ReadDiagnostics(),
+                tableParser.delivered()::add,
+                ProgressReporter.NONE
+        );
+
+        assertEquals(direct.uniquePositionsRequested(), table.uniquePositionsRequested());
+        assertEquals(direct.rowsFound(), table.rowsFound());
+        assertEquals(direct.parsedChunks(), table.parsedChunks());
+        assertEquals(direct.failedChunks(), table.failedChunks());
+        assertEquals(direct.payloadBytes(), table.payloadBytes());
+        assertEquals(Set.of(1, 3), Set.copyOf(tableParser.xCoordinates()));
+    }
+
+    @Test
+    void tableStreamDoesNotParseUnrequestedPayloads() throws Exception {
+        ChunkPosition requested = new ChunkPosition(1, 0, 2, 0);
+        ChunkPosition other = new ChunkPosition(3, 0, 4, 0);
+        ChunkPosition another = new ChunkPosition(5, 0, 6, 0);
+        Path database = databaseWithRows(requested, other, another);
+        StubChunkParser parser = new StubChunkParser();
+
+        new VcdbsReader(null, null, parser, null)
+                .forEachChunkByPositionTableStream(
+                        database,
+                        List.of(requested),
+                        new ReadDiagnostics(),
+                        parser.delivered()::add,
+                        ProgressReporter.NONE
+                );
+
+        assertEquals(1, parser.xCoordinates().size());
+        assertEquals(1, parser.xCoordinates().getFirst());
+    }
+
+    @Test
+    void tableStreamReportsSingleBatchAndRequestedNullPayloadIsSkipped() throws Exception {
+        ChunkPosition position = new ChunkPosition(1, 0, 2, 0);
+        Path database = databaseWithNullRow(position);
+        ReadDiagnostics diagnostics = new ReadDiagnostics();
+
+        ChunkStreamStats stats = new VcdbsReader(null, null, new StubChunkParser(), null)
+                .forEachChunkByPositionTableStream(
+                        database,
+                        List.of(position),
+                        diagnostics,
+                        ignored -> { },
+                        ProgressReporter.NONE
+                );
+
+        assertEquals(1, stats.batchesExecuted());
+        assertEquals(1, stats.rowsFound());
+        assertEquals(0, stats.parsedChunks());
+        assertEquals(0, stats.failedChunks());
+        assertEquals(0, stats.payloadBytes());
+        assertTrue(diagnostics.notes().contains("chunk row has null payload"));
+    }
+
+    @Test
+    void tableStreamMissingRequestedKeyIsNotFailure() throws Exception {
+        ChunkPosition existing = new ChunkPosition(1, 0, 2, 0);
+        ChunkPosition missing = new ChunkPosition(3, 0, 4, 0);
+        Path database = databaseWithRows(existing);
+
+        ChunkStreamStats stats = new VcdbsReader(
+                null, null, new StubChunkParser(), null
+        ).forEachChunkByPositionTableStream(
+                database,
+                List.of(existing, missing),
+                new ReadDiagnostics(),
+                ignored -> { },
+                ProgressReporter.NONE
+        );
+
+        assertEquals(2, stats.uniquePositionsRequested());
+        assertEquals(1, stats.rowsFound());
+        assertEquals(0, stats.failedChunks());
+    }
+
+    @Test
+    void tableStreamDecodeStillRunsConcurrently() throws Exception {
+        ChunkPosition first = new ChunkPosition(1, 0, 2, 0);
+        ChunkPosition second = new ChunkPosition(3, 0, 4, 0);
+        Path database = databaseWithRows(first, second);
+        BlockingChunkParser parser = new BlockingChunkParser();
+        VcdbsReader reader = new VcdbsReader(
+                null, null, parser, null, new SqliteSaveConnection(), 2, 4
+        );
+        AtomicReference<Thread> callerThread = new AtomicReference<>();
+        AtomicReference<Thread> consumerThread = new AtomicReference<>();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+
+        Thread caller = Thread.ofPlatform().start(() -> {
+            callerThread.set(Thread.currentThread());
+            try {
+                reader.forEachChunkByPositionTableStream(
+                        database,
+                        List.of(first, second),
+                        new ReadDiagnostics(),
+                        ignored -> consumerThread.set(Thread.currentThread()),
+                        ProgressReporter.NONE
+                );
+            } catch (Throwable exception) {
+                failure.set(exception);
+            }
+        });
+
+        assertTrue(parser.bothStarted.await(1, TimeUnit.SECONDS));
+        parser.release.countDown();
+        caller.join();
+
+        assertEquals(null, failure.get());
+        assertEquals(callerThread.get(), consumerThread.get());
+        assertEquals(2, parser.workerThreads.size());
+        assertTrue(parser.workerThreads.stream().noneMatch(Thread::isVirtual));
+    }
+
+    @Test
     void parallelDecodeOverlapsWhileConsumerRemainsCallerThread() throws Exception {
         ChunkPosition first = new ChunkPosition(1, 0, 2, 0);
         ChunkPosition second = new ChunkPosition(3, 0, 4, 0);
