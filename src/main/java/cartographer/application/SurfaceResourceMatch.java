@@ -64,6 +64,20 @@ public record SurfaceResourceMatch(
         return requiredTokens.stream().allMatch(code::contains);
     }
 
+    public boolean matchesExposedSurfaceObsidian(SurfaceBlock block) {
+        if (!"Obsidian (surface)".equals(displayName)
+                || block == null
+                || block.blockInfo() == null
+                || block.blockInfo().code() == null) {
+            return false;
+        }
+
+        String code = block.blockInfo().code().toLowerCase(Locale.ROOT);
+        int separator = code.indexOf(':');
+        String path = separator >= 0 ? code.substring(separator + 1) : code;
+        return path.equals("rock-obsidian");
+    }
+
     public List<SurfaceBlock> matchingBlocks(List<SurfaceBlock> blocks) {
         return blocks.stream().filter(this::matches).toList();
     }

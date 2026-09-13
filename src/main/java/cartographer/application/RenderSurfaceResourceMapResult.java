@@ -17,6 +17,8 @@ public record RenderSurfaceResourceMapResult(
         ReadDiagnostics mapChunkDiagnostics,
         ReadDiagnostics chunkDiagnostics,
         int userMarkersDrawn,
+        int exposedObsidianCount,
+        int looseObsidianCount,
         int surfaceObjectRegistryVariants,
         int surfaceObjectPositionsInspected,
         int surfaceObjectUnavailablePositions,
@@ -33,7 +35,9 @@ public record RenderSurfaceResourceMapResult(
         Objects.requireNonNull(renderReport, "renderReport is required");
         Objects.requireNonNull(mapChunkDiagnostics, "mapChunkDiagnostics is required");
         Objects.requireNonNull(chunkDiagnostics, "chunkDiagnostics is required");
-        if (surfaceObjectRegistryVariants < 0
+        if (exposedObsidianCount < 0
+                || looseObsidianCount < 0
+                || surfaceObjectRegistryVariants < 0
                 || surfaceObjectPositionsInspected < 0
                 || surfaceObjectUnavailablePositions < 0
                 || surfaceObjectObservedTargets < 0

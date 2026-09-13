@@ -693,6 +693,12 @@ public class CartographerDesktopApp extends Application {
                 .append("\nConnected deposits: ")
                 .append(result.analysis().depositCount());
         if (result.surfaceObjectScanUsed()) {
+            resultText.append("\nExposed obsidian rock: ")
+                    .append(result.exposedObsidianCount())
+                    .append("\nLoose obsidian: ")
+                    .append(result.looseObsidianCount())
+                    .append("\nTotal surface observations: ")
+                    .append(result.analysis().matchingBlockCount());
             resultText.append("\nRegistry variants: ")
                     .append(result.surfaceObjectRegistryVariants())
                     .append("\nSurface positions inspected: ")

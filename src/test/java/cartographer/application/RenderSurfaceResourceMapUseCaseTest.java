@@ -98,6 +98,43 @@ class RenderSurfaceResourceMapUseCaseTest {
     }
 
     @Test
+    void exposedObsidianTerrainBlockIsIncludedSeparatelyFromLooseObjects() {
+        MapChunkCoordinate mapChunkCoordinate = new MapChunkCoordinate(0, 0);
+        ChunkPosition exactPosition = new ChunkPosition(0, 0, 0, 0);
+        FakeReader reader = new FakeReader(
+                List.of(mapChunkCoordinate),
+                Map.of(exactPosition, surfaceChunkWithExposedObsidian()),
+                Map.of(
+                        0, new BlockInfo(0, "air"),
+                        1, new BlockInfo(1, "game:soil-grass"),
+                        7, new BlockInfo(7, "game:rock-obsidian")
+                )
+        );
+
+        RenderSurfaceResourceMapResult result = useCase(reader).execute(
+                new RenderSurfaceResourceMapRequest(
+                        Path.of("save.vcdbs"),
+                        1,
+                        1,
+                        RenderStyle.TOPOGRAPHIC,
+                        EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
+                        SurfaceResourceMatch.looseObsidian(),
+                        Optional.of(new WorldPosition(16, 100, 16))
+                )
+        );
+
+        assertEquals(1, result.exposedObsidianCount());
+        assertEquals(0, result.looseObsidianCount());
+        assertEquals(1, result.analysis().matchingBlockCount());
+        assertEquals(
+                new cartographer.resource.SurfaceResourcePoint(
+                        16, 5, 16, "game:rock-obsidian"
+                ),
+                result.analysis().matchingBlocks().getFirst()
+        );
+    }
+
+    @Test
     void missingRainHeightFallsBackOnlyThatMapChunk() {
         MapChunkCoordinate second = new MapChunkCoordinate(1, 0);
         List<MapChunkCoordinate> renderMapChunks = new ArrayList<>();
@@ -338,6 +375,16 @@ class RenderSurfaceResourceMapUseCaseTest {
         ParsedChunk base = surfaceChunk(new ChunkCoordinate(0, 0, 0));
         int[] blocks = base.blockIds();
         blocks[(6 * 32 + 16) * 32 + 16] = 7;
+        return new ParsedChunk(
+                base.coordinate(), base.minY(), base.sizeX(), base.sizeY(), base.sizeZ(),
+                blocks, base.liquidIds(), 0, true, ""
+        );
+    }
+
+    private ParsedChunk surfaceChunkWithExposedObsidian() {
+        ParsedChunk base = surfaceChunk(new ChunkCoordinate(0, 0, 0));
+        int[] blocks = base.blockIds();
+        blocks[(5 * 32 + 16) * 32 + 16] = 7;
         return new ParsedChunk(
                 base.coordinate(), base.minY(), base.sizeX(), base.sizeY(), base.sizeZ(),
                 blocks, base.liquidIds(), 0, true, ""

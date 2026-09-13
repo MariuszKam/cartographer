@@ -45,6 +45,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -260,6 +261,8 @@ public class RenderSurfaceResourceMapUseCase {
                 fallbackSurface.liquidUnavailableColumns()
         );
         List<SurfaceBlock> matchingBlocks = request.match().matchingBlocks(surface.blocks());
+        int exposedObsidianCount = 0;
+        int looseObsidianCount = 0;
         int surfaceObjectRegistryVariants = 0;
         int surfaceObjectPositionsInspected = 0;
         int surfaceObjectUnavailablePositions = 0;
@@ -303,10 +306,18 @@ public class RenderSurfaceResourceMapUseCase {
             surfaceObjectUnavailablePositions = objectResult.unavailablePositions();
             surfaceObjectObservedTargets = objectResult.observedTargets();
             surfaceObjectNotObservedTargets = objectResult.notObservedTargets();
-            matchingBlocks = new ArrayList<>(
+            List<SurfaceBlock> exposedObsidian = surface.blocks().stream()
+                    .filter(request.match()::matchesExposedSurfaceObsidian)
+                    .toList();
+            List<SurfaceBlock> looseObsidian = new ArrayList<>(
                     request.match().matchingBlocks(fallbackSurface.blocks())
             );
-            matchingBlocks.addAll(objectResult.blocks());
+            looseObsidian.addAll(objectResult.blocks());
+            matchingBlocks = distinctSurfaceBlocks(exposedObsidian, looseObsidian);
+            exposedObsidianCount = (int) matchingBlocks.stream()
+                    .filter(request.match()::matchesExposedSurfaceObsidian)
+                    .count();
+            looseObsidianCount = matchingBlocks.size() - exposedObsidianCount;
         }
         SurfaceResourceAnalysis analysis = surfaceResourceAnalyzer.analyzeMatched(
                 request.match().displayName(),
@@ -350,6 +361,8 @@ public class RenderSurfaceResourceMapUseCase {
                 mapChunkDiagnostics,
                 chunkDiagnostics,
                 userMarkersDrawn,
+                exposedObsidianCount,
+                looseObsidianCount,
                 surfaceObjectRegistryVariants,
                 surfaceObjectPositionsInspected,
                 surfaceObjectUnavailablePositions,
@@ -358,6 +371,27 @@ public class RenderSurfaceResourceMapUseCase {
                 surfaceObjectChunkStats,
                 request.match().usesSurfaceObjectScan()
         );
+    }
+
+    private List<SurfaceBlock> distinctSurfaceBlocks(
+            List<SurfaceBlock> exposedObsidian,
+            List<SurfaceBlock> looseObsidian
+    ) {
+        Map<String, SurfaceBlock> distinct = new LinkedHashMap<>();
+        for (SurfaceBlock block : exposedObsidian) {
+            distinct.put(surfaceBlockKey(block), block);
+        }
+        for (SurfaceBlock block : looseObsidian) {
+            distinct.putIfAbsent(surfaceBlockKey(block), block);
+        }
+        return List.copyOf(distinct.values());
+    }
+
+    private String surfaceBlockKey(SurfaceBlock block) {
+        return block.worldX() + ":"
+                + block.y() + ":"
+                + block.worldZ() + ":"
+                + block.blockInfo().code().toLowerCase(java.util.Locale.ROOT);
     }
 
     private HomeState absoluteHome(
