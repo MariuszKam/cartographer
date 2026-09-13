@@ -146,7 +146,7 @@ public class CartographerDesktopApp extends Application {
         discoveredResources = presetResources();
         resourceBox.setValue(presetResources().getFirst());
         resourceBox.setEditable(true);
-        resourceBox.setConverter(new StringConverter<OreResource>() {
+        resourceBox.setConverter(new StringConverter<>() {
             @Override
             public String toString(OreResource resource) {
                 return resource == null ? "" : resource.displayName();
@@ -165,7 +165,7 @@ public class CartographerDesktopApp extends Application {
         );
         surfaceResourceBox.getItems().setAll(List.of(SurfaceResourcePreset.values()));
         surfaceResourceBox.setEditable(true);
-        surfaceResourceBox.setConverter(new StringConverter<SurfaceResourcePreset>() {
+        surfaceResourceBox.setConverter(new StringConverter<>() {
             @Override
             public String toString(SurfaceResourcePreset preset) {
                 return preset == null ? "" : preset.label();

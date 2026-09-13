@@ -113,7 +113,7 @@ public class OreResourceResolver {
             if (word.isBlank()) {
                 continue;
             }
-            if (result.length() > 0) {
+            if (!result.isEmpty()) {
                 result.append(' ');
             }
             result.append(Character.toUpperCase(word.charAt(0)));

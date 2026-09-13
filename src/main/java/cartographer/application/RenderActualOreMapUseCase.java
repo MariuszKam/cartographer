@@ -333,10 +333,7 @@ public class RenderActualOreMapUseCase {
                         request.yFilter()
                 );
         int[] wantedBlockIds = session.wantedBlockIds();
-        List<ActualBlockMap> maps;
-        if (wantedBlockIds.length == 0) {
-            maps = session.finish();
-        } else {
+        if (wantedBlockIds.length != 0) {
             List<cartographer.model.ChunkPosition> positions = oreChunkPositionPlanner.plan(
                     metadata,
                     centerX,
@@ -351,8 +348,8 @@ public class RenderActualOreMapUseCase {
                     diagnostics,
                     session::accept
             );
-            maps = session.finish();
         }
+        List<ActualBlockMap> maps = session.finish();
 
         List<ActualOreOverlayResult> results = new java.util.ArrayList<>();
         for (int index = 0; index < specs.size(); index++) {

@@ -76,8 +76,8 @@ public final class MapChunkPositionPlanner {
                         worldMaxZ
                 );
 
-                long nearestX = Math.clamp((long) centerWorldX, minBlockX, maxBlockX);
-                long nearestZ = Math.clamp((long) centerWorldZ, minBlockZ, maxBlockZ);
+                long nearestX = Math.clamp(centerWorldX, minBlockX, maxBlockX);
+                long nearestZ = Math.clamp(centerWorldZ, minBlockZ, maxBlockZ);
                 long dx = nearestX - centerWorldX;
                 long dz = nearestZ - centerWorldZ;
 
