@@ -30,6 +30,7 @@ import cartographer.render.ActualOreOverlayPainter;
 import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.SurfaceScanResult;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SelectiveChunkStreamStats;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import org.junit.jupiter.api.Test;
@@ -415,6 +416,27 @@ class MapCommandTest {
         ) {
             return List.of(
                     oreChunk()
+            );
+        }
+
+        @Override
+        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIds(
+                Path savePath,
+                java.util.Collection<cartographer.model.ChunkPosition> positions,
+                int[] wantedBlockIds,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer
+        ) {
+            consumer.accept(oreChunk());
+            return new SelectiveChunkStreamStats(
+                    positions.size(),
+                    1,
+                    1,
+                    1,
+                    0,
+                    1,
+                    0,
+                    1
             );
         }
 
