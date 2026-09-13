@@ -57,7 +57,7 @@ public record RenderActualOreMapResult(
     }
 
     public RenderActualOreMapResult {
-        actualOreMap = Objects.requireNonNull(
+        Objects.requireNonNull(
                 actualOreMap,
                 "actualOreMap is required; use Optional.empty() when absent"
         );

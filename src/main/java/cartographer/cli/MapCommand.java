@@ -25,7 +25,6 @@ import cartographer.scanner.SurfaceScanResult;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Optional;
 
 public class MapCommand implements Command {

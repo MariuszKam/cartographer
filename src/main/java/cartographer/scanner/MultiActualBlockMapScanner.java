@@ -187,7 +187,7 @@ public class MultiActualBlockMapScanner {
         return false;
     }
 
-    public final class StreamingSession {
+    public static final class StreamingSession {
         private final List<MutableMap> maps;
         private final Map<Integer, int[]> blockMatches;
         private final int[] wantedBlockIds;

@@ -62,12 +62,12 @@ public record RenderActualOreMapRequest(
             throw new NullPointerException("style is required");
         }
         layers = Set.copyOf(layers);
-        oreMatch = Objects.requireNonNull(
+        Objects.requireNonNull(
                 oreMatch,
                 "oreMatch is required; use Optional.empty() when absent"
         );
         yFilter = yFilter == null ? ActualBlockYFilter.unbounded() : yFilter;
-        center = Objects.requireNonNull(
+        Objects.requireNonNull(
                 center,
                 "center is required; use Optional.empty() when absent"
         );
