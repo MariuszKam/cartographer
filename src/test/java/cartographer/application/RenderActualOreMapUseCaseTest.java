@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -48,6 +49,8 @@ class RenderActualOreMapUseCaseTest {
 
         assertEquals(1, reader.selectiveCalls);
         assertEquals(0, reader.legacyChunkCalls);
+        assertArrayEquals(new int[]{1}, reader.lastWantedBlockIds);
+        assertTrue(!reader.lastPositions.isEmpty());
         assertEquals(1, result.actualOreOverlays().getFirst().map().matchingBlocks());
         assertEquals(
                 ActualBlockMatchMode.ORE_CODE,
@@ -65,7 +68,75 @@ class RenderActualOreMapUseCaseTest {
         assertTrue(result.actualOreOverlays().getFirst().map().cells().isEmpty());
     }
 
+    @Test
+    void twoOverlaysPreserveOrderAndUseOneSelectiveLookup() {
+        FakeReader reader = new FakeReader(Map.of(
+                1, new BlockInfo(1, "ore-cassiterite-granite"),
+                2, new BlockInfo(2, "ore-nativecopper-granite")
+        ));
+        RenderActualOreMapResult result = execute(
+                reader,
+                List.of(
+                        new ActualOreOverlaySpec("Cassiterite", "cassiterite", Color.ORANGE, ActualBlockMatchMode.ORE_CODE),
+                        new ActualOreOverlaySpec("Copper", "nativecopper", Color.RED, ActualBlockMatchMode.ORE_CODE)
+                )
+        );
+
+        assertEquals(1, reader.selectiveCalls);
+        assertEquals("Cassiterite", result.actualOreOverlays().get(0).spec().displayName());
+        assertEquals("Copper", result.actualOreOverlays().get(1).spec().displayName());
+    }
+
+    @Test
+    void genericSubstringMatchesNonOreCodeButOreCodeDoesNot() {
+        FakeReader genericReader = new FakeReader(
+                Map.of(3, new BlockInfo(3, "rock-mysteryium-granite")),
+                3
+        );
+        RenderActualOreMapResult generic = execute(
+                genericReader,
+                List.of(new ActualOreOverlaySpec(
+                        "Mysteryium",
+                        "mysteryium",
+                        Color.ORANGE,
+                        ActualBlockMatchMode.GENERIC_SUBSTRING
+                ))
+        );
+        FakeReader oreReader = new FakeReader(
+                Map.of(3, new BlockInfo(3, "rock-mysteryium-granite")),
+                3
+        );
+        RenderActualOreMapResult ore = execute(
+                oreReader,
+                List.of(new ActualOreOverlaySpec(
+                        "Mysteryium",
+                        "mysteryium",
+                        Color.ORANGE,
+                        ActualBlockMatchMode.ORE_CODE
+                ))
+        );
+
+        assertEquals(1, generic.actualOreOverlays().getFirst().map().matchingBlocks());
+        assertEquals(0, oreReader.selectiveCalls);
+        assertEquals(0, ore.actualOreOverlays().getFirst().map().matchingBlocks());
+    }
+
     private RenderActualOreMapResult execute(FakeReader reader) {
+        return execute(
+                reader,
+                List.of(new ActualOreOverlaySpec(
+                        "Cassiterite",
+                        "cassiterite",
+                        Color.ORANGE,
+                        ActualBlockMatchMode.ORE_CODE
+                ))
+        );
+    }
+
+    private RenderActualOreMapResult execute(
+            FakeReader reader,
+            List<ActualOreOverlaySpec> specs
+    ) {
         WorldMetadataReader metadataReader = new WorldMetadataReader() {
             @Override
             public WorldMetadata read(Path savePath) {
@@ -82,12 +153,6 @@ class RenderActualOreMapUseCaseTest {
                 new ActualBlockMapScanner(),
                 new ActualOreOverlayPainter()
         );
-        ActualOreOverlaySpec spec = new ActualOreOverlaySpec(
-                "Cassiterite",
-                "cassiterite",
-                Color.ORANGE,
-                ActualBlockMatchMode.ORE_CODE
-        );
         RenderActualOreMapRequest request = new RenderActualOreMapRequest(
                 temporaryDirectory.resolve("save.vcdbs"),
                 16,
@@ -97,7 +162,7 @@ class RenderActualOreMapUseCaseTest {
                 Optional.of("cassiterite"),
                 ActualBlockYFilter.unbounded(),
                 Optional.of(new WorldPosition(64, 64, 64)),
-                List.of(spec)
+                specs
         );
         return useCase.execute(request);
     }
@@ -106,10 +171,18 @@ class RenderActualOreMapUseCaseTest {
         private final Map<Integer, BlockInfo> registry;
         private int selectiveCalls;
         private int legacyChunkCalls;
+        private final int fakeBlockId;
+        private int[] lastWantedBlockIds = new int[0];
+        private List<cartographer.model.ChunkPosition> lastPositions = List.of();
 
         private FakeReader(Map<Integer, BlockInfo> registry) {
+            this(registry, 1);
+        }
+
+        private FakeReader(Map<Integer, BlockInfo> registry, int fakeBlockId) {
             super(null, null, null, null);
             this.registry = registry;
+            this.fakeBlockId = fakeBlockId;
         }
 
         @Override
@@ -152,8 +225,10 @@ class RenderActualOreMapUseCaseTest {
                 java.util.function.Consumer<ParsedChunk> consumer
         ) {
             selectiveCalls++;
-            if (registry.containsKey(1)) {
-                int[] blocks = new int[]{1};
+            lastWantedBlockIds = wantedBlockIds.clone();
+            lastPositions = List.copyOf(positions);
+            if (contains(wantedBlockIds, fakeBlockId)) {
+                int[] blocks = new int[]{fakeBlockId};
                 consumer.accept(new ParsedChunk(
                         new ChunkCoordinate(2, 0, 2),
                         5,
@@ -173,6 +248,15 @@ class RenderActualOreMapUseCaseTest {
                     0,
                     1
             );
+        }
+
+        private boolean contains(int[] values, int wanted) {
+            for (int value : values) {
+                if (value == wanted) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

@@ -741,7 +741,9 @@ public class CartographerDesktopApp extends Application {
                             color,
                             selected == null
                                     ? ActualBlockMatchMode.GENERIC_SUBSTRING
-                                    : ActualBlockMatchMode.ORE_CODE
+                                    : selected.registryVerified()
+                                    ? ActualBlockMatchMode.ORE_CODE
+                                    : ActualBlockMatchMode.GENERIC_SUBSTRING
                     )
             );
         }
@@ -764,7 +766,9 @@ public class CartographerDesktopApp extends Application {
                                             colorIndex
                                     )
                             ),
-                            ActualBlockMatchMode.ORE_CODE
+                            resource.registryVerified()
+                                    ? ActualBlockMatchMode.ORE_CODE
+                                    : ActualBlockMatchMode.GENERIC_SUBSTRING
                     )
             );
             colorIndex++;

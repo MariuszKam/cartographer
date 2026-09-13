@@ -3,6 +3,7 @@ package cartographer.application;
 import cartographer.render.MapRenderReport;
 import cartographer.render.OverlayRenderReport;
 import cartographer.scanner.ActualBlockMap;
+import cartographer.scanner.ActualBlockMatchMode;
 import cartographer.scanner.SurfaceScanResult;
 import cartographer.save.ReadDiagnostics;
 
@@ -56,7 +57,8 @@ public record RenderActualOreMapResult(
                                         new ActualOreOverlaySpec(
                                                 map.match(),
                                                 map.match(),
-                                                new java.awt.Color(225, 92, 24)
+                                                new java.awt.Color(225, 92, 24),
+                                                ActualBlockMatchMode.GENERIC_SUBSTRING
                                         ),
                                         map
                                 )

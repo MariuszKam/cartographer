@@ -427,6 +427,40 @@ class MapCommandTest {
                 ReadDiagnostics diagnostics,
                 java.util.function.Consumer<ParsedChunk> consumer
         ) {
+            if (positions.isEmpty()) {
+                return new SelectiveChunkStreamStats(
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                );
+            }
+
+            boolean wanted = false;
+            for (int wantedBlockId : wantedBlockIds) {
+                if (wantedBlockId == 1) {
+                    wanted = true;
+                    break;
+                }
+            }
+
+            if (!wanted) {
+                return new SelectiveChunkStreamStats(
+                        positions.size(),
+                        1,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                );
+            }
+
             consumer.accept(oreChunk());
             return new SelectiveChunkStreamStats(
                     positions.size(),
