@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -258,7 +259,7 @@ class VcdbsReaderDirectMapChunkLookupTest {
         private final List<String> events = new ArrayList<>();
 
         private RecordingProgressReporter() {
-            super(new ByteArrayOutputStream());
+            super(new PrintStream(new ByteArrayOutputStream()));
         }
 
         @Override
