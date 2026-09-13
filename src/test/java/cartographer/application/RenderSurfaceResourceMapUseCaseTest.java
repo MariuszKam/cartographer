@@ -33,9 +33,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -94,8 +96,17 @@ class RenderSurfaceResourceMapUseCaseTest {
         RenderSurfaceResourceMapResult result = useCase(reader).execute(request(32, 0, 32));
 
         assertEquals(2, reader.exactChunkCalls);
-        assertEquals(1, reader.exactRequests.getFirst().size());
-        assertEquals(8, reader.exactRequests.get(1).size());
+        assertTrue(reader.exactRequests.getFirst().stream().noneMatch(
+                position -> position.x() == second.x() && position.z() == second.z()
+        ));
+        Set<ChunkPosition> expectedFallback = new HashSet<>();
+        for (int y = 0; y < 8; y++) {
+            expectedFallback.add(new ChunkPosition(second.x(), y, second.z(), 0));
+        }
+        assertEquals(expectedFallback, Set.copyOf(reader.exactRequests.get(1)));
+        assertTrue(reader.exactRequests.get(1).stream().allMatch(
+                position -> position.x() == second.x() && position.z() == second.z()
+        ));
         assertTrue(result.analysis().matchingBlockCount() > 0);
     }
 
@@ -120,14 +131,108 @@ class RenderSurfaceResourceMapUseCaseTest {
 
     @Test
     void renderOnlyMapChunkDoesNotCauseSurfaceFallback() {
+        MapChunkCoordinate healthy = new MapChunkCoordinate(0, 0);
         MapChunkCoordinate renderOnly = new MapChunkCoordinate(1, 1);
-        FakeReader reader = new FakeReader(List.of(renderOnly), Map.of(), fireClayRegistry());
+        FakeReader reader = new FakeReader(
+                List.of(healthy, renderOnly),
+                Map.of(new ChunkPosition(0, 0, 0, 0), surfaceChunk(new ChunkCoordinate(0, 0, 0), 1)),
+                fireClayRegistry()
+        );
         reader.mapChunks.put(renderOnly, new MapChunk(renderOnly, new int[0], filledHeights(5)));
 
         useCase(reader).execute(request(16, 16, 1));
 
         assertEquals(1, reader.directMapChunkCalls);
-        assertEquals(0, reader.exactChunkCalls);
+        assertEquals(1, reader.exactChunkCalls);
+        assertEquals(
+                List.of(new ChunkPosition(0, 0, 0, 0)),
+                reader.exactRequests.getFirst()
+        );
+    }
+
+    @Test
+    void surfaceSearchOutsideRenderWindowStillUsesFastMapChunkLookup() {
+        List<MapChunkCoordinate> surfaceCoordinates = new ArrayList<>();
+        for (int z = 0; z <= 2; z++) {
+            for (int x = 0; x <= 1; x++) {
+                surfaceCoordinates.add(new MapChunkCoordinate(x, z));
+            }
+        }
+        MapChunkCoordinate surfaceOnly = new MapChunkCoordinate(2, 1);
+        surfaceCoordinates.add(surfaceOnly);
+        Map<ChunkPosition, ParsedChunk> chunks = new HashMap<>();
+        for (MapChunkCoordinate coordinate : surfaceCoordinates) {
+            chunks.put(
+                    new ChunkPosition(coordinate.x(), 0, coordinate.z(), 0),
+                    surfaceChunk(new ChunkCoordinate(coordinate.x(), 0, coordinate.z()), 1)
+            );
+        }
+        FakeReader reader = new FakeReader(surfaceCoordinates, chunks, fireClayRegistry());
+
+        useCase(reader, new WorldMetadata(128, 256, 128)).execute(
+                request(31.6, 48.0, 32)
+        );
+
+        assertEquals(1, reader.directMapChunkCalls);
+        assertTrue(reader.directMapChunkRequests.getFirst().contains(surfaceOnly));
+        assertTrue(reader.exactChunkCalls == 1);
+        assertTrue(reader.exactRequests.getFirst().stream().anyMatch(
+                position -> position.x() == surfaceOnly.x()
+                        && position.z() == surfaceOnly.z()
+        ));
+        assertEquals(0, reader.legacyMapChunkCalls);
+        assertEquals(0, reader.legacyChunkCalls);
+    }
+
+    @Test
+    void unresolvedFastTargetFallsBackWholeMapChunk() {
+        MapChunkCoordinate coordinate = new MapChunkCoordinate(0, 0);
+        ChunkPosition position = new ChunkPosition(0, 0, 0, 0);
+        FakeReader reader = new FakeReader(
+                List.of(coordinate),
+                Map.of(position, surfaceChunk(coordinateToChunk(position), 1, false)),
+                fireClayRegistry()
+        );
+
+        RenderSurfaceResourceMapResult result = useCase(reader).execute(request(16, 16, 1));
+
+        assertEquals(2, reader.exactChunkCalls);
+        assertEquals(List.of(position), reader.exactRequests.getFirst());
+        Set<ChunkPosition> expectedFallback = new HashSet<>();
+        for (int y = 0; y < 8; y++) {
+            expectedFallback.add(new ChunkPosition(0, y, 0, 0));
+        }
+        assertEquals(expectedFallback, Set.copyOf(reader.exactRequests.get(1)));
+        assertTrue(result.analysis().matchingBlockCount() > 0);
+        assertEquals(0, reader.legacyMapChunkCalls);
+        assertEquals(0, reader.legacyChunkCalls);
+    }
+
+    @Test
+    void resultSurfaceContainsMergedFastAndFallbackBlocks() {
+        MapChunkCoordinate healthy = new MapChunkCoordinate(0, 0);
+        MapChunkCoordinate fallback = new MapChunkCoordinate(1, 0);
+        List<MapChunkCoordinate> coordinates = List.of(
+                new MapChunkCoordinate(0, 0), new MapChunkCoordinate(1, 0),
+                new MapChunkCoordinate(2, 0), new MapChunkCoordinate(0, 1),
+                new MapChunkCoordinate(1, 1), new MapChunkCoordinate(2, 1)
+        );
+        Map<ChunkPosition, ParsedChunk> chunks = new HashMap<>();
+        for (MapChunkCoordinate coordinate : coordinates) {
+            chunks.put(
+                    new ChunkPosition(coordinate.x(), 0, coordinate.z(), 0),
+                    surfaceChunk(new ChunkCoordinate(coordinate.x(), 0, coordinate.z()), 1)
+            );
+        }
+        FakeReader reader = new FakeReader(coordinates, chunks, fireClayRegistry());
+        reader.mapChunks.put(fallback, new MapChunk(fallback, new int[0], filledHeights(5)));
+
+        RenderSurfaceResourceMapResult result = useCase(reader).execute(request(32, 0, 32));
+
+        assertTrue(result.surface().blocks().stream().anyMatch(block -> block.worldX() < 32));
+        assertTrue(result.surface().blocks().stream().anyMatch(block -> block.worldX() >= 32));
+        assertEquals(0, reader.legacyMapChunkCalls);
+        assertEquals(0, reader.legacyChunkCalls);
     }
 
     @Test
@@ -137,16 +242,25 @@ class RenderSurfaceResourceMapUseCaseTest {
                 Map.of(new ChunkPosition(0, 0, 0, 0), surfaceChunk(new ChunkCoordinate(0, 0, 0), 1)),
                 Map.of(
                         0, new BlockInfo(0, "air"),
-                        1, new BlockInfo(1, "game:fire-rock")
+                        1, new BlockInfo(1, "game:fire-rock"),
+                        2, new BlockInfo(2, "game:fire-clay-blue")
+                )
+        );
+        reader.chunks.put(
+                new ChunkPosition(0, 0, 0, 0),
+                surfaceChunkWithSpecial(
+                        new ChunkCoordinate(0, 0, 0),
+                        1,
+                        2
                 )
         );
 
         RenderSurfaceResourceMapResult result = useCase(reader).execute(request(16, 16, 1));
 
-        assertEquals(0, result.analysis().matchingBlockCount());
+        assertEquals(1, result.analysis().matchingBlockCount());
     }
 
-    private RenderSurfaceResourceMapRequest request(int x, int z, int radius) {
+    private RenderSurfaceResourceMapRequest request(double x, double z, int radius) {
         return new RenderSurfaceResourceMapRequest(
                 Path.of("save.vcdbs"), radius, 1, RenderStyle.TOPOGRAPHIC,
                 EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
@@ -156,12 +270,19 @@ class RenderSurfaceResourceMapUseCaseTest {
     }
 
     private RenderSurfaceResourceMapUseCase useCase(FakeReader reader) {
+        return useCase(reader, new WorldMetadata(96, 256, 96));
+    }
+
+    private RenderSurfaceResourceMapUseCase useCase(
+            FakeReader reader,
+            WorldMetadata metadata
+    ) {
         return new RenderSurfaceResourceMapUseCase(
                 reader,
                 new WorldMetadataReader(null, null) {
                     @Override
                     public WorldMetadata read(Path savePath) {
-                        return new WorldMetadata(96, 256, 96);
+                        return metadata;
                     }
                 },
                 new HomeStore(Path.of("build", "surface-test-home.properties")),
@@ -179,6 +300,14 @@ class RenderSurfaceResourceMapUseCaseTest {
     }
 
     private ParsedChunk surfaceChunk(ChunkCoordinate coordinate, int blockId) {
+        return surfaceChunk(coordinate, blockId, true);
+    }
+
+    private ParsedChunk surfaceChunk(
+            ChunkCoordinate coordinate,
+            int blockId,
+            boolean liquidAvailable
+    ) {
         int size = ChunkCoordinate.SIZE_BLOCKS;
         int[] blocks = new int[size * size * size];
         int[] liquids = new int[blocks.length];
@@ -187,7 +316,22 @@ class RenderSurfaceResourceMapUseCaseTest {
                 blocks[(5 * size + z) * size + x] = blockId;
             }
         }
-        return new ParsedChunk(coordinate, 0, size, size, size, blocks, liquids, 0, true, "");
+        return new ParsedChunk(coordinate, 0, size, size, size, blocks, liquids, 0, liquidAvailable, "");
+    }
+
+    private ParsedChunk surfaceChunkWithSpecial(
+            ChunkCoordinate coordinate,
+            int baseBlockId,
+            int specialBlockId
+    ) {
+        ParsedChunk base = surfaceChunk(coordinate, baseBlockId);
+        int[] blocks = base.blockIds();
+        blocks[(5 * 32 + 16) * 32 + 16] = specialBlockId;
+        return new ParsedChunk(coordinate, 0, 32, 32, 32, blocks, base.liquidIds(), 0, true, "");
+    }
+
+    private ChunkCoordinate coordinateToChunk(ChunkPosition position) {
+        return new ChunkCoordinate(position.x(), position.y(), position.z());
     }
 
     private int[] filledHeights(int value) {
@@ -200,6 +344,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         private final Map<Integer, BlockInfo> registry;
         private final Map<ChunkPosition, ParsedChunk> chunks;
         private final List<List<ChunkPosition>> exactRequests = new ArrayList<>();
+        private final List<List<MapChunkCoordinate>> directMapChunkRequests = new ArrayList<>();
         private final Map<MapChunkCoordinate, MapChunk> mapChunks = new HashMap<>();
         private int directMapChunkCalls;
         private int exactChunkCalls;
@@ -232,6 +377,7 @@ class RenderSurfaceResourceMapUseCaseTest {
                 java.util.function.Consumer<MapChunk> consumer
         ) {
             directMapChunkCalls++;
+            directMapChunkRequests.add(List.copyOf(coordinates));
             int delivered = 0;
             for (MapChunkCoordinate coordinate : coordinates) {
                 MapChunk mapChunk = mapChunks.get(coordinate);

@@ -38,6 +38,7 @@ import cartographer.scanner.SurfaceScanner;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -127,6 +128,17 @@ public class RenderSurfaceResourceMapUseCase {
                 );
         Set<MapChunkCoordinate> surfaceSearchSet =
                 new HashSet<>(surfaceMapChunkCoordinates);
+        Set<MapChunkCoordinate> renderMapChunkSet =
+                new HashSet<>(renderMapChunkCoordinates);
+        Set<MapChunkCoordinate> directReadSet =
+                new LinkedHashSet<>(renderMapChunkCoordinates);
+        directReadSet.addAll(surfaceMapChunkCoordinates);
+        List<MapChunkCoordinate> directReadCoordinates = directReadSet.stream()
+                .sorted(
+                        Comparator.comparingInt(MapChunkCoordinate::z)
+                                .thenComparingInt(MapChunkCoordinate::x)
+                )
+                .toList();
         Set<MapChunkCoordinate> deliveredSurfaceMapChunks =
                 new HashSet<>();
         List<MapChunk> mapChunks = new ArrayList<>();
@@ -139,10 +151,12 @@ public class RenderSurfaceResourceMapUseCase {
                 );
         reader.forEachMapChunkByCoordinate(
                 request.savePath(),
-                renderMapChunkCoordinates,
+                directReadCoordinates,
                 mapChunkDiagnostics,
                 mapChunk -> {
-                    mapChunks.add(mapChunk);
+                    if (renderMapChunkSet.contains(mapChunk.coordinate())) {
+                        mapChunks.add(mapChunk);
+                    }
                     if (surfaceSearchSet.contains(mapChunk.coordinate())) {
                         deliveredSurfaceMapChunks.add(mapChunk.coordinate());
                         rainPlannerSession.accept(mapChunk);
