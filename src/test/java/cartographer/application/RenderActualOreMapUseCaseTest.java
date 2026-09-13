@@ -193,7 +193,7 @@ class RenderActualOreMapUseCaseTest {
 
     @Test
     void surfaceLayerUsesRainHeightFastPath() {
-        FakeReader reader = surfaceReader(true, true);
+        FakeReader reader = surfaceReader(true);
 
         RenderActualOreMapResult result = execute(
                 reader,
@@ -216,7 +216,7 @@ class RenderActualOreMapUseCaseTest {
 
     @Test
     void surfaceFallbackIsLocalToProblematicMapChunk() {
-        FakeReader reader = surfaceReader(true, true);
+        FakeReader reader = surfaceReader(true);
         MapChunkCoordinate fallback = new MapChunkCoordinate(1, 0);
         for (int z = 0; z <= 1; z++) {
             for (int x = 0; x <= 2; x++) {
@@ -226,19 +226,19 @@ class RenderActualOreMapUseCaseTest {
                 }
                 reader.mapChunks.put(
                         coordinate,
-                        new MapChunk(coordinate, filledHeights(5), new int[0])
+                        new MapChunk(coordinate, filledHeights(), new int[0])
                 );
                 reader.chunks.put(
                         new ChunkPosition(x, 0, z, 0),
-                        surfaceChunk(new ChunkCoordinate(x, 0, z), 1, true)
+                        surfaceChunk(new ChunkCoordinate(x, 0, z), true)
                 );
             }
         }
-        reader.mapChunks.put(fallback, new MapChunk(fallback, new int[0], filledHeights(5)));
+        reader.mapChunks.put(fallback, new MapChunk(fallback, new int[0], filledHeights()));
         for (int y = 0; y < 8; y++) {
             reader.chunks.put(
                     new ChunkPosition(fallback.x(), y, fallback.z(), 0),
-                    surfaceChunk(new ChunkCoordinate(fallback.x(), y, fallback.z()), 1, true)
+                    surfaceChunk(new ChunkCoordinate(fallback.x(), y, fallback.z()), true)
             );
         }
 
@@ -269,18 +269,18 @@ class RenderActualOreMapUseCaseTest {
     void fractionalCenterSurfaceSearchUsesUnionMapChunkLookup() {
         FakeReader reader = new FakeReader(Map.of());
         MapChunkCoordinate surfaceOnly = new MapChunkCoordinate(2, 1);
-        reader.mapChunks.put(surfaceOnly, new MapChunk(surfaceOnly, filledHeights(5), new int[0]));
+        reader.mapChunks.put(surfaceOnly, new MapChunk(surfaceOnly, filledHeights(), new int[0]));
         reader.chunks.put(
                 new ChunkPosition(2, 0, 1, 0),
-                surfaceChunk(new ChunkCoordinate(2, 0, 1), 1, true)
+                surfaceChunk(new ChunkCoordinate(2, 0, 1), true)
         );
         for (int z = 0; z <= 2; z++) {
             for (int x = 0; x <= 1; x++) {
                 MapChunkCoordinate coordinate = new MapChunkCoordinate(x, z);
-                reader.mapChunks.put(coordinate, new MapChunk(coordinate, filledHeights(5), new int[0]));
+                reader.mapChunks.put(coordinate, new MapChunk(coordinate, filledHeights(), new int[0]));
                 reader.chunks.put(
                         new ChunkPosition(x, 0, z, 0),
-                        surfaceChunk(new ChunkCoordinate(x, 0, z), 1, true)
+                        surfaceChunk(new ChunkCoordinate(x, 0, z), true)
                 );
             }
         }
@@ -305,11 +305,11 @@ class RenderActualOreMapUseCaseTest {
 
     @Test
     void unresolvedFastTargetFallsBackWholeMapChunk() {
-        FakeReader reader = surfaceReader(true, false);
+        FakeReader reader = surfaceReader(false);
         for (int y = 0; y < 8; y++) {
             reader.chunks.put(
                     new ChunkPosition(0, y, 0, 0),
-                    surfaceChunk(new ChunkCoordinate(0, y, 0), 1, false)
+                    surfaceChunk(new ChunkCoordinate(0, y, 0), false)
             );
         }
 
@@ -331,13 +331,13 @@ class RenderActualOreMapUseCaseTest {
 
     @Test
     void resultSurfaceContainsMergedFastAndFallbackBlocks() {
-        FakeReader reader = surfaceReader(true, true);
+        FakeReader reader = surfaceReader(true);
         MapChunkCoordinate fallback = new MapChunkCoordinate(1, 0);
-        reader.mapChunks.put(fallback, new MapChunk(fallback, new int[0], filledHeights(5)));
+        reader.mapChunks.put(fallback, new MapChunk(fallback, new int[0], filledHeights()));
         for (int y = 0; y < 8; y++) {
             reader.chunks.put(
                     new ChunkPosition(1, y, 0, 0),
-                    surfaceChunk(new ChunkCoordinate(1, y, 0), 1, true)
+                    surfaceChunk(new ChunkCoordinate(1, y, 0), true)
             );
         }
 
@@ -370,21 +370,11 @@ class RenderActualOreMapUseCaseTest {
             FakeReader reader,
             List<ActualOreOverlaySpec> specs
     ) {
-        WorldMetadataReader metadataReader = new WorldMetadataReader() {
-            @Override
-            public WorldMetadata read(Path savePath) {
-                return new WorldMetadata(128, 256, 128);
-            }
-        };
-        RenderActualOreMapUseCase useCase = new RenderActualOreMapUseCase(
+        RenderActualOreMapUseCase useCase = useCase(
                 reader,
-                metadataReader,
-                new HomeStore(temporaryDirectory.resolve("home.properties")),
-                new MarkerStore(temporaryDirectory.resolve("markers.csv")),
-                new MapRenderer(),
-                new UserMarkerRenderer(),
-                new ActualBlockMapScanner(),
-                new ActualOreOverlayPainter()
+                new WorldMetadata(128, 256, 128),
+                temporaryDirectory.resolve("home.properties"),
+                temporaryDirectory.resolve("markers.csv")
         );
         RenderActualOreMapRequest request = new RenderActualOreMapRequest(
                 temporaryDirectory.resolve("save.vcdbs"),
@@ -421,18 +411,11 @@ class RenderActualOreMapUseCaseTest {
             int radius,
             WorldMetadata metadata
     ) {
-        WorldMetadataReader metadataReader = new WorldMetadataReader() {
-            @Override
-            public WorldMetadata read(Path savePath) {
-                return metadata;
-            }
-        };
-        RenderActualOreMapUseCase useCase = new RenderActualOreMapUseCase(
-                reader, metadataReader,
-                new HomeStore(temporaryDirectory.resolve("home-surface.properties")),
-                new MarkerStore(temporaryDirectory.resolve("markers-surface.csv")),
-                new MapRenderer(), new UserMarkerRenderer(), new ActualBlockMapScanner(),
-                new ActualOreOverlayPainter()
+        RenderActualOreMapUseCase useCase = useCase(
+                reader,
+                metadata,
+                temporaryDirectory.resolve("home-surface.properties"),
+                temporaryDirectory.resolve("markers-surface.csv")
         );
         return useCase.execute(new RenderActualOreMapRequest(
                 temporaryDirectory.resolve("surface-save.vcdbs"), radius, 1,
@@ -442,18 +425,40 @@ class RenderActualOreMapUseCaseTest {
         ));
     }
 
-    private FakeReader surfaceReader(boolean rainAvailable, boolean liquidAvailable) {
+    private RenderActualOreMapUseCase useCase(
+            FakeReader reader,
+            WorldMetadata metadata,
+            Path homePath,
+            Path markerPath
+    ) {
+        WorldMetadataReader metadataReader = new WorldMetadataReader() {
+            @Override
+            public WorldMetadata read(Path savePath) {
+                return metadata;
+            }
+        };
+        return new RenderActualOreMapUseCase(
+                reader,
+                metadataReader,
+                new HomeStore(homePath),
+                new MarkerStore(markerPath),
+                new MapRenderer(),
+                new UserMarkerRenderer(),
+                new ActualBlockMapScanner(),
+                new ActualOreOverlayPainter()
+        );
+    }
+
+    private FakeReader surfaceReader(boolean liquidAvailable) {
         FakeReader reader = new FakeReader(fireClayRegistry());
         MapChunkCoordinate coordinate = new MapChunkCoordinate(0, 0);
         reader.mapChunks.put(
                 coordinate,
-                rainAvailable
-                        ? new MapChunk(coordinate, filledHeights(5), new int[0])
-                        : new MapChunk(coordinate, new int[0], filledHeights(5))
+                new MapChunk(coordinate, filledHeights(), new int[0])
         );
         reader.chunks.put(
                 new ChunkPosition(0, 0, 0, 0),
-                surfaceChunk(new ChunkCoordinate(0, 0, 0), 1, liquidAvailable)
+                surfaceChunk(new ChunkCoordinate(0, 0, 0), liquidAvailable)
         );
         return reader;
     }
@@ -467,7 +472,6 @@ class RenderActualOreMapUseCaseTest {
 
     private ParsedChunk surfaceChunk(
             ChunkCoordinate coordinate,
-            int blockId,
             boolean liquidAvailable
     ) {
         int size = ChunkCoordinate.SIZE_BLOCKS;
@@ -475,16 +479,16 @@ class RenderActualOreMapUseCaseTest {
         int[] liquids = new int[blocks.length];
         for (int z = 0; z < size; z++) {
             for (int x = 0; x < size; x++) {
-                blocks[(5 * size + z) * size + x] = blockId;
+                blocks[(5 * size + z) * size + x] = 1;
             }
         }
         return new ParsedChunk(coordinate, 0, size, size, size, blocks, liquids,
                 0, liquidAvailable, "");
     }
 
-    private static int[] filledHeights(int value) {
+    private static int[] filledHeights() {
         int[] heights = new int[MapChunk.HEIGHT_VALUE_COUNT];
-        java.util.Arrays.fill(heights, value);
+        java.util.Arrays.fill(heights, 5);
         return heights;
     }
 

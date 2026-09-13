@@ -450,7 +450,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
         private final AtomicInteger parseServerChunkCalls = new AtomicInteger();
         private final AtomicReference<ChunkDecodeProfile> lastProfile =
                 new AtomicReference<>();
-        private ParseResult<ServerChunkPayload> payloadResult =
+        private final ParseResult<ServerChunkPayload> payloadResult =
                 ParseResult.success(new ServerChunkPayload(new byte[]{1}, new byte[0], 2));
         private ParseResult<ChunkPaletteProbe> paletteResult;
         private ParseResult<ParsedChunk> fullDecodeResult =

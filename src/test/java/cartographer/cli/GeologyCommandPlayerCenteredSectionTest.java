@@ -269,7 +269,6 @@ class GeologyCommandPlayerCenteredSectionTest {
             extends PngWriter {
 
         private BufferedImage image;
-        private Path output;
 
         @Override
         public void write(
@@ -279,8 +278,6 @@ class GeologyCommandPlayerCenteredSectionTest {
             this.image =
                     image;
 
-            this.output =
-                    output;
         }
     }
 

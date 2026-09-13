@@ -45,24 +45,7 @@ class ScanCommandBlocksMapTest {
         ByteArrayOutputStream buffer =
                 new ByteArrayOutputStream();
 
-        PrintStream out =
-                new PrintStream(
-                        buffer,
-                        true,
-                        StandardCharsets.UTF_8
-                );
-
-        ScanCommand command =
-                new ScanCommand(
-                        out,
-                        reader,
-                        new SurfaceScanner(),
-                        new BlockScanner(),
-                        new ActualBlockMapScanner(),
-                        new ActualBlockMapRenderer(),
-                        writer,
-                        "blocks-map"
-                );
+        ScanCommand command = blocksMapCommand(buffer, reader, writer);
 
         command.run(
                 new String[]{
@@ -185,24 +168,7 @@ class ScanCommandBlocksMapTest {
         ByteArrayOutputStream buffer =
                 new ByteArrayOutputStream();
 
-        PrintStream out =
-                new PrintStream(
-                        buffer,
-                        true,
-                        StandardCharsets.UTF_8
-                );
-
-        ScanCommand command =
-                new ScanCommand(
-                        out,
-                        reader,
-                        new SurfaceScanner(),
-                        new BlockScanner(),
-                        new ActualBlockMapScanner(),
-                        new ActualBlockMapRenderer(),
-                        writer,
-                        "blocks-map"
-                );
+        ScanCommand command = blocksMapCommand(buffer, reader, writer);
 
         command.run(
                 new String[]{
@@ -305,24 +271,7 @@ class ScanCommandBlocksMapTest {
         ByteArrayOutputStream buffer =
                 new ByteArrayOutputStream();
 
-        PrintStream out =
-                new PrintStream(
-                        buffer,
-                        true,
-                        StandardCharsets.UTF_8
-                );
-
-        ScanCommand command =
-                new ScanCommand(
-                        out,
-                        reader,
-                        new SurfaceScanner(),
-                        new BlockScanner(),
-                        new ActualBlockMapScanner(),
-                        new ActualBlockMapRenderer(),
-                        writer,
-                        "blocks-map"
-                );
+        ScanCommand command = blocksMapCommand(buffer, reader, writer);
 
         command.run(
                 new String[]{
@@ -370,25 +319,11 @@ class ScanCommandBlocksMapTest {
     void rejectsOutFileWhenSplittingYBands() {
         ByteArrayOutputStream buffer =
                 new ByteArrayOutputStream();
-
-        PrintStream out =
-                new PrintStream(
-                        buffer,
-                        true,
-                        StandardCharsets.UTF_8
-                );
-
-        ScanCommand command =
-                new ScanCommand(
-                        out,
-                        new FakeReader(),
-                        new SurfaceScanner(),
-                        new BlockScanner(),
-                        new ActualBlockMapScanner(),
-                        new ActualBlockMapRenderer(),
-                        new CapturingPngWriter(),
-                        "blocks-map"
-                );
+        ScanCommand command = blocksMapCommand(
+                buffer,
+                new FakeReader(),
+                new CapturingPngWriter()
+        );
 
         CommandException exception =
                 assertThrows(
@@ -417,25 +352,11 @@ class ScanCommandBlocksMapTest {
     void rejectsInvertedYFilter() {
         ByteArrayOutputStream buffer =
                 new ByteArrayOutputStream();
-
-        PrintStream out =
-                new PrintStream(
-                        buffer,
-                        true,
-                        StandardCharsets.UTF_8
-                );
-
-        ScanCommand command =
-                new ScanCommand(
-                        out,
-                        new FakeReader(),
-                        new SurfaceScanner(),
-                        new BlockScanner(),
-                        new ActualBlockMapScanner(),
-                        new ActualBlockMapRenderer(),
-                        new CapturingPngWriter(),
-                        "blocks-map"
-                );
+        ScanCommand command = blocksMapCommand(
+                buffer,
+                new FakeReader(),
+                new CapturingPngWriter()
+        );
 
         CommandException exception =
                 assertThrows(
@@ -590,6 +511,29 @@ class ScanCommandBlocksMapTest {
         return (y * size + z)
                 * size
                 + x;
+    }
+
+    private ScanCommand blocksMapCommand(
+            ByteArrayOutputStream buffer,
+            FakeReader reader,
+            CapturingPngWriter writer
+    ) {
+        PrintStream out =
+                new PrintStream(
+                        buffer,
+                        true,
+                        StandardCharsets.UTF_8
+                );
+        return new ScanCommand(
+                out,
+                reader,
+                new SurfaceScanner(),
+                new BlockScanner(),
+                new ActualBlockMapScanner(),
+                new ActualBlockMapRenderer(),
+                writer,
+                "blocks-map"
+        );
     }
 
     private static final class CapturingPngWriter

@@ -91,7 +91,7 @@ class RenderSurfaceResourceMapUseCaseTest {
             );
         }
         FakeReader reader = new FakeReader(renderMapChunks, chunks, fireClayRegistry());
-        reader.mapChunks.put(second, new MapChunk(second, new int[0], filledHeights(5)));
+        reader.mapChunks.put(second, new MapChunk(second, new int[0], filledHeights()));
 
         RenderSurfaceResourceMapResult result = useCase(reader).execute(request(32, 0, 32));
 
@@ -138,7 +138,7 @@ class RenderSurfaceResourceMapUseCaseTest {
                 Map.of(new ChunkPosition(0, 0, 0, 0), surfaceChunk(new ChunkCoordinate(0, 0, 0), 1)),
                 fireClayRegistry()
         );
-        reader.mapChunks.put(renderOnly, new MapChunk(renderOnly, new int[0], filledHeights(5)));
+        reader.mapChunks.put(renderOnly, new MapChunk(renderOnly, new int[0], filledHeights()));
 
         useCase(reader).execute(request(16, 16, 1));
 
@@ -225,7 +225,7 @@ class RenderSurfaceResourceMapUseCaseTest {
             );
         }
         FakeReader reader = new FakeReader(coordinates, chunks, fireClayRegistry());
-        reader.mapChunks.put(fallback, new MapChunk(fallback, new int[0], filledHeights(5)));
+        reader.mapChunks.put(fallback, new MapChunk(fallback, new int[0], filledHeights()));
 
         RenderSurfaceResourceMapResult result = useCase(reader).execute(request(32, 0, 32));
 
@@ -241,9 +241,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         chunks.put(
                 new ChunkPosition(0, 0, 0, 0),
                 surfaceChunkWithSpecial(
-                        new ChunkCoordinate(0, 0, 0),
-                        1,
-                        2
+                        new ChunkCoordinate(0, 0, 0)
                 )
         );
         FakeReader reader = new FakeReader(
@@ -321,13 +319,11 @@ class RenderSurfaceResourceMapUseCaseTest {
     }
 
     private ParsedChunk surfaceChunkWithSpecial(
-            ChunkCoordinate coordinate,
-            int baseBlockId,
-            int specialBlockId
+            ChunkCoordinate coordinate
     ) {
-        ParsedChunk base = surfaceChunk(coordinate, baseBlockId);
+        ParsedChunk base = surfaceChunk(coordinate, 1);
         int[] blocks = base.blockIds();
-        blocks[(5 * 32 + 16) * 32 + 16] = specialBlockId;
+        blocks[(5 * 32 + 16) * 32 + 16] = 2;
         return new ParsedChunk(coordinate, 0, 32, 32, 32, blocks, base.liquidIds(), 0, true, "");
     }
 
@@ -335,9 +331,9 @@ class RenderSurfaceResourceMapUseCaseTest {
         return new ChunkCoordinate(position.x(), position.y(), position.z());
     }
 
-    private static int[] filledHeights(int value) {
+    private static int[] filledHeights() {
         int[] heights = new int[MapChunk.HEIGHT_VALUE_COUNT];
-        Arrays.fill(heights, value);
+        Arrays.fill(heights, 5);
         return heights;
     }
 
@@ -362,7 +358,7 @@ class RenderSurfaceResourceMapUseCaseTest {
             this.chunks = chunks;
             this.registry = registry;
             for (MapChunkCoordinate coordinate : deliveredMapChunks) {
-                mapChunks.put(coordinate, new MapChunk(coordinate, filledHeights(5), new int[0]));
+                mapChunks.put(coordinate, new MapChunk(coordinate, filledHeights(), new int[0]));
             }
         }
 

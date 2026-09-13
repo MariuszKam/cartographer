@@ -21,7 +21,7 @@ class RainHeightSurfaceScannerTest {
 
     @Test
     void extractsExactTargetBlock() {
-        ParsedChunk chunk = chunkWith(TARGET, 7, 8, 0);
+        ParsedChunk chunk = chunkWith(TARGET, 7, 8);
 
         RainHeightSurfaceScanResult result = scan(chunk, false, false);
 
@@ -32,7 +32,7 @@ class RainHeightSurfaceScannerTest {
 
     @Test
     void doesNotScanUnrelatedVoxel() {
-        ParsedChunk chunk = chunkWith(TARGET, 7, 8, 0);
+        ParsedChunk chunk = chunkWith(TARGET, 7, 8);
         int[] blocks = chunk.blockIds();
         blocks[0] = 9;
         chunk = new ParsedChunk(
@@ -55,7 +55,7 @@ class RainHeightSurfaceScannerTest {
 
     @Test
     void airTargetIsUnresolved() {
-        RainHeightSurfaceScanResult result = scan(chunkWith(TARGET, 0, 0, 0), false, false);
+        RainHeightSurfaceScanResult result = scan(chunkWith(TARGET, 0, 0), false, false);
 
         assertTrue(result.blocks().isEmpty());
         assertEquals(List.of(TARGET), result.unresolvedTargets());
@@ -63,14 +63,14 @@ class RainHeightSurfaceScannerTest {
 
     @Test
     void waterLiquidAtTargetProducesWaterSurface() {
-        RainHeightSurfaceScanResult result = scan(chunkWith(TARGET, 0, 2, 0), false, true);
+        RainHeightSurfaceScanResult result = scan(chunkWith(TARGET, 0, 2), false, true);
 
         assertEquals(SurfaceClass.WATER, result.blocks().getFirst().surfaceClass());
     }
 
     @Test
     void ignoredFoliageTargetIsUnresolved() {
-        RainHeightSurfaceScanResult result = scan(chunkWith(TARGET, 3, 0, 0), true, false);
+        RainHeightSurfaceScanResult result = scan(chunkWith(TARGET, 3, 0), true, false);
 
         assertTrue(result.blocks().isEmpty());
         assertEquals(List.of(TARGET), result.unresolvedTargets());
@@ -78,7 +78,7 @@ class RainHeightSurfaceScannerTest {
 
     @Test
     void foliageCanBeReturnedWhenIgnoreFoliageFalse() {
-        RainHeightSurfaceScanResult result = scan(chunkWith(TARGET, 3, 0, 0), false, false);
+        RainHeightSurfaceScanResult result = scan(chunkWith(TARGET, 3, 0), false, false);
 
         assertEquals(1, result.blocks().size());
     }
@@ -86,7 +86,7 @@ class RainHeightSurfaceScannerTest {
     @Test
     void missingLiquidLayerIsUnresolvedWhenRequired() {
         RainHeightSurfaceScanResult result = scan(
-                chunkWithUnavailableLiquid(TARGET, 7), false, true
+                chunkWithUnavailableLiquid(), false, true
         );
 
         assertTrue(result.blocks().isEmpty());
@@ -96,7 +96,7 @@ class RainHeightSurfaceScannerTest {
     @Test
     void missingLiquidLayerCanReturnSolidBlockWhenNotRequired() {
         RainHeightSurfaceScanResult result = scan(
-                chunkWithUnavailableLiquid(TARGET, 7), false, false
+                chunkWithUnavailableLiquid(), false, false
         );
 
         assertEquals(1, result.blocks().size());
@@ -139,7 +139,7 @@ class RainHeightSurfaceScannerTest {
         );
         RainHeightSurfaceScanner.StreamingSession session = new RainHeightSurfaceScanner()
                 .begin(plan, registry(), false, false);
-        session.accept(chunkWith(TARGET, 7, 0, 0));
+        session.accept(chunkWith(TARGET, 7, 0));
         RainHeightSurfaceScanResult result = session.finish();
 
         assertEquals(1, result.blocks().size());
@@ -157,8 +157,8 @@ class RainHeightSurfaceScannerTest {
         );
         RainHeightSurfaceScanner.StreamingSession session = new RainHeightSurfaceScanner()
                 .begin(plan, registry(), false, false);
-        session.accept(chunkWith(second, 8, 0, 0));
-        session.accept(chunkWith(first, 7, 0, 0));
+        session.accept(chunkWith(second, 8, 0));
+        session.accept(chunkWith(first, 7, 0));
 
         List<SurfaceBlock> blocks = session.finish().blocks();
         assertEquals(List.of(1, 34), blocks.stream().map(SurfaceBlock::worldZ).toList());
@@ -171,7 +171,7 @@ class RainHeightSurfaceScannerTest {
         );
         RainHeightSurfaceScanner.StreamingSession session = new RainHeightSurfaceScanner()
                 .begin(plan, registry(), false, false);
-        ParsedChunk chunk = chunkWith(TARGET, 7, 0, 0);
+        ParsedChunk chunk = chunkWith(TARGET, 7, 0);
 
         session.accept(chunk);
         session.accept(chunk);
@@ -200,8 +200,7 @@ class RainHeightSurfaceScannerTest {
     private ParsedChunk chunkWith(
             RainHeightSurfaceTarget target,
             int targetBlock,
-            int targetLiquid,
-            int unrelatedBlock
+            int targetLiquid
     ) {
         int sizeX = 32;
         int sizeY = 32;
@@ -213,7 +212,6 @@ class RainHeightSurfaceScannerTest {
         int localZ = Math.floorMod(target.worldZ(), ChunkCoordinate.SIZE_BLOCKS);
         blocks[(localY * sizeZ + localZ) * sizeX + localX] = targetBlock;
         liquids[(localY * sizeZ + localZ) * sizeX + localX] = targetLiquid;
-        blocks[0] = unrelatedBlock;
         return new ParsedChunk(
                 new ChunkCoordinate(
                         Math.floorDiv(target.worldX(), ChunkCoordinate.SIZE_BLOCKS),
@@ -227,11 +225,8 @@ class RainHeightSurfaceScannerTest {
         );
     }
 
-    private ParsedChunk chunkWithUnavailableLiquid(
-            RainHeightSurfaceTarget target,
-            int block
-    ) {
-        ParsedChunk chunk = chunkWith(target, block, 0, 0);
+    private ParsedChunk chunkWithUnavailableLiquid() {
+        ParsedChunk chunk = chunkWith(TARGET, 7, 0);
         return new ParsedChunk(
                 chunk.coordinate(), chunk.minY(), chunk.sizeX(), chunk.sizeY(),
                 chunk.sizeZ(), chunk.blockIds(), chunk.liquidIds(), 0, false,
