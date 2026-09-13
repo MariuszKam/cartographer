@@ -181,7 +181,7 @@ public class RenderSurfaceResourceMapUseCase {
                 );
         ChunkStreamStats fastChunkStats = new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         if (!rainPlan.chunkPositions().isEmpty()) {
-            fastChunkStats = reader.forEachChunkByPosition(
+            fastChunkStats = reader.forEachChunkByPositionAdaptive(
                     request.savePath(),
                     rainPlan.chunkPositions(),
                     chunkDiagnostics,
@@ -202,7 +202,7 @@ public class RenderSurfaceResourceMapUseCase {
         List<ParsedChunk> fallbackChunks = new ArrayList<>();
         ChunkStreamStats fallbackChunkStats = new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         if (!fallbackChunkPositions.isEmpty()) {
-            fallbackChunkStats = reader.forEachChunkByPosition(
+            fallbackChunkStats = reader.forEachChunkByPositionAdaptive(
                     request.savePath(),
                     fallbackChunkPositions,
                     chunkDiagnostics,

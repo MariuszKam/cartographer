@@ -344,7 +344,7 @@ public class RenderActualOreMapUseCase {
                     request.radius(),
                     request.yFilter()
             );
-            reader.forEachChunkByPositionMatchingBlockIds(
+            reader.forEachChunkByPositionMatchingBlockIdsAdaptive(
                     request.savePath(),
                     positions,
                     wantedBlockIds,
@@ -390,7 +390,7 @@ public class RenderActualOreMapUseCase {
                 rainHeightSurfaceScanner.begin(rainPlan, registry, true, true);
         ChunkStreamStats fastChunkStats = new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         if (!rainPlan.chunkPositions().isEmpty()) {
-            fastChunkStats = reader.forEachChunkByPosition(
+            fastChunkStats = reader.forEachChunkByPositionAdaptive(
                     savePath,
                     rainPlan.chunkPositions(),
                     chunkDiagnostics,
@@ -411,7 +411,7 @@ public class RenderActualOreMapUseCase {
         List<ParsedChunk> fallbackChunks = new ArrayList<>();
         ChunkStreamStats fallbackChunkStats = new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         if (!fallbackPositions.isEmpty()) {
-            fallbackChunkStats = reader.forEachChunkByPosition(
+            fallbackChunkStats = reader.forEachChunkByPositionAdaptive(
                     savePath,
                     fallbackPositions,
                     chunkDiagnostics,

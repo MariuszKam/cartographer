@@ -246,6 +246,118 @@ public class VcdbsReader {
         );
     }
 
+    public ChunkStreamStats forEachChunkByPositionAdaptive(
+            Path savePath,
+            Collection<ChunkPosition> positions,
+            ReadDiagnostics diagnostics,
+            Consumer<ParsedChunk> consumer
+    ) {
+        return forEachChunkByPositionAdaptive(
+                savePath,
+                positions,
+                diagnostics,
+                consumer,
+                ProgressReporter.NONE
+        );
+    }
+
+    public ChunkStreamStats forEachChunkByPositionAdaptive(
+            Path savePath,
+            Collection<ChunkPosition> positions,
+            ReadDiagnostics diagnostics,
+            Consumer<ParsedChunk> consumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(savePath, "savePath is required");
+        Objects.requireNonNull(positions, "positions is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(consumer, "consumer is required");
+        Objects.requireNonNull(progress, "progress is required");
+
+        Set<Long> packedPositions = packedUniquePositions(positions);
+        if (packedPositions.isEmpty()) {
+            return new ChunkStreamStats(0, 0, 0, 0, 0, 0);
+        }
+
+        if (shouldUseChunkTableStream(savePath, packedPositions.size())) {
+            return forEachChunkByPositionTableStream(
+                    savePath,
+                    positions,
+                    diagnostics,
+                    consumer,
+                    progress
+            );
+        }
+        return forEachChunkByPosition(
+                savePath,
+                positions,
+                diagnostics,
+                consumer,
+                progress
+        );
+    }
+
+    public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
+            Path savePath,
+            Collection<ChunkPosition> positions,
+            int[] wantedBlockIds,
+            ReadDiagnostics diagnostics,
+            Consumer<ParsedChunk> consumer
+    ) {
+        return forEachChunkByPositionMatchingBlockIdsAdaptive(
+                savePath,
+                positions,
+                wantedBlockIds,
+                diagnostics,
+                consumer,
+                ProgressReporter.NONE
+        );
+    }
+
+    public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
+            Path savePath,
+            Collection<ChunkPosition> positions,
+            int[] wantedBlockIds,
+            ReadDiagnostics diagnostics,
+            Consumer<ParsedChunk> consumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(savePath, "savePath is required");
+        Objects.requireNonNull(positions, "positions is required");
+        Objects.requireNonNull(wantedBlockIds, "wantedBlockIds is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(consumer, "consumer is required");
+        Objects.requireNonNull(progress, "progress is required");
+
+        if (uniqueWantedBlockIds(wantedBlockIds).length == 0) {
+            throw new IllegalArgumentException("wantedBlockIds cannot be empty");
+        }
+
+        Set<Long> packedPositions = packedUniquePositions(positions);
+        if (packedPositions.isEmpty()) {
+            return new SelectiveChunkStreamStats(0, 0, 0, 0, 0, 0, 0, 0);
+        }
+
+        if (shouldUseChunkTableStream(savePath, packedPositions.size())) {
+            return forEachChunkByPositionMatchingBlockIdsTableStream(
+                    savePath,
+                    positions,
+                    wantedBlockIds,
+                    diagnostics,
+                    consumer,
+                    progress
+            );
+        }
+        return forEachChunkByPositionMatchingBlockIds(
+                savePath,
+                positions,
+                wantedBlockIds,
+                diagnostics,
+                consumer,
+                progress
+        );
+    }
+
     public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIds(
             Path savePath,
             Collection<ChunkPosition> positions,
@@ -687,6 +799,41 @@ public class VcdbsReader {
                             + exception.getMessage(),
                     exception
             );
+        }
+    }
+
+    private boolean shouldUseChunkTableStream(
+            Path savePath,
+            int uniqueRequestedPositions
+    ) {
+        if (uniqueRequestedPositions <= DIRECT_CHUNK_BATCH_SIZE) {
+            return false;
+        }
+
+        try (Connection connection = connectionFactory.openReadOnly(savePath)) {
+            if (tableMissing(connection, SaveTable.CHUNK.tableName())) {
+                return false;
+            }
+
+            long limit = (long) uniqueRequestedPositions + 1L;
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "SELECT 1 FROM \"" + SaveTable.CHUNK.tableName()
+                            + "\" LIMIT ?"
+            )) {
+                statement.setLong(1, limit);
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    int rowsSeen = 0;
+                    while (resultSet.next()) {
+                        rowsSeen++;
+                        if (rowsSeen > uniqueRequestedPositions) {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+            }
+        } catch (SQLException exception) {
+            return false;
         }
     }
 

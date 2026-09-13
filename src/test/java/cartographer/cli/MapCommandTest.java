@@ -441,6 +441,18 @@ class MapCommandTest {
         }
 
         @Override
+        public ChunkStreamStats forEachChunkByPositionAdaptive(
+                Path savePath,
+                java.util.Collection<ChunkPosition> positions,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer
+        ) {
+            return forEachChunkByPosition(
+                    savePath, positions, diagnostics, consumer
+            );
+        }
+
+        @Override
         public ChunkStreamStats forEachChunkByPosition(
                 Path savePath,
                 java.util.Collection<ChunkPosition> positions,
@@ -460,6 +472,19 @@ class MapCommandTest {
                     1,
                     0,
                     0
+            );
+        }
+
+        @Override
+        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
+                Path savePath,
+                java.util.Collection<cartographer.model.ChunkPosition> positions,
+                int[] wantedBlockIds,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer
+        ) {
+            return forEachChunkByPositionMatchingBlockIds(
+                    savePath, positions, wantedBlockIds, diagnostics, consumer
             );
         }
 

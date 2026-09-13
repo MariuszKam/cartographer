@@ -443,8 +443,10 @@ class RenderActualOreMapUseCaseTest {
         private final List<List<MapChunkCoordinate>> directMapChunkRequests = new ArrayList<>();
         private final List<List<ChunkPosition>> exactRequests = new ArrayList<>();
         private int selectiveCalls;
+        private int adaptiveSelectiveCalls;
         private int directMapChunkCalls;
         private int exactChunkCalls;
+        private int adaptiveExactChunkCalls;
         private int registryCalls;
         private int legacyMapChunkCalls;
         private int legacyChunkCalls;
@@ -491,6 +493,19 @@ class RenderActualOreMapUseCaseTest {
                     delivered,
                     0,
                     0
+            );
+        }
+
+        @Override
+        public ChunkStreamStats forEachChunkByPositionAdaptive(
+                Path savePath,
+                java.util.Collection<ChunkPosition> positions,
+                ReadDiagnostics diagnostics,
+            java.util.function.Consumer<ParsedChunk> consumer
+        ) {
+            adaptiveExactChunkCalls++;
+            return forEachChunkByPosition(
+                    savePath, positions, diagnostics, consumer
             );
         }
 
@@ -547,6 +562,20 @@ class RenderActualOreMapUseCaseTest {
         public Map<Integer, BlockInfo> readBlockRegistry(Path savePath) {
             registryCalls++;
             return registry;
+        }
+
+        @Override
+        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
+                Path savePath,
+                java.util.Collection<ChunkPosition> positions,
+                int[] wantedBlockIds,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer
+        ) {
+            adaptiveSelectiveCalls++;
+            return forEachChunkByPositionMatchingBlockIds(
+                    savePath, positions, wantedBlockIds, diagnostics, consumer
+            );
         }
 
         @Override

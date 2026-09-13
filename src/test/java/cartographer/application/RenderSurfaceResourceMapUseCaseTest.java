@@ -349,6 +349,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         private final Map<MapChunkCoordinate, MapChunk> mapChunks = new HashMap<>();
         private int directMapChunkCalls;
         private int exactChunkCalls;
+        private int adaptiveExactChunkCalls;
         private int legacyMapChunkCalls;
         private int legacyChunkCalls;
 
@@ -389,6 +390,19 @@ class RenderSurfaceResourceMapUseCaseTest {
             }
             return new MapChunkStreamStats(coordinates.size(), coordinates.isEmpty() ? 0 : 1,
                     delivered, delivered, 0, 0);
+        }
+
+        @Override
+        public ChunkStreamStats forEachChunkByPositionAdaptive(
+                Path savePath,
+                java.util.Collection<ChunkPosition> positions,
+                ReadDiagnostics diagnostics,
+            java.util.function.Consumer<ParsedChunk> consumer
+        ) {
+            adaptiveExactChunkCalls++;
+            return forEachChunkByPosition(
+                    savePath, positions, diagnostics, consumer
+            );
         }
 
         @Override

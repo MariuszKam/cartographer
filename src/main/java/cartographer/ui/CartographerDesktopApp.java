@@ -46,6 +46,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
@@ -86,6 +87,10 @@ public class CartographerDesktopApp extends Application {
     private final RadioButton radius128Button = new RadioButton("128");
     private final RadioButton radius256Button = new RadioButton("256");
     private final RadioButton radius512Button = new RadioButton("512");
+    private final RadioButton radius1024Button = new RadioButton("1024");
+    private final Label radiusWarningLabel = new Label(
+            "Large radius: rendering may take longer and use substantially more memory."
+    );
     private final Button renderButton = new Button("Render");
     private final ProgressIndicator progress = new ProgressIndicator();
     private final Label statusLabel = new Label();
@@ -198,7 +203,13 @@ public class CartographerDesktopApp extends Application {
         radius128Button.setToggleGroup(radiusGroup);
         radius256Button.setToggleGroup(radiusGroup);
         radius512Button.setToggleGroup(radiusGroup);
+        radius1024Button.setToggleGroup(radiusGroup);
         radius256Button.setSelected(true);
+        radius1024Button.selectedProperty().addListener(
+                (observable, oldValue, selected) -> updateRadiusWarning()
+        );
+        radiusWarningLabel.setVisible(false);
+        radiusWarningLabel.setManaged(false);
 
         ToggleGroup yGroup = new ToggleGroup();
         allYButton.setToggleGroup(yGroup);
@@ -265,14 +276,18 @@ public class CartographerDesktopApp extends Application {
         surfacePanel.managedProperty().bind(surfacePanel.visibleProperty());
 
         grid.add(new Label("RADIUS"), 0, 10);
-        HBox radiusBox = new HBox(8, radius128Button, radius256Button, radius512Button);
+        FlowPane radiusBox = new FlowPane(
+                8, 4, radius128Button, radius256Button,
+                radius512Button, radius1024Button
+        );
         grid.add(radiusBox, 0, 11, 2, 1);
+        grid.add(radiusWarningLabel, 0, 12, 2, 1);
 
-        grid.add(new Label("Y FILTER"), 0, 12);
-        grid.add(allYButton, 0, 13);
-        grid.add(customYButton, 1, 13);
-        grid.add(yMinField, 0, 14);
-        grid.add(yMaxField, 1, 14);
+        grid.add(new Label("Y FILTER"), 0, 13);
+        grid.add(allYButton, 0, 14);
+        grid.add(customYButton, 1, 14);
+        grid.add(yMinField, 0, 15);
+        grid.add(yMaxField, 1, 15);
 
         VBox box = new VBox(
                 12,
@@ -586,6 +601,7 @@ public class CartographerDesktopApp extends Application {
         radius128Button.setDisable(busy);
         radius256Button.setDisable(busy);
         radius512Button.setDisable(busy);
+        radius1024Button.setDisable(busy);
         allYButton.setDisable(busy);
         customYButton.setDisable(busy);
         yMinField.setDisable(busy || allYButton.isSelected() || surfaceSearchButton.isSelected());
@@ -620,7 +636,16 @@ public class CartographerDesktopApp extends Application {
         if (radius512Button.isSelected()) {
             return 512;
         }
+        if (radius1024Button.isSelected()) {
+            return 1024;
+        }
         return 256;
+    }
+
+    private void updateRadiusWarning() {
+        boolean visible = radius1024Button.isSelected();
+        radiusWarningLabel.setVisible(visible);
+        radiusWarningLabel.setManaged(visible);
     }
 
     private String resourceMatch() {
