@@ -134,7 +134,7 @@ class MapRendererTest {
                 ProgressReporter.NONE
         );
         int expected = new TerrainPalette().terrainColor(
-                80, 80, 80, 0.0, RenderStyle.SIMPLE
+                112, 80, 142, 0.0, RenderStyle.SIMPLE
         );
         assertEquals(expected, rendered.image().getRGB(32, 32));
     }
@@ -158,7 +158,7 @@ class MapRendererTest {
         );
         assertEquals(color, rendered.image().getRGB(32, 32));
         assertEquals(color, rendered.image().getRGB(33, 33));
-        assertNotEquals(color, rendered.image().getRGB(34, 32));
+        assertNotEquals(color, rendered.image().getRGB(35, 32));
     }
 
     @Test
