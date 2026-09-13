@@ -13,9 +13,7 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -183,8 +181,8 @@ public class MapRenderer {
                                 RenderLayer.SURFACE
                         );
 
-        HeightSamples samples =
-                HeightSamples.empty();
+        DenseHeightGrid samples =
+                DenseHeightGrid.empty();
 
         if (terrainEnabled
                 || surfaceEnabled) {
@@ -312,7 +310,7 @@ public class MapRenderer {
 
     private int drawTerrain(
             BufferedImage image,
-            HeightSamples samples,
+            DenseHeightGrid samples,
             int minX,
             int minZ,
             double scale,
@@ -359,15 +357,11 @@ public class MapRenderer {
                                 )
                         );
 
-                Integer height =
-                        samples.heightAt(
-                                worldX,
-                                worldZ
-                        );
-
-                if (height == null) {
+                if (!samples.hasHeightAt(worldX, worldZ)) {
                     continue;
                 }
+
+                int height = samples.heightAt(worldX, worldZ);
 
                 image.setRGB(
                         imageX,
@@ -401,7 +395,7 @@ public class MapRenderer {
     private void drawSurfaceBlocks(
             BufferedImage image,
             List<SurfaceBlock> surfaceBlocks,
-            HeightSamples samples,
+            DenseHeightGrid samples,
             int minX,
             int minZ,
             double scale,
@@ -490,10 +484,10 @@ public class MapRenderer {
                     );
 
             double shade =
-                    samples.heightAt(
+                    !samples.hasHeightAt(
                             block.worldX(),
                             block.worldZ()
-                    ) == null
+                    )
                             ? 0.0
                             : hillshade(
                             samples,
@@ -766,156 +760,40 @@ public class MapRenderer {
         }
     }
 
-    private HeightSamples collectHeightSamples(
+    private DenseHeightGrid collectHeightSamples(
             List<MapChunk> chunks,
             int minX,
             int minZ,
             int sizeBlocks,
             ProgressReporter progress
     ) {
-        Map<Long, Integer> heights =
-                new HashMap<>(
-                        chunks.size()
-                                * MapChunk.HEIGHT_VALUE_COUNT
-                );
-
-        int minHeight =
-                Integer.MAX_VALUE;
-
-        int maxHeight =
-                Integer.MIN_VALUE;
-
-        for (int index = 0;
-             index < chunks.size();
-             index++) {
-
-            MapChunk chunk =
-                    chunks.get(
-                            index
-                    );
-
-            progress.progress(
-                    "Indexing mapchunk heights",
-                    index + 1,
-                    chunks.size()
-            );
-
-            int originX =
-                    chunk.coordinate()
-                            .x()
-                            * MapChunk.SIZE;
-
-            int originZ =
-                    chunk.coordinate()
-                            .z()
-                            * MapChunk.SIZE;
-
-            for (int localZ = 0;
-                 localZ < MapChunk.SIZE;
-                 localZ++) {
-
-                for (int localX = 0;
-                     localX < MapChunk.SIZE;
-                     localX++) {
-
-                    int worldX =
-                            originX
-                                    + localX;
-
-                    int worldZ =
-                            originZ
-                                    + localZ;
-
-                    if (worldX < minX
-                            || worldX >= minX
-                            + sizeBlocks
-                            || worldZ < minZ
-                            || worldZ >= minZ
-                            + sizeBlocks) {
-
-                        continue;
-                    }
-
-                    int height =
-                            chunk.terrainHeightAt(
-                                    localX,
-                                    localZ
-                            );
-
-                    heights.put(
-                            key(
-                                    worldX,
-                                    worldZ
-                            ),
-                            height
-                    );
-
-                    minHeight =
-                            Math.min(
-                                    minHeight,
-                                    height
-                            );
-
-                    maxHeight =
-                            Math.max(
-                                    maxHeight,
-                                    height
-                            );
-                }
-            }
-        }
-
-        if (heights.isEmpty()) {
-            minHeight =
-                    0;
-
-            maxHeight =
-                    0;
-        }
-
-        return new HeightSamples(
-                heights,
-                minHeight,
-                maxHeight
+        return DenseHeightGrid.fromMapChunks(
+                chunks,
+                minX,
+                minZ,
+                sizeBlocks,
+                sizeBlocks,
+                progress
         );
     }
 
     private double hillshade(
-            HeightSamples samples,
+            DenseHeightGrid samples,
             int worldX,
             int worldZ
     ) {
-        Integer west =
-                samples.heightAt(
-                        worldX - 1,
-                        worldZ
-                );
-
-        Integer east =
-                samples.heightAt(
-                        worldX + 1,
-                        worldZ
-                );
-
-        Integer north =
-                samples.heightAt(
-                        worldX,
-                        worldZ - 1
-                );
-
-        Integer south =
-                samples.heightAt(
-                        worldX,
-                        worldZ + 1
-                );
-
-        if (west == null
-                || east == null
-                || north == null
-                || south == null) {
+        if (!samples.hasHeightAt(worldX - 1, worldZ)
+                || !samples.hasHeightAt(worldX + 1, worldZ)
+                || !samples.hasHeightAt(worldX, worldZ - 1)
+                || !samples.hasHeightAt(worldX, worldZ + 1)) {
 
             return 0.0;
         }
+
+        int west = samples.heightAt(worldX - 1, worldZ);
+        int east = samples.heightAt(worldX + 1, worldZ);
+        int north = samples.heightAt(worldX, worldZ - 1);
+        int south = samples.heightAt(worldX, worldZ + 1);
 
         double dx =
                 east - west;
@@ -935,40 +813,4 @@ public class MapRenderer {
         );
     }
 
-    private long key(
-            int worldX,
-            int worldZ
-    ) {
-        return ((long) worldX << 32)
-                ^ Integer.toUnsignedLong(
-                worldZ
-        );
-    }
-
-    private record HeightSamples(
-            Map<Long, Integer> heights,
-            int minHeight,
-            int maxHeight
-    ) {
-
-        static HeightSamples empty() {
-            return new HeightSamples(
-                    Map.of(),
-                    0,
-                    0
-            );
-        }
-
-        Integer heightAt(
-                int worldX,
-                int worldZ
-        ) {
-            return heights.get(
-                    ((long) worldX << 32)
-                            ^ Integer.toUnsignedLong(
-                            worldZ
-                    )
-            );
-        }
-    }
 }

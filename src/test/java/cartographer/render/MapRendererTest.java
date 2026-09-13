@@ -108,6 +108,66 @@ class MapRendererTest {
     }
 
     @Test
+    void denseHeightGridKeepsTerrainOutputStableAcrossChunkBoundary() {
+        RenderedMap rendered = new MapRenderer().render(
+                new WorldPosition(32.0, 0.0, 16.0),
+                HomeState.absent(),
+                List.of(chunk(0, 0, 20), chunk(1, 0, 120)),
+                new RenderOptions(32, 1, RenderStyle.SIMPLE, Set.of(RenderLayer.TERRAIN)),
+                ProgressReporter.NONE
+        );
+
+        assertNotEquals(
+                new TerrainPalette().background(RenderStyle.SIMPLE),
+                rendered.image().getRGB(31, 32)
+        );
+        assertNotEquals(
+                new TerrainPalette().background(RenderStyle.SIMPLE),
+                rendered.image().getRGB(32, 32)
+        );
+        assertNotEquals(
+                rendered.image().getRGB(31, 32),
+                rendered.image().getRGB(32, 32)
+        );
+    }
+
+    @Test
+    void hillshadeFallsBackToZeroWhenNeighborSampleMissing() {
+        RenderedMap rendered = new MapRenderer().render(
+                new WorldPosition(16.0, 0.0, 16.0),
+                HomeState.absent(),
+                List.of(chunk(0, 0, 80)),
+                List.of(new SurfaceBlock(
+                        0, 80, 0, BlockInfo.unknown(1), 0,
+                        BlockInfo.unknown(0), SurfaceClass.UNKNOWN
+                )),
+                new RenderOptions(
+                        16, 1, RenderStyle.SIMPLE,
+                        Set.of(RenderLayer.SURFACE)
+                ),
+                ProgressReporter.NONE
+        );
+
+        int expected = new SemanticTerrainPalette().color(
+                SurfaceClass.UNKNOWN, 0.0
+        );
+        assertEquals(expected, rendered.image().getRGB(0, 0));
+    }
+
+    @Test
+    void worldWindowClippingStillWorks() {
+        RenderedMap rendered = new MapRenderer().render(
+                new WorldPosition(16.0, 0.0, 16.0),
+                HomeState.absent(),
+                List.of(chunk(0, 0, 10), chunk(1, 0, 1000)),
+                new RenderOptions(16, 1, RenderStyle.SIMPLE, Set.of(RenderLayer.TERRAIN)),
+                ProgressReporter.NONE
+        );
+
+        assertEquals(32 * 32, rendered.report().tilesDrawn());
+    }
+
+    @Test
     void drawsPlayerMarkerAtAbsoluteCenterWithoutHome() {
         RenderedMap rendered =
                 new MapRenderer()

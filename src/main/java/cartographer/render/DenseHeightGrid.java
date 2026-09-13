@@ -1,0 +1,173 @@
+package cartographer.render;
+
+import cartographer.cli.ProgressReporter;
+import cartographer.model.MapChunk;
+
+import java.util.BitSet;
+import java.util.List;
+import java.util.Objects;
+
+final class DenseHeightGrid {
+
+    private final int minWorldX;
+    private final int minWorldZ;
+    private final int width;
+    private final int height;
+    private final int[] values;
+    private final BitSet present;
+    private final int minHeight;
+    private final int maxHeight;
+
+    private DenseHeightGrid(
+            int minWorldX,
+            int minWorldZ,
+            int width,
+            int height,
+            int[] values,
+            BitSet present,
+            int minHeight,
+            int maxHeight
+    ) {
+        this.minWorldX = minWorldX;
+        this.minWorldZ = minWorldZ;
+        this.width = width;
+        this.height = height;
+        this.values = values;
+        this.present = present;
+        this.minHeight = minHeight;
+        this.maxHeight = maxHeight;
+    }
+
+    static DenseHeightGrid fromMapChunks(
+            List<MapChunk> chunks,
+            int minWorldX,
+            int minWorldZ,
+            int width,
+            int height,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(chunks, "chunks are required");
+        Objects.requireNonNull(progress, "progress is required");
+        if (width < 0 || height < 0) {
+            throw new IllegalArgumentException(
+                    "grid dimensions cannot be negative"
+            );
+        }
+
+        int cellCount = Math.multiplyExact(width, height);
+        int[] values = new int[cellCount];
+        BitSet present = new BitSet(cellCount);
+
+        for (int chunkIndex = 0; chunkIndex < chunks.size(); chunkIndex++) {
+            MapChunk chunk = Objects.requireNonNull(
+                    chunks.get(chunkIndex),
+                    "chunks cannot contain null"
+            );
+
+            progress.progress(
+                    "Indexing mapchunk heights",
+                    chunkIndex + 1,
+                    chunks.size()
+            );
+
+            long originX = (long) chunk.coordinate().x() * MapChunk.SIZE;
+            long originZ = (long) chunk.coordinate().z() * MapChunk.SIZE;
+
+            for (int localZ = 0; localZ < MapChunk.SIZE; localZ++) {
+                for (int localX = 0; localX < MapChunk.SIZE; localX++) {
+                    long worldX = originX + localX;
+                    long worldZ = originZ + localZ;
+                    long relativeX = worldX - minWorldX;
+                    long relativeZ = worldZ - minWorldZ;
+
+                    if (relativeX < 0 || relativeX >= width
+                            || relativeZ < 0 || relativeZ >= height) {
+                        continue;
+                    }
+
+                    int index = Math.toIntExact(relativeZ * width + relativeX);
+                    values[index] = chunk.heightAt(localX, localZ);
+                    present.set(index);
+                }
+            }
+        }
+
+        int minHeight = 0;
+        int maxHeight = 0;
+        boolean found = false;
+        for (int index = present.nextSetBit(0);
+             index >= 0;
+             index = present.nextSetBit(index + 1)) {
+            int value = values[index];
+            if (!found) {
+                minHeight = value;
+                maxHeight = value;
+                found = true;
+            } else {
+                minHeight = Math.min(minHeight, value);
+                maxHeight = Math.max(maxHeight, value);
+            }
+        }
+
+        return new DenseHeightGrid(
+                minWorldX,
+                minWorldZ,
+                width,
+                height,
+                values,
+                present,
+                minHeight,
+                maxHeight
+        );
+    }
+
+    static DenseHeightGrid empty() {
+        return new DenseHeightGrid(
+                0,
+                0,
+                0,
+                0,
+                new int[0],
+                new BitSet(),
+                0,
+                0
+        );
+    }
+
+    boolean hasHeightAt(int worldX, int worldZ) {
+        int index = indexOf(worldX, worldZ);
+        return index >= 0 && present.get(index);
+    }
+
+    int heightAt(int worldX, int worldZ) {
+        int index = indexOf(worldX, worldZ);
+        if (index < 0 || !present.get(index)) {
+            throw new IllegalArgumentException(
+                    "height sample is absent at " + worldX + "," + worldZ
+            );
+        }
+        return values[index];
+    }
+
+    int minHeight() {
+        return minHeight;
+    }
+
+    int maxHeight() {
+        return maxHeight;
+    }
+
+    int sampleCount() {
+        return present.cardinality();
+    }
+
+    private int indexOf(int worldX, int worldZ) {
+        long relativeX = (long) worldX - minWorldX;
+        long relativeZ = (long) worldZ - minWorldZ;
+        if (relativeX < 0 || relativeX >= width
+                || relativeZ < 0 || relativeZ >= height) {
+            return -1;
+        }
+        return Math.toIntExact(relativeZ * width + relativeX);
+    }
+}
