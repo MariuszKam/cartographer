@@ -692,13 +692,44 @@ public class CartographerDesktopApp extends Application {
                 .append(result.analysis().matchingBlockCount())
                 .append("\nConnected deposits: ")
                 .append(result.analysis().depositCount());
-        if (result.surfaceObjectRegistryVariants() > 0) {
+        if (result.surfaceObjectScanUsed()) {
             resultText.append("\nRegistry variants: ")
                     .append(result.surfaceObjectRegistryVariants())
                     .append("\nSurface positions inspected: ")
                     .append(result.surfaceObjectPositionsInspected())
                     .append("\nUnavailable surface positions: ")
-                    .append(result.surfaceObjectUnavailablePositions());
+                    .append(result.surfaceObjectUnavailablePositions())
+                    .append("\nObserved surface objects: ")
+                    .append(result.surfaceObjectObservedTargets())
+                    .append("\nNot observed: ")
+                    .append(result.surfaceObjectNotObservedTargets())
+                    .append("\nChunk outcomes: decoded=")
+                    .append(result.surfaceObjectChunkStats().fullyDecodedChunks())
+                    .append(", palette rejected=")
+                    .append(result.surfaceObjectChunkStats().paletteRejectedChunks())
+                    .append(", missing=")
+                    .append(result.surfaceObjectChunkStats().uniquePositionsRequested()
+                            - result.surfaceObjectChunkStats().rowsFound())
+                    .append(", failed=")
+                    .append(result.surfaceObjectChunkStats().failedChunks());
+            if (result.surfaceObjectRegistryVariants() == 0) {
+                resultText.append("\nNo block registry codes matched the surface resource families.");
+            }
+            int observationLimit = Math.min(20, result.analysis().matchingBlocks().size());
+            if (observationLimit > 0) {
+                resultText.append("\nObservations:");
+                for (int index = 0; index < observationLimit; index++) {
+                    var point = result.analysis().matchingBlocks().get(index);
+                    resultText.append("\n  ")
+                            .append(point.blockCode())
+                            .append(" @ ")
+                            .append(point.worldX())
+                            .append(", ")
+                            .append(point.y())
+                            .append(", ")
+                            .append(point.worldZ());
+                }
+            }
         }
         int limit = Math.min(5, result.analysis().deposits().size());
         if (limit > 0) {

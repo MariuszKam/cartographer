@@ -599,6 +599,11 @@ public class CommandRouter {
         );
 
         out.println(
+                "  vs-cartographer resource surface-inspect <save.vcdbs> <match> "
+                        + "[--radius <blocks>]"
+        );
+
+        out.println(
                 "  vs-cartographer scan surface <save.vcdbs> "
                         + "--radius <blocks>"
         );

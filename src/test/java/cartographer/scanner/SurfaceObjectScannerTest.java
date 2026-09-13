@@ -79,6 +79,28 @@ class SurfaceObjectScannerTest {
     }
 
     @Test
+    void observedObjectWinsOverMissingCandidateChunk() {
+        RainHeightSurfaceTarget target = new RainHeightSurfaceTarget(10, 10, 10);
+        SurfaceObjectPlan plan = new SurfaceObjectPlan(
+                List.of(new SurfaceObjectTarget(10, 10, List.of(10, 11, 32))),
+                List.of()
+        );
+        ParsedChunk chunk = chunk(target, 11, 7);
+
+        SurfaceObjectScanResult result = SCANNER.scan(
+                plan,
+                registry(),
+                Set.of(7),
+                List.of(chunk),
+                Set.of(position(chunk))
+        );
+
+        assertEquals(1, result.observedObjects());
+        assertEquals(11, result.blocks().getFirst().y());
+        assertEquals(0, result.unavailablePositions());
+    }
+
+    @Test
     void rejectsRockAndOreCodesWhenTheyAreNotWantedIds() {
         RainHeightSurfaceTarget target = new RainHeightSurfaceTarget(10, 10, 10);
         BlockInfo rock = new BlockInfo(8, "game:rock-obsidian");

@@ -66,6 +66,38 @@ class RenderSurfaceResourceMapUseCaseTest {
     }
 
     @Test
+    void looseObsidianUsesSurfaceObjectScanAboveTerrain() {
+        MapChunkCoordinate mapChunkCoordinate = new MapChunkCoordinate(0, 0);
+        ChunkPosition exactPosition = new ChunkPosition(0, 0, 0, 0);
+        FakeReader reader = new FakeReader(
+                List.of(mapChunkCoordinate),
+                Map.of(exactPosition, surfaceChunkWithObsidian()),
+                Map.of(
+                        0, new BlockInfo(0, "air"),
+                        1, new BlockInfo(1, "game:soil-grass"),
+                        7, new BlockInfo(7, "game:loosestones-obsidian-free")
+                )
+        );
+
+        RenderSurfaceResourceMapResult result = useCase(reader).execute(
+                new RenderSurfaceResourceMapRequest(
+                        Path.of("save.vcdbs"),
+                        1,
+                        1,
+                        RenderStyle.TOPOGRAPHIC,
+                        EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
+                        SurfaceResourceMatch.looseObsidian(),
+                        Optional.of(new WorldPosition(16, 100, 16))
+                )
+        );
+
+        assertTrue(result.analysis().matchingBlocks().stream()
+                .anyMatch(point -> point.y() == 6));
+        assertEquals(1, result.surfaceObjectRegistryVariants());
+        assertTrue(reader.coverageCalls > 0);
+    }
+
+    @Test
     void missingRainHeightFallsBackOnlyThatMapChunk() {
         MapChunkCoordinate second = new MapChunkCoordinate(1, 0);
         List<MapChunkCoordinate> renderMapChunks = new ArrayList<>();
@@ -302,6 +334,16 @@ class RenderSurfaceResourceMapUseCaseTest {
         return surfaceChunk(coordinate, true);
     }
 
+    private ParsedChunk surfaceChunkWithObsidian() {
+        ParsedChunk base = surfaceChunk(new ChunkCoordinate(0, 0, 0));
+        int[] blocks = base.blockIds();
+        blocks[(6 * 32 + 16) * 32 + 16] = 7;
+        return new ParsedChunk(
+                base.coordinate(), base.minY(), base.sizeX(), base.sizeY(), base.sizeZ(),
+                blocks, base.liquidIds(), 0, true, ""
+        );
+    }
+
     private ParsedChunk surfaceChunk(
             ChunkCoordinate coordinate,
             boolean liquidAvailable
@@ -345,6 +387,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         private int directMapChunkCalls;
         private int exactChunkCalls;
         private int adaptiveExactChunkCalls;
+        private int coverageCalls;
         private int legacyMapChunkCalls;
         private int legacyChunkCalls;
 
@@ -419,6 +462,50 @@ class RenderSurfaceResourceMapUseCaseTest {
             }
             return new ChunkStreamStats(positions.size(), positions.isEmpty() ? 0 : 1,
                     delivered, delivered, 0, 0);
+        }
+
+        @Override
+        public cartographer.save.SelectiveChunkStreamStats
+        forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                Path savePath,
+                java.util.Collection<ChunkPosition> positions,
+                int[] wantedBlockIds,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<cartographer.save.SelectiveChunkVisit> consumer
+        ) {
+            coverageCalls++;
+            int decoded = 0;
+            int rejected = 0;
+            for (ChunkPosition position : positions) {
+                ParsedChunk chunk = chunks.get(position);
+                if (chunk == null) {
+                    consumer.accept(cartographer.save.SelectiveChunkVisit.missing(position));
+                    continue;
+                }
+                boolean containsWanted = false;
+                for (int blockId : chunk.blockIds()) {
+                    for (int wantedBlockId : wantedBlockIds) {
+                        if (blockId == wantedBlockId) {
+                            containsWanted = true;
+                            break;
+                        }
+                    }
+                    if (containsWanted) {
+                        break;
+                    }
+                }
+                if (containsWanted) {
+                    decoded++;
+                    consumer.accept(cartographer.save.SelectiveChunkVisit.decoded(position, chunk));
+                } else {
+                    rejected++;
+                    consumer.accept(cartographer.save.SelectiveChunkVisit.paletteRejected(position));
+                }
+            }
+            return new cartographer.save.SelectiveChunkStreamStats(
+                    positions.size(), positions.isEmpty() ? 0 : 1,
+                    decoded + rejected, decoded, rejected, decoded, 0, 0
+            );
         }
 
         @Override

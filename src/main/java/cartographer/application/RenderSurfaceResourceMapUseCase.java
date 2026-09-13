@@ -35,8 +35,11 @@ import cartographer.scanner.SurfaceFastPathMerger;
 import cartographer.scanner.SurfaceScanResult;
 import cartographer.scanner.SurfaceScanner;
 import cartographer.scanner.SurfaceObjectScanResult;
+import cartographer.scanner.SurfaceObjectPlan;
+import cartographer.scanner.SurfaceObjectPlanner;
 import cartographer.scanner.SurfaceObjectScanner;
 import cartographer.save.SelectiveChunkVisitStatus;
+import cartographer.save.SelectiveChunkStreamStats;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -75,6 +78,8 @@ public class RenderSurfaceResourceMapUseCase {
             new SurfaceFastPathMerger();
     private final SurfaceObjectScanner surfaceObjectScanner =
             new SurfaceObjectScanner();
+    private final SurfaceObjectPlanner surfaceObjectPlanner =
+            new SurfaceObjectPlanner();
 
     public RenderSurfaceResourceMapUseCase(
             VcdbsReader reader,
@@ -159,6 +164,13 @@ public class RenderSurfaceResourceMapUseCase {
                         centerWorldZ,
                         request.radius()
                 );
+        SurfaceObjectPlanner.StreamingSession surfaceObjectPlannerSession =
+                surfaceObjectPlanner.begin(
+                        metadata,
+                        centerWorldX,
+                        centerWorldZ,
+                        request.radius()
+                );
         reader.forEachMapChunkByCoordinate(
                 request.savePath(),
                 directReadCoordinates,
@@ -170,6 +182,7 @@ public class RenderSurfaceResourceMapUseCase {
                     if (surfaceSearchSet.contains(mapChunk.coordinate())) {
                         deliveredSurfaceMapChunks.add(mapChunk.coordinate());
                         rainPlannerSession.accept(mapChunk);
+                        surfaceObjectPlannerSession.accept(mapChunk);
                     }
                 }
         );
@@ -177,6 +190,7 @@ public class RenderSurfaceResourceMapUseCase {
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
         Map<Integer, BlockInfo> registry = reader.readBlockRegistry(request.savePath());
         RainHeightSurfacePlan rainPlan = rainPlannerSession.finish();
+        SurfaceObjectPlan surfaceObjectPlan = surfaceObjectPlannerSession.finish();
         RainHeightSurfaceScanner.StreamingSession fastSession =
                 rainHeightSurfaceScanner.begin(
                         rainPlan,
@@ -249,17 +263,18 @@ public class RenderSurfaceResourceMapUseCase {
         int surfaceObjectRegistryVariants = 0;
         int surfaceObjectPositionsInspected = 0;
         int surfaceObjectUnavailablePositions = 0;
+        int surfaceObjectObservedTargets = 0;
+        int surfaceObjectNotObservedTargets = 0;
+        SelectiveChunkStreamStats surfaceObjectChunkStats =
+                new SelectiveChunkStreamStats(0, 0, 0, 0, 0, 0, 0, 0);
         if (request.match().usesSurfaceObjectScan()) {
             int[] wantedBlockIds = request.match().matchingBlockIds(registry);
             surfaceObjectRegistryVariants = wantedBlockIds.length;
-            List<ChunkPosition> objectPositions = surfaceObjectScanner.chunkPositions(
-                    rainPlan,
-                    metadata
-            );
+            List<ChunkPosition> objectPositions = surfaceObjectPlan.chunkPositions();
             List<ParsedChunk> objectChunks = new ArrayList<>();
             Set<ChunkPosition> availableObjectPositions = new HashSet<>();
             if (wantedBlockIds.length > 0 && !objectPositions.isEmpty()) {
-                reader.forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                surfaceObjectChunkStats = reader.forEachChunkByPositionMatchingBlockIdsWithCoverage(
                         request.savePath(),
                         objectPositions,
                         wantedBlockIds,
@@ -276,8 +291,7 @@ public class RenderSurfaceResourceMapUseCase {
                 );
             }
             SurfaceObjectScanResult objectResult = surfaceObjectScanner.scan(
-                    rainPlan,
-                    metadata,
+                    surfaceObjectPlan,
                     registry,
                     java.util.Arrays.stream(wantedBlockIds)
                             .boxed()
@@ -287,6 +301,8 @@ public class RenderSurfaceResourceMapUseCase {
             );
             surfaceObjectPositionsInspected = objectResult.positionsInspected();
             surfaceObjectUnavailablePositions = objectResult.unavailablePositions();
+            surfaceObjectObservedTargets = objectResult.observedTargets();
+            surfaceObjectNotObservedTargets = objectResult.notObservedTargets();
             matchingBlocks = new ArrayList<>(
                     request.match().matchingBlocks(fallbackSurface.blocks())
             );
@@ -336,7 +352,11 @@ public class RenderSurfaceResourceMapUseCase {
                 userMarkersDrawn,
                 surfaceObjectRegistryVariants,
                 surfaceObjectPositionsInspected,
-                surfaceObjectUnavailablePositions
+                surfaceObjectUnavailablePositions,
+                surfaceObjectObservedTargets,
+                surfaceObjectNotObservedTargets,
+                surfaceObjectChunkStats,
+                request.match().usesSurfaceObjectScan()
         );
     }
 

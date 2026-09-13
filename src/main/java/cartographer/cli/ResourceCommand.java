@@ -1,5 +1,8 @@
 package cartographer.cli;
 
+import cartographer.application.InspectSurfaceObjectsRequest;
+import cartographer.application.InspectSurfaceObjectsResult;
+import cartographer.application.InspectSurfaceObjectsUseCase;
 import cartographer.application.SurfaceResourceMatch;
 import cartographer.model.BlockInfo;
 import cartographer.model.DisplayPosition;
@@ -69,6 +72,7 @@ public class ResourceCommand implements Command {
     private final MapRenderer mapRenderer;
     private final ResourceOverlayRenderer overlayRenderer;
     private final PngWriter pngWriter;
+    private final InspectSurfaceObjectsUseCase surfaceObjectInspectionUseCase;
 
     private final SurfaceScanner surfaceScanner =
             new SurfaceScanner();
@@ -119,6 +123,10 @@ public class ResourceCommand implements Command {
         this.mapRenderer = mapRenderer;
         this.overlayRenderer = overlayRenderer;
         this.pngWriter = pngWriter;
+        this.surfaceObjectInspectionUseCase = new InspectSurfaceObjectsUseCase(
+                reader,
+                metadataReader
+        );
         this.subcommand = subcommand;
     }
 
@@ -149,6 +157,11 @@ public class ResourceCommand implements Command {
 
             case "surface-search" ->
                     surfaceSearch(
+                            args
+                    );
+
+            case "surface-inspect" ->
+                    surfaceInspect(
                             args
                     );
 
@@ -832,6 +845,57 @@ public class ResourceCommand implements Command {
                     deposit.maxWorldZ()
             );
         }
+    }
+
+    private void surfaceInspect(
+            String[] args
+    ) {
+        if (args.length < 2) {
+            throw new CommandException(
+                    "Usage: resource surface-inspect <save.vcdbs> <match> "
+                            + "[--radius <blocks>] [--center-x <x> --center-z <z>]"
+            );
+        }
+
+        Path savePath = Path.of(args[0]);
+        SurfaceResourceMatch match = surfaceMatch(args[1]);
+        int radius = intOption(args, "--radius", DEFAULT_SURFACE_RADIUS, 8192);
+        InspectSurfaceObjectsResult result = surfaceObjectInspectionUseCase.execute(
+                new InspectSurfaceObjectsRequest(
+                        savePath,
+                        match,
+                        radius,
+                        center(args)
+                )
+        );
+
+        out.println("SURFACE OBJECT INSPECT");
+        out.println("Resource: " + match.displayName());
+        out.println("Center: " + result.center().x() + "," + result.center().z());
+        out.println("Radius: " + radius);
+        out.println("Registry matches: " + result.registryMatches().size());
+        for (BlockInfo block : result.registryMatches()) {
+            out.println("  id=" + block.id() + " " + block.code());
+        }
+        if (result.registryMatches().isEmpty()) {
+            out.println("No block registry codes matched the surface resource families.");
+        }
+        out.println("Targets planned: " + result.plan().targets().size());
+        out.println("Chunk positions requested: " + result.plan().chunkPositions().size());
+        out.println("Chunk outcomes:");
+        out.println("  decoded: " + result.chunkStats().fullyDecodedChunks());
+        out.println("  palette rejected: " + result.chunkStats().paletteRejectedChunks());
+        out.println("  missing: " + (result.chunkStats().uniquePositionsRequested()
+                - result.chunkStats().rowsFound()));
+        out.println("  failed: " + result.chunkStats().failedChunks());
+        out.println("Observed: " + result.scan().observedTargets());
+        out.println("Not observed: " + result.scan().notObservedTargets());
+        out.println("Unavailable: " + result.scan().unavailablePositions());
+        out.println("Observations:");
+        result.scan().blocks().stream().limit(100).forEach(block -> out.println(
+                "  " + block.blockInfo().code() + " @ X=" + block.worldX()
+                        + " Y=" + block.y() + " Z=" + block.worldZ()
+        ));
     }
 
     private void surfaceRender(

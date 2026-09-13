@@ -4,6 +4,7 @@ import cartographer.render.MapRenderReport;
 import cartographer.resource.SurfaceResourceAnalysis;
 import cartographer.scanner.SurfaceScanResult;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SelectiveChunkStreamStats;
 
 import java.awt.image.BufferedImage;
 import java.util.Objects;
@@ -18,7 +19,11 @@ public record RenderSurfaceResourceMapResult(
         int userMarkersDrawn,
         int surfaceObjectRegistryVariants,
         int surfaceObjectPositionsInspected,
-        int surfaceObjectUnavailablePositions
+        int surfaceObjectUnavailablePositions,
+        int surfaceObjectObservedTargets,
+        int surfaceObjectNotObservedTargets,
+        SelectiveChunkStreamStats surfaceObjectChunkStats,
+        boolean surfaceObjectScanUsed
 ) {
 
     public RenderSurfaceResourceMapResult {
@@ -30,8 +35,11 @@ public record RenderSurfaceResourceMapResult(
         Objects.requireNonNull(chunkDiagnostics, "chunkDiagnostics is required");
         if (surfaceObjectRegistryVariants < 0
                 || surfaceObjectPositionsInspected < 0
-                || surfaceObjectUnavailablePositions < 0) {
+                || surfaceObjectUnavailablePositions < 0
+                || surfaceObjectObservedTargets < 0
+                || surfaceObjectNotObservedTargets < 0) {
             throw new IllegalArgumentException("surface object diagnostics cannot be negative");
         }
+        Objects.requireNonNull(surfaceObjectChunkStats, "surfaceObjectChunkStats is required");
     }
 }
