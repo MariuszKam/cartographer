@@ -6,6 +6,7 @@ import cartographer.application.RenderActualOreMapUseCase;
 import cartographer.marker.MarkerStore;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
+import cartographer.model.ChunkPosition;
 import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
 import cartographer.model.MapChunk;
@@ -30,6 +31,8 @@ import cartographer.render.ActualOreOverlayPainter;
 import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.SurfaceScanResult;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.ChunkStreamStats;
+import cartographer.save.MapChunkStreamStats;
 import cartographer.save.SelectiveChunkStreamStats;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
@@ -416,6 +419,46 @@ class MapCommandTest {
         ) {
             return List.of(
                     oreChunk()
+            );
+        }
+
+        @Override
+        public MapChunkStreamStats forEachMapChunkByCoordinate(
+                Path savePath,
+                java.util.Collection<cartographer.model.MapChunkCoordinate> coordinates,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<MapChunk> consumer
+        ) {
+            return new MapChunkStreamStats(
+                    coordinates.size(),
+                    coordinates.isEmpty() ? 0 : 1,
+                    0,
+                    0,
+                    0,
+                    0
+            );
+        }
+
+        @Override
+        public ChunkStreamStats forEachChunkByPosition(
+                Path savePath,
+                java.util.Collection<ChunkPosition> positions,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer
+        ) {
+            if (positions.isEmpty()) {
+                return new ChunkStreamStats(0, 0, 0, 0, 0, 0);
+            }
+
+            ParsedChunk chunk = oreChunk();
+            consumer.accept(chunk);
+            return new ChunkStreamStats(
+                    positions.size(),
+                    1,
+                    1,
+                    1,
+                    0,
+                    0
             );
         }
 
