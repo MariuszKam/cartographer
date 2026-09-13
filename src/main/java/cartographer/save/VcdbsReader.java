@@ -151,6 +151,10 @@ public class VcdbsReader {
                         SaveTable.CHUNK.tableName()
                 );
 
+                progress.done(
+                        "Exact chunk lookup unavailable: chunk table missing"
+                );
+
                 return new ChunkStreamStats(
                         packedPositions.size(),
                         0,

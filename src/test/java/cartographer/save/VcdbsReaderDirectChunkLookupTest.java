@@ -4,6 +4,7 @@ import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
 import cartographer.model.ParseResult;
 import cartographer.model.ParsedChunk;
+import cartographer.cli.ProgressReporter;
 import cartographer.parser.ChunkParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -169,6 +170,7 @@ class VcdbsReaderDirectChunkLookupTest {
         createDatabase(database, "");
         ReadDiagnostics diagnostics = new ReadDiagnostics();
         List<ParsedChunk> delivered = new ArrayList<>();
+        RecordingProgressReporter progress = new RecordingProgressReporter();
 
         ChunkStreamStats stats = new VcdbsReader(
                 null,
@@ -179,12 +181,18 @@ class VcdbsReaderDirectChunkLookupTest {
                 database,
                 List.of(new ChunkPosition(1, 0, 2, 0)),
                 diagnostics,
-                delivered::add
+                delivered::add,
+                progress
         );
 
         assertEquals(new ChunkStreamStats(1, 0, 0, 0, 0, 0), stats);
         assertTrue(diagnostics.notes().contains("missing table: chunk"));
         assertTrue(delivered.isEmpty());
+        assertEquals(List.of("start", "done"), progress.events);
+        assertEquals(
+                "Exact chunk lookup unavailable: chunk table missing",
+                progress.doneMessage
+        );
     }
 
     private ChunkStreamStats read(
@@ -280,6 +288,26 @@ class VcdbsReaderDirectChunkLookupTest {
 
         private List<Integer> xCoordinates() {
             return coordinates.stream().map(ChunkCoordinate::x).toList();
+        }
+    }
+
+    private static final class RecordingProgressReporter extends ProgressReporter {
+        private final List<String> events = new ArrayList<>();
+        private String doneMessage;
+
+        private RecordingProgressReporter() {
+            super(null);
+        }
+
+        @Override
+        public void start(String stage) {
+            events.add("start");
+        }
+
+        @Override
+        public void done(String stage) {
+            events.add("done");
+            doneMessage = stage;
         }
     }
 }
