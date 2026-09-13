@@ -766,7 +766,6 @@ public class CartographerDesktopApp extends Application {
                             ),
                             ActualBlockMatchMode.ORE_CODE
                     )
-                    )
             );
             colorIndex++;
         }
