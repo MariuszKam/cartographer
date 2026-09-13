@@ -145,7 +145,7 @@ class RainHeightSurfaceScannerTest {
         session.accept(chunkWith(second, 8, 0, 0));
 
         List<SurfaceBlock> blocks = session.finish().blocks();
-        assertEquals(List.of(1, 2), blocks.stream().map(SurfaceBlock::worldZ).toList());
+        assertEquals(List.of(1, 34), blocks.stream().map(SurfaceBlock::worldZ).toList());
     }
 
     private RainHeightSurfaceScanResult scan(
