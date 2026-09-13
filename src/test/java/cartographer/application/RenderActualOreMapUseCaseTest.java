@@ -38,12 +38,62 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RenderActualOreMapUseCaseTest {
 
     @TempDir
     Path temporaryDirectory;
+
+    @Test
+    void renderRequestRequiresNonNullOptionalReferences() {
+        assertEquals(
+                Optional.empty(),
+                new RenderActualOreMapRequest(
+                        Path.of("save.vcdbs"),
+                        1,
+                        1,
+                        RenderStyle.SIMPLE,
+                        Set.of(),
+                        Optional.empty(),
+                        ActualBlockYFilter.unbounded(),
+                        Optional.empty()
+                ).oreMatch()
+        );
+        assertThrows(
+                NullPointerException.class,
+                () -> new RenderActualOreMapRequest(
+                        Path.of("save.vcdbs"), 1, 1, RenderStyle.SIMPLE,
+                        Set.of(), null, ActualBlockYFilter.unbounded(), Optional.empty()
+                )
+        );
+        assertThrows(
+                NullPointerException.class,
+                () -> new RenderActualOreMapRequest(
+                        Path.of("save.vcdbs"), 1, 1, RenderStyle.SIMPLE,
+                        Set.of(), Optional.empty(), ActualBlockYFilter.unbounded(), null
+                )
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new RenderActualOreMapRequest(
+                        Path.of("save.vcdbs"), 1, 1, RenderStyle.SIMPLE,
+                        Set.of(), Optional.of(" "), ActualBlockYFilter.unbounded(), Optional.empty()
+                )
+        );
+    }
+
+    @Test
+    void renderResultRequiresNonNullActualOreMapOptional() {
+        assertThrows(
+                NullPointerException.class,
+                () -> new RenderActualOreMapResult(
+                        null, null, null, null, null, null,
+                        null, null, null, null, 0
+                )
+        );
+    }
 
     @Test
     void usesSelectiveReaderForOreAndStreamsMatchingChunk() {

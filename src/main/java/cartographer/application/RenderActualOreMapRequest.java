@@ -9,6 +9,7 @@ import cartographer.scanner.ActualBlockMatchMode;
 import java.nio.file.Path;
 import java.awt.Color;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -61,9 +62,15 @@ public record RenderActualOreMapRequest(
             throw new NullPointerException("style is required");
         }
         layers = Set.copyOf(layers);
-        oreMatch = Optional.ofNullable(oreMatch).orElse(Optional.empty());
+        oreMatch = Objects.requireNonNull(
+                oreMatch,
+                "oreMatch is required; use Optional.empty() when absent"
+        );
         yFilter = yFilter == null ? ActualBlockYFilter.unbounded() : yFilter;
-        center = Optional.ofNullable(center).orElse(Optional.empty());
+        center = Objects.requireNonNull(
+                center,
+                "center is required; use Optional.empty() when absent"
+        );
         oreOverlays = List.copyOf(
                 oreOverlays == null ? List.of() : oreOverlays
         );
@@ -76,7 +83,11 @@ public record RenderActualOreMapRequest(
     private static List<ActualOreOverlaySpec> defaultOverlays(
             Optional<String> oreMatch
     ) {
-        if (oreMatch == null || oreMatch.isEmpty()) {
+        Objects.requireNonNull(
+                oreMatch,
+                "oreMatch is required; use Optional.empty() when absent"
+        );
+        if (oreMatch.isEmpty()) {
             return List.of();
         }
         String match = oreMatch.orElseThrow();
