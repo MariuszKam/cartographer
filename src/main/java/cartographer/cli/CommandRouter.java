@@ -18,6 +18,7 @@ import cartographer.perf.RenderCache;
 import cartographer.render.MapRenderer;
 import cartographer.render.PngWriter;
 import cartographer.render.UserMarkerRenderer;
+import cartographer.render.RockMapRenderer;
 import cartographer.resource.ResourceAnalyzer;
 import cartographer.save.SaveIndexReader;
 import cartographer.save.SaveInspector;
@@ -266,6 +267,16 @@ public class CommandRouter {
                             )
                     );
 
+            case "rock" ->
+                    new RockCommand(
+                            out,
+                            reader,
+                            metadataReader,
+                            new RockMapRenderer(),
+                            new PngWriter(),
+                            subcommand(args, "rock")
+                    );
+
             case "markers" ->
                     new MarkerCommand(
                             out,
@@ -378,7 +389,8 @@ public class CommandRouter {
                  "mapregion",
                  "environment",
                  "resource",
-                 "coverage" -> true;
+                 "coverage",
+                 "rock" -> true;
 
             default -> false;
         };
@@ -482,6 +494,17 @@ public class CommandRouter {
                         + "[--out <section.png>] "
                         + "[--horizontal-scale <n>] "
                         + "[--vertical-scale <n>]"
+        );
+
+        out.println(
+                "  vs-cartographer rock list <save.vcdbs>"
+        );
+
+        out.println(
+                "  vs-cartographer rock render <save.vcdbs> "
+                        + "[--mode upper-rock] [--radius <blocks>] "
+                        + "[--center-x <x> --center-z <z>] "
+                        + "[--min-y <y>] [--max-y <exclusive>] [--out <file.png>]"
         );
 
         out.println();

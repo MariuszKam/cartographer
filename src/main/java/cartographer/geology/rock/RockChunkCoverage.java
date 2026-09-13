@@ -1,6 +1,7 @@
 package cartographer.geology.rock;
 
 import cartographer.model.ChunkCoordinate;
+import cartographer.model.ChunkPosition;
 import cartographer.model.ParsedChunk;
 
 import java.util.Collection;
@@ -30,6 +31,26 @@ public final class RockChunkCoverage {
         return new RockChunkCoverage(available);
     }
 
+    public static RockChunkCoverage fromChunkPositions(
+            Collection<ChunkPosition> positions
+    ) {
+        Set<ChunkCoordinate> coordinates = new HashSet<>();
+        for (ChunkPosition position : positions) {
+            ChunkPosition required = Objects.requireNonNull(
+                    position,
+                    "chunk coverage cannot contain null"
+            );
+            coordinates.add(
+                    new ChunkCoordinate(
+                            required.x(),
+                            required.y(),
+                            required.z()
+                    )
+            );
+        }
+        return new RockChunkCoverage(coordinates);
+    }
+
     static RockChunkCoverage fromParsedChunks(Collection<ParsedChunk> chunks) {
         Set<ChunkCoordinate> coordinates = new HashSet<>();
         for (ParsedChunk chunk : chunks) {
@@ -41,6 +62,12 @@ public final class RockChunkCoverage {
             );
         }
         return new RockChunkCoverage(coordinates);
+    }
+
+    public boolean contains(ChunkCoordinate coordinate) {
+        return availableChunks.contains(
+                Objects.requireNonNull(coordinate, "chunk coordinate is required")
+        );
     }
 
     Set<ChunkCoordinate> availableChunks() {

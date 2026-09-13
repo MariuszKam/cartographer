@@ -358,6 +358,67 @@ public class VcdbsReader {
         );
     }
 
+    /**
+     * Visits exact chunk positions with the selective decoder and reports
+     * availability independently from whether a ParsedChunk was delivered.
+     */
+    public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
+            Path savePath,
+            Collection<ChunkPosition> positions,
+            int[] wantedBlockIds,
+            ReadDiagnostics diagnostics,
+            Consumer<SelectiveChunkVisit> consumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(savePath, "savePath is required");
+        Objects.requireNonNull(positions, "positions is required");
+        Objects.requireNonNull(wantedBlockIds, "wantedBlockIds is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(consumer, "consumer is required");
+        Objects.requireNonNull(progress, "progress is required");
+
+        int[] uniqueWantedBlockIds = uniqueWantedBlockIds(wantedBlockIds);
+        if (uniqueWantedBlockIds.length == 0) {
+            throw new IllegalArgumentException("wantedBlockIds cannot be empty");
+        }
+
+        Set<Long> packedPositions = packedUniquePositions(positions);
+        if (packedPositions.isEmpty()) {
+            return new SelectiveChunkStreamStats(0, 0, 0, 0, 0, 0, 0, 0);
+        }
+
+        boolean tableStream = shouldUseChunkTableStream(
+                savePath,
+                packedPositions.size()
+        );
+        return readSelectiveChunkCoverage(
+                savePath,
+                packedPositions,
+                uniqueWantedBlockIds,
+                diagnostics,
+                consumer,
+                progress,
+                tableStream
+        );
+    }
+
+    public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
+            Path savePath,
+            Collection<ChunkPosition> positions,
+            int[] wantedBlockIds,
+            ReadDiagnostics diagnostics,
+            Consumer<SelectiveChunkVisit> consumer
+    ) {
+        return forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                savePath,
+                positions,
+                wantedBlockIds,
+                diagnostics,
+                consumer,
+                ProgressReporter.NONE
+        );
+    }
+
     public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIds(
             Path savePath,
             Collection<ChunkPosition> positions,
@@ -1101,6 +1162,238 @@ public class VcdbsReader {
         );
     }
 
+    private SelectiveChunkStreamStats readSelectiveChunkCoverage(
+            Path savePath,
+            Set<Long> packedPositions,
+            int[] wantedBlockIds,
+            ReadDiagnostics diagnostics,
+            Consumer<SelectiveChunkVisit> consumer,
+            ProgressReporter progress,
+            boolean tableStream
+    ) {
+        progress.start(
+                tableStream
+                        ? "Scanning chunk table selectively for coverage"
+                        : "Reading selective chunks with coverage"
+        );
+        SelectiveDecodeCounters counters = new SelectiveDecodeCounters();
+        Set<Long> foundPositions = new LinkedHashSet<>();
+        int[] batchesExecuted = {0};
+        int[] rowsFound = {0};
+
+        try (Connection connection = connectionFactory.openReadOnly(savePath)) {
+            if (tableMissing(connection, SaveTable.CHUNK.tableName())) {
+                diagnostics.missingTable(SaveTable.CHUNK.tableName());
+                progress.done("Selective chunk coverage unavailable: chunk table missing");
+                return new SelectiveChunkStreamStats(
+                        packedPositions.size(), 0, 0, 0, 0, 0, 0, 0
+                );
+            }
+
+            try (BoundedOrderedDecodePipeline<CoverageDecodeOutcome> pipeline =
+                         new BoundedOrderedDecodePipeline<>(
+                                 chunkDecodeWorkerCount,
+                                 chunkDecodeMaxInFlight,
+                                 outcome -> applyCoverageOutcome(
+                                         outcome,
+                                         diagnostics,
+                                         consumer,
+                                         counters
+                                 )
+                         )) {
+                if (tableStream) {
+                    readCoverageRows(
+                            connection,
+                            "SELECT position, data FROM \""
+                                    + SaveTable.CHUNK.tableName()
+                                    + "\"",
+                            List.of(),
+                            packedPositions,
+                            foundPositions,
+                            wantedBlockIds,
+                            diagnostics,
+                            pipeline,
+                            consumer,
+                            rowsFound,
+                            counters
+                    );
+                    batchesExecuted[0] = 1;
+                } else {
+                    List<Long> requested = new ArrayList<>(packedPositions);
+                    for (int start = 0;
+                         start < requested.size();
+                         start += DIRECT_CHUNK_BATCH_SIZE) {
+                        int end = Math.min(
+                                start + DIRECT_CHUNK_BATCH_SIZE,
+                                requested.size()
+                        );
+                        readCoverageRows(
+                                connection,
+                                "SELECT position, data FROM \""
+                                        + SaveTable.CHUNK.tableName()
+                                        + "\" WHERE position IN ("
+                                        + sqlPlaceholders(end - start)
+                                        + ")",
+                                requested.subList(start, end),
+                                packedPositions,
+                                foundPositions,
+                                wantedBlockIds,
+                                diagnostics,
+                                pipeline,
+                                consumer,
+                                rowsFound,
+                                counters
+                        );
+                        batchesExecuted[0]++;
+                        progress.progress(
+                                "Reading selective chunks with coverage",
+                                end,
+                                requested.size()
+                        );
+                    }
+                }
+                pipeline.finish();
+            }
+
+            for (long packedPosition : packedPositions) {
+                if (!foundPositions.contains(packedPosition)) {
+                    consumer.accept(
+                            SelectiveChunkVisit.missing(
+                                    ChunkPosDecoder.decode(packedPosition)
+                            )
+                    );
+                }
+            }
+            progress.done(
+                    tableStream
+                            ? "Selective chunk table coverage complete"
+                            : "Selective chunk coverage complete"
+            );
+            return new SelectiveChunkStreamStats(
+                    packedPositions.size(),
+                    batchesExecuted[0],
+                    rowsFound[0],
+                    counters.payloadsParsed,
+                    counters.paletteRejectedChunks,
+                    counters.fullyDecodedChunks,
+                    counters.failedChunks,
+                    counters.payloadBytes
+            );
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot read selective chunk coverage: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
+    private void readCoverageRows(
+            Connection connection,
+            String sql,
+            List<Long> parameters,
+            Set<Long> requested,
+            Set<Long> found,
+            int[] wantedBlockIds,
+            ReadDiagnostics diagnostics,
+            BoundedOrderedDecodePipeline<CoverageDecodeOutcome> pipeline,
+            Consumer<SelectiveChunkVisit> consumer,
+            int[] rowsFound,
+            SelectiveDecodeCounters counters
+    ) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            for (int index = 0; index < parameters.size(); index++) {
+                statement.setLong(index + 1, parameters.get(index));
+            }
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    long packedPosition = resultSet.getLong("position");
+                    if (!requested.contains(packedPosition)) {
+                        continue;
+                    }
+                    found.add(packedPosition);
+                    rowsFound[0]++;
+                    ChunkPosition position = ChunkPosDecoder.decode(packedPosition);
+                    byte[] payload = resultSet.getBytes("data");
+                    if (payload == null) {
+                        diagnostics.recordSkipped("chunk row has null payload");
+                        pipeline.submit(
+                                () -> new CoverageDecodeOutcome(
+                                        position,
+                                        SelectiveDecodeOutcome.failure(
+                                                false,
+                                                "chunk row has null payload"
+                                        ),
+                                        true
+                                )
+                        );
+                        continue;
+                    }
+                    counters.payloadBytes += payload.length;
+                    ChunkCoordinate coordinate = new ChunkCoordinate(
+                            position.x(), position.y(), position.z()
+                    );
+                    pipeline.submit(() -> new CoverageDecodeOutcome(
+                            position,
+                            decodeSelectiveChunk(
+                                    coordinate,
+                                    payload,
+                                    wantedBlockIds
+                            ),
+                            false
+                    ));
+                }
+            }
+        }
+    }
+
+    private void applyCoverageOutcome(
+            CoverageDecodeOutcome outcome,
+            ReadDiagnostics diagnostics,
+            Consumer<SelectiveChunkVisit> consumer,
+            SelectiveDecodeCounters counters
+    ) {
+        SelectiveDecodeOutcome decoded = outcome.outcome();
+        if (outcome.skipped()) {
+            consumer.accept(
+                    SelectiveChunkVisit.failed(
+                            outcome.position(),
+                            decoded.error()
+                    )
+            );
+            return;
+        }
+        if (decoded.payloadParsed()) {
+            counters.payloadsParsed++;
+        }
+        if (decoded.paletteRejected()) {
+            counters.paletteRejectedChunks++;
+            consumer.accept(
+                    SelectiveChunkVisit.paletteRejected(outcome.position())
+            );
+            return;
+        }
+        if (decoded.chunk() != null) {
+            diagnostics.recordParsed();
+            counters.fullyDecodedChunks++;
+            consumer.accept(
+                    SelectiveChunkVisit.decoded(
+                            outcome.position(),
+                            decoded.chunk()
+                    )
+            );
+            return;
+        }
+        diagnostics.recordFailed(decoded.error());
+        counters.failedChunks++;
+        consumer.accept(
+                SelectiveChunkVisit.failed(
+                        outcome.position(),
+                        decoded.error()
+                )
+        );
+    }
+
     private boolean containsWantedBlock(
             ChunkPaletteProbe palette,
             int[] wantedBlockIds
@@ -1313,6 +1606,17 @@ public class VcdbsReader {
                     null,
                     Objects.requireNonNull(error, "error is required")
             );
+        }
+    }
+
+    private record CoverageDecodeOutcome(
+            ChunkPosition position,
+            SelectiveDecodeOutcome outcome,
+            boolean skipped
+    ) {
+        private CoverageDecodeOutcome {
+            Objects.requireNonNull(position, "position is required");
+            Objects.requireNonNull(outcome, "outcome is required");
         }
     }
 
