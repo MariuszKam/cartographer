@@ -2,6 +2,7 @@ package cartographer.scanner;
 
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
+import cartographer.model.MapChunkCoordinate;
 
 public record RainHeightSurfaceTarget(
         int worldX,
@@ -15,6 +16,13 @@ public record RainHeightSurfaceTarget(
                 Math.floorDiv(worldY, size),
                 Math.floorDiv(worldZ, size),
                 0
+        );
+    }
+
+    public MapChunkCoordinate mapChunkCoordinate() {
+        return new MapChunkCoordinate(
+                Math.floorDiv(worldX, MapChunkCoordinate.SIZE_BLOCKS),
+                Math.floorDiv(worldZ, MapChunkCoordinate.SIZE_BLOCKS)
         );
     }
 
