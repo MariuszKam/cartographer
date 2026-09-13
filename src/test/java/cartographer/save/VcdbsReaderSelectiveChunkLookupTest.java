@@ -376,7 +376,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
         public ParseResult<ChunkPaletteProbe> probeBlockPalette(
                 ServerChunkPayload serverChunk
         ) {
-            return ParseResult.success(new ChunkPaletteProbe(99));
+            return ParseResult.success(new ChunkPaletteProbe(new int[]{99}));
         }
 
         @Override
