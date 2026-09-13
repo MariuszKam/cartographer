@@ -1,36 +1,19 @@
 package cartographer.cli;
 
-import cartographer.environment.EnvironmentInterpreter;
 import cartographer.application.RenderActualOreMapRequest;
 import cartographer.application.RenderActualOreMapResult;
 import cartographer.application.RenderActualOreMapUseCase;
-import cartographer.environment.EnvironmentProfile;
-import cartographer.geology.GeologicProvinceInterpreter;
-import cartographer.geology.GeologicProvinceSummary;
 import cartographer.marker.MarkerStore;
-import cartographer.marker.UserMarker;
-import cartographer.model.BlockInfo;
-import cartographer.model.DisplayPosition;
-import cartographer.model.HomeLocation;
-import cartographer.model.HomeState;
-import cartographer.model.MapChunk;
-import cartographer.model.ParsedChunk;
-import cartographer.model.ServerMapRegion;
-import cartographer.model.WorldMetadata;
-import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
+import cartographer.model.WorldPosition;
 import cartographer.render.ActualOreOverlayPainter;
-import cartographer.render.EnvironmentOverlayRenderer;
-import cartographer.render.GeologyOverlayRenderer;
-import cartographer.render.MapRenderer;
 import cartographer.render.MapRenderReport;
+import cartographer.render.MapRenderer;
 import cartographer.render.OverlayRenderReport;
 import cartographer.render.PngWriter;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderOptions;
 import cartographer.render.RenderStyle;
-import cartographer.render.RenderedMap;
-import cartographer.render.SystemMarkerOverlayRenderer;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
@@ -39,43 +22,18 @@ import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockYFilter;
 import cartographer.scanner.SurfaceScanResult;
-import cartographer.scanner.SurfaceScanner;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 public class MapCommand implements Command {
 
     private final PrintStream out;
-    private final VcdbsReader reader;
-    private final WorldMetadataReader metadataReader;
-    private final HomeStore homeStore;
-    private final MarkerStore markerStore;
-    private final MapRenderer renderer;
-    private final UserMarkerRenderer userMarkerRenderer;
     private final PngWriter pngWriter;
     private final RenderActualOreMapUseCase renderActualOreMapUseCase;
-    private final ActualBlockMapScanner actualBlockMapScanner;
-    private final ActualOreOverlayPainter actualOreOverlayPainter;
     private final String subcommand;
-
-    private final EnvironmentInterpreter environmentInterpreter =
-            new EnvironmentInterpreter();
-
-    private final GeologicProvinceInterpreter geologicProvinceInterpreter =
-            new GeologicProvinceInterpreter();
-
-    private final EnvironmentOverlayRenderer environmentOverlayRenderer =
-            new EnvironmentOverlayRenderer();
-
-    private final GeologyOverlayRenderer geologyOverlayRenderer =
-            new GeologyOverlayRenderer();
-
-    private final SystemMarkerOverlayRenderer systemMarkerOverlayRenderer =
-            new SystemMarkerOverlayRenderer();
 
     public MapCommand(
             PrintStream out,
@@ -117,12 +75,6 @@ public class MapCommand implements Command {
             String subcommand
     ) {
         this.out = out;
-        this.reader = reader;
-        this.metadataReader = metadataReader;
-        this.homeStore = homeStore;
-        this.markerStore = markerStore;
-        this.renderer = renderer;
-        this.userMarkerRenderer = userMarkerRenderer;
         this.pngWriter = pngWriter;
         this.renderActualOreMapUseCase = new RenderActualOreMapUseCase(
                 reader,
@@ -134,8 +86,6 @@ public class MapCommand implements Command {
                 actualBlockMapScanner,
                 actualOreOverlayPainter
         );
-        this.actualBlockMapScanner = actualBlockMapScanner;
-        this.actualOreOverlayPainter = actualOreOverlayPainter;
         this.subcommand = subcommand;
     }
 
@@ -149,14 +99,6 @@ public class MapCommand implements Command {
         this.pngWriter = pngWriter;
         this.renderActualOreMapUseCase = renderActualOreMapUseCase;
         this.subcommand = subcommand;
-        this.reader = null;
-        this.metadataReader = null;
-        this.homeStore = null;
-        this.markerStore = null;
-        this.renderer = null;
-        this.userMarkerRenderer = null;
-        this.actualBlockMapScanner = null;
-        this.actualOreOverlayPainter = null;
     }
 
     @Override
@@ -274,203 +216,6 @@ public class MapCommand implements Command {
                 result.geologyOverlay(),
                 result.actualOreMap().orElse(null)
         );
-    }
-
-    private ActualBlockMap drawActualOreOverlay(
-            Path savePath,
-            RenderedMap rendered,
-            WorldPosition center,
-            int radius,
-            ActualOreRequest request,
-            ProgressReporter progress
-    ) {
-        if (!request.enabled()) {
-            return null;
-        }
-
-        ReadDiagnostics diagnostics =
-                new ReadDiagnostics();
-
-        List<ParsedChunk> chunks =
-                reader.readChunksAround(
-                        savePath,
-                        center,
-                        radius,
-                        diagnostics,
-                        progress
-                );
-
-        Map<Integer, BlockInfo> registry =
-                reader.readBlockRegistry(
-                        savePath,
-                        progress
-                );
-
-        int centerX =
-                (int) Math.round(
-                        center.x()
-                );
-
-        int centerZ =
-                (int) Math.round(
-                        center.z()
-                );
-
-        progress.start(
-                "Scanning actual ore overlay"
-        );
-
-        ActualBlockMap map =
-                actualBlockMapScanner.scan(
-                        chunks,
-                        registry,
-                        centerX,
-                        centerZ,
-                        radius,
-                        request.match()
-                                .orElseThrow(),
-                        request.yFilter()
-                );
-
-        progress.done(
-                "Actual ore overlay scanned"
-        );
-
-        progress.start(
-                "Drawing actual ore overlay"
-        );
-
-        actualOreOverlayPainter.paint(
-                rendered.image(),
-                map,
-                center,
-                radius
-        );
-
-        progress.done(
-                "Actual ore overlay drawn"
-        );
-
-        printFailureReasons(
-                "Actual ore chunk failure reasons",
-                diagnostics
-        );
-
-        printLiquidFailureReasons(
-                diagnostics
-        );
-
-        printNotes(
-                diagnostics
-        );
-
-        return map;
-    }
-
-    private List<ServerMapRegion> mapRegions(
-            Path savePath,
-            RenderOptions options,
-            ReadDiagnostics diagnostics,
-            ProgressReporter progress
-    ) {
-        if (!hasMapRegionOverlay(
-                options
-        )) {
-            return List.of();
-        }
-
-        return reader.readMapRegions(
-                savePath,
-                diagnostics,
-                progress
-        );
-    }
-
-    private OverlayRenderReport drawEnvironmentOverlay(
-            RenderedMap rendered,
-            WorldPosition center,
-            int radius,
-            RenderOptions options,
-            List<ServerMapRegion> mapRegions,
-            ProgressReporter progress
-    ) {
-        if (!options.layers()
-                .contains(
-                        RenderLayer.ENVIRONMENT
-                )) {
-
-            return OverlayRenderReport.none();
-        }
-
-        progress.start(
-                "Drawing environment overlay"
-        );
-
-        List<EnvironmentProfile> profiles =
-                mapRegions.stream()
-                        .map(
-                                environmentInterpreter::interpret
-                        )
-                        .toList();
-
-        OverlayRenderReport report =
-                environmentOverlayRenderer.draw(
-                        rendered.image(),
-                        center,
-                        radius,
-                        profiles
-                );
-
-        progress.done(
-                "Environment overlay drawn"
-        );
-
-        return report;
-    }
-
-    private OverlayRenderReport drawGeologyOverlay(
-            RenderedMap rendered,
-            WorldPosition center,
-            int radius,
-            RenderOptions options,
-            List<ServerMapRegion> mapRegions,
-            ProgressReporter progress
-    ) {
-        if (!options.layers()
-                .contains(
-                        RenderLayer.GEOLOGY
-                )) {
-
-            return OverlayRenderReport.none();
-        }
-
-        progress.start(
-                "Drawing geology overlay"
-        );
-
-        List<GeologicProvinceSummary> summaries =
-                mapRegions.stream()
-                        .map(
-                                geologicProvinceInterpreter::summarize
-                        )
-                        .flatMap(
-                                Optional::stream
-                        )
-                        .toList();
-
-        OverlayRenderReport report =
-                geologyOverlayRenderer.draw(
-                        rendered.image(),
-                        center,
-                        radius,
-                        summaries
-                );
-
-        progress.done(
-                "Geology overlay drawn"
-        );
-
-        return report;
     }
 
     private boolean hasMapRegionOverlay(
@@ -718,57 +463,6 @@ public class MapCommand implements Command {
         );
     }
 
-    private int drawUserMarkers(
-            Path savePath,
-            RenderedMap rendered,
-            WorldPosition center,
-            int radius,
-            RenderOptions options,
-            ProgressReporter progress
-    ) {
-        if (!options.layers()
-                .contains(
-                        RenderLayer.MARKERS
-                )) {
-
-            return 0;
-        }
-
-        List<UserMarker> markers =
-                markerStore.load(
-                        savePath
-                );
-
-        if (markers.isEmpty()) {
-            return 0;
-        }
-
-        WorldMetadata metadata =
-                metadataReader.read(
-                        savePath,
-                        progress
-                );
-
-        progress.start(
-                "Drawing user markers"
-        );
-
-        int count =
-                userMarkerRenderer.draw(
-                        rendered.image(),
-                        center,
-                        radius,
-                        markers,
-                        metadata
-                );
-
-        progress.done(
-                "User markers drawn"
-        );
-
-        return count;
-    }
-
     private void printFailureReasons(
             String title,
             ReadDiagnostics diagnostics
@@ -858,52 +552,6 @@ public class MapCommand implements Command {
                                         "Note: "
                                                 + note
                                 )
-                );
-    }
-
-    private SurfaceScanResult surfaceResult(
-            Path savePath,
-            WorldPosition center,
-            int radius,
-            RenderOptions options,
-            ReadDiagnostics diagnostics,
-            ProgressReporter progress
-    ) {
-        if (!options.layers()
-                .contains(
-                        RenderLayer.SURFACE
-                )) {
-
-            return new SurfaceScanResult(
-                    List.of(),
-                    0,
-                    0,
-                    0,
-                    0
-            );
-        }
-
-        List<ParsedChunk> chunks =
-                reader.readChunksAround(
-                        savePath,
-                        center,
-                        radius,
-                        diagnostics,
-                        progress
-                );
-
-        Map<Integer, BlockInfo> registry =
-                reader.readBlockRegistry(
-                        savePath,
-                        progress
-                );
-
-        return new SurfaceScanner()
-                .scan(
-                        chunks,
-                        registry,
-                        true,
-                        progress
                 );
     }
 
@@ -1147,52 +795,9 @@ public class MapCommand implements Command {
         }
     }
 
-    private HomeState absoluteHome(
-            Path savePath,
-            ProgressReporter progress
-    ) {
-        Optional<HomeLocation> displayHome =
-                homeStore.load(
-                        savePath
-                );
-
-        if (displayHome.isEmpty()) {
-            return HomeState.absent();
-        }
-
-        HomeLocation location =
-                displayHome.orElseThrow();
-
-        WorldMetadata metadata =
-                metadataReader.read(
-                        savePath,
-                        progress
-                );
-
-        WorldPosition absolute =
-                metadata.toAbsolute(
-                        new DisplayPosition(
-                                location.x(),
-                                0.0,
-                                location.z()
-                        )
-                );
-
-        return HomeState.present(
-                new HomeLocation(
-                        absolute.x(),
-                        absolute.z()
-                )
-        );
-    }
-
     private record ActualOreRequest(
             Optional<String> match,
             ActualBlockYFilter yFilter
     ) {
-
-        private boolean enabled() {
-            return match.isPresent();
-        }
     }
 }
