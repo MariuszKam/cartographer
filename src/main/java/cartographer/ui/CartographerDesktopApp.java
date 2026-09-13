@@ -11,7 +11,11 @@ import cartographer.application.SurfaceResourceMatch;
 import cartographer.application.RenderRockMapRequest;
 import cartographer.application.RenderRockMapResult;
 import cartographer.application.RenderRockMapUseCase;
+import cartographer.application.AnalyzeProspectingAreaUseCase;
+import cartographer.application.ProspectingAreaRequest;
+import cartographer.application.ProspectingAreaResult;
 import cartographer.geology.rock.RockMapMode;
+import cartographer.prospecting.ProspectingAssessment;
 import cartographer.marker.MarkerStore;
 import cartographer.navigation.HomeStore;
 import cartographer.parser.ChunkParser;
@@ -77,6 +81,7 @@ public class CartographerDesktopApp extends Application {
     private final RadioButton oreSearchButton = new RadioButton("Ore deposits");
     private final RadioButton surfaceSearchButton = new RadioButton("Surface resources");
     private final RadioButton rockSearchButton = new RadioButton("Rock geology");
+    private final RadioButton prospectingSearchButton = new RadioButton("Prospecting");
     private final ComboBox<OreResource> resourceBox = new ComboBox<>();
     private final ComboBox<SurfaceResourcePreset> surfaceResourceBox = new ComboBox<>();
     private final RadioButton singleResourceButton = new RadioButton("Single resource");
@@ -94,6 +99,8 @@ public class CartographerDesktopApp extends Application {
     private final TextField rockYField = new TextField();
     private final VBox rockLegendBox = new VBox(4);
     private final ScrollPane rockLegendScroll = new ScrollPane(rockLegendBox);
+    private final TextField prospectingResourceField = new TextField();
+    private final VBox prospectingResultsBox = new VBox(4);
     private final RadioButton allYButton = new RadioButton("All Y");
     private final RadioButton customYButton = new RadioButton("Custom range");
     private final RadioButton radius128Button = new RadioButton("128");
@@ -116,6 +123,7 @@ public class CartographerDesktopApp extends Application {
     private RenderActualOreMapUseCase useCase;
     private RenderSurfaceResourceMapUseCase surfaceUseCase;
     private RenderRockMapUseCase rockUseCase;
+    private AnalyzeProspectingAreaUseCase prospectingUseCase;
     private VcdbsReader reader;
     private WorldMetadataReader metadataReader;
     private ResourceCatalogService resourceCatalogService;
@@ -133,6 +141,11 @@ public class CartographerDesktopApp extends Application {
                 reader,
                 metadataReader,
                 new cartographer.render.RockMapRenderer()
+        );
+        prospectingUseCase = new AnalyzeProspectingAreaUseCase(
+                reader,
+                rockUseCase,
+                new ResourceAnalyzer()
         );
         resourceCatalogService = new ResourceCatalogService(
                 reader,
@@ -203,6 +216,7 @@ public class CartographerDesktopApp extends Application {
         oreSearchButton.setToggleGroup(searchType);
         surfaceSearchButton.setToggleGroup(searchType);
         rockSearchButton.setToggleGroup(searchType);
+        prospectingSearchButton.setToggleGroup(searchType);
         oreSearchButton.setSelected(true);
         searchType.selectedToggleProperty().addListener(
                 (observable, oldValue, selected) -> updateSearchType()
@@ -279,7 +293,13 @@ public class CartographerDesktopApp extends Application {
         grid.add(playerStatusLabel, 0, 3, 2, 1);
 
         grid.add(new Label("SEARCH TYPE"), 0, 4);
-        grid.add(new FlowPane(8, 4, oreSearchButton, surfaceSearchButton, rockSearchButton), 0, 5, 2, 1);
+        grid.add(new FlowPane(
+                8, 4,
+                oreSearchButton,
+                surfaceSearchButton,
+                rockSearchButton,
+                prospectingSearchButton
+        ), 0, 5, 2, 1);
         grid.add(new Label("RESOURCE"), 0, 6);
         HBox resourceMode = new HBox(8, singleResourceButton, multipleResourcesButton);
         grid.add(resourceMode, 0, 7, 2, 1);
@@ -321,6 +341,16 @@ public class CartographerDesktopApp extends Application {
         grid.add(rockPanel, 0, 7, 2, 3);
         rockPanel.visibleProperty().bind(rockSearchButton.selectedProperty());
         rockPanel.managedProperty().bind(rockPanel.visibleProperty());
+
+        VBox prospectingPanel = new VBox(
+                4,
+                prospectingResourceField,
+                prospectingResultsBox
+        );
+        prospectingResourceField.setPromptText("Resource name, or blank for all");
+        grid.add(prospectingPanel, 0, 7, 2, 3);
+        prospectingPanel.visibleProperty().bind(prospectingSearchButton.selectedProperty());
+        prospectingPanel.managedProperty().bind(prospectingPanel.visibleProperty());
 
         grid.add(new Label("RADIUS"), 0, 10);
         FlowPane radiusBox = new FlowPane(
@@ -436,6 +466,10 @@ public class CartographerDesktopApp extends Application {
 
     private void render() {
         try {
+            if (prospectingSearchButton.isSelected()) {
+                analyzeProspectingArea();
+                return;
+            }
             if (rockSearchButton.isSelected()) {
                 renderRockMap();
                 return;
@@ -476,6 +510,33 @@ public class CartographerDesktopApp extends Application {
         task.setOnSucceeded(event -> showRockResult(task.getValue(), request));
         task.setOnFailed(event -> showFailure(task.getException()));
         Thread worker = new Thread(task, "cartographer-rock-map-render");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    private void analyzeProspectingArea() {
+        if (saveField.getText().isBlank()) {
+            showFailure(new IllegalArgumentException("Select a .vcdbs save."));
+            return;
+        }
+        String resource = prospectingResourceField.getText().trim();
+        ProspectingAreaRequest request = new ProspectingAreaRequest(
+                Path.of(saveField.getText()),
+                Optional.empty(),
+                selectedRadius(),
+                resource.isBlank() ? Optional.empty() : Optional.of(resource)
+        );
+        setBusy(true);
+        statusLabel.setText("Analyzing prospecting evidence...");
+        Task<ProspectingAreaResult> task = new Task<>() {
+            @Override
+            protected ProspectingAreaResult call() {
+                return prospectingUseCase.execute(request);
+            }
+        };
+        task.setOnSucceeded(event -> showProspectingResult(task.getValue()));
+        task.setOnFailed(event -> showFailure(task.getException()));
+        Thread worker = new Thread(task, "cartographer-prospecting-analysis");
         worker.setDaemon(true);
         worker.start();
     }
@@ -694,6 +755,47 @@ public class CartographerDesktopApp extends Application {
         setBusy(false);
     }
 
+    private void showProspectingResult(ProspectingAreaResult result) {
+        prospectingResultsBox.getChildren().clear();
+        for (ProspectingAssessment assessment : result.assessments()) {
+            prospectingResultsBox.getChildren().add(
+                    new Label(
+                            assessment.candidate().resourceKey()
+                                    + " - " + assessment.rank()
+                                    + " | signal: " + signalText(assessment)
+                                    + " | geology: "
+                                    + assessment.candidate().evidence().geologyState()
+                                    + " | compatibility: "
+                                    + assessment.compatibility()
+                                    + " | actual ore: "
+                                    + (assessment.candidate().evidence().actualOreObserved()
+                                    ? "observed" : "not observed")
+                                    + "\n  " + String.join(
+                                    "; ",
+                                    assessment.reasons()
+                            )
+                    )
+            );
+        }
+        resultLabel.setText(
+                "Prospecting evidence\n"
+                        + "Observed saved geology and relative worldgen signals\n"
+                        + "Candidates: " + result.assessments().size()
+        );
+        statusLabel.setText("Prospecting analysis complete.");
+        setBusy(false);
+    }
+
+    private String signalText(ProspectingAssessment assessment) {
+        return assessment.candidate().evidence().worldgenSignal().isPresent()
+                ? String.format(
+                        java.util.Locale.ROOT,
+                        "%.3f relative",
+                        assessment.candidate().evidence().worldgenSignal().getAsDouble()
+                )
+                : "unavailable";
+    }
+
     private String foundY(cartographer.scanner.ActualBlockMap map) {
         return map.cells().isEmpty()
                 ? "none"
@@ -734,9 +836,11 @@ public class CartographerDesktopApp extends Application {
         oreSearchButton.setDisable(busy);
         surfaceSearchButton.setDisable(busy);
         rockSearchButton.setDisable(busy);
+        prospectingSearchButton.setDisable(busy);
         rockUpperButton.setDisable(busy);
         rockAtYButton.setDisable(busy);
         rockYField.setDisable(busy || !rockAtYButton.isSelected() || !rockSearchButton.isSelected());
+        prospectingResourceField.setDisable(busy);
         singleResourceButton.setDisable(busy);
         multipleResourcesButton.setDisable(busy);
         selectAllButton.setDisable(busy);
@@ -761,6 +865,8 @@ public class CartographerDesktopApp extends Application {
         oreSearchButton.setDisable(busy);
         surfaceSearchButton.setDisable(busy);
         rockSearchButton.setDisable(busy);
+        prospectingSearchButton.setDisable(busy);
+        prospectingResourceField.setDisable(busy);
         singleResourceButton.setDisable(busy);
         multipleResourcesButton.setDisable(busy);
         selectAllButton.setDisable(busy);
@@ -770,7 +876,8 @@ public class CartographerDesktopApp extends Application {
     private void updateYFields() {
         boolean disabled = allYButton.isSelected()
                 || surfaceSearchButton.isSelected()
-                || rockSearchButton.isSelected();
+                || rockSearchButton.isSelected()
+                || prospectingSearchButton.isSelected();
         yMinField.setDisable(disabled);
         yMaxField.setDisable(disabled);
         updateRockMode();

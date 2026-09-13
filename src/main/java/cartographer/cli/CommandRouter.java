@@ -275,6 +275,21 @@ public class CommandRouter {
                             new RockMapRenderer(),
                             new PngWriter(),
                             subcommand(args, "rock")
+                            );
+
+            case "prospecting" ->
+                    new ProspectingCommand(
+                            out,
+                            new cartographer.application.AnalyzeProspectingAreaUseCase(
+                                    reader,
+                                    new cartographer.application.RenderRockMapUseCase(
+                                            reader,
+                                            metadataReader,
+                                            new RockMapRenderer()
+                                    ),
+                                    new ResourceAnalyzer()
+                            ),
+                            subcommand(args, "prospecting")
                     );
 
             case "markers" ->
@@ -390,7 +405,8 @@ public class CommandRouter {
                  "environment",
                  "resource",
                  "coverage",
-                 "rock" -> true;
+                 "rock",
+                 "prospecting" -> true;
 
             default -> false;
         };
@@ -505,6 +521,12 @@ public class CommandRouter {
                         + "[--mode upper-rock] [--radius <blocks>] "
                         + "[--center-x <x> --center-z <z>] "
                         + "[--min-y <y>] [--max-y <exclusive>] [--out <file.png>]"
+        );
+
+        out.println(
+                "  vs-cartographer prospecting analyze <save.vcdbs> "
+                        + "[--radius <blocks>] [--center-x <x> --center-z <z>] "
+                        + "[--resource <name>]"
         );
 
         out.println();
