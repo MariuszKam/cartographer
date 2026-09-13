@@ -237,21 +237,22 @@ class RenderSurfaceResourceMapUseCaseTest {
 
     @Test
     void fireClayStillRequiresAllTokens() {
-        FakeReader reader = new FakeReader(
-                List.of(new MapChunkCoordinate(0, 0)),
-                Map.of(new ChunkPosition(0, 0, 0, 0), surfaceChunk(new ChunkCoordinate(0, 0, 0), 1)),
-                Map.of(
-                        0, new BlockInfo(0, "air"),
-                        1, new BlockInfo(1, "game:fire-rock"),
-                        2, new BlockInfo(2, "game:fire-clay-blue")
-                )
-        );
-        reader.chunks.put(
+        Map<ChunkPosition, ParsedChunk> chunks = new HashMap<>();
+        chunks.put(
                 new ChunkPosition(0, 0, 0, 0),
                 surfaceChunkWithSpecial(
                         new ChunkCoordinate(0, 0, 0),
                         1,
                         2
+                )
+        );
+        FakeReader reader = new FakeReader(
+                List.of(new MapChunkCoordinate(0, 0)),
+                chunks,
+                Map.of(
+                        0, new BlockInfo(0, "air"),
+                        1, new BlockInfo(1, "game:fire-rock"),
+                        2, new BlockInfo(2, "game:fire-clay-blue")
                 )
         );
 
