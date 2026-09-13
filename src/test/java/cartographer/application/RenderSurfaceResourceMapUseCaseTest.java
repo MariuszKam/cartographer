@@ -334,7 +334,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         return new ChunkCoordinate(position.x(), position.y(), position.z());
     }
 
-    private int[] filledHeights(int value) {
+    private static int[] filledHeights(int value) {
         int[] heights = new int[MapChunk.HEIGHT_VALUE_COUNT];
         Arrays.fill(heights, value);
         return heights;
