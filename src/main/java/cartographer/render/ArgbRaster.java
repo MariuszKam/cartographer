@@ -35,8 +35,7 @@ final class ArgbRaster {
         }
         if (raster.getMinX() != 0 || raster.getMinY() != 0
                 || sampleModel.getScanlineStride() != image.getWidth()
-                || dataBuffer.getOffset() != 0
-                || raster.getDataOffsets()[0] != 0) {
+                || dataBuffer.getOffset() != 0) {
             throw new IllegalArgumentException(
                     "image raster layout is not directly addressable"
             );
