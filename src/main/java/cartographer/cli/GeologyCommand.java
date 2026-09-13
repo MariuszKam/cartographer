@@ -367,14 +367,14 @@ public class GeologyCommand implements Command {
                                 + stratum.innerSize()
                                 + " samples="
                                 + stratum.samples()
-                                + " minRawId="
-                                + stratum.minRawId()
-                                + " maxRawId="
-                                + stratum.maxRawId()
+                                + " minRawValue="
+                                + stratum.minRawValue()
+                                + " maxRawValue="
+                                + stratum.maxRawValue()
                                 + " distinct="
                                 + stratum.distinctCount()
-                                + " dominantRawIds="
-                                + stratum.dominantRawIds()
+                                + " dominantRawValues="
+                                + stratum.dominantRawValues()
                 );
             }
 

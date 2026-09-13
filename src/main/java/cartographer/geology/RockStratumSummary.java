@@ -2,6 +2,10 @@ package cartographer.geology;
 
 import java.util.List;
 
+/**
+ * Summary of raw world-generation values in one RockStrata map.
+ * These values are inputs used when determining stratum thickness, not rock identities.
+ */
 public record RockStratumSummary(
         int index,
         int size,
@@ -9,17 +13,17 @@ public record RockStratumSummary(
         int bottomRightPadding,
         int innerSize,
         int samples,
-        int minRawId,
-        int maxRawId,
+        int minRawValue,
+        int maxRawValue,
         int distinctCount,
-        List<Integer> dominantRawIds
+        List<Integer> dominantRawValues
 ) {
     public RockStratumSummary {
-        dominantRawIds =
-                dominantRawIds == null
+        dominantRawValues =
+                dominantRawValues == null
                         ? List.of()
                         : List.copyOf(
-                                dominantRawIds
+                                dominantRawValues
                         );
     }
 }

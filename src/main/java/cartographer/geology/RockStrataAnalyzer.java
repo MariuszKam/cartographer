@@ -87,7 +87,7 @@ public class RockStrataAnalyzer {
             }
         }
 
-        List<Integer> dominant =
+        List<Integer> dominantRawValues =
                 counts.entrySet()
                         .stream()
                         .sorted(
@@ -115,7 +115,7 @@ public class RockStrataAnalyzer {
                 samples == 0 ? 0 : min,
                 samples == 0 ? 0 : max,
                 counts.size(),
-                dominant
+                dominantRawValues
         );
     }
 }
