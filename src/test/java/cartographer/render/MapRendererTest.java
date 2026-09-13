@@ -134,7 +134,7 @@ class MapRendererTest {
                 ProgressReporter.NONE
         );
         int expected = new TerrainPalette().terrainColor(
-                112, 80, 142, 0.0, RenderStyle.SIMPLE
+                112, 80, 142, -2.6 / 32.0, RenderStyle.SIMPLE
         );
         assertEquals(expected, rendered.image().getRGB(32, 32));
     }
