@@ -50,7 +50,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         ChunkPosition exactPosition = new ChunkPosition(0, 0, 0, 0);
         FakeReader reader = new FakeReader(
                 List.of(mapChunkCoordinate),
-                Map.of(exactPosition, surfaceChunk(new ChunkCoordinate(0, 0, 0), 1)),
+                Map.of(exactPosition, surfaceChunk(new ChunkCoordinate(0, 0, 0))),
                 fireClayRegistry()
         );
 
@@ -81,13 +81,13 @@ class RenderSurfaceResourceMapUseCaseTest {
             }
             chunks.put(
                     new ChunkPosition(coordinate.x(), 0, coordinate.z(), 0),
-                    surfaceChunk(new ChunkCoordinate(coordinate.x(), 0, coordinate.z()), 1)
+                    surfaceChunk(new ChunkCoordinate(coordinate.x(), 0, coordinate.z()))
             );
         }
         for (int y = 0; y < 8; y++) {
             chunks.put(
                     new ChunkPosition(1, y, 0, 0),
-                    surfaceChunk(new ChunkCoordinate(1, y, 0), 1)
+                    surfaceChunk(new ChunkCoordinate(1, y, 0))
             );
         }
         FakeReader reader = new FakeReader(renderMapChunks, chunks, fireClayRegistry());
@@ -115,7 +115,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         ChunkPosition fallbackPosition = new ChunkPosition(0, 0, 0, 0);
         FakeReader reader = new FakeReader(
                 List.of(),
-                Map.of(fallbackPosition, surfaceChunk(new ChunkCoordinate(0, 0, 0), 1)),
+                Map.of(fallbackPosition, surfaceChunk(new ChunkCoordinate(0, 0, 0))),
                 fireClayRegistry()
         );
 
@@ -135,7 +135,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         MapChunkCoordinate renderOnly = new MapChunkCoordinate(1, 1);
         FakeReader reader = new FakeReader(
                 List.of(healthy, renderOnly),
-                Map.of(new ChunkPosition(0, 0, 0, 0), surfaceChunk(new ChunkCoordinate(0, 0, 0), 1)),
+                Map.of(new ChunkPosition(0, 0, 0, 0), surfaceChunk(new ChunkCoordinate(0, 0, 0))),
                 fireClayRegistry()
         );
         reader.mapChunks.put(renderOnly, new MapChunk(renderOnly, new int[0], filledHeights()));
@@ -164,7 +164,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         for (MapChunkCoordinate coordinate : surfaceCoordinates) {
             chunks.put(
                     new ChunkPosition(coordinate.x(), 0, coordinate.z(), 0),
-                    surfaceChunk(new ChunkCoordinate(coordinate.x(), 0, coordinate.z()), 1)
+                    surfaceChunk(new ChunkCoordinate(coordinate.x(), 0, coordinate.z()))
             );
         }
         FakeReader reader = new FakeReader(surfaceCoordinates, chunks, fireClayRegistry());
@@ -190,7 +190,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         ChunkPosition position = new ChunkPosition(0, 0, 0, 0);
         FakeReader reader = new FakeReader(
                 List.of(coordinate),
-                Map.of(position, surfaceChunk(coordinateToChunk(position), 1, false)),
+                Map.of(position, surfaceChunk(coordinateToChunk(position), false)),
                 fireClayRegistry()
         );
 
@@ -221,7 +221,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         for (MapChunkCoordinate coordinate : coordinates) {
             chunks.put(
                     new ChunkPosition(coordinate.x(), 0, coordinate.z(), 0),
-                    surfaceChunk(new ChunkCoordinate(coordinate.x(), 0, coordinate.z()), 1)
+                    surfaceChunk(new ChunkCoordinate(coordinate.x(), 0, coordinate.z()))
             );
         }
         FakeReader reader = new FakeReader(coordinates, chunks, fireClayRegistry());
@@ -298,13 +298,12 @@ class RenderSurfaceResourceMapUseCaseTest {
         );
     }
 
-    private ParsedChunk surfaceChunk(ChunkCoordinate coordinate, int blockId) {
-        return surfaceChunk(coordinate, blockId, true);
+    private ParsedChunk surfaceChunk(ChunkCoordinate coordinate) {
+        return surfaceChunk(coordinate, true);
     }
 
     private ParsedChunk surfaceChunk(
             ChunkCoordinate coordinate,
-            int blockId,
             boolean liquidAvailable
     ) {
         int size = ChunkCoordinate.SIZE_BLOCKS;
@@ -312,7 +311,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         int[] liquids = new int[blocks.length];
         for (int z = 0; z < size; z++) {
             for (int x = 0; x < size; x++) {
-                blocks[(5 * size + z) * size + x] = blockId;
+                blocks[(5 * size + z) * size + x] = 1;
             }
         }
         return new ParsedChunk(coordinate, 0, size, size, size, blocks, liquids, 0, liquidAvailable, "");
@@ -321,7 +320,7 @@ class RenderSurfaceResourceMapUseCaseTest {
     private ParsedChunk surfaceChunkWithSpecial(
             ChunkCoordinate coordinate
     ) {
-        ParsedChunk base = surfaceChunk(coordinate, 1);
+        ParsedChunk base = surfaceChunk(coordinate);
         int[] blocks = base.blockIds();
         blocks[(5 * 32 + 16) * 32 + 16] = 2;
         return new ParsedChunk(coordinate, 0, 32, 32, 32, blocks, base.liquidIds(), 0, true, "");
