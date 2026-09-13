@@ -30,16 +30,15 @@ public class OreChunkPositionPlanner {
             return List.of();
         }
 
-        long radiusLong = radius;
-        long minWorldX = Math.max(0L, (long) centerWorldX - radiusLong);
+        long minWorldX = Math.max(0L, (long) centerWorldX - (long) radius);
         long maxWorldX = Math.min(
                 (long) metadata.mapSizeX() - 1,
-                (long) centerWorldX + radiusLong
+                (long) centerWorldX + (long) radius
         );
-        long minWorldZ = Math.max(0L, (long) centerWorldZ - radiusLong);
+        long minWorldZ = Math.max(0L, (long) centerWorldZ - (long) radius);
         long maxWorldZ = Math.min(
                 (long) metadata.mapSizeZ() - 1,
-                (long) centerWorldZ + radiusLong
+                (long) centerWorldZ + (long) radius
         );
 
         if (minWorldX > maxWorldX || minWorldZ > maxWorldZ) {
@@ -76,7 +75,7 @@ public class OreChunkPositionPlanner {
 
         int minChunkY = minY / ChunkCoordinate.SIZE_BLOCKS;
         int maxChunkY = maxY / ChunkCoordinate.SIZE_BLOCKS;
-        long radiusSquared = radiusLong * radiusLong;
+        long radiusSquared = (long) radius * radius;
         List<ChunkPosition> result = new ArrayList<>();
 
         for (int chunkY = minChunkY; chunkY <= maxChunkY; chunkY++) {

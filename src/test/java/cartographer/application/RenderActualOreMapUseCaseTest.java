@@ -1,6 +1,5 @@
 package cartographer.application;
 
-import cartographer.cli.ProgressReporter;
 import cartographer.marker.MarkerStore;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;

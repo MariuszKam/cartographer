@@ -67,7 +67,6 @@ class RenderSurfaceResourceMapUseCaseTest {
 
     @Test
     void missingRainHeightFallsBackOnlyThatMapChunk() {
-        MapChunkCoordinate first = new MapChunkCoordinate(0, 0);
         MapChunkCoordinate second = new MapChunkCoordinate(1, 0);
         List<MapChunkCoordinate> renderMapChunks = new ArrayList<>();
         for (int z = 0; z <= 1; z++) {
@@ -212,7 +211,6 @@ class RenderSurfaceResourceMapUseCaseTest {
 
     @Test
     void resultSurfaceContainsMergedFastAndFallbackBlocks() {
-        MapChunkCoordinate healthy = new MapChunkCoordinate(0, 0);
         MapChunkCoordinate fallback = new MapChunkCoordinate(1, 0);
         List<MapChunkCoordinate> coordinates = List.of(
                 new MapChunkCoordinate(0, 0), new MapChunkCoordinate(1, 0),

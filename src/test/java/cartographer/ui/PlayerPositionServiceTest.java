@@ -1,6 +1,5 @@
 package cartographer.ui;
 
-import cartographer.model.BlockInfo;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.parser.ChunkParser;

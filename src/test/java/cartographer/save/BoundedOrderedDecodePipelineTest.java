@@ -193,7 +193,7 @@ class BoundedOrderedDecodePipelineTest {
     }
 
     @Test
-    void laterCompletedResultDoesNotBypassEarlierPendingResult() throws Exception {
+    void laterCompletedResultDoesNotBypassEarlierPendingResult() {
         CountDownLatch releaseFirst = new CountDownLatch(1);
         List<Integer> values = new ArrayList<>();
         try (BoundedOrderedDecodePipeline<Integer> pipeline =
