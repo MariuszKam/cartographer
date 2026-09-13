@@ -6,6 +6,7 @@ import cartographer.model.ParsedChunk;
 import cartographer.model.WorldPosition;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -50,7 +51,7 @@ class RockColumnScannerTest {
                 entry(2, 2, 2, 3),
                 entry(3, 2, 2, 4)
         );
-        RockMap map = scan(List.of(chunk), 2, 0, 32);
+        RockMap map = scan(List.of(chunk), 2, 2, 32);
 
         RockColumnSample modded = sampleAt(map, 2, 2);
         RockColumnSample ore = sampleAt(map, 3, 2);
@@ -119,6 +120,116 @@ class RockColumnScannerTest {
     }
 
     @Test
+    void floorsPositiveFractionalCenterToBlockCoordinate() {
+        ParsedChunk chunk = chunk(
+                new ChunkCoordinate(0, 0, 0),
+                entry(10, 1, 10, 1)
+        );
+
+        RockColumnSample sample = sampleAt(
+                scan(
+                        List.of(chunk),
+                        new WorldPosition(10.8, 0, 10.8),
+                        1,
+                        32
+                ),
+                10,
+                10
+        );
+
+        assertEquals(RockColumnState.OBSERVED, sample.state());
+    }
+
+    @Test
+    void floorsNegativeFractionalCenterToBlockCoordinate() {
+        ParsedChunk chunk = chunk(
+                new ChunkCoordinate(-1, 0, -1),
+                entry(31, 1, 31, 3)
+        );
+
+        RockColumnSample sample = sampleAt(
+                scan(
+                        List.of(chunk),
+                        new WorldPosition(-0.2, 0, -0.2),
+                        1,
+                        32
+                ),
+                -1,
+                -1
+        );
+
+        assertEquals(RockColumnState.OBSERVED, sample.state());
+    }
+
+    @Test
+    void rockAboveMissingLowerChunkRemainsObserved() {
+        ParsedChunk upper = chunk(
+                new ChunkCoordinate(0, 1, 0),
+                entry(1, 8, 1, 2)
+        );
+
+        RockColumnSample sample = sampleAt(
+                scan(
+                        List.of(upper),
+                        RockChunkCoverage.fromChunkCoordinates(
+                                List.of(new ChunkCoordinate(0, 1, 0))
+                        ),
+                        1,
+                        0,
+                        64
+                ),
+                1,
+                1
+        );
+
+        assertEquals(RockColumnState.OBSERVED, sample.state());
+        assertEquals(40, sample.rockY().orElseThrow());
+    }
+
+    @Test
+    void knownExistingUndecodedChunkCanProveNoRock() {
+        ParsedChunk lower = chunk(new ChunkCoordinate(0, 0, 0));
+
+        RockColumnSample sample = sampleAt(
+                scan(
+                        List.of(lower),
+                        RockChunkCoverage.fromChunkCoordinates(
+                                List.of(
+                                        new ChunkCoordinate(0, 0, 0),
+                                        new ChunkCoordinate(0, 1, 0)
+                                )
+                        ),
+                        1,
+                        0,
+                        64
+                ),
+                1,
+                1
+        );
+
+        assertEquals(RockColumnState.NO_ROCK, sample.state());
+    }
+
+    @Test
+    void missingChunkRemainsUnavailable() {
+        RockColumnSample sample = sampleAt(
+                scan(
+                        List.of(),
+                        RockChunkCoverage.fromChunkCoordinates(
+                                List.of(new ChunkCoordinate(0, 0, 0))
+                        ),
+                        1,
+                        0,
+                        64
+                ),
+                1,
+                1
+        );
+
+        assertEquals(RockColumnState.UNAVAILABLE, sample.state());
+    }
+
+    @Test
     void ignoresColumnsOutsideRadiusAndOrdersResultsDeterministically() {
         RockMap map = scan(
                 List.of(chunk(new ChunkCoordinate(0, 0, 0))),
@@ -179,6 +290,40 @@ class RockColumnScannerTest {
                 CATALOG,
                 new WorldPosition(centerX, 0, centerZ),
                 1,
+                0,
+                maxY
+        );
+    }
+
+    private RockMap scan(
+            Collection<ParsedChunk> chunks,
+            RockChunkCoverage coverage,
+            int centerX,
+            int minY,
+            int maxY
+    ) {
+        return new RockColumnScanner().scan(
+                chunks,
+                CATALOG,
+                new WorldPosition(centerX, 0, 1),
+                1,
+                minY,
+                maxY,
+                coverage
+        );
+    }
+
+    private RockMap scan(
+            Collection<ParsedChunk> chunks,
+            WorldPosition center,
+            int radius,
+            int maxY
+    ) {
+        return new RockColumnScanner().scan(
+                chunks,
+                CATALOG,
+                center,
+                radius,
                 0,
                 maxY
         );
