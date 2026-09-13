@@ -170,9 +170,9 @@ class RainHeightSurfaceScannerTest {
             int targetLiquid,
             int unrelatedBlock
     ) {
-        int sizeX = 2;
+        int sizeX = 32;
         int sizeY = 32;
-        int sizeZ = 2;
+        int sizeZ = 32;
         int[] blocks = new int[sizeX * sizeY * sizeZ];
         int[] liquids = new int[blocks.length];
         int localX = Math.floorMod(target.worldX(), ChunkCoordinate.SIZE_BLOCKS);

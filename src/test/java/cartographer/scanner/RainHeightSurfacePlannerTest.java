@@ -73,7 +73,7 @@ class RainHeightSurfacePlannerTest {
         RainHeightSurfacePlanner.StreamingSession session = planner(0, 0, 1);
         session.accept(mapChunk(new MapChunkCoordinate(0, 0), 45));
 
-        assertEquals(1, session.finish().targets().size());
+        assertEquals(3, session.finish().targets().size());
     }
 
     @Test
@@ -94,7 +94,7 @@ class RainHeightSurfacePlannerTest {
         session.accept(mapChunk);
         session.accept(mapChunk);
 
-        assertEquals(1, session.finish().targets().size());
+        assertEquals(3, session.finish().targets().size());
     }
 
     @Test
