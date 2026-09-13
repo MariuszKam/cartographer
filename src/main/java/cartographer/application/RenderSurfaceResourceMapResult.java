@@ -15,7 +15,10 @@ public record RenderSurfaceResourceMapResult(
         MapRenderReport renderReport,
         ReadDiagnostics mapChunkDiagnostics,
         ReadDiagnostics chunkDiagnostics,
-        int userMarkersDrawn
+        int userMarkersDrawn,
+        int surfaceObjectRegistryVariants,
+        int surfaceObjectPositionsInspected,
+        int surfaceObjectUnavailablePositions
 ) {
 
     public RenderSurfaceResourceMapResult {
@@ -25,5 +28,10 @@ public record RenderSurfaceResourceMapResult(
         Objects.requireNonNull(renderReport, "renderReport is required");
         Objects.requireNonNull(mapChunkDiagnostics, "mapChunkDiagnostics is required");
         Objects.requireNonNull(chunkDiagnostics, "chunkDiagnostics is required");
+        if (surfaceObjectRegistryVariants < 0
+                || surfaceObjectPositionsInspected < 0
+                || surfaceObjectUnavailablePositions < 0) {
+            throw new IllegalArgumentException("surface object diagnostics cannot be negative");
+        }
     }
 }

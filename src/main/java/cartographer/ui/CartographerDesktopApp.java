@@ -692,6 +692,14 @@ public class CartographerDesktopApp extends Application {
                 .append(result.analysis().matchingBlockCount())
                 .append("\nConnected deposits: ")
                 .append(result.analysis().depositCount());
+        if (result.surfaceObjectRegistryVariants() > 0) {
+            resultText.append("\nRegistry variants: ")
+                    .append(result.surfaceObjectRegistryVariants())
+                    .append("\nSurface positions inspected: ")
+                    .append(result.surfaceObjectPositionsInspected())
+                    .append("\nUnavailable surface positions: ")
+                    .append(result.surfaceObjectUnavailablePositions());
+        }
         int limit = Math.min(5, result.analysis().deposits().size());
         if (limit > 0) {
             resultText.append("\n\nLargest deposits:");

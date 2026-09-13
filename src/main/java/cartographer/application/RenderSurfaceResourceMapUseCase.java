@@ -34,6 +34,9 @@ import cartographer.scanner.SurfaceFallbackMapChunks;
 import cartographer.scanner.SurfaceFastPathMerger;
 import cartographer.scanner.SurfaceScanResult;
 import cartographer.scanner.SurfaceScanner;
+import cartographer.scanner.SurfaceObjectScanResult;
+import cartographer.scanner.SurfaceObjectScanner;
+import cartographer.save.SelectiveChunkVisitStatus;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -70,6 +73,8 @@ public class RenderSurfaceResourceMapUseCase {
             new SurfaceFallbackChunkPlanner();
     private final SurfaceFastPathMerger surfaceFastPathMerger =
             new SurfaceFastPathMerger();
+    private final SurfaceObjectScanner surfaceObjectScanner =
+            new SurfaceObjectScanner();
 
     public RenderSurfaceResourceMapUseCase(
             VcdbsReader reader,
@@ -241,6 +246,52 @@ public class RenderSurfaceResourceMapUseCase {
                 fallbackSurface.liquidUnavailableColumns()
         );
         List<SurfaceBlock> matchingBlocks = request.match().matchingBlocks(surface.blocks());
+        int surfaceObjectRegistryVariants = 0;
+        int surfaceObjectPositionsInspected = 0;
+        int surfaceObjectUnavailablePositions = 0;
+        if (request.match().usesSurfaceObjectScan()) {
+            int[] wantedBlockIds = request.match().matchingBlockIds(registry);
+            surfaceObjectRegistryVariants = wantedBlockIds.length;
+            List<ChunkPosition> objectPositions = surfaceObjectScanner.chunkPositions(
+                    rainPlan,
+                    metadata
+            );
+            List<ParsedChunk> objectChunks = new ArrayList<>();
+            Set<ChunkPosition> availableObjectPositions = new HashSet<>();
+            if (wantedBlockIds.length > 0 && !objectPositions.isEmpty()) {
+                reader.forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                        request.savePath(),
+                        objectPositions,
+                        wantedBlockIds,
+                        chunkDiagnostics,
+                        visit -> {
+                            if (visit.status() == SelectiveChunkVisitStatus.DECODED) {
+                                objectChunks.add(visit.chunk());
+                                availableObjectPositions.add(visit.position());
+                            } else if (visit.status()
+                                    == SelectiveChunkVisitStatus.PALETTE_REJECTED) {
+                                availableObjectPositions.add(visit.position());
+                            }
+                        }
+                );
+            }
+            SurfaceObjectScanResult objectResult = surfaceObjectScanner.scan(
+                    rainPlan,
+                    metadata,
+                    registry,
+                    java.util.Arrays.stream(wantedBlockIds)
+                            .boxed()
+                            .collect(java.util.stream.Collectors.toSet()),
+                    objectChunks,
+                    availableObjectPositions
+            );
+            surfaceObjectPositionsInspected = objectResult.positionsInspected();
+            surfaceObjectUnavailablePositions = objectResult.unavailablePositions();
+            matchingBlocks = new ArrayList<>(
+                    request.match().matchingBlocks(fallbackSurface.blocks())
+            );
+            matchingBlocks.addAll(objectResult.blocks());
+        }
         SurfaceResourceAnalysis analysis = surfaceResourceAnalyzer.analyzeMatched(
                 request.match().displayName(),
                 matchingBlocks,
@@ -282,7 +333,10 @@ public class RenderSurfaceResourceMapUseCase {
                 rendered.report(),
                 mapChunkDiagnostics,
                 chunkDiagnostics,
-                userMarkersDrawn
+                userMarkersDrawn,
+                surfaceObjectRegistryVariants,
+                surfaceObjectPositionsInspected,
+                surfaceObjectUnavailablePositions
         );
     }
 

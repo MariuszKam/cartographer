@@ -1,10 +1,12 @@
 package cartographer.application;
 
 import cartographer.model.SurfaceBlock;
+import cartographer.model.BlockInfo;
 
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Map;
 
 public record SurfaceResourceMatch(
         String displayName,
@@ -45,11 +47,15 @@ public record SurfaceResourceMatch(
     }
 
     public boolean matches(SurfaceBlock block) {
-        if (block == null || block.blockInfo() == null || block.blockInfo().code() == null) {
+        return block != null && matches(block.blockInfo());
+    }
+
+    public boolean matches(BlockInfo blockInfo) {
+        if (blockInfo == null || blockInfo.code() == null) {
             return false;
         }
 
-        String code = block.blockInfo().code().toLowerCase(Locale.ROOT);
+        String code = blockInfo.code().toLowerCase(Locale.ROOT);
         if (!acceptedCodePrefixes.isEmpty()) {
             int separator = code.indexOf(':');
             String path = separator >= 0 ? code.substring(separator + 1) : code;
@@ -60,6 +66,20 @@ public record SurfaceResourceMatch(
 
     public List<SurfaceBlock> matchingBlocks(List<SurfaceBlock> blocks) {
         return blocks.stream().filter(this::matches).toList();
+    }
+
+    public boolean usesSurfaceObjectScan() {
+        return !acceptedCodePrefixes.isEmpty();
+    }
+
+    public int[] matchingBlockIds(Map<Integer, cartographer.model.BlockInfo> registry) {
+        Objects.requireNonNull(registry, "registry is required");
+        return registry.values().stream()
+                .filter(this::matches)
+                .mapToInt(cartographer.model.BlockInfo::id)
+                .distinct()
+                .sorted()
+                .toArray();
     }
 
     public static SurfaceResourceMatch looseObsidian() {
