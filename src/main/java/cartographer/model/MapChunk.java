@@ -71,6 +71,29 @@ public record MapChunk(
                 ];
     }
 
+    public int rainHeightAt(
+            int localX,
+            int localZ
+    ) {
+        validateLocalCoordinate(
+                localX,
+                localZ
+        );
+
+        if (!hasRainHeightMap()) {
+            throw new IllegalStateException(
+                    "RainHeightMap is unavailable"
+            );
+        }
+
+        return rainHeightMap[
+                index(
+                        localX,
+                        localZ
+                )
+                ];
+    }
+
     public int terrainHeightAt(
             int localX,
             int localZ
