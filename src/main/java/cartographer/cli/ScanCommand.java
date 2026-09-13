@@ -321,7 +321,6 @@ public class ScanCommand implements Command {
                         args,
                         "--radius",
                         DEFAULT_BLOCK_MAP_RADIUS,
-                        1,
                         MAX_BLOCK_MAP_RADIUS
                 );
 
@@ -330,7 +329,6 @@ public class ScanCommand implements Command {
                         args,
                         "--scale",
                         DEFAULT_BLOCK_MAP_SCALE,
-                        1,
                         MAX_BLOCK_MAP_SCALE
                 );
 
@@ -340,9 +338,8 @@ public class ScanCommand implements Command {
                 );
 
         Optional<Integer> splitY =
-                optionalPositiveIntegerOption(
-                        args,
-                        "--split-y"
+                splitYOption(
+                        args
                 );
 
         if (splitY.isPresent()
@@ -1154,47 +1151,18 @@ public class ScanCommand implements Command {
             String optionName,
             int defaultValue
     ) {
-        Optional<String> option =
-                option(
-                        args,
-                        optionName
-                );
-
-        if (option.isEmpty()) {
-            return defaultValue;
-        }
-
-        try {
-            int value =
-                    Integer.parseInt(
-                            option.get()
-                    );
-
-            if (value <= 0
-                    || value > 8192) {
-                throw new CommandException(
-                        optionName
-                                + " must be between 1 and 8192"
-                );
-            }
-
-            return value;
-
-        } catch (NumberFormatException exception) {
-            throw new CommandException(
-                    "Invalid "
-                            + optionName
-                            + ": "
-                            + option.get()
-            );
-        }
+        return intOption(
+                args,
+                optionName,
+                defaultValue,
+                8192
+        );
     }
 
     private int intOption(
             String[] args,
             String optionName,
             int defaultValue,
-            int minValue,
             int maxValue
     ) {
         Optional<String> option =
@@ -1213,12 +1181,12 @@ public class ScanCommand implements Command {
                             option.get()
                     );
 
-            if (value < minValue
+            if (value <= 0
                     || value > maxValue) {
                 throw new CommandException(
                         optionName
                                 + " must be between "
-                                + minValue
+                                + 1
                                 + " and "
                                 + maxValue
                 );
@@ -1295,14 +1263,11 @@ public class ScanCommand implements Command {
         }
     }
 
-    private Optional<Integer> optionalPositiveIntegerOption(
-            String[] args,
-            String optionName
-    ) {
+    private Optional<Integer> splitYOption(String[] args) {
         Optional<String> option =
                 option(
                         args,
-                        optionName
+                        "--split-y"
                 );
 
         if (option.isEmpty()) {
@@ -1317,8 +1282,7 @@ public class ScanCommand implements Command {
 
             if (value <= 0) {
                 throw new CommandException(
-                        optionName
-                                + " must be positive"
+                        "--split-y must be positive"
                 );
             }
 
@@ -1328,9 +1292,7 @@ public class ScanCommand implements Command {
 
         } catch (NumberFormatException exception) {
             throw new CommandException(
-                    "Invalid "
-                            + optionName
-                            + ": "
+                    "Invalid --split-y: "
                             + option.get()
             );
         }

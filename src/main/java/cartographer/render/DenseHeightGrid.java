@@ -43,11 +43,9 @@ final class DenseHeightGrid {
             int minWorldX,
             int minWorldZ,
             int width,
-            int height,
-            ProgressReporter progress
+            int height
     ) {
         Objects.requireNonNull(chunks, "chunks are required");
-        Objects.requireNonNull(progress, "progress is required");
         if (width < 0 || height < 0) {
             throw new IllegalArgumentException(
                     "grid dimensions cannot be negative"
@@ -59,7 +57,7 @@ final class DenseHeightGrid {
                 minWorldZ,
                 width,
                 height,
-                progress,
+                ProgressReporter.NONE,
                 chunks.size()
         );
         for (MapChunk chunk : chunks) {
@@ -148,23 +146,22 @@ final class DenseHeightGrid {
         }
 
         DenseHeightGrid finish() {
-
-        int minHeight = 0;
-        int maxHeight = 0;
-        boolean found = false;
-        for (int index = present.nextSetBit(0);
-             index >= 0;
-             index = present.nextSetBit(index + 1)) {
-            int value = values[index];
-            if (!found) {
-                minHeight = value;
-                maxHeight = value;
-                found = true;
-            } else {
-                minHeight = Math.min(minHeight, value);
-                maxHeight = Math.max(maxHeight, value);
+            int minHeight = 0;
+            int maxHeight = 0;
+            boolean found = false;
+            for (int index = present.nextSetBit(0);
+                 index >= 0;
+                 index = present.nextSetBit(index + 1)) {
+                int value = values[index];
+                if (!found) {
+                    minHeight = value;
+                    maxHeight = value;
+                    found = true;
+                } else {
+                    minHeight = Math.min(minHeight, value);
+                    maxHeight = Math.max(maxHeight, value);
+                }
             }
-        }
 
             return new DenseHeightGrid(
                     minWorldX,
