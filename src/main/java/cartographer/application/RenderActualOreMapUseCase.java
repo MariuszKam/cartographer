@@ -11,6 +11,7 @@ import cartographer.model.HomeState;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParsedChunk;
+import cartographer.model.SurfaceBlock;
 import cartographer.model.ChunkPosition;
 import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldMetadata;
