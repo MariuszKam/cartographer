@@ -124,6 +124,75 @@ class BoundedOrderedDecodePipelineTest {
     }
 
     @Test
+    void pendingNeverExceedsMaxInFlight() throws Exception {
+        CountDownLatch releaseFirst = new CountDownLatch(1);
+        CountDownLatch releaseRemaining = new CountDownLatch(1);
+        CountDownLatch observerStarted = new CountDownLatch(1);
+        CountDownLatch observerReturned = new CountDownLatch(1);
+        try (BoundedOrderedDecodePipeline<Integer> pipeline =
+                     new BoundedOrderedDecodePipeline<>(2, 3, ignored -> { })) {
+            pipeline.submit(() -> {
+                releaseFirst.await();
+                return 1;
+            });
+            pipeline.submit(() -> {
+                releaseRemaining.await();
+                return 2;
+            });
+            pipeline.submit(() -> {
+                releaseRemaining.await();
+                return 3;
+            });
+            assertEquals(3, pipeline.pendingCount());
+
+            Thread observer = Thread.ofPlatform().start(() -> {
+                observerStarted.countDown();
+                pipeline.submit(() -> 4);
+                observerReturned.countDown();
+            });
+            assertTrue(observerStarted.await(1, TimeUnit.SECONDS));
+            assertFalse(observerReturned.await(100, TimeUnit.MILLISECONDS));
+            releaseFirst.countDown();
+            assertTrue(observerReturned.await(1, TimeUnit.SECONDS));
+            assertTrue(pipeline.pendingCount() <= 3);
+            releaseRemaining.countDown();
+            pipeline.finish();
+            observer.join();
+        }
+    }
+
+    @Test
+    void acceptsNextTaskAfterOldestBackpressureResultIsResolved() throws Exception {
+        CountDownLatch releaseFirst = new CountDownLatch(1);
+        CountDownLatch releaseSecond = new CountDownLatch(1);
+        CountDownLatch observerReturned = new CountDownLatch(1);
+        List<Integer> values = new ArrayList<>();
+        try (BoundedOrderedDecodePipeline<Integer> pipeline =
+                     new BoundedOrderedDecodePipeline<>(1, 2, values::add)) {
+            pipeline.submit(() -> {
+                releaseFirst.await();
+                return 1;
+            });
+            pipeline.submit(() -> {
+                releaseSecond.await();
+                return 2;
+            });
+
+            Thread observer = Thread.ofPlatform().start(() -> {
+                pipeline.submit(() -> 3);
+                observerReturned.countDown();
+            });
+            assertFalse(observerReturned.await(100, TimeUnit.MILLISECONDS));
+            releaseFirst.countDown();
+            assertTrue(observerReturned.await(1, TimeUnit.SECONDS));
+            releaseSecond.countDown();
+            pipeline.finish();
+            observer.join();
+        }
+        assertEquals(List.of(1, 2, 3), values);
+    }
+
+    @Test
     void laterCompletedResultDoesNotBypassEarlierPendingResult() throws Exception {
         CountDownLatch releaseFirst = new CountDownLatch(1);
         List<Integer> values = new ArrayList<>();

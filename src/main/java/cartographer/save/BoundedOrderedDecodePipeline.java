@@ -42,7 +42,10 @@ final class BoundedOrderedDecodePipeline<T> implements AutoCloseable {
                 workerCount,
                 0L,
                 java.util.concurrent.TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(maxInFlight - workerCount),
+                // The pending deque is the authoritative total in-flight bound.
+                // A Future can complete before a worker removes the next queued task;
+                // maxInFlight queue slots prevent a transient false rejection then.
+                new ArrayBlockingQueue<>(maxInFlight),
                 threadFactory,
                 new ThreadPoolExecutor.AbortPolicy()
         );
