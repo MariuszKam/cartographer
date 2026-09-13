@@ -108,6 +108,60 @@ class MapRendererTest {
     }
 
     @Test
+    void directRasterBackgroundStillUsesTerrainPalette() {
+        RenderedMap rendered = new MapRenderer().render(
+                new WorldPosition(16.0, 0.0, 16.0),
+                HomeState.absent(),
+                List.of(),
+                new RenderOptions(16, 1, RenderStyle.SIMPLE, Set.of(RenderLayer.TERRAIN)),
+                ProgressReporter.NONE
+        );
+        int background = new TerrainPalette().background(RenderStyle.SIMPLE);
+        assertEquals(background, rendered.image().getRGB(0, 0));
+        assertEquals(background, rendered.image().getRGB(63, 63));
+    }
+
+    @Test
+    void directRasterTerrainUsesExpectedPaletteColor() {
+        RenderOptions options = new RenderOptions(
+                16, 1, RenderStyle.SIMPLE, Set.of(RenderLayer.TERRAIN)
+        );
+        RenderedMap rendered = new MapRenderer().render(
+                new WorldPosition(16.0, 0.0, 16.0),
+                HomeState.absent(),
+                List.of(chunk(0, 0, 80)),
+                options,
+                ProgressReporter.NONE
+        );
+        int expected = new TerrainPalette().terrainColor(
+                80, 80, 80, 0.0, RenderStyle.SIMPLE
+        );
+        assertEquals(expected, rendered.image().getRGB(32, 32));
+    }
+
+    @Test
+    void semanticSurfaceUsesExactScaledRectangle() {
+        RenderOptions options = new RenderOptions(
+                16, 2, RenderStyle.SIMPLE, Set.of(RenderLayer.SURFACE)
+        );
+        int color = new SemanticTerrainPalette().color(SurfaceClass.ROCK, 0.0);
+        RenderedMap rendered = new MapRenderer().render(
+                new WorldPosition(16.0, 0.0, 16.0),
+                HomeState.absent(),
+                List.of(),
+                List.of(new SurfaceBlock(
+                        16, 80, 16, BlockInfo.unknown(1), 0,
+                        BlockInfo.unknown(0), SurfaceClass.ROCK
+                )),
+                options,
+                ProgressReporter.NONE
+        );
+        assertEquals(color, rendered.image().getRGB(32, 32));
+        assertEquals(color, rendered.image().getRGB(33, 33));
+        assertNotEquals(color, rendered.image().getRGB(34, 32));
+    }
+
+    @Test
     void preparedTerrainRenderingMatchesListBasedRendering() {
         WorldPosition center = new WorldPosition(32.0, 0.0, 32.0);
         RenderOptions options = new RenderOptions(

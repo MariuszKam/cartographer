@@ -182,8 +182,10 @@ public class MapRenderer {
                         BufferedImage.TYPE_INT_ARGB
                 );
 
+        ArgbRaster raster = ArgbRaster.wrap(image);
+
         prepareBackground(
-                image,
+                raster,
                 options,
                 progress
         );
@@ -220,7 +222,7 @@ public class MapRenderer {
         if (terrainEnabled) {
             tilesDrawn =
                     drawTerrain(
-                            image,
+                            raster,
                             samples,
                             minX,
                             minZ,
@@ -233,7 +235,7 @@ public class MapRenderer {
 
         if (surfaceEnabled) {
             drawSurfaceBlocks(
-                    image,
+                    raster,
                     surfaceBlocks,
                     samples,
                     minX,
@@ -310,7 +312,7 @@ public class MapRenderer {
     }
 
     private void prepareBackground(
-            BufferedImage image,
+            ArgbRaster raster,
             RenderOptions options,
             ProgressReporter progress
     ) {
@@ -318,33 +320,22 @@ public class MapRenderer {
                 "Preparing image background"
         );
 
+        int background = palette.background(options.style());
         for (int y = 0;
-             y < image.getHeight();
+             y < raster.height();
              y++) {
-
-            for (int x = 0;
-                 x < image.getWidth();
-                 x++) {
-
-                image.setRGB(
-                        x,
-                        y,
-                        palette.background(
-                                options.style()
-                        )
-                );
-            }
+            raster.fillRow(y, background);
 
             progress.progress(
                     "Preparing image background",
                     y + 1,
-                    image.getHeight()
+                    raster.height()
             );
         }
     }
 
     private int drawTerrain(
-            BufferedImage image,
+            ArgbRaster raster,
             DenseHeightGrid samples,
             int minX,
             int minZ,
@@ -398,7 +389,7 @@ public class MapRenderer {
 
                 int height = samples.heightAt(worldX, worldZ);
 
-                image.setRGB(
+                raster.setArgb(
                         imageX,
                         imageY,
                         palette.terrainColor(
@@ -428,7 +419,7 @@ public class MapRenderer {
     }
 
     private void drawSurfaceBlocks(
-            BufferedImage image,
+            ArgbRaster raster,
             List<SurfaceBlock> surfaceBlocks,
             DenseHeightGrid samples,
             int minX,
@@ -536,21 +527,7 @@ public class MapRenderer {
                             shade
                     );
 
-            for (int imageY = startY;
-                 imageY < endY;
-                 imageY++) {
-
-                for (int imageX = startX;
-                     imageX < endX;
-                     imageX++) {
-
-                    image.setRGB(
-                            imageX,
-                            imageY,
-                            color
-                    );
-                }
-            }
+            raster.fillRect(startX, startY, endX, endY, color);
 
             progress.progress(
                     "Drawing semantic surface",
