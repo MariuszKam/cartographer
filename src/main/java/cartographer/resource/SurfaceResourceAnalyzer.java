@@ -29,13 +29,43 @@ public class SurfaceResourceAnalyzer {
             );
         }
 
+        List<SurfaceBlock> matchingBlocks =
+                surfaceBlocks.stream()
+                        .filter(block -> block.blockInfo() != null
+                                && block.blockInfo().code() != null
+                                && normalize(block.blockInfo().code()).contains(normalizedQuery))
+                        .toList();
+        return analyzeMatched(
+                normalizedQuery,
+                matchingBlocks,
+                surfaceBlocks.size()
+        );
+    }
+
+    public SurfaceResourceAnalysis analyzeMatched(
+            String displayName,
+            List<SurfaceBlock> matchingBlocks,
+            int totalSurfaceColumns
+    ) {
+        String normalizedName = normalize(displayName);
+        if (normalizedName.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Surface resource display name is required"
+            );
+        }
+        if (totalSurfaceColumns < 0) {
+            throw new IllegalArgumentException(
+                    "Surface resource column count must not be negative"
+            );
+        }
+
         List<SurfaceResourcePoint> matching =
                 new ArrayList<>();
 
         Map<Long, SurfaceResourcePoint> remaining =
                 new HashMap<>();
 
-        for (SurfaceBlock block : surfaceBlocks) {
+        for (SurfaceBlock block : matchingBlocks) {
             if (block.blockInfo() == null
                     || block.blockInfo().code() == null) {
 
@@ -45,14 +75,6 @@ public class SurfaceResourceAnalyzer {
             String blockCode =
                     block.blockInfo()
                             .code();
-
-            if (!normalize(
-                    blockCode
-            ).contains(
-                    normalizedQuery
-            )) {
-                continue;
-            }
 
             SurfaceResourcePoint point =
                     new SurfaceResourcePoint(
@@ -93,7 +115,7 @@ public class SurfaceResourceAnalyzer {
 
             deposits.add(
                     collectDeposit(
-                            normalizedQuery,
+                            normalizedName,
                             start,
                             remaining
                     )
@@ -114,8 +136,8 @@ public class SurfaceResourceAnalyzer {
         );
 
         return new SurfaceResourceAnalysis(
-                normalizedQuery,
-                surfaceBlocks.size(),
+                normalizedName,
+                totalSurfaceColumns,
                 List.copyOf(
                         matching
                 ),

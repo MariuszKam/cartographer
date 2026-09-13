@@ -33,6 +33,7 @@ import cartographer.render.RockLegendEntry;
 import cartographer.resource.ResourceAnalyzer;
 import cartographer.resource.SurfaceResourceAnalyzer;
 import cartographer.model.BlockInfo;
+import cartographer.model.SurfaceBlock;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMapScanner;
@@ -592,7 +593,8 @@ public class CartographerDesktopApp extends Application {
         SurfaceResourceMatch match = surfacePresetFor(typed)
                 .map(preset -> new SurfaceResourceMatch(
                         preset.label(),
-                        preset.requiredTokens()
+                        preset.requiredTokens(),
+                        preset.acceptedCodePrefixes()
                 ))
                 .orElseGet(() -> new SurfaceResourceMatch(typed, List.of(typed)));
         return new RenderSurfaceResourceMapRequest(
@@ -951,10 +953,14 @@ public class CartographerDesktopApp extends Application {
             surfaceResourceStatusLabel.setText("Registry candidates: custom input");
             return;
         }
+        SurfaceResourceMatch match = new SurfaceResourceMatch(
+                preset.get().label(),
+                preset.get().requiredTokens(),
+                preset.get().acceptedCodePrefixes()
+        );
         long candidates = loadedRegistry.values().stream()
-                .filter(block -> block.code() != null)
-                .filter(block -> preset.get().requiredTokens().stream()
-                        .allMatch(token -> block.code().toLowerCase(java.util.Locale.ROOT).contains(token)))
+                .map(block -> new SurfaceBlock(0, 0, 0, block))
+                .filter(match::matches)
                 .count();
         surfaceResourceStatusLabel.setText(
                 "Registry candidates: " + (candidates == 0 ? "none" : candidates)

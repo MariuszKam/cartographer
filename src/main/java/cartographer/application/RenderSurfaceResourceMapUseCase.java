@@ -241,15 +241,10 @@ public class RenderSurfaceResourceMapUseCase {
                 fallbackSurface.liquidUnavailableColumns()
         );
         List<SurfaceBlock> matchingBlocks = request.match().matchingBlocks(surface.blocks());
-        SurfaceResourceAnalysis groupedAnalysis = surfaceResourceAnalyzer.analyze(
-                matchingBlocks,
-                request.match().requiredTokens().getFirst()
-        );
-        SurfaceResourceAnalysis analysis = new SurfaceResourceAnalysis(
+        SurfaceResourceAnalysis analysis = surfaceResourceAnalyzer.analyzeMatched(
                 request.match().displayName(),
-                groupedAnalysis.surfaceColumns(),
-                groupedAnalysis.matchingBlocks(),
-                groupedAnalysis.deposits()
+                matchingBlocks,
+                surface.columnsScanned()
         );
 
         RenderedMap rendered = renderer.render(

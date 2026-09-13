@@ -1,5 +1,6 @@
 package cartographer.cli;
 
+import cartographer.application.SurfaceResourceMatch;
 import cartographer.model.BlockInfo;
 import cartographer.model.DisplayPosition;
 import cartographer.model.HomeLocation;
@@ -1095,11 +1096,12 @@ public class ResourceCommand implements Command {
                         progress
                 );
 
-        SurfaceResourceAnalysis analysis =
-                surfaceResourceAnalyzer.analyze(
-                        surface.blocks(),
-                        match
-                );
+        SurfaceResourceMatch surfaceMatch = surfaceMatch(match);
+        SurfaceResourceAnalysis analysis = surfaceResourceAnalyzer.analyzeMatched(
+                surfaceMatch.displayName(),
+                surfaceMatch.matchingBlocks(surface.blocks()),
+                surface.columnsScanned()
+        );
 
         return new SurfaceResourceLoad(
                 player,
@@ -1108,6 +1110,14 @@ public class ResourceCommand implements Command {
                 surface,
                 analysis
         );
+    }
+
+    private SurfaceResourceMatch surfaceMatch(String value) {
+        if (value.equalsIgnoreCase("obsidian")
+                || value.equalsIgnoreCase("obsidian surface")) {
+            return SurfaceResourceMatch.looseObsidian();
+        }
+        return new SurfaceResourceMatch(value, List.of(value));
     }
 
     private RenderOptions terrainRenderOptions(
