@@ -2,6 +2,7 @@ package cartographer.render;
 
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
+import cartographer.model.HomeState;
 import cartographer.model.WorldPosition;
 import org.junit.jupiter.api.Test;
 
