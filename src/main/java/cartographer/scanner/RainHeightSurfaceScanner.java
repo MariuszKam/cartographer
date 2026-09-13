@@ -147,20 +147,9 @@ public final class RainHeightSurfaceScanner {
             );
             SurfaceClass surfaceClass = classifier.classify(blockInfo, liquidInfo);
 
-            if (surfaceClass == SurfaceClass.WATER) {
-                recordResolved(target, new SurfaceBlock(
-                        target.worldX(),
-                        target.worldY(),
-                        target.worldZ(),
-                        blockInfo,
-                        liquidId,
-                        liquidInfo,
-                        surfaceClass
-                ));
-                return;
-            }
-            if (blockInfo.isAir()
-                    || ignoreFoliage && blockInfo.isFoliage()) {
+            if (surfaceClass != SurfaceClass.WATER
+                    && (blockInfo.isAir()
+                    || ignoreFoliage && blockInfo.isFoliage())) {
                 markUnresolved(target);
                 return;
             }

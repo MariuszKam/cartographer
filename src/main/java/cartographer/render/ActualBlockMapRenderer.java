@@ -595,17 +595,7 @@ public class ActualBlockMapRenderer {
         if (map.yFilter()
                 .enabled()) {
 
-            double density =
-                    Math.min(
-                            1.0,
-                            Math.log(
-                                    cell.matchCount()
-                                            + 1.0
-                            )
-                                    / Math.log(
-                                    10.0
-                            )
-                    );
+            double density = normalizedDensity(cell.matchCount());
 
             return Color.getHSBColor(
                     0.055f,
@@ -630,17 +620,7 @@ public class ActualBlockMapRenderer {
                         - map.minMatchedY())
                         / yRange;
 
-        double densityNormalized =
-                Math.min(
-                        1.0,
-                        Math.log(
-                                cell.matchCount()
-                                        + 1.0
-                        )
-                                / Math.log(
-                                10.0
-                        )
-                );
+        double densityNormalized = normalizedDensity(cell.matchCount());
 
         float hue =
                 (float) (0.02
@@ -661,6 +641,14 @@ public class ActualBlockMapRenderer {
                 hue,
                 saturation,
                 brightness
+        );
+    }
+
+    private static double normalizedDensity(int matchCount) {
+        return Math.min(
+                1.0,
+                Math.log(matchCount + 1.0)
+                        / Math.log(10.0)
         );
     }
 
