@@ -5,9 +5,9 @@ import cartographer.model.ChunkCoordinate;
 import cartographer.model.ParsedChunk;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -25,6 +25,62 @@ public class MultiActualBlockMapScanner {
             ActualBlockYFilter yFilter
     ) {
         Objects.requireNonNull(chunks, "chunks are required");
+        Objects.requireNonNull(matches, "matches are required");
+
+        List<ActualBlockMatchSpec> specs =
+                new ArrayList<>(matches.size());
+        List<String> normalizedMatches =
+                new ArrayList<>(matches.size());
+
+        for (String match : matches) {
+            if (match == null || match.isBlank()) {
+                throw new IllegalArgumentException(
+                        "matches must not contain blanks"
+                );
+            }
+
+            String normalized =
+                    match.trim().toLowerCase(Locale.ROOT);
+
+            if (normalizedMatches.contains(normalized)) {
+                throw new IllegalArgumentException(
+                        "Duplicate actual ore match: " + match
+                );
+            }
+
+            normalizedMatches.add(normalized);
+            specs.add(
+                    new ActualBlockMatchSpec(
+                            normalized,
+                            ActualBlockMatchMode.ORE_CODE
+                    )
+            );
+        }
+
+        StreamingSession session = begin(
+                blockRegistry,
+                centerWorldX,
+                centerWorldZ,
+                radius,
+                specs,
+                yFilter
+        );
+
+        for (ParsedChunk chunk : chunks) {
+            session.accept(chunk);
+        }
+
+        return session.finish();
+    }
+
+    public StreamingSession begin(
+            Map<Integer, BlockInfo> blockRegistry,
+            int centerWorldX,
+            int centerWorldZ,
+            int radius,
+            List<ActualBlockMatchSpec> matches,
+            ActualBlockYFilter yFilter
+    ) {
         Objects.requireNonNull(blockRegistry, "blockRegistry is required");
         Objects.requireNonNull(matches, "matches are required");
         Objects.requireNonNull(yFilter, "yFilter is required");
@@ -33,22 +89,16 @@ public class MultiActualBlockMapScanner {
             throw new IllegalArgumentException("radius must be positive");
         }
 
-        Map<String, Integer> matchIndexes = new LinkedHashMap<>();
-        List<String> normalizedMatches = new ArrayList<>();
-        for (String match : matches) {
-            if (match == null || match.isBlank()) {
-                throw new IllegalArgumentException("matches must not contain blanks");
-            }
-            String normalized = match.trim().toLowerCase(Locale.ROOT);
-            if (matchIndexes.putIfAbsent(normalized, normalizedMatches.size()) != null) {
-                throw new IllegalArgumentException("Duplicate actual ore match: " + match);
-            }
-            normalizedMatches.add(normalized);
-        }
-
-        List<MutableMap> maps = normalizedMatches.stream()
-                .map(match -> new MutableMap(
+        List<ActualBlockMatchSpec> specs = matches.stream()
+                .map(match -> Objects.requireNonNull(
                         match,
+                        "matches must not contain null"
+                ))
+                .toList();
+
+        List<MutableMap> maps = specs.stream()
+                .map(spec -> new MutableMap(
+                        spec.match(),
                         centerWorldX,
                         centerWorldZ,
                         radius,
@@ -56,52 +106,147 @@ public class MultiActualBlockMapScanner {
                 ))
                 .toList();
 
-        Map<Integer, List<Integer>> blockMatches = new HashMap<>();
+        Map<Integer, int[]> blockMatches = new HashMap<>();
+        int[] wantedBlockIds = new int[blockRegistry.size()];
+        int wantedSize = 0;
+
         for (BlockInfo block : blockRegistry.values()) {
             if (block == null || block.code() == null) {
                 continue;
             }
-            String code = block.code().toLowerCase(Locale.ROOT);
-            for (int index = 0; index < normalizedMatches.size(); index++) {
-                if (OreCodeMatcher.matchesOreCode(
-                        code,
-                        normalizedMatches.get(index)
-                )) {
-                    blockMatches.computeIfAbsent(block.id(), ignored -> new ArrayList<>())
-                            .add(index);
+
+            int[] resourceIndexes = new int[specs.size()];
+            int resourceSize = 0;
+            for (int index = 0; index < specs.size(); index++) {
+                if (matches(specs.get(index), block.code())) {
+                    resourceIndexes[resourceSize++] = index;
                 }
+            }
+
+            if (resourceSize == 0) {
+                continue;
+            }
+
+            int[] existingIndexes = blockMatches.get(block.id());
+            int[] combinedIndexes = existingIndexes == null
+                    ? Arrays.copyOf(resourceIndexes, resourceSize)
+                    : appendUniqueIndexes(
+                            existingIndexes,
+                            resourceIndexes,
+                            resourceSize
+                    );
+            blockMatches.put(block.id(), combinedIndexes);
+            if (!contains(wantedBlockIds, wantedSize, block.id())) {
+                wantedBlockIds[wantedSize++] = block.id();
             }
         }
 
-        long radiusSquared = (long) radius * radius;
-        for (ParsedChunk chunk : chunks) {
-            Objects.requireNonNull(chunk, "chunks must not contain null");
+        return new StreamingSession(
+                maps,
+                blockMatches,
+                Arrays.copyOf(wantedBlockIds, wantedSize)
+        );
+    }
+
+    private boolean matches(
+            ActualBlockMatchSpec spec,
+            String code
+    ) {
+        String normalizedCode = code.toLowerCase(Locale.ROOT);
+        String normalizedMatch = spec.match().trim().toLowerCase(Locale.ROOT);
+
+        return spec.mode() == ActualBlockMatchMode.ORE_CODE
+                ? OreCodeMatcher.matchesOreCode(normalizedCode, normalizedMatch)
+                : normalizedCode.contains(normalizedMatch);
+    }
+
+    private int[] appendUniqueIndexes(
+            int[] existing,
+            int[] additions,
+            int additionSize
+    ) {
+        int[] combined = Arrays.copyOf(
+                existing,
+                existing.length + additionSize
+        );
+        int size = existing.length;
+        for (int index = 0; index < additionSize; index++) {
+            if (!contains(combined, size, additions[index])) {
+                combined[size++] = additions[index];
+            }
+        }
+        return Arrays.copyOf(combined, size);
+    }
+
+    private boolean contains(int[] values, int size, int wanted) {
+        for (int index = 0; index < size; index++) {
+            if (values[index] == wanted) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public final class StreamingSession {
+        private final List<MutableMap> maps;
+        private final Map<Integer, int[]> blockMatches;
+        private final int[] wantedBlockIds;
+
+        private StreamingSession(
+                List<MutableMap> maps,
+                Map<Integer, int[]> blockMatches,
+                int[] wantedBlockIds
+        ) {
+            this.maps = maps;
+            this.blockMatches = blockMatches;
+            this.wantedBlockIds = wantedBlockIds;
+        }
+
+        public int[] wantedBlockIds() {
+            return Arrays.copyOf(wantedBlockIds, wantedBlockIds.length);
+        }
+
+        public void accept(ParsedChunk chunk) {
+            Objects.requireNonNull(chunk, "chunk is required");
+
             int baseX = chunk.coordinate().x() * ChunkCoordinate.SIZE_BLOCKS;
             int baseZ = chunk.coordinate().z() * ChunkCoordinate.SIZE_BLOCKS;
+            int radius = maps.isEmpty() ? 0 : maps.getFirst().radius;
+            int centerX = maps.isEmpty() ? 0 : maps.getFirst().centerX;
+            int centerZ = maps.isEmpty() ? 0 : maps.getFirst().centerZ;
+            ActualBlockYFilter yFilter = maps.isEmpty()
+                    ? ActualBlockYFilter.unbounded()
+                    : maps.getFirst().yFilter;
+            long radiusSquared = (long) radius * radius;
+
             for (int localY = 0; localY < chunk.sizeY(); localY++) {
                 int worldY = chunk.minY() + localY;
                 if (!yFilter.includes(worldY)) {
                     continue;
                 }
+
                 for (int localZ = 0; localZ < chunk.sizeZ(); localZ++) {
                     int worldZ = baseZ + localZ;
-                    long dz = (long) worldZ - centerWorldZ;
+                    long dz = (long) worldZ - centerZ;
                     long dzSquared = dz * dz;
                     if (dzSquared > radiusSquared) {
                         continue;
                     }
+
                     for (int localX = 0; localX < chunk.sizeX(); localX++) {
                         int worldX = baseX + localX;
-                        long dx = (long) worldX - centerWorldX;
+                        long dx = (long) worldX - centerX;
                         if (dx * dx + dzSquared > radiusSquared) {
                             continue;
                         }
-                        List<Integer> resourceIndexes = blockMatches.get(
+
+                        int[] resourceIndexes = blockMatches.get(
                                 chunk.blockIdAt(localX, localY, localZ)
                         );
                         if (resourceIndexes == null) {
                             continue;
                         }
+
                         for (int resourceIndex : resourceIndexes) {
                             maps.get(resourceIndex).add(worldX, worldZ, worldY);
                         }
@@ -110,7 +255,9 @@ public class MultiActualBlockMapScanner {
             }
         }
 
-        return maps.stream().map(MutableMap::toImmutable).toList();
+        public List<ActualBlockMap> finish() {
+            return maps.stream().map(MutableMap::toImmutable).toList();
+        }
     }
 
     private static final class MutableMap {
@@ -165,7 +312,6 @@ public class MultiActualBlockMapScanner {
                     result
             );
         }
-
     }
 
     private static final class MutableCell {

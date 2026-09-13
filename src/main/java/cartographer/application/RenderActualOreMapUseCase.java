@@ -29,6 +29,7 @@ import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMapScanner;
+import cartographer.scanner.ActualBlockMatchSpec;
 import cartographer.scanner.MultiActualBlockMapScanner;
 import cartographer.scanner.SurfaceScanResult;
 import cartographer.scanner.SurfaceScanner;
@@ -46,8 +47,8 @@ public class RenderActualOreMapUseCase {
     private final MarkerStore markerStore;
     private final MapRenderer renderer;
     private final UserMarkerRenderer userMarkerRenderer;
-    private final ActualBlockMapScanner actualBlockMapScanner;
     private final MultiActualBlockMapScanner multiActualBlockMapScanner;
+    private final OreChunkPositionPlanner oreChunkPositionPlanner;
     private final ActualOreOverlayPainter actualOreOverlayPainter;
     private final EnvironmentInterpreter environmentInterpreter = new EnvironmentInterpreter();
     private final GeologicProvinceInterpreter geologicProvinceInterpreter = new GeologicProvinceInterpreter();
@@ -74,7 +75,8 @@ public class RenderActualOreMapUseCase {
                 userMarkerRenderer,
                 actualBlockMapScanner,
                 actualOreOverlayPainter,
-                new MultiActualBlockMapScanner()
+                new MultiActualBlockMapScanner(),
+                new OreChunkPositionPlanner()
         );
     }
 
@@ -89,23 +91,54 @@ public class RenderActualOreMapUseCase {
             ActualOreOverlayPainter actualOreOverlayPainter,
             MultiActualBlockMapScanner multiActualBlockMapScanner
     ) {
+        this(
+                reader,
+                metadataReader,
+                homeStore,
+                markerStore,
+                renderer,
+                userMarkerRenderer,
+                actualBlockMapScanner,
+                actualOreOverlayPainter,
+                multiActualBlockMapScanner,
+                new OreChunkPositionPlanner()
+        );
+    }
+
+    public RenderActualOreMapUseCase(
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            HomeStore homeStore,
+            MarkerStore markerStore,
+            MapRenderer renderer,
+            UserMarkerRenderer userMarkerRenderer,
+            ActualBlockMapScanner actualBlockMapScanner,
+            ActualOreOverlayPainter actualOreOverlayPainter,
+            MultiActualBlockMapScanner multiActualBlockMapScanner,
+            OreChunkPositionPlanner oreChunkPositionPlanner
+    ) {
         this.reader = Objects.requireNonNull(reader, "reader is required");
         this.metadataReader = Objects.requireNonNull(metadataReader, "metadataReader is required");
         this.homeStore = Objects.requireNonNull(homeStore, "homeStore is required");
         this.markerStore = Objects.requireNonNull(markerStore, "markerStore is required");
         this.renderer = Objects.requireNonNull(renderer, "renderer is required");
         this.userMarkerRenderer = Objects.requireNonNull(userMarkerRenderer, "userMarkerRenderer is required");
-        this.actualBlockMapScanner = Objects.requireNonNull(actualBlockMapScanner, "actualBlockMapScanner is required");
+        Objects.requireNonNull(actualBlockMapScanner, "actualBlockMapScanner is required");
         this.actualOreOverlayPainter = Objects.requireNonNull(actualOreOverlayPainter, "actualOreOverlayPainter is required");
         this.multiActualBlockMapScanner = Objects.requireNonNull(
                 multiActualBlockMapScanner,
                 "multiActualBlockMapScanner is required"
+        );
+        this.oreChunkPositionPlanner = Objects.requireNonNull(
+                oreChunkPositionPlanner,
+                "oreChunkPositionPlanner is required"
         );
     }
 
     public RenderActualOreMapResult execute(RenderActualOreMapRequest request) {
         Objects.requireNonNull(request, "request is required");
 
+        WorldMetadata metadata = metadataReader.read(request.savePath());
         WorldPosition player = reader.readPlayerPosition(request.savePath());
         WorldPosition center = request.center().orElse(player);
         RenderOptions options = new RenderOptions(
@@ -115,7 +148,7 @@ public class RenderActualOreMapUseCase {
                 request.layers()
         );
 
-        HomeState home = absoluteHome(request.savePath());
+        HomeState home = absoluteHome(request.savePath(), metadata);
         ReadDiagnostics mapChunkDiagnostics = new ReadDiagnostics();
         List<MapChunk> chunks = reader.readMapChunksAround(
                 request.savePath(), center, request.radius(), mapChunkDiagnostics
@@ -141,7 +174,7 @@ public class RenderActualOreMapUseCase {
 
         ReadDiagnostics actualOreDiagnostics = new ReadDiagnostics();
         List<ActualOreOverlayResult> actualOreOverlays = drawActualOreOverlays(
-                request, rendered, center, actualOreDiagnostics
+                request, rendered, center, metadata, actualOreDiagnostics
         );
 
         if ((hasMapRegionOverlay(options) || !actualOreOverlays.isEmpty())
@@ -155,7 +188,6 @@ public class RenderActualOreMapUseCase {
         if (options.layers().contains(RenderLayer.MARKERS)) {
             List<cartographer.marker.UserMarker> markers = markerStore.load(request.savePath());
             if (!markers.isEmpty()) {
-                WorldMetadata metadata = metadataReader.read(request.savePath());
                 userMarkersDrawn = userMarkerRenderer.draw(
                         rendered.image(), center, request.radius(), markers, metadata
                 );
@@ -177,42 +209,48 @@ public class RenderActualOreMapUseCase {
             RenderActualOreMapRequest request,
             RenderedMap rendered,
             WorldPosition center,
+            WorldMetadata metadata,
             ReadDiagnostics diagnostics
     ) {
         List<ActualOreOverlaySpec> specs = request.oreOverlays();
         if (specs.isEmpty()) {
             return List.of();
         }
-        List<ParsedChunk> chunks = reader.readChunksAround(
-                request.savePath(), center, request.radius(), diagnostics
-        );
         Map<Integer, BlockInfo> registry = reader.readBlockRegistry(request.savePath());
         int centerX = (int) Math.round(center.x());
         int centerZ = (int) Math.round(center.z());
+        List<ActualBlockMatchSpec> matches = specs.stream()
+                .map(spec -> new ActualBlockMatchSpec(spec.match(), spec.matchMode()))
+                .toList();
+        MultiActualBlockMapScanner.StreamingSession session =
+                multiActualBlockMapScanner.begin(
+                        registry,
+                        centerX,
+                        centerZ,
+                        request.radius(),
+                        matches,
+                        request.yFilter()
+                );
+        int[] wantedBlockIds = session.wantedBlockIds();
         List<ActualBlockMap> maps;
-        if (specs.size() == 1) {
-            ActualOreOverlaySpec spec = specs.getFirst();
-            maps = List.of(
-                    actualBlockMapScanner.scan(
-                            chunks,
-                            registry,
-                            centerX,
-                            centerZ,
-                            request.radius(),
-                            spec.match(),
-                            request.yFilter()
-                    )
-            );
+        if (wantedBlockIds.length == 0) {
+            maps = session.finish();
         } else {
-            maps = multiActualBlockMapScanner.scan(
-                    chunks,
-                    registry,
+            List<cartographer.model.ChunkPosition> positions = oreChunkPositionPlanner.plan(
+                    metadata,
                     centerX,
                     centerZ,
                     request.radius(),
-                    specs.stream().map(ActualOreOverlaySpec::match).toList(),
                     request.yFilter()
             );
+            reader.forEachChunkByPositionMatchingBlockIds(
+                    request.savePath(),
+                    positions,
+                    wantedBlockIds,
+                    diagnostics,
+                    session::accept
+            );
+            maps = session.finish();
         }
 
         List<ActualOreOverlayResult> results = new java.util.ArrayList<>();
@@ -298,14 +336,14 @@ public class RenderActualOreMapUseCase {
     }
 
     private HomeState absoluteHome(
-            java.nio.file.Path savePath
+            java.nio.file.Path savePath,
+            WorldMetadata metadata
     ) {
         Optional<HomeLocation> displayHome = homeStore.load(savePath);
         if (displayHome.isEmpty()) {
             return HomeState.absent();
         }
         HomeLocation location = displayHome.orElseThrow();
-        WorldMetadata metadata = metadataReader.read(savePath);
         cartographer.model.WorldPosition absolute = metadata.toAbsolute(
                 new cartographer.model.DisplayPosition(location.x(), 0.0, location.z())
         );

@@ -27,6 +27,7 @@ import cartographer.model.BlockInfo;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMapScanner;
+import cartographer.scanner.ActualBlockMatchMode;
 import cartographer.scanner.ActualBlockYFilter;
 import javafx.application.Application;
 import javafx.concurrent.Task;
@@ -737,7 +738,10 @@ public class CartographerDesktopApp extends Application {
                     new ActualOreOverlaySpec(
                             displayName,
                             match,
-                            color
+                            color,
+                            selected == null
+                                    ? ActualBlockMatchMode.GENERIC_SUBSTRING
+                                    : ActualBlockMatchMode.ORE_CODE
                     )
             );
         }
@@ -759,7 +763,9 @@ public class CartographerDesktopApp extends Application {
                                             resource.match(),
                                             colorIndex
                                     )
-                            )
+                            ),
+                            ActualBlockMatchMode.ORE_CODE
+                    )
                     )
             );
             colorIndex++;

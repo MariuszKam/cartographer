@@ -153,6 +153,104 @@ class MultiActualBlockMapScannerTest {
         assertEquals(0, maps.getFirst().matchingBlocks());
     }
 
+    @Test
+    void streamingSessionMatchesListScan() {
+        ParsedChunk chunk = chunk(
+                new BlockAt(0, 5, 0, 1),
+                new BlockAt(1, 5, 0, 2)
+        );
+        MultiActualBlockMapScanner scanner = new MultiActualBlockMapScanner();
+        List<ActualBlockMap> listResult = scanner.scan(
+                List.of(chunk),
+                registry(),
+                0,
+                0,
+                16,
+                List.of("nativecopper", "cassiterite"),
+                ActualBlockYFilter.unbounded()
+        );
+        MultiActualBlockMapScanner.StreamingSession session = scanner.begin(
+                registry(),
+                0,
+                0,
+                16,
+                List.of(
+                        new ActualBlockMatchSpec("nativecopper", ActualBlockMatchMode.ORE_CODE),
+                        new ActualBlockMatchSpec("cassiterite", ActualBlockMatchMode.ORE_CODE)
+                ),
+                ActualBlockYFilter.unbounded()
+        );
+        session.accept(chunk);
+
+        assertEquals(listResult, session.finish());
+    }
+
+    @Test
+    void matchModesAreExplicit() {
+        ParsedChunk chunk = chunk(
+                new BlockAt(0, 5, 0, 1),
+                new BlockAt(1, 5, 0, 2)
+        );
+        Map<Integer, BlockInfo> registry = Map.of(
+                1, new BlockInfo(1, "ore-cassiterite-granite"),
+                2, new BlockInfo(2, "decorative-ore-cassiterite")
+        );
+        MultiActualBlockMapScanner scanner = new MultiActualBlockMapScanner();
+
+        MultiActualBlockMapScanner.StreamingSession ore = scanner.begin(
+                registry,
+                0,
+                0,
+                16,
+                List.of(new ActualBlockMatchSpec("cassiterite", ActualBlockMatchMode.ORE_CODE)),
+                ActualBlockYFilter.unbounded()
+        );
+        MultiActualBlockMapScanner.StreamingSession generic = scanner.begin(
+                registry,
+                0,
+                0,
+                16,
+                List.of(new ActualBlockMatchSpec("cassiterite", ActualBlockMatchMode.GENERIC_SUBSTRING)),
+                ActualBlockYFilter.unbounded()
+        );
+        ore.accept(chunk);
+        generic.accept(chunk);
+
+        assertEquals(1, ore.finish().getFirst().matchingBlocks());
+        assertEquals(2, generic.finish().getFirst().matchingBlocks());
+    }
+
+    @Test
+    void singleOreSpecMatchesSameResultAsWithAnotherOreSpec() {
+        ParsedChunk chunk = chunk(new BlockAt(0, 5, 0, 1));
+        Map<Integer, BlockInfo> registry = Map.of(
+                1, new BlockInfo(1, "ore-cassiterite-granite"),
+                2, new BlockInfo(2, "decorative-ore-cassiterite")
+        );
+        MultiActualBlockMapScanner scanner = new MultiActualBlockMapScanner();
+        ActualBlockMatchSpec cassiterite =
+                new ActualBlockMatchSpec("cassiterite", ActualBlockMatchMode.ORE_CODE);
+
+        MultiActualBlockMapScanner.StreamingSession single = scanner.begin(
+                registry, 0, 0, 16, List.of(cassiterite), ActualBlockYFilter.unbounded()
+        );
+        MultiActualBlockMapScanner.StreamingSession multiple = scanner.begin(
+                registry,
+                0,
+                0,
+                16,
+                List.of(
+                        cassiterite,
+                        new ActualBlockMatchSpec("nativecopper", ActualBlockMatchMode.ORE_CODE)
+                ),
+                ActualBlockYFilter.unbounded()
+        );
+        single.accept(chunk);
+        multiple.accept(chunk);
+
+        assertEquals(single.finish().getFirst(), multiple.finish().getFirst());
+    }
+
     private List<ActualBlockMap> scan(
             List<ParsedChunk> chunks,
             ActualBlockYFilter yFilter

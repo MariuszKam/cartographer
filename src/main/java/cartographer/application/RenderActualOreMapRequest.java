@@ -4,6 +4,7 @@ import cartographer.model.WorldPosition;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.scanner.ActualBlockYFilter;
+import cartographer.scanner.ActualBlockMatchMode;
 
 import java.nio.file.Path;
 import java.awt.Color;
@@ -83,7 +84,8 @@ public record RenderActualOreMapRequest(
                 new ActualOreOverlaySpec(
                         match,
                         match,
-                        new Color(225, 92, 24)
+                        new Color(225, 92, 24),
+                        ActualBlockMatchMode.GENERIC_SUBSTRING
                 )
         );
     }
