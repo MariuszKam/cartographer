@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VcdbsReaderSelectiveChunkLookupTest {
@@ -245,6 +246,49 @@ class VcdbsReaderSelectiveChunkLookupTest {
     }
 
     @Test
+    void selectiveAdaptiveCanChooseTableStreamAndPreservesBlocksOnly() throws Exception {
+        Path database = databaseWithRows(300);
+        RecordingChunkParser parser = parserWithPalette(99);
+
+        SelectiveChunkStreamStats stats = new VcdbsReader(
+                null, null, parser, null
+        ).forEachChunkByPositionMatchingBlockIdsAdaptive(
+                database,
+                positions(320),
+                new int[]{99},
+                new ReadDiagnostics(),
+                parser.delivered::add
+        );
+
+        assertEquals(320, stats.uniquePositionsRequested());
+        assertEquals(300, stats.rowsFound());
+        assertEquals(300, stats.payloadsParsed());
+        assertEquals(300, stats.fullyDecodedChunks());
+        assertEquals(0, stats.failedChunks());
+        assertEquals(1, stats.batchesExecuted());
+        assertEquals(ChunkDecodeProfile.BLOCKS_ONLY, parser.lastProfile.get());
+    }
+
+    @Test
+    void selectiveAdaptiveRejectsEmptyWantedIdsBeforeDatabaseAccess() {
+        CountingSqliteSaveConnection connections = new CountingSqliteSaveConnection();
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new VcdbsReader(
+                        null, null, parserWithPalette(99), null, connections
+                ).forEachChunkByPositionMatchingBlockIdsAdaptive(
+                        temporaryDirectory.resolve("missing.vcdbs"),
+                        List.of(new ChunkPosition(1, 0, 2, 0)),
+                        new int[0],
+                        new ReadDiagnostics(),
+                        ignored -> { }
+                )
+        );
+        assertEquals(0, connections.openCount());
+    }
+
+    @Test
     void selectiveTableStreamMatchesDirectLookupSemantics() throws Exception {
         ChunkPosition requested = new ChunkPosition(1, 0, 2, 0);
         ChunkPosition unrequested = new ChunkPosition(3, 0, 4, 0);
@@ -360,6 +404,33 @@ class VcdbsReaderSelectiveChunkLookupTest {
         return database;
     }
 
+    private Path databaseWithRows(int count) throws Exception {
+        Path database = databaseWithRow(
+                new ChunkPosition(0, 0, 0, 0), new byte[]{7}
+        );
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database);
+             PreparedStatement statement = connection.prepareStatement(
+                     "INSERT INTO chunk(position, data) VALUES (?, ?)")) {
+            for (int index = 1; index < count; index++) {
+                statement.setLong(
+                        1,
+                        ChunkPosEncoder.encode(new ChunkPosition(index, 0, 0, 0))
+                );
+                statement.setBytes(2, new byte[]{7});
+                statement.executeUpdate();
+            }
+        }
+        return database;
+    }
+
+    private List<ChunkPosition> positions(int count) {
+        List<ChunkPosition> positions = new ArrayList<>();
+        for (int index = 0; index < count; index++) {
+            positions.add(new ChunkPosition(index, 0, 0, 0));
+        }
+        return positions;
+    }
+
     private Path databaseWithNullRow(ChunkPosition position) throws Exception {
         return databaseWithRow(position, null);
     }
@@ -457,6 +528,21 @@ class VcdbsReaderSelectiveChunkLookupTest {
             return ParseResult.success(new ParsedChunk(
                     coordinate, coordinate.y(), 1, 1, 1, new int[]{1}
             ));
+        }
+    }
+
+    private static final class CountingSqliteSaveConnection
+            extends SqliteSaveConnection {
+        private final AtomicInteger opens = new AtomicInteger();
+
+        @Override
+        public Connection openReadOnly(Path savePath) {
+            opens.incrementAndGet();
+            return super.openReadOnly(savePath);
+        }
+
+        private int openCount() {
+            return opens.get();
         }
     }
 

@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -57,6 +58,104 @@ class VcdbsReaderDirectChunkLookupTest {
         assertEquals(1, stats.rowsFound());
         assertEquals(1, stats.parsedChunks());
         assertEquals(0, stats.failedChunks());
+    }
+
+    @Test
+    void adaptiveSingleBatchUsesDirectLookupWithoutStrategyProbe() throws Exception {
+        ChunkPosition first = new ChunkPosition(1, 0, 0, 0);
+        ChunkPosition second = new ChunkPosition(2, 0, 0, 0);
+        Path database = databaseWithRows(first, second);
+        CountingSqliteSaveConnection connections = new CountingSqliteSaveConnection();
+
+        ChunkStreamStats stats = new VcdbsReader(
+                null, null, new StubChunkParser(), null, connections
+        ).forEachChunkByPositionAdaptive(
+                database,
+                List.of(first, second),
+                new ReadDiagnostics(),
+                ignored -> { }
+        );
+
+        assertEquals(1, connections.openCount());
+        assertEquals(2, stats.rowsFound());
+        assertEquals(2, stats.parsedChunks());
+        assertEquals(1, stats.batchesExecuted());
+    }
+
+    @Test
+    void adaptiveUsesDirectLookupWhenTableContainsMoreRowsThanRequest() throws Exception {
+        Path database = databaseWithRowCount(300);
+        List<ChunkPosition> requested = positions(257);
+        CountingSqliteSaveConnection connections = new CountingSqliteSaveConnection();
+
+        ChunkStreamStats stats = new VcdbsReader(
+                null, null, new StubChunkParser(), null, connections
+        ).forEachChunkByPositionAdaptive(
+                database, requested, new ReadDiagnostics(), ignored -> { }
+        );
+
+        assertEquals(257, stats.uniquePositionsRequested());
+        assertEquals(257, stats.rowsFound());
+        assertEquals(257, stats.parsedChunks());
+        assertEquals(2, stats.batchesExecuted());
+        assertEquals(2, connections.openCount());
+    }
+
+    @Test
+    void adaptiveUsesTableStreamWhenRequestExceedsTableCardinality() throws Exception {
+        Path database = databaseWithRowCount(300);
+        CountingSqliteSaveConnection connections = new CountingSqliteSaveConnection();
+
+        ChunkStreamStats stats = new VcdbsReader(
+                null, null, new StubChunkParser(), null, connections
+        ).forEachChunkByPositionAdaptive(
+                database, positions(320), new ReadDiagnostics(), ignored -> { }
+        );
+
+        assertEquals(320, stats.uniquePositionsRequested());
+        assertEquals(300, stats.rowsFound());
+        assertEquals(300, stats.parsedChunks());
+        assertEquals(0, stats.failedChunks());
+        assertEquals(1, stats.batchesExecuted());
+        assertEquals(2, connections.openCount());
+    }
+
+    @Test
+    void adaptiveUsesTableStreamWhenRequestEqualsTableCardinality() throws Exception {
+        Path database = databaseWithRowCount(300);
+
+        ChunkStreamStats stats = new VcdbsReader(
+                null, null, new StubChunkParser(), null, new CountingSqliteSaveConnection()
+        ).forEachChunkByPositionAdaptive(
+                database, positions(300), new ReadDiagnostics(), ignored -> { }
+        );
+
+        assertEquals(1, stats.batchesExecuted());
+        assertEquals(300, stats.rowsFound());
+    }
+
+    @Test
+    void adaptiveStrategyUsesUniquePositionCount() throws Exception {
+        ChunkPosition first = new ChunkPosition(1, 0, 0, 0);
+        ChunkPosition second = new ChunkPosition(2, 0, 0, 0);
+        List<ChunkPosition> requested = new ArrayList<>();
+        for (int index = 0; index < 300; index++) {
+            requested.add(index % 2 == 0 ? first : second);
+        }
+        CountingSqliteSaveConnection connections = new CountingSqliteSaveConnection();
+
+        ChunkStreamStats stats = new VcdbsReader(
+                null, null, new StubChunkParser(), null, connections
+        ).forEachChunkByPositionAdaptive(
+                databaseWithRows(first, second),
+                requested,
+                new ReadDiagnostics(),
+                ignored -> { }
+        );
+
+        assertEquals(1, connections.openCount());
+        assertEquals(2, stats.uniquePositionsRequested());
+        assertEquals(1, stats.batchesExecuted());
     }
 
     @Test
@@ -408,6 +507,18 @@ class VcdbsReaderDirectChunkLookupTest {
         return database;
     }
 
+    private Path databaseWithRowCount(int count) throws Exception {
+        return databaseWithRows(positions(count).toArray(ChunkPosition[]::new));
+    }
+
+    private List<ChunkPosition> positions(int count) {
+        List<ChunkPosition> positions = new ArrayList<>();
+        for (int index = 0; index < count; index++) {
+            positions.add(new ChunkPosition(index, 0, 0, 0));
+        }
+        return positions;
+    }
+
     private Path databaseWithNullRow(ChunkPosition position) throws Exception {
         Path database = databaseWithRows(position);
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database);
@@ -466,6 +577,21 @@ class VcdbsReaderDirectChunkLookupTest {
 
         private List<Integer> xCoordinates() {
             return coordinates.stream().map(ChunkCoordinate::x).toList();
+        }
+    }
+
+    private static final class CountingSqliteSaveConnection
+            extends SqliteSaveConnection {
+        private final AtomicInteger opens = new AtomicInteger();
+
+        @Override
+        public Connection openReadOnly(Path savePath) {
+            opens.incrementAndGet();
+            return super.openReadOnly(savePath);
+        }
+
+        private int openCount() {
+            return opens.get();
         }
     }
 

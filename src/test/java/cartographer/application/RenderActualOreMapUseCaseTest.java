@@ -53,6 +53,7 @@ class RenderActualOreMapUseCaseTest {
         );
         RenderActualOreMapResult result = execute(reader);
 
+        assertEquals(1, reader.adaptiveSelectiveCalls);
         assertEquals(1, reader.selectiveCalls);
         assertEquals(0, reader.legacyChunkCalls);
         assertArrayEquals(new int[]{1}, reader.lastWantedBlockIds);
@@ -154,6 +155,7 @@ class RenderActualOreMapUseCaseTest {
         );
 
         assertEquals(1, reader.directMapChunkCalls);
+        assertEquals(1, reader.adaptiveExactChunkCalls);
         assertEquals(1, reader.exactChunkCalls);
         assertEquals(1, reader.exactRequests.getFirst().size());
         assertTrue(result.surface().blocks().stream()

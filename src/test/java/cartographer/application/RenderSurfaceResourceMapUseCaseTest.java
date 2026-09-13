@@ -59,6 +59,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
         assertEquals(1, reader.directMapChunkCalls);
+        assertEquals(1, reader.adaptiveExactChunkCalls);
         assertEquals(1, reader.exactChunkCalls);
         assertEquals(List.of(List.of(exactPosition)), reader.exactRequests);
         assertTrue(result.analysis().matchingBlockCount() > 0);
@@ -196,6 +197,7 @@ class RenderSurfaceResourceMapUseCaseTest {
 
         RenderSurfaceResourceMapResult result = useCase(reader).execute(request(16, 16, 1));
 
+        assertEquals(2, reader.adaptiveExactChunkCalls);
         assertEquals(2, reader.exactChunkCalls);
         assertEquals(List.of(position), reader.exactRequests.getFirst());
         Set<ChunkPosition> expectedFallback = new HashSet<>();
