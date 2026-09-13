@@ -19,7 +19,12 @@ import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -42,9 +47,9 @@ class VcdbsReaderSelectiveChunkLookupTest {
                 new int[]{99}
         );
 
-        assertEquals(1, parser.parsePayloadCalls);
-        assertEquals(1, parser.paletteProbeCalls);
-        assertEquals(0, parser.parseServerChunkCalls);
+        assertEquals(1, parser.parsePayloadCalls.get());
+        assertEquals(1, parser.paletteProbeCalls.get());
+        assertEquals(0, parser.parseServerChunkCalls.get());
         assertEquals(1, stats.payloadsParsed());
         assertEquals(1, stats.paletteRejectedChunks());
         assertEquals(0, stats.fullyDecodedChunks());
@@ -64,9 +69,9 @@ class VcdbsReaderSelectiveChunkLookupTest {
                 new int[]{99}
         );
 
-        assertEquals(1, parser.parsePayloadCalls);
-        assertEquals(1, parser.parseServerChunkCalls);
-        assertEquals(ChunkDecodeProfile.BLOCKS_ONLY, parser.lastProfile);
+        assertEquals(1, parser.parsePayloadCalls.get());
+        assertEquals(1, parser.parseServerChunkCalls.get());
+        assertEquals(ChunkDecodeProfile.BLOCKS_ONLY, parser.lastProfile.get());
         assertEquals(1, stats.fullyDecodedChunks());
         assertEquals(1, parser.delivered.size());
     }
@@ -85,7 +90,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
         );
 
         assertEquals(1, stats.fullyDecodedChunks());
-        assertEquals(1, parser.parseServerChunkCalls);
+        assertEquals(1, parser.parseServerChunkCalls.get());
     }
 
     @Test
@@ -124,7 +129,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
 
         assertEquals(1, stats.payloadsParsed());
         assertEquals(1, stats.failedChunks());
-        assertEquals(0, parser.parseServerChunkCalls);
+        assertEquals(0, parser.parseServerChunkCalls.get());
     }
 
     @Test
@@ -143,7 +148,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
         assertEquals(1, stats.rowsFound());
         assertEquals(0, stats.payloadBytes());
         assertEquals(0, stats.payloadsParsed());
-        assertEquals(0, parser.parsePayloadCalls);
+        assertEquals(0, parser.parsePayloadCalls.get());
     }
 
     @Test
@@ -171,6 +176,50 @@ class VcdbsReaderSelectiveChunkLookupTest {
         assertEquals(List.of("start", "done"), progress.events);
         assertEquals(1, stats.uniquePositionsRequested());
         assertTrue(diagnostics.notes().contains("missing table: chunk"));
+    }
+
+    @Test
+    void selectiveDecodeWorkRunsConcurrently() throws Exception {
+        ChunkPosition first = new ChunkPosition(1, 0, 2, 0);
+        ChunkPosition second = new ChunkPosition(3, 0, 4, 0);
+        Path database = databaseWithRow(first, new byte[]{7});
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database);
+             PreparedStatement statement = connection.prepareStatement(
+                     "INSERT INTO chunk(position, data) VALUES (?, ?)")) {
+            statement.setLong(1, ChunkPosEncoder.encode(second));
+            statement.setBytes(2, new byte[]{7});
+            statement.executeUpdate();
+        }
+
+        BlockingSelectiveParser parser = new BlockingSelectiveParser();
+        VcdbsReader reader = new VcdbsReader(
+                null, null, parser, null, new SqliteSaveConnection(), 2, 4
+        );
+        AtomicReference<Thread> callerThread = new AtomicReference<>();
+        AtomicReference<Thread> consumerThread = new AtomicReference<>();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        Thread caller = Thread.ofPlatform().start(() -> {
+            callerThread.set(Thread.currentThread());
+            try {
+                reader.forEachChunkByPositionMatchingBlockIds(
+                        database,
+                        List.of(first, second),
+                        new int[]{99},
+                        new ReadDiagnostics(),
+                        ignored -> consumerThread.set(Thread.currentThread())
+                );
+            } catch (Throwable exception) {
+                failure.set(exception);
+            }
+        });
+
+        assertTrue(parser.bothStarted.await(1, TimeUnit.SECONDS));
+        parser.release.countDown();
+        caller.join();
+
+        assertEquals(null, failure.get());
+        assertEquals(callerThread.get(), consumerThread.get());
+        assertEquals(2, parser.workerThreads.size());
     }
 
     @Test
@@ -256,10 +305,11 @@ class VcdbsReaderSelectiveChunkLookupTest {
     }
 
     private static final class RecordingChunkParser extends ChunkParser {
-        private int parsePayloadCalls;
-        private int paletteProbeCalls;
-        private int parseServerChunkCalls;
-        private ChunkDecodeProfile lastProfile;
+        private final AtomicInteger parsePayloadCalls = new AtomicInteger();
+        private final AtomicInteger paletteProbeCalls = new AtomicInteger();
+        private final AtomicInteger parseServerChunkCalls = new AtomicInteger();
+        private final AtomicReference<ChunkDecodeProfile> lastProfile =
+                new AtomicReference<>();
         private ParseResult<ServerChunkPayload> payloadResult =
                 ParseResult.success(new ServerChunkPayload(new byte[]{1}, new byte[0], 2));
         private ParseResult<ChunkPaletteProbe> paletteResult;
@@ -272,11 +322,12 @@ class VcdbsReaderSelectiveChunkLookupTest {
                         1,
                         new int[]{1}
                 ));
-        private final List<ParsedChunk> delivered = new ArrayList<>();
+        private final List<ParsedChunk> delivered =
+                Collections.synchronizedList(new ArrayList<>());
 
         @Override
         public ParseResult<ServerChunkPayload> parsePayload(byte[] payload) {
-            parsePayloadCalls++;
+            parsePayloadCalls.incrementAndGet();
             return payloadResult;
         }
 
@@ -284,7 +335,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
         public ParseResult<ChunkPaletteProbe> probeBlockPalette(
                 ServerChunkPayload serverChunk
         ) {
-            paletteProbeCalls++;
+            paletteProbeCalls.incrementAndGet();
             return paletteResult;
         }
 
@@ -294,9 +345,49 @@ class VcdbsReaderSelectiveChunkLookupTest {
                 ServerChunkPayload serverChunk,
                 ChunkDecodeProfile profile
         ) {
-            parseServerChunkCalls++;
-            lastProfile = profile;
+            parseServerChunkCalls.incrementAndGet();
+            lastProfile.set(profile);
             return fullDecodeResult;
+        }
+    }
+
+    private static final class BlockingSelectiveParser extends ChunkParser {
+        private final CountDownLatch bothStarted = new CountDownLatch(2);
+        private final CountDownLatch release = new CountDownLatch(1);
+        private final List<Thread> workerThreads =
+                Collections.synchronizedList(new ArrayList<>());
+
+        @Override
+        public ParseResult<ServerChunkPayload> parsePayload(byte[] payload) {
+            workerThreads.add(Thread.currentThread());
+            bothStarted.countDown();
+            try {
+                release.await();
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                return ParseResult.failure("interrupted");
+            }
+            return ParseResult.success(new ServerChunkPayload(
+                    new byte[]{1}, new byte[0], 2
+            ));
+        }
+
+        @Override
+        public ParseResult<ChunkPaletteProbe> probeBlockPalette(
+                ServerChunkPayload serverChunk
+        ) {
+            return ParseResult.success(new ChunkPaletteProbe(99));
+        }
+
+        @Override
+        public ParseResult<ParsedChunk> parse(
+                ChunkCoordinate coordinate,
+                ServerChunkPayload serverChunk,
+                ChunkDecodeProfile profile
+        ) {
+            return ParseResult.success(new ParsedChunk(
+                    coordinate, coordinate.y(), 1, 1, 1, new int[]{1}
+            ));
         }
     }
 

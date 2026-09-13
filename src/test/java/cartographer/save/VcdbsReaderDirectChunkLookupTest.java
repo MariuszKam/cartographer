@@ -15,8 +15,12 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -53,6 +57,43 @@ class VcdbsReaderDirectChunkLookupTest {
         assertEquals(1, stats.rowsFound());
         assertEquals(1, stats.parsedChunks());
         assertEquals(0, stats.failedChunks());
+    }
+
+    @Test
+    void parallelDecodeOverlapsWhileConsumerRemainsCallerThread() throws Exception {
+        ChunkPosition first = new ChunkPosition(1, 0, 2, 0);
+        ChunkPosition second = new ChunkPosition(3, 0, 4, 0);
+        Path database = databaseWithRows(first, second);
+        BlockingChunkParser parser = new BlockingChunkParser();
+        VcdbsReader reader = new VcdbsReader(
+                null, null, parser, null, new SqliteSaveConnection(), 2, 4
+        );
+        AtomicReference<Thread> callerThread = new AtomicReference<>();
+        AtomicReference<Thread> consumerThread = new AtomicReference<>();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+
+        Thread caller = Thread.ofPlatform().start(() -> {
+            callerThread.set(Thread.currentThread());
+            try {
+                reader.forEachChunkByPosition(
+                        database,
+                        List.of(first, second),
+                        new ReadDiagnostics(),
+                        ignored -> consumerThread.set(Thread.currentThread())
+                );
+            } catch (Throwable exception) {
+                failure.set(exception);
+            }
+        });
+
+        assertTrue(parser.bothStarted.await(1, TimeUnit.SECONDS));
+        parser.release.countDown();
+        caller.join();
+
+        assertEquals(null, failure.get());
+        assertEquals(callerThread.get(), consumerThread.get());
+        assertEquals(2, parser.workerThreads.size());
+        assertTrue(parser.workerThreads.stream().noneMatch(Thread::isVirtual));
     }
 
     @Test
@@ -253,8 +294,10 @@ class VcdbsReaderDirectChunkLookupTest {
     }
 
     private static final class StubChunkParser extends ChunkParser {
-        private final List<ChunkCoordinate> coordinates = new ArrayList<>();
-        private final List<ParsedChunk> delivered = new ArrayList<>();
+        private final List<ChunkCoordinate> coordinates =
+                Collections.synchronizedList(new ArrayList<>());
+        private final List<ParsedChunk> delivered =
+                Collections.synchronizedList(new ArrayList<>());
         private byte[] failurePayload;
 
         @Override
@@ -288,6 +331,31 @@ class VcdbsReaderDirectChunkLookupTest {
 
         private List<Integer> xCoordinates() {
             return coordinates.stream().map(ChunkCoordinate::x).toList();
+        }
+    }
+
+    private static final class BlockingChunkParser extends ChunkParser {
+        private final CountDownLatch bothStarted = new CountDownLatch(2);
+        private final CountDownLatch release = new CountDownLatch(1);
+        private final List<Thread> workerThreads =
+                Collections.synchronizedList(new ArrayList<>());
+
+        @Override
+        public ParseResult<ParsedChunk> parse(
+                ChunkCoordinate coordinate,
+                byte[] payload
+        ) {
+            workerThreads.add(Thread.currentThread());
+            bothStarted.countDown();
+            try {
+                release.await();
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                return ParseResult.failure("interrupted");
+            }
+            return ParseResult.success(new ParsedChunk(
+                    coordinate, coordinate.y(), 1, 1, 1, new int[]{1}
+            ));
         }
     }
 

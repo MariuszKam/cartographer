@@ -57,6 +57,8 @@ public class VcdbsReader {
     private final RegistryParser registryParser;
     private final ServerMapRegionParser serverMapRegionParser;
     private final SqliteSaveConnection connectionFactory;
+    private final int chunkDecodeWorkerCount;
+    private final int chunkDecodeMaxInFlight;
 
     public WorldPosition readPlayerPosition(
             Path savePath
@@ -290,11 +292,7 @@ public class VcdbsReader {
 
         int batchesExecuted = 0;
         int rowsFound = 0;
-        int payloadsParsed = 0;
-        int paletteRejectedChunks = 0;
-        int fullyDecodedChunks = 0;
-        int failedChunks = 0;
-        long payloadBytes = 0;
+        SelectiveDecodeCounters counters = new SelectiveDecodeCounters();
 
         try (Connection connection =
                      connectionFactory.openReadOnly(savePath)) {
@@ -322,40 +320,41 @@ public class VcdbsReader {
                 );
             }
 
-            List<Long> requested =
-                    new ArrayList<>(packedPositions);
-
-            for (int start = 0;
-                 start < requested.size();
-                 start += DIRECT_CHUNK_BATCH_SIZE) {
-                int end =
-                        Math.min(
-                                start + DIRECT_CHUNK_BATCH_SIZE,
-                                requested.size()
-                        );
-
-                SelectiveBatchStats batch =
-                        readSelectiveChunkBatch(
-                                connection,
-                                requested.subList(start, end),
-                                uniqueWantedBlockIds,
-                                diagnostics,
-                                consumer
-                        );
-
-                batchesExecuted++;
-                rowsFound += batch.rowsFound();
-                payloadsParsed += batch.payloadsParsed();
-                paletteRejectedChunks += batch.paletteRejectedChunks();
-                fullyDecodedChunks += batch.fullyDecodedChunks();
-                failedChunks += batch.failedChunks();
-                payloadBytes += batch.payloadBytes();
-
-                progress.progress(
-                        "Reading selective chunks by exact position",
-                        end,
-                        requested.size()
-                );
+            List<Long> requested = new ArrayList<>(packedPositions);
+            try (BoundedOrderedDecodePipeline<SelectiveDecodeOutcome> pipeline =
+                         new BoundedOrderedDecodePipeline<>(
+                                 chunkDecodeWorkerCount,
+                                 chunkDecodeMaxInFlight,
+                                 outcome -> applySelectiveOutcome(
+                                         outcome,
+                                         diagnostics,
+                                         consumer,
+                                         counters
+                                 )
+                         )) {
+                for (int start = 0;
+                     start < requested.size();
+                     start += DIRECT_CHUNK_BATCH_SIZE) {
+                    int end = Math.min(
+                            start + DIRECT_CHUNK_BATCH_SIZE,
+                            requested.size()
+                    );
+                    SelectiveBatchStats batch = readSelectiveChunkBatch(
+                            connection,
+                            requested.subList(start, end),
+                            uniqueWantedBlockIds,
+                            pipeline
+                    );
+                    batchesExecuted++;
+                    rowsFound += batch.rowsFound();
+                    counters.payloadBytes += batch.payloadBytes();
+                    progress.progress(
+                            "Reading selective chunks by exact position",
+                            end,
+                            requested.size()
+                    );
+                }
+                pipeline.finish();
             }
 
             progress.done(
@@ -366,11 +365,11 @@ public class VcdbsReader {
                     packedPositions.size(),
                     batchesExecuted,
                     rowsFound,
-                    payloadsParsed,
-                    paletteRejectedChunks,
-                    fullyDecodedChunks,
-                    failedChunks,
-                    payloadBytes
+                    counters.payloadsParsed,
+                    counters.paletteRejectedChunks,
+                    counters.fullyDecodedChunks,
+                    counters.failedChunks,
+                    counters.payloadBytes
             );
         } catch (SQLException exception) {
             throw new CommandException(
@@ -411,9 +410,7 @@ public class VcdbsReader {
 
         int batchesExecuted = 0;
         int rowsFound = 0;
-        int parsedChunks = 0;
-        int failedChunks = 0;
-        long payloadBytes = 0;
+        ChunkDecodeCounters counters = new ChunkDecodeCounters();
 
         try (Connection connection =
                      connectionFactory.openReadOnly(savePath)) {
@@ -440,51 +437,58 @@ public class VcdbsReader {
                 );
             }
 
-            List<Long> requested =
-                    new ArrayList<>(packedPositions);
+            List<Long> requested = new ArrayList<>(packedPositions);
+            try (BoundedOrderedDecodePipeline<ChunkDecodeOutcome> pipeline =
+                         new BoundedOrderedDecodePipeline<>(
+                                 chunkDecodeWorkerCount,
+                                 chunkDecodeMaxInFlight,
+                                 outcome -> applyChunkOutcome(
+                                         outcome,
+                                         diagnostics,
+                                         consumer,
+                                         counters
+                                 )
+                         )) {
+                for (int start = 0;
+                     start < requested.size();
+                     start += DIRECT_CHUNK_BATCH_SIZE) {
 
-            for (int start = 0;
-                 start < requested.size();
-                 start += DIRECT_CHUNK_BATCH_SIZE) {
+                    int end =
+                            Math.min(
+                                    start + DIRECT_CHUNK_BATCH_SIZE,
+                                    requested.size()
+                            );
 
-                int end =
-                        Math.min(
-                                start + DIRECT_CHUNK_BATCH_SIZE,
-                                requested.size()
-                        );
+                    BatchStats batch =
+                            readChunkBatch(
+                                    connection,
+                                    requested.subList(start, end),
+                                    pipeline
+                            );
 
-                BatchStats batch =
-                        readChunkBatch(
-                                connection,
-                                requested.subList(start, end),
-                                diagnostics,
-                                consumer
-                        );
+                    batchesExecuted++;
+                    rowsFound += batch.rowsFound();
+                    counters.payloadBytes += batch.payloadBytes();
 
-                batchesExecuted++;
-                rowsFound += batch.rowsFound();
-                parsedChunks += batch.parsedChunks();
-                failedChunks += batch.failedChunks();
-                payloadBytes += batch.payloadBytes();
+                    progress.progress(
+                            "Reading chunks by exact position",
+                            end,
+                            requested.size()
+                    );
+                }
 
-                progress.progress(
-                        "Reading chunks by exact position",
-                        end,
-                        requested.size()
-                );
+                pipeline.finish();
             }
 
-            progress.done(
-                    "Exact chunk lookup complete"
-            );
+            progress.done("Exact chunk lookup complete");
 
             return new ChunkStreamStats(
                     packedPositions.size(),
                     batchesExecuted,
                     rowsFound,
-                    parsedChunks,
-                    failedChunks,
-                    payloadBytes
+                    counters.parsedChunks,
+                    counters.failedChunks,
+                    counters.payloadBytes
             );
 
         } catch (SQLException exception) {
@@ -552,8 +556,7 @@ public class VcdbsReader {
     private BatchStats readChunkBatch(
             Connection connection,
             List<Long> packedPositions,
-            ReadDiagnostics diagnostics,
-            Consumer<ParsedChunk> consumer
+            BoundedOrderedDecodePipeline<ChunkDecodeOutcome> pipeline
     ) throws SQLException {
         String sql =
                 "SELECT position, data FROM \""
@@ -563,8 +566,6 @@ public class VcdbsReader {
                         + ")";
 
         int rowsFound = 0;
-        int parsedChunks = 0;
-        int failedChunks = 0;
         long payloadBytes = 0;
 
         try (PreparedStatement statement =
@@ -608,35 +609,13 @@ public class VcdbsReader {
 
                     payloadBytes += payload.length;
 
-                    ParseResult<ParsedChunk> parsed =
-                            chunkParser.parse(
-                                    coordinate,
-                                    payload
-                            );
-
-                    if (parsed.isSuccess()) {
-                        ParsedChunk chunk =
-                                parsed.value().orElseThrow();
-
-                        diagnostics.recordParsed();
-                        consumer.accept(chunk);
-                        parsedChunks++;
-                    } else {
-                        diagnostics.recordFailed(
-                                parsed.error().orElse(
-                                        "unknown chunk parse error"
-                                )
-                        );
-                        failedChunks++;
-                    }
+                    pipeline.submit(() -> decodeChunk(coordinate, payload));
                 }
             }
         }
 
         return new BatchStats(
                 rowsFound,
-                parsedChunks,
-                failedChunks,
                 payloadBytes
         );
     }
@@ -719,8 +698,7 @@ public class VcdbsReader {
             Connection connection,
             List<Long> packedPositions,
             int[] wantedBlockIds,
-            ReadDiagnostics diagnostics,
-            Consumer<ParsedChunk> consumer
+            BoundedOrderedDecodePipeline<SelectiveDecodeOutcome> pipeline
     ) throws SQLException {
         String sql =
                 "SELECT position, data FROM \""
@@ -730,10 +708,6 @@ public class VcdbsReader {
                         + ")";
 
         int rowsFound = 0;
-        int payloadsParsed = 0;
-        int paletteRejectedChunks = 0;
-        int fullyDecodedChunks = 0;
-        int failedChunks = 0;
         long payloadBytes = 0;
 
         try (PreparedStatement statement =
@@ -773,75 +747,17 @@ public class VcdbsReader {
 
                     payloadBytes += payload.length;
 
-                    ParseResult<ServerChunkPayload> parsedPayload =
-                            chunkParser.parsePayload(payload);
-
-                    if (!parsedPayload.isSuccess()) {
-                        diagnostics.recordFailed(
-                                parsedPayload.error().orElse(
-                                        "unknown ServerChunk parse error"
-                                )
-                        );
-                        failedChunks++;
-                        continue;
-                    }
-
-                    payloadsParsed++;
-
-                    ServerChunkPayload serverChunk =
-                            parsedPayload.value().orElseThrow();
-                    ParseResult<ChunkPaletteProbe> palette =
-                            chunkParser.probeBlockPalette(serverChunk);
-
-                    if (!palette.isSuccess()) {
-                        diagnostics.recordFailed(
-                                palette.error().orElse(
-                                        "unknown block palette probe error"
-                                )
-                        );
-                        failedChunks++;
-                        continue;
-                    }
-
-                    if (!containsWantedBlock(
-                            palette.value().orElseThrow(),
+                    pipeline.submit(() -> decodeSelectiveChunk(
+                            coordinate,
+                            payload,
                             wantedBlockIds
-                    )) {
-                        paletteRejectedChunks++;
-                        continue;
-                    }
-
-                    ParseResult<ParsedChunk> parsedChunk =
-                            chunkParser.parse(
-                                    coordinate,
-                                    serverChunk,
-                                    ChunkDecodeProfile.BLOCKS_ONLY
-                            );
-
-                    if (parsedChunk.isSuccess()) {
-                        ParsedChunk chunk =
-                                parsedChunk.value().orElseThrow();
-                        diagnostics.recordParsed();
-                        fullyDecodedChunks++;
-                        consumer.accept(chunk);
-                    } else {
-                        diagnostics.recordFailed(
-                                parsedChunk.error().orElse(
-                                        "unknown chunk decode error"
-                                )
-                        );
-                        failedChunks++;
-                    }
+                    ));
                 }
             }
         }
 
         return new SelectiveBatchStats(
                 rowsFound,
-                payloadsParsed,
-                paletteRejectedChunks,
-                fullyDecodedChunks,
-                failedChunks,
                 payloadBytes
         );
     }
@@ -859,6 +775,98 @@ public class VcdbsReader {
         return false;
     }
 
+    private ChunkDecodeOutcome decodeChunk(
+            ChunkCoordinate coordinate,
+            byte[] payload
+    ) {
+        ParseResult<ParsedChunk> parsed = chunkParser.parse(coordinate, payload);
+        if (parsed.isSuccess()) {
+            return ChunkDecodeOutcome.success(parsed.value().orElseThrow());
+        }
+        return ChunkDecodeOutcome.failure(
+                parsed.error().orElse("unknown chunk parse error")
+        );
+    }
+
+    private SelectiveDecodeOutcome decodeSelectiveChunk(
+            ChunkCoordinate coordinate,
+            byte[] payload,
+            int[] wantedBlockIds
+    ) {
+        ParseResult<ServerChunkPayload> parsedPayload = chunkParser.parsePayload(payload);
+        if (!parsedPayload.isSuccess()) {
+            return SelectiveDecodeOutcome.failure(
+                    false,
+                    parsedPayload.error().orElse("unknown ServerChunk parse error")
+            );
+        }
+
+        ServerChunkPayload serverChunk = parsedPayload.value().orElseThrow();
+        ParseResult<ChunkPaletteProbe> palette = chunkParser.probeBlockPalette(serverChunk);
+        if (!palette.isSuccess()) {
+            return SelectiveDecodeOutcome.failure(
+                    true,
+                    palette.error().orElse("unknown block palette probe error")
+            );
+        }
+
+        if (!containsWantedBlock(palette.value().orElseThrow(), wantedBlockIds)) {
+            return SelectiveDecodeOutcome.paletteRejected();
+        }
+
+        ParseResult<ParsedChunk> parsedChunk = chunkParser.parse(
+                coordinate,
+                serverChunk,
+                ChunkDecodeProfile.BLOCKS_ONLY
+        );
+        if (parsedChunk.isSuccess()) {
+            return SelectiveDecodeOutcome.success(parsedChunk.value().orElseThrow());
+        }
+        return SelectiveDecodeOutcome.failure(
+                true,
+                parsedChunk.error().orElse("unknown chunk decode error")
+        );
+    }
+
+    private void applyChunkOutcome(
+            ChunkDecodeOutcome outcome,
+            ReadDiagnostics diagnostics,
+            Consumer<ParsedChunk> consumer,
+            ChunkDecodeCounters counters
+    ) {
+        if (outcome.chunk() == null) {
+            diagnostics.recordFailed(outcome.error());
+            counters.failedChunks++;
+            return;
+        }
+        diagnostics.recordParsed();
+        consumer.accept(outcome.chunk());
+        counters.parsedChunks++;
+    }
+
+    private void applySelectiveOutcome(
+            SelectiveDecodeOutcome outcome,
+            ReadDiagnostics diagnostics,
+            Consumer<ParsedChunk> consumer,
+            SelectiveDecodeCounters counters
+    ) {
+        if (outcome.payloadParsed()) {
+            counters.payloadsParsed++;
+        }
+        if (outcome.paletteRejected()) {
+            counters.paletteRejectedChunks++;
+            return;
+        }
+        if (outcome.chunk() != null) {
+            diagnostics.recordParsed();
+            consumer.accept(outcome.chunk());
+            counters.fullyDecodedChunks++;
+            return;
+        }
+        diagnostics.recordFailed(outcome.error());
+        counters.failedChunks++;
+    }
+
     private String sqlPlaceholders(
             int count
     ) {
@@ -867,8 +875,6 @@ public class VcdbsReader {
 
     private record BatchStats(
             int rowsFound,
-            int parsedChunks,
-            int failedChunks,
             long payloadBytes
     ) {
     }
@@ -883,12 +889,92 @@ public class VcdbsReader {
 
     private record SelectiveBatchStats(
             int rowsFound,
-            int payloadsParsed,
-            int paletteRejectedChunks,
-            int fullyDecodedChunks,
-            int failedChunks,
             long payloadBytes
     ) {
+    }
+
+    private static final class ChunkDecodeCounters {
+        private int parsedChunks;
+        private int failedChunks;
+        private long payloadBytes;
+    }
+
+    private static final class SelectiveDecodeCounters {
+        private int payloadsParsed;
+        private int paletteRejectedChunks;
+        private int fullyDecodedChunks;
+        private int failedChunks;
+        private long payloadBytes;
+    }
+
+    private record ChunkDecodeOutcome(
+            ParsedChunk chunk,
+            String error
+    ) {
+        private ChunkDecodeOutcome {
+            if ((chunk == null) == (error == null)) {
+                throw new IllegalArgumentException(
+                        "chunk decode outcome must contain exactly one result"
+                );
+            }
+        }
+
+        private static ChunkDecodeOutcome success(ParsedChunk chunk) {
+            return new ChunkDecodeOutcome(
+                    Objects.requireNonNull(chunk, "chunk is required"),
+                    null
+            );
+        }
+
+        private static ChunkDecodeOutcome failure(String error) {
+            return new ChunkDecodeOutcome(
+                    null,
+                    Objects.requireNonNull(error, "error is required")
+            );
+        }
+    }
+
+    private record SelectiveDecodeOutcome(
+            boolean payloadParsed,
+            boolean paletteRejected,
+            ParsedChunk chunk,
+            String error
+    ) {
+        private SelectiveDecodeOutcome {
+            if (paletteRejected && (chunk != null || error != null)) {
+                throw new IllegalArgumentException("palette rejection cannot contain a result");
+            }
+            if (!paletteRejected && (chunk == null) == (error == null)) {
+                throw new IllegalArgumentException(
+                        "selective decode outcome must contain exactly one result"
+                );
+            }
+        }
+
+        private static SelectiveDecodeOutcome paletteRejected() {
+            return new SelectiveDecodeOutcome(true, true, null, null);
+        }
+
+        private static SelectiveDecodeOutcome success(ParsedChunk chunk) {
+            return new SelectiveDecodeOutcome(
+                    true,
+                    false,
+                    Objects.requireNonNull(chunk, "chunk is required"),
+                    null
+            );
+        }
+
+        private static SelectiveDecodeOutcome failure(
+                boolean payloadParsed,
+                String error
+        ) {
+            return new SelectiveDecodeOutcome(
+                    payloadParsed,
+                    false,
+                    null,
+                    Objects.requireNonNull(error, "error is required")
+            );
+        }
     }
 
     public Map<Integer, BlockInfo> readBlockRegistry(
@@ -933,6 +1019,36 @@ public class VcdbsReader {
             RegistryParser registryParser,
             SqliteSaveConnection connectionFactory
     ) {
+        this(
+                playerDataParser,
+                mapChunkParser,
+                chunkParser,
+                registryParser,
+                connectionFactory,
+                defaultChunkDecodeWorkerCount(),
+                defaultChunkDecodeMaxInFlight(defaultChunkDecodeWorkerCount())
+        );
+    }
+
+    VcdbsReader(
+            PlayerDataParser playerDataParser,
+            MapChunkParser mapChunkParser,
+            ChunkParser chunkParser,
+            RegistryParser registryParser,
+            SqliteSaveConnection connectionFactory,
+            int chunkDecodeWorkerCount,
+            int chunkDecodeMaxInFlight
+    ) {
+        if (chunkDecodeWorkerCount <= 0) {
+            throw new IllegalArgumentException(
+                    "chunkDecodeWorkerCount must be positive"
+            );
+        }
+        if (chunkDecodeMaxInFlight <= chunkDecodeWorkerCount) {
+            throw new IllegalArgumentException(
+                    "chunkDecodeMaxInFlight must be greater than worker count"
+            );
+        }
         this.playerDataParser =
                 playerDataParser;
 
@@ -950,6 +1066,23 @@ public class VcdbsReader {
 
         this.connectionFactory =
                 connectionFactory;
+
+        this.chunkDecodeWorkerCount = chunkDecodeWorkerCount;
+        this.chunkDecodeMaxInFlight = chunkDecodeMaxInFlight;
+    }
+
+    private static int defaultChunkDecodeWorkerCount() {
+        return Math.max(
+                1,
+                Math.min(
+                        4,
+                        Runtime.getRuntime().availableProcessors()
+                )
+        );
+    }
+
+    private static int defaultChunkDecodeMaxInFlight(int workerCount) {
+        return Math.max(workerCount + 1, workerCount * 2);
     }
 
     public WorldPosition readPlayerPosition(
