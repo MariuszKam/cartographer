@@ -170,6 +170,7 @@ public final class SearchPanel extends VBox {
     public boolean multipleResources() { return multipleResourcesButton.isSelected(); }
     public String yMinText() { return yMinField.getText(); }
     public String yMaxText() { return yMaxField.getText(); }
+    public boolean rockAtY() { return rockAtYButton.isSelected(); }
     public String rockYText() { return rockYField.getText(); }
     public int selectedRadius() { return radius128Button.isSelected() ? 128 : radius512Button.isSelected() ? 512 : radius1024Button.isSelected() ? 1024 : 256; }
     public void setOnRadiusChanged(Consumer<Integer> listener) { radiusListener = listener == null ? ignored -> { } : listener; radiusListener.accept(selectedRadius()); }

@@ -43,7 +43,7 @@ public final class ResultInspectorPane extends VBox {
         for (ActualOreOverlayResult overlay : result.actualOreOverlays()) {
             var map = overlay.map();
             nodes.add(card(overlay.spec().displayName(),
-                    "Blocks", Integer.toString(map.matchingBlocks()),
+                    "Blocks", Long.toString(map.matchingBlocks()),
                     "Columns", Integer.toString(map.hitColumns()),
                     "Y range", map.cells().isEmpty() ? "none" : map.minMatchedY() + "–" + map.maxMatchedY()));
         }
@@ -66,7 +66,7 @@ public final class ResultInspectorPane extends VBox {
         List<javafx.scene.Node> nodes = new ArrayList<>();
         nodes.add(new Label("GEOLOGY"));
         nodes.add(card(request.mode() == RockMapMode.AT_Y ? "At Y" : "Upper rock",
-                "Observed", Integer.toString(result.rendered().observedCount()),
+                "Observed", Long.toString(result.rendered().observedCount()),
                 "Rock types", Integer.toString(result.catalog().rocks().size()),
                 "Radius", Integer.toString(request.radius())));
         for (RockLegendEntry entry : result.rendered().legend()) {

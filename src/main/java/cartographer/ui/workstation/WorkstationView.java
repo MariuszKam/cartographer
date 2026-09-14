@@ -7,6 +7,8 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
+import java.util.Set;
+
 public final class WorkstationView {
     private final BorderPane root = new BorderPane();
     private final WorldPanel worldPanel;
