@@ -33,8 +33,14 @@ public final class SurfaceDiscoveryCache {
             SurfaceDiscoveryCacheKey key,
             DiscoverObservedSurfaceResourcesResult result
     ) {
-        entries.put(Objects.requireNonNull(key, "key is required"),
-                Objects.requireNonNull(result, "result is required"));
+        SurfaceDiscoveryCacheKey checkedKey = Objects.requireNonNull(key, "key is required");
+        DiscoverObservedSurfaceResourcesResult checkedResult = Objects.requireNonNull(
+                result, "result is required");
+        if (Double.compare(checkedKey.centerX(), checkedResult.center().x()) != 0
+                || Double.compare(checkedKey.centerZ(), checkedResult.center().z()) != 0) {
+            throw new IllegalArgumentException("cache key center does not match discovery result");
+        }
+        entries.put(checkedKey, checkedResult);
     }
 
     public void clear() {

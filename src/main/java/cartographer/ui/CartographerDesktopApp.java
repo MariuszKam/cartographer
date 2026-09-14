@@ -20,6 +20,7 @@ import cartographer.application.ProgressReporter;
 import cartographer.application.SurfaceDiscoveryRequestGate;
 import cartographer.application.SurfaceDiscoveryCache;
 import cartographer.application.SurfaceDiscoveryCacheKey;
+import cartographer.application.SurfaceDiscoveryPolicy;
 import cartographer.application.SurfaceResourceMatch;
 import cartographer.geology.rock.RockMapMode;
 import cartographer.prospecting.SavedOreObservationProvider;
@@ -502,15 +503,21 @@ public class CartographerDesktopApp extends Application {
             SurfaceDiscoveryCacheKey cacheKey = SurfaceDiscoveryCacheKey.of(
                     key.savePath(), key.radius(), surfaceDiscoveryCenter.orElseThrow());
             Optional<DiscoverObservedSurfaceResourcesResult> cached = surfaceDiscoveryCache.get(cacheKey);
-            if (cached.isPresent()) {
+            if (SurfaceDiscoveryPolicy.activation(cached.isPresent(), false)
+                    == SurfaceDiscoveryPolicy.Activation.CACHE_HIT) {
                 surfaceDiscoveryGate.begin(key);
+                surfaceSelectionKey = workstation.selectedObservedSurfaceResource()
+                        .map(resource -> resource.candidate().qualifiedResourceKey())
+                        .orElse(surfaceSelectionKey);
                 applySurfaceDiscoveryResult(key, cached.orElseThrow());
                 return;
             }
         }
-        if (surfaceDiscoveryTask != null
+        boolean sameKeyScanInFlight = surfaceDiscoveryTask != null
                 && !surfaceDiscoveryTask.isDone()
-                && key.equals(surfaceDiscoveryTaskKey)) {
+                && key.equals(surfaceDiscoveryTaskKey);
+        if (SurfaceDiscoveryPolicy.activation(false, sameKeyScanInFlight)
+                == SurfaceDiscoveryPolicy.Activation.ALREADY_SCANNING) {
             return;
         }
         SurfaceDiscoveryRequestGate.SurfaceDiscoveryToken token = surfaceDiscoveryGate.begin(key);
@@ -536,7 +543,8 @@ public class CartographerDesktopApp extends Application {
         };
         surfaceDiscoveryTask = task;
         task.setOnSucceeded(event -> {
-            if (!surfaceDiscoveryGate.accepts(token, currentSurfaceDiscoveryKey())) {
+            if (!SurfaceDiscoveryPolicy.shouldCacheCompletion(
+                    surfaceDiscoveryGate.accepts(token, currentSurfaceDiscoveryKey()))) {
                 return;
             }
             DiscoverObservedSurfaceResourcesResult result = task.getValue();
