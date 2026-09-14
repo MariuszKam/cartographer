@@ -14,7 +14,8 @@ public final class WorkstationView {
     public WorkstationView(Runnable onBrowse, Runnable onRender) {
         worldPanel = new WorldPanel(panel -> onBrowse.run());
         searchPanel = new SearchPanel(onRender);
-        toolNavigationPane = new ToolNavigationPane(searchPanel::setMode);
+        toolNavigationPane = new ToolNavigationPane(this::setMode);
+        setMode(SearchPanel.SearchMode.ORE);
 
         root.setLeft(new javafx.scene.layout.VBox(8, worldPanel, toolNavigationPane, searchPanel));
         root.setCenter(mapPanel);
@@ -36,6 +37,11 @@ public final class WorkstationView {
 
     public ToolNavigationPane toolNavigationPane() {
         return toolNavigationPane;
+    }
+
+    private void setMode(SearchPanel.SearchMode mode) {
+        toolNavigationPane.setMode(mode);
+        searchPanel.setMode(mode);
     }
 
     public void setBusy(boolean busy) {
