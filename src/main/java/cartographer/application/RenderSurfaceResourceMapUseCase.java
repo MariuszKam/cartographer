@@ -35,18 +35,11 @@ import cartographer.scanner.SurfaceFallbackMapChunks;
 import cartographer.scanner.SurfaceFastPathMerger;
 import cartographer.scanner.SurfaceScanResult;
 import cartographer.scanner.SurfaceScanner;
-import cartographer.scanner.SurfaceObjectScanResult;
-import cartographer.scanner.SurfaceObjectPlan;
-import cartographer.scanner.SurfaceObjectPlanner;
-import cartographer.scanner.SurfaceObjectScanner;
-import cartographer.save.SelectiveChunkVisitStatus;
-import cartographer.save.SelectiveChunkStreamStats;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -78,10 +71,6 @@ public class RenderSurfaceResourceMapUseCase {
             new SurfaceFallbackChunkPlanner();
     private final SurfaceFastPathMerger surfaceFastPathMerger =
             new SurfaceFastPathMerger();
-    private final SurfaceObjectScanner surfaceObjectScanner =
-            new SurfaceObjectScanner();
-    private final SurfaceObjectPlanner surfaceObjectPlanner =
-            new SurfaceObjectPlanner();
 
     public RenderSurfaceResourceMapUseCase(
             VcdbsReader reader,
@@ -190,13 +179,6 @@ public class RenderSurfaceResourceMapUseCase {
                         centerWorldZ,
                         request.radius()
                 );
-        SurfaceObjectPlanner.StreamingSession surfaceObjectPlannerSession =
-                surfaceObjectPlanner.begin(
-                        metadata,
-                        centerWorldX,
-                        centerWorldZ,
-                        request.radius()
-                );
         reader.forEachMapChunkByCoordinate(
                 request.savePath(),
                 directReadCoordinates,
@@ -208,7 +190,6 @@ public class RenderSurfaceResourceMapUseCase {
                     if (surfaceSearchSet.contains(mapChunk.coordinate())) {
                         deliveredSurfaceMapChunks.add(mapChunk.coordinate());
                         rainPlannerSession.accept(mapChunk);
-                        surfaceObjectPlannerSession.accept(mapChunk);
                     }
                 },
                 progress
@@ -217,7 +198,6 @@ public class RenderSurfaceResourceMapUseCase {
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
         Map<Integer, BlockInfo> registry = reader.readBlockRegistry(request.savePath());
         RainHeightSurfacePlan rainPlan = rainPlannerSession.finish();
-        SurfaceObjectPlan surfaceObjectPlan = surfaceObjectPlannerSession.finish();
         RainHeightSurfaceScanner.StreamingSession fastSession =
                 rainHeightSurfaceScanner.begin(
                         rainPlan,
@@ -288,76 +268,9 @@ public class RenderSurfaceResourceMapUseCase {
                 fallbackSurface.emptyColumns(),
                 fallbackSurface.liquidUnavailableColumns()
         );
-        List<SurfaceBlock> matchingBlocks = request.legacyMatch()
+        List<SurfaceBlock> matchingBlocks = request.material()
                 .map(match -> match.matchingBlocks(surface.blocks()))
                 .orElseGet(() -> observedBlocks(request.observedResource().orElseThrow(), registry));
-        int exposedObsidianCount = 0;
-        int looseObsidianCount = 0;
-        int surfaceObjectRegistryVariants = 0;
-        int surfaceObjectPositionsInspected = 0;
-        int surfaceObjectUnavailablePositions = 0;
-        int surfaceObjectObservedTargets = 0;
-        int surfaceObjectNotObservedTargets = 0;
-        SelectiveChunkStreamStats surfaceObjectChunkStats =
-                new SelectiveChunkStreamStats(0, 0, 0, 0, 0, 0, 0, 0);
-        if (request.observedResource().isPresent()) {
-            ObservedSurfaceResource resource = request.observedResource().orElseThrow();
-            // Discovery already performed the selective scan. Render-time
-            // diagnostics must not present observations as scanned positions.
-            surfaceObjectRegistryVariants = resource.candidate().blockIds().size();
-        }
-        if (request.legacyMatch().map(SurfaceResourceMatch::usesSurfaceObjectScan).orElse(false)) {
-            SurfaceResourceMatch legacyMatch = request.legacyMatch().orElseThrow();
-            int[] wantedBlockIds = legacyMatch.matchingBlockIds(registry);
-            surfaceObjectRegistryVariants = wantedBlockIds.length;
-            List<ChunkPosition> objectPositions = surfaceObjectPlan.chunkPositions();
-            List<ParsedChunk> objectChunks = new ArrayList<>();
-            Set<ChunkPosition> availableObjectPositions = new HashSet<>();
-            if (wantedBlockIds.length > 0 && !objectPositions.isEmpty()) {
-                surfaceObjectChunkStats = reader.forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                        request.savePath(),
-                        objectPositions,
-                        wantedBlockIds,
-                        chunkDiagnostics,
-                        visit -> {
-                            if (visit.status() == SelectiveChunkVisitStatus.DECODED) {
-                                objectChunks.add(visit.chunk());
-                                availableObjectPositions.add(visit.position());
-                            } else if (visit.status()
-                                    == SelectiveChunkVisitStatus.PALETTE_REJECTED) {
-                                availableObjectPositions.add(visit.position());
-                            }
-                        },
-                        progress
-                );
-            }
-            progress.start("Analyzing surface resources");
-            SurfaceObjectScanResult objectResult = surfaceObjectScanner.scan(
-                    surfaceObjectPlan,
-                    registry,
-                    java.util.Arrays.stream(wantedBlockIds)
-                            .boxed()
-                            .collect(java.util.stream.Collectors.toSet()),
-                    objectChunks,
-                    availableObjectPositions
-            );
-            surfaceObjectPositionsInspected = objectResult.positionsInspected();
-            surfaceObjectUnavailablePositions = objectResult.unavailablePositions();
-            surfaceObjectObservedTargets = objectResult.observedTargets();
-            surfaceObjectNotObservedTargets = objectResult.notObservedTargets();
-            List<SurfaceBlock> exposedObsidian = surface.blocks().stream()
-                    .filter(legacyMatch::matchesExposedSurfaceObsidian)
-                    .toList();
-            List<SurfaceBlock> looseObsidian = new ArrayList<>(
-                    legacyMatch.matchingBlocks(fallbackSurface.blocks())
-            );
-            looseObsidian.addAll(objectResult.blocks());
-            matchingBlocks = distinctSurfaceBlocks(exposedObsidian, looseObsidian);
-            exposedObsidianCount = (int) matchingBlocks.stream()
-                    .filter(legacyMatch::matchesExposedSurfaceObsidian)
-                    .count();
-            looseObsidianCount = matchingBlocks.size() - exposedObsidianCount;
-        }
         SurfaceResourceAnalysis analysis = surfaceResourceAnalyzer.analyzeMatched(
                 request.resourceDisplayName(),
                 matchingBlocks,
@@ -401,20 +314,7 @@ public class RenderSurfaceResourceMapUseCase {
                 rendered.report(),
                 mapChunkDiagnostics,
                 chunkDiagnostics,
-                userMarkersDrawn,
-                exposedObsidianCount,
-                looseObsidianCount,
-                surfaceObjectRegistryVariants,
-                surfaceObjectPositionsInspected,
-                surfaceObjectUnavailablePositions,
-                surfaceObjectObservedTargets,
-                surfaceObjectNotObservedTargets,
-                surfaceObjectChunkStats,
-                request.observedResource().isPresent()
-                        ? SurfaceObjectDataSource.DISCOVERY_RESULT
-                        : request.legacyMatch().map(SurfaceResourceMatch::usesSurfaceObjectScan).orElse(false)
-                                ? SurfaceObjectDataSource.LEGACY_SCAN
-                                : SurfaceObjectDataSource.NONE
+                userMarkersDrawn
         );
     }
 
@@ -437,27 +337,6 @@ public class RenderSurfaceResourceMapUseCase {
                     block
             );
         }).toList();
-    }
-
-    private List<SurfaceBlock> distinctSurfaceBlocks(
-            List<SurfaceBlock> exposedObsidian,
-            List<SurfaceBlock> looseObsidian
-    ) {
-        Map<String, SurfaceBlock> distinct = new LinkedHashMap<>();
-        for (SurfaceBlock block : exposedObsidian) {
-            distinct.put(surfaceBlockKey(block), block);
-        }
-        for (SurfaceBlock block : looseObsidian) {
-            distinct.putIfAbsent(surfaceBlockKey(block), block);
-        }
-        return List.copyOf(distinct.values());
-    }
-
-    private String surfaceBlockKey(SurfaceBlock block) {
-        return block.worldX() + ":"
-                + block.y() + ":"
-                + block.worldZ() + ":"
-                + block.blockInfo().code().toLowerCase(java.util.Locale.ROOT);
     }
 
     private HomeState absoluteHome(

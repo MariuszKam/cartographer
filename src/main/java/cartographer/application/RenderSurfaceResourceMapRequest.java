@@ -25,11 +25,11 @@ public record RenderSurfaceResourceMapRequest(
             int pixelsPerBlock,
             RenderStyle style,
             Set<RenderLayer> layers,
-            SurfaceResourceMatch match,
+            SurfaceMaterialMatch match,
             Optional<WorldPosition> center
     ) {
         this(savePath, radius, pixelsPerBlock, style, layers,
-                SurfaceResourceSelection.legacy(match), center);
+                SurfaceResourceSelection.material(match), center);
     }
 
     public static RenderSurfaceResourceMapRequest forObservedResource(
@@ -72,20 +72,14 @@ public record RenderSurfaceResourceMapRequest(
         center = Optional.ofNullable(center).orElse(Optional.empty());
     }
 
-    public Optional<SurfaceResourceMatch> legacyMatch() {
-        return selection.legacyMatch();
+    public Optional<SurfaceMaterialMatch> material() {
+        return selection.material();
     }
 
-    /**
-     * Legacy accessor retained for callers that construct legacy requests.
-     * Observed-resource requests intentionally have no matcher.
-     */
-    public SurfaceResourceMatch match() {
-        return legacyMatch().orElseThrow(
-                () -> new IllegalStateException(
-                        "Observed-resource requests do not expose a legacy match"
-                )
-        );
+    /** Returns the material matcher for a material request. */
+    public SurfaceMaterialMatch materialMatch() {
+        return material().orElseThrow(() -> new IllegalStateException(
+                "Observed-resource requests do not expose a material match"));
     }
 
     public Optional<ObservedSurfaceResource> observedResource() {

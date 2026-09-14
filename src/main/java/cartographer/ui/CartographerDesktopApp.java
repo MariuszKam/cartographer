@@ -21,7 +21,7 @@ import cartographer.application.SurfaceDiscoveryRequestGate;
 import cartographer.application.SurfaceDiscoveryCache;
 import cartographer.application.SurfaceDiscoveryCacheKey;
 import cartographer.application.SurfaceDiscoveryPolicy;
-import cartographer.application.SurfaceResourceMatch;
+import cartographer.application.SurfaceMaterialMatch;
 import cartographer.geology.rock.RockMapMode;
 import cartographer.prospecting.SavedOreObservationProvider;
 import cartographer.marker.MarkerStore;
@@ -362,7 +362,7 @@ public class CartographerDesktopApp extends Application {
         if (worldPanel.savePathText().isBlank()) {
             throw new IllegalArgumentException("Select a .vcdbs save.");
         }
-        SurfaceResourceMatch match = searchPanel.surfaceMaterialMatch().orElseThrow(
+        SurfaceMaterialMatch match = searchPanel.surfaceMaterialMatch().orElseThrow(
                 () -> new IllegalStateException("Select a surface material."));
         RenderSurfaceResourceMapRequest request = new RenderSurfaceResourceMapRequest(
                 Path.of(worldPanel.savePathText()), searchPanel.selectedRadius(), 1,

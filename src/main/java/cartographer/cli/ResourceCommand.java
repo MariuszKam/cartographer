@@ -3,7 +3,7 @@ package cartographer.cli;
 import cartographer.application.InspectSurfaceObjectsRequest;
 import cartographer.application.InspectSurfaceObjectsResult;
 import cartographer.application.InspectSurfaceObjectsUseCase;
-import cartographer.application.SurfaceResourceMatch;
+import cartographer.application.SurfaceMaterialMatch;
 import cartographer.model.BlockInfo;
 import cartographer.model.DisplayPosition;
 import cartographer.model.HomeLocation;
@@ -858,19 +858,19 @@ public class ResourceCommand implements Command {
         }
 
         Path savePath = Path.of(args[0]);
-        SurfaceResourceMatch match = surfaceMatch(args[1]);
+        String resourceKey = args[1];
         int radius = intOption(args, "--radius", DEFAULT_SURFACE_RADIUS, 8192);
         InspectSurfaceObjectsResult result = surfaceObjectInspectionUseCase.execute(
                 new InspectSurfaceObjectsRequest(
                         savePath,
-                        match,
+                        resourceKey,
                         radius,
                         center(args)
                 )
         );
 
         out.println("SURFACE OBJECT INSPECT");
-        out.println("Resource: " + match.displayName());
+        out.println("Resource: " + resourceKey);
         out.println("Center: " + result.center().x() + "," + result.center().z());
         out.println("Radius: " + radius);
         out.println("Registry matches: " + result.registryMatches().size());
@@ -1160,7 +1160,7 @@ public class ResourceCommand implements Command {
                         progress
                 );
 
-        SurfaceResourceMatch surfaceMatch = surfaceMatch(match);
+        SurfaceMaterialMatch surfaceMatch = surfaceMatch(match);
         SurfaceResourceAnalysis analysis = surfaceResourceAnalyzer.analyzeMatched(
                 surfaceMatch.displayName(),
                 surfaceMatch.matchingBlocks(surface.blocks()),
@@ -1176,12 +1176,8 @@ public class ResourceCommand implements Command {
         );
     }
 
-    private SurfaceResourceMatch surfaceMatch(String value) {
-        if (value.equalsIgnoreCase("obsidian")
-                || value.equalsIgnoreCase("obsidian surface")) {
-            return SurfaceResourceMatch.looseObsidian();
-        }
-        return new SurfaceResourceMatch(value, List.of(value));
+    private SurfaceMaterialMatch surfaceMatch(String value) {
+        return new SurfaceMaterialMatch(value, List.of(value));
     }
 
     private RenderOptions terrainRenderOptions(

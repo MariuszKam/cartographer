@@ -62,19 +62,23 @@ public final class ResultInspectorPane extends VBox {
     }
 
     public void showSurfaceResult(RenderSurfaceResourceMapResult result, RenderSurfaceResourceMapRequest request) {
-        String summary = request.observedResource().isPresent()
-                ? "Observed occurrences: "
+        boolean observed = request.observedResource().isPresent();
+        String summary = observed
+                ? "Source: discovery result\nObserved occurrences: "
                         + request.observedResource().orElseThrow().observedCount()
-                : result.surfaceObjectScanUsed()
-                        ? "Exposed obsidian: " + result.exposedObsidianCount()
-                        + "\nLoose obsidian: " + result.looseObsidianCount()
-                        : "Surface scan complete.";
-        content.getChildren().setAll(sectionTitle("Surface Resource"),
+                : "Surface material scan complete.";
+        String key2 = observed ? "Occurrences" : "Matched blocks";
+        String value2 = observed
+                ? Integer.toString(request.observedResource().orElseThrow().observedCount())
+                : Integer.toString(result.analysis().matchingBlockCount());
+        String key3 = observed ? "Registry variants" : "Areas/deposits";
+        String value3 = observed
+                ? Integer.toString(request.observedResource().orElseThrow().candidate().blockIds().size())
+                : Integer.toString(result.analysis().depositCount());
+        content.getChildren().setAll(sectionTitle(observed ? "Surface Object" : "Surface Material"),
                 card(request.resourceDisplayName(), "Matches", Integer.toString(result.analysis().matchingBlockCount()),
-                        request.observedResource().isPresent() ? "Occurrences" : "Deposits",
-                        request.observedResource().map(resource -> Integer.toString(resource.observedCount()))
-                                .orElseGet(() -> Integer.toString(result.analysis().depositCount())),
-                        "Radius", Integer.toString(request.radius())),
+                        key2, value2, key3, value3),
+                label("Radius: " + request.radius()),
                 label(summary));
         diagnostics.show(surfaceDiagnostics(result, request));
     }
@@ -166,43 +170,9 @@ public final class ResultInspectorPane extends VBox {
     ) {
         List<String> lines = new ArrayList<>(diagnostics(result.mapChunkDiagnostics(), result.chunkDiagnostics()));
         if (request.observedResource().isPresent()) {
-            lines.add("Surface object source: discovery result");
-            lines.add("Observed occurrences: "
-                    + request.observedResource().orElseThrow().observedCount());
+            lines.add("Source: discovery result");
+            lines.add("Observed occurrences: " + request.observedResource().orElseThrow().observedCount());
             return lines;
-        }
-        lines.add("Surface object source: legacy surface scan");
-        var stats = result.surfaceObjectChunkStats();
-        lines.add("Registry variants: " + result.surfaceObjectRegistryVariants());
-        lines.add("Positions inspected: " + result.surfaceObjectPositionsInspected());
-        lines.add("Unavailable positions: " + result.surfaceObjectUnavailablePositions());
-        lines.add("Observed surface objects: " + result.surfaceObjectObservedTargets());
-        lines.add("Not observed surface objects: " + result.surfaceObjectNotObservedTargets());
-        lines.add("Decoded chunks: " + stats.fullyDecodedChunks());
-        lines.add("Palette rejected: " + stats.paletteRejectedChunks());
-        lines.add("Missing/requested-but-not-found chunks: "
-                + (stats.uniquePositionsRequested() - stats.rowsFound()));
-        lines.add("Failed chunks: " + stats.failedChunks());
-        if (result.surfaceObjectRegistryVariants() == 0) {
-            lines.add("No block registry codes matched the surface resource families.");
-        }
-        int observationLimit = Math.min(20, result.analysis().matchingBlocks().size());
-        if (observationLimit > 0) {
-            lines.add("Observations:");
-            for (int index = 0; index < observationLimit; index++) {
-                var point = result.analysis().matchingBlocks().get(index);
-                lines.add("  " + point.blockCode() + " @ " + point.worldX() + ", "
-                        + point.y() + ", " + point.worldZ());
-            }
-        }
-        int depositLimit = Math.min(5, result.analysis().deposits().size());
-        if (depositLimit > 0) {
-            lines.add("Largest deposits:");
-            for (int index = 0; index < depositLimit; index++) {
-                var deposit = result.analysis().deposits().get(index);
-                lines.add("  " + (index + 1) + ". blocks=" + deposit.blockCount()
-                        + " Y=" + deposit.minY() + ".." + deposit.maxY());
-            }
         }
         return lines;
     }

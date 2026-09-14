@@ -5,22 +5,22 @@ import cartographer.resource.ObservedSurfaceResource;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Explicitly selects either the legacy matcher or precomputed observations. */
+/** Explicitly selects either a surface material or precomputed observations. */
 public record SurfaceResourceSelection(
-        Optional<SurfaceResourceMatch> legacyMatch,
+        Optional<SurfaceMaterialMatch> material,
         Optional<ObservedSurfaceResource> observedResource
 ) {
     public SurfaceResourceSelection {
-        Objects.requireNonNull(legacyMatch, "legacy match is required");
+        Objects.requireNonNull(material, "material is required");
         Objects.requireNonNull(observedResource, "observed resource is required");
-        if (legacyMatch.isPresent() == observedResource.isPresent()) {
+        if (material.isPresent() == observedResource.isPresent()) {
             throw new IllegalArgumentException(
                     "exactly one surface resource selection is required"
             );
         }
     }
 
-    public static SurfaceResourceSelection legacy(SurfaceResourceMatch match) {
+    public static SurfaceResourceSelection material(SurfaceMaterialMatch match) {
         return new SurfaceResourceSelection(
                 Optional.of(Objects.requireNonNull(match, "match is required")),
                 Optional.empty()
@@ -37,8 +37,8 @@ public record SurfaceResourceSelection(
     }
 
     public String displayName() {
-        if (legacyMatch.isPresent()) {
-            return legacyMatch.orElseThrow().displayName();
+        if (material.isPresent()) {
+            return material.orElseThrow().displayName();
         }
         var candidate = observedResource.orElseThrow().candidate();
         return "game".equals(candidate.namespace()) || candidate.namespace().isBlank()

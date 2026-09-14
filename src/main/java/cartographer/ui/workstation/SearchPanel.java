@@ -1,14 +1,14 @@
 package cartographer.ui.workstation;
 
 import cartographer.application.ActualOreOverlaySpec;
-import cartographer.application.SurfaceResourceMatch;
+import cartographer.application.SurfaceMaterialMatch;
 import cartographer.model.BlockInfo;
 import cartographer.render.OreOverlayPalette;
 import cartographer.resource.ObservedSurfaceResource;
 import cartographer.resource.ObservedSurfaceResourceCatalog;
 import cartographer.ui.OrePreset;
 import cartographer.ui.OreResource;
-import cartographer.ui.SurfaceResourcePreset;
+import cartographer.ui.SurfaceMaterialPreset;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
@@ -40,7 +40,7 @@ public final class SearchPanel extends VBox {
     private SurfaceMode surfaceMode = SurfaceMode.OBJECTS;
     private final ComboBox<OreResource> resourceBox = new ComboBox<>();
     private final ComboBox<ObservedSurfaceResource> surfaceResourceBox = new ComboBox<>();
-    private final ComboBox<SurfaceResourcePreset> surfaceMaterialBox = new ComboBox<>();
+    private final ComboBox<SurfaceMaterialPreset> surfaceMaterialBox = new ComboBox<>();
     private final ToggleButton surfaceObjectsButton = new ToggleButton("Objects");
     private final ToggleButton surfaceMaterialsButton = new ToggleButton("Materials");
     private final RadioButton singleResourceButton = new RadioButton("Single resource");
@@ -117,8 +117,8 @@ public final class SearchPanel extends VBox {
             public ObservedSurfaceResource fromString(String value) { return null; }
         });
         surfaceResourceBox.valueProperty().addListener((o, old, selected) -> updateSurfaceResourceStatus());
-        surfaceMaterialBox.getItems().setAll(legacySurfaceMaterials());
-        surfaceMaterialBox.setValue(SurfaceResourcePreset.FIRE_CLAY);
+        surfaceMaterialBox.getItems().setAll(surfaceMaterials());
+        surfaceMaterialBox.setValue(SurfaceMaterialPreset.FIRE_CLAY);
         surfaceMaterialBox.setEditable(false);
         surfaceMaterialBox.valueProperty().addListener((o, old, selected) -> updateRenderAvailability());
         ToggleGroup surfaceModes = new ToggleGroup();
@@ -213,10 +213,10 @@ public final class SearchPanel extends VBox {
     public void setOnRadiusChanged(Consumer<Integer> listener) { radiusListener = listener == null ? ignored -> { } : listener; radiusListener.accept(selectedRadius()); }
     public void setOnSurfaceModeChanged(Consumer<SurfaceMode> listener) { surfaceModeListener = listener == null ? ignored -> { } : listener; }
     public SurfaceMode selectedSurfaceMode() { return surfaceMode; }
-    public Optional<SurfaceResourcePreset> selectedSurfaceMaterial() { return Optional.ofNullable(surfaceMaterialBox.getValue()); }
-    public Optional<SurfaceResourceMatch> surfaceMaterialMatch() {
-        return selectedSurfaceMaterial().map(preset -> new SurfaceResourceMatch(
-                preset.label(), preset.requiredTokens(), preset.acceptedCodePrefixes()));
+    public Optional<SurfaceMaterialPreset> selectedSurfaceMaterial() { return Optional.ofNullable(surfaceMaterialBox.getValue()); }
+    public Optional<SurfaceMaterialMatch> surfaceMaterialMatch() {
+        return selectedSurfaceMaterial().map(preset -> new SurfaceMaterialMatch(
+                preset.label(), preset.requiredTokens()));
     }
     public String resourceMatch() { String editor = oreResourceText(); return resourceForDisplayName(editor).map(OreResource::match).orElse(editor); }
     public void setResources(List<OreResource> resources, Map<Integer, BlockInfo> registry) { discoveredResources = resources; rebuildResourceChecklist(); resourceBox.getItems().setAll(resources.isEmpty() ? presetResources() : resources); if (!resourceBox.getItems().isEmpty()) resourceBox.setValue(resourceBox.getItems().getFirst()); updateResourceStatus(); updateSurfaceResourceStatus(); }
@@ -297,8 +297,8 @@ public final class SearchPanel extends VBox {
     }
     private Optional<OreResource> resourceForDisplayName(String value) { return resourceBox.getItems().stream().filter(resource -> resource.displayName().equalsIgnoreCase(value.trim())).findFirst(); }
     private List<OreResource> presetResources() { return Arrays.stream(OrePreset.values()).map(preset -> new OreResource(preset.label(), preset.match(), preset.match(), false, 0)).toList(); }
-    static List<SurfaceResourcePreset> legacySurfaceMaterials() {
-        return List.of(SurfaceResourcePreset.FIRE_CLAY, SurfaceResourcePreset.CLAY, SurfaceResourcePreset.PEAT);
+    static List<SurfaceMaterialPreset> surfaceMaterials() {
+        return List.of(SurfaceMaterialPreset.FIRE_CLAY, SurfaceMaterialPreset.CLAY, SurfaceMaterialPreset.PEAT);
     }
 
     private void updateYFields() { boolean disabled = allYButton.isSelected() || mode != SearchMode.ORE; yMinField.setDisable(disabled); yMaxField.setDisable(disabled); updateRockMode(); }

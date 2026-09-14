@@ -6,6 +6,9 @@ import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParsedChunk;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
+import cartographer.resource.SurfaceObjectCandidate;
+import cartographer.resource.SurfaceObjectCandidateCatalog;
+import cartographer.resource.SurfaceObjectCandidateCatalogBuilder;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SelectiveChunkStreamStats;
 import cartographer.save.SelectiveChunkVisitStatus;
@@ -21,6 +24,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -31,6 +35,8 @@ public final class InspectSurfaceObjectsUseCase {
             new MapChunkPositionPlanner();
     private final SurfaceObjectPlanner planner = new SurfaceObjectPlanner();
     private final SurfaceObjectScanner scanner = new SurfaceObjectScanner();
+    private final SurfaceObjectCandidateCatalogBuilder candidateBuilder =
+            new SurfaceObjectCandidateCatalogBuilder();
 
     public InspectSurfaceObjectsUseCase(
             VcdbsReader reader,
@@ -62,9 +68,17 @@ public final class InspectSurfaceObjectsUseCase {
         );
         SurfaceObjectPlan plan = planning.finish();
         Map<Integer, BlockInfo> registry = reader.readBlockRegistry(request.savePath());
-        int[] wantedIds = request.match().matchingBlockIds(registry);
-        List<BlockInfo> registryMatches = registry.values().stream()
-                .filter(request.match()::matches)
+        SurfaceObjectCandidateCatalog catalog = candidateBuilder.build(registry);
+        List<SurfaceObjectCandidate> selectedCandidates = catalog.candidates().stream()
+                .filter(candidate -> candidate.qualifiedResourceKey().equalsIgnoreCase(request.resourceKey())
+                        || candidate.resourceKey().equalsIgnoreCase(request.resourceKey()))
+                .toList();
+        int[] wantedIds = selectedCandidates.stream()
+                .flatMapToInt(candidate -> candidate.blockIds().stream().mapToInt(Integer::intValue))
+                .distinct().sorted().toArray();
+        List<BlockInfo> registryMatches = selectedCandidates.stream()
+                .flatMap(candidate -> candidate.blockIds().stream().map(registry::get))
+                .filter(Objects::nonNull)
                 .sorted(Comparator.comparingInt(BlockInfo::id))
                 .toList();
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();

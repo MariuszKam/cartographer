@@ -1,18 +1,17 @@
 package cartographer.ui.workstation;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import cartographer.ui.SurfaceResourcePreset;
+import cartographer.ui.SurfaceMaterialPreset;
 import org.junit.jupiter.api.Test;
 
 class SurfaceMaterialOptionsTest {
     @Test
     void legacyMaterialsRemainAvailableWithoutLegacyObsidian() {
-        var materials = SearchPanel.legacySurfaceMaterials();
+        var materials = SearchPanel.surfaceMaterials();
 
-        assertEquals(java.util.List.of(SurfaceResourcePreset.FIRE_CLAY,
-                SurfaceResourcePreset.CLAY, SurfaceResourcePreset.PEAT), materials);
-        assertFalse(materials.contains(SurfaceResourcePreset.OBSIDIAN));
+        assertEquals(java.util.List.of(SurfaceMaterialPreset.FIRE_CLAY,
+                SurfaceMaterialPreset.CLAY, SurfaceMaterialPreset.PEAT), materials);
+        assertEquals(3, SurfaceMaterialPreset.values().length);
     }
 }
