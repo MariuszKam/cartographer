@@ -7,6 +7,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
 import javafx.embed.swing.SwingFXUtils;
 import java.awt.image.BufferedImage;
+import java.util.function.Consumer;
 
 public final class MapPanel extends BorderPane {
     private static final double MIN_ZOOM = 0.25;
@@ -21,6 +22,7 @@ public final class MapPanel extends BorderPane {
     private double baseWidth;
     private double baseHeight;
     private boolean mapAvailable;
+    private Consumer<Double> zoomListener = ignored -> { };
 
     public MapPanel() {
         toolbar = new MapToolbar(this::zoomOut, this::zoomIn, this::fit, this::centerPlayer, this::resetView);
@@ -43,6 +45,9 @@ public final class MapPanel extends BorderPane {
     public void show(BufferedImage image) {
         show(SwingFXUtils.toFXImage(image, null), image.getWidth(), image.getHeight());
     }
+
+    public double zoomFactor() { return zoomFactor; }
+    public void setOnZoomChanged(Consumer<Double> listener) { zoomListener = listener == null ? ignored -> { } : listener; zoomListener.accept(zoomFactor); }
 
     private void show(Image image, int width, int height) {
         imageView.setImage(image);
@@ -81,6 +86,7 @@ public final class MapPanel extends BorderPane {
         zoomFactor = Math.clamp(requested, MIN_ZOOM, MAX_ZOOM);
         imageView.setFitWidth(baseWidth * zoomFactor);
         imageView.setFitHeight(baseHeight * zoomFactor);
+        zoomListener.accept(zoomFactor);
     }
 
     private void centerView() {

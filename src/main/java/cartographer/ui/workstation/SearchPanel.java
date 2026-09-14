@@ -30,6 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 public final class SearchPanel extends VBox {
     public enum SearchMode { ORE, SURFACE, ROCK, PROSPECTING }
@@ -58,8 +59,6 @@ public final class SearchPanel extends VBox {
     private final RadioButton radius1024Button = new RadioButton("1024");
     private final Label radiusWarningLabel = new Label("Large radius: rendering may take longer and use substantially more memory.");
     private final Button renderButton = new Button("Render");
-    private final ProgressIndicator progress = new ProgressIndicator();
-    private final Label statusLabel = new Label();
     private final Label resourceStatusLabel = new Label();
     private final Label surfaceResourceStatusLabel = new Label();
     private final VBox modeContent = new VBox(4);
@@ -69,6 +68,7 @@ public final class SearchPanel extends VBox {
     private final VBox prospectingContent = new VBox(4);
     private VBox radiusContent;
     private VBox yFilterContent;
+    private Consumer<Integer> radiusListener = ignored -> { };
     private List<OreResource> discoveredResources = List.of();
     private Map<Integer, BlockInfo> loadedRegistry = Map.of();
 
@@ -77,8 +77,7 @@ public final class SearchPanel extends VBox {
         buildControls();
         getChildren().addAll(
                 new Separator(),
-                new HBox(8, renderButton, progress),
-                statusLabel
+                new HBox(8, renderButton)
         );
         setPrefWidth(280);
     }
@@ -112,7 +111,10 @@ public final class SearchPanel extends VBox {
 
         ToggleGroup radiusGroup = new ToggleGroup();
         for (RadioButton button : List.of(radius128Button, radius256Button, radius512Button, radius1024Button)) button.setToggleGroup(radiusGroup);
-        radius256Button.setSelected(true); radius1024Button.selectedProperty().addListener((o, old, selected) -> updateRadiusWarning());
+        radius256Button.setSelected(true); radius1024Button.selectedProperty().addListener((o, old, selected) -> { updateRadiusWarning(); radiusListener.accept(selectedRadius()); });
+        radius128Button.selectedProperty().addListener((o, old, selected) -> { if (selected) radiusListener.accept(selectedRadius()); });
+        radius256Button.selectedProperty().addListener((o, old, selected) -> { if (selected) radiusListener.accept(selectedRadius()); });
+        radius512Button.selectedProperty().addListener((o, old, selected) -> { if (selected) radiusListener.accept(selectedRadius()); });
         radiusWarningLabel.setVisible(false); radiusWarningLabel.setManaged(false);
         ToggleGroup yGroup = new ToggleGroup(); allYButton.setToggleGroup(yGroup); customYButton.setToggleGroup(yGroup); allYButton.setSelected(true);
         yMinField.setPromptText("min"); yMaxField.setPromptText("max"); rockYField.setPromptText("world Y");
@@ -121,8 +123,7 @@ public final class SearchPanel extends VBox {
         allYButton.selectedProperty().addListener((o, old, selected) -> updateYFields());
         updateYFields(); updateRockMode();
         renderButton.setOnAction(e -> onRender.run());
-        progress.setVisible(false); progress.setPrefSize(28, 28);
-        statusLabel.setWrapText(true); resourceStatusLabel.setWrapText(true); surfaceResourceStatusLabel.setWrapText(true);
+        resourceStatusLabel.setWrapText(true); surfaceResourceStatusLabel.setWrapText(true);
         updateResourceStatus(); updateSurfaceResourceStatus();
     }
 
@@ -171,17 +172,17 @@ public final class SearchPanel extends VBox {
     public String yMaxText() { return yMaxField.getText(); }
     public String rockYText() { return rockYField.getText(); }
     public int selectedRadius() { return radius128Button.isSelected() ? 128 : radius512Button.isSelected() ? 512 : radius1024Button.isSelected() ? 1024 : 256; }
+    public void setOnRadiusChanged(Consumer<Integer> listener) { radiusListener = listener == null ? ignored -> { } : listener; radiusListener.accept(selectedRadius()); }
     public String resourceMatch() { String editor = oreResourceText(); return resourceForDisplayName(editor).map(OreResource::match).orElse(editor); }
-    public void setStatus(String text) { statusLabel.setText(text); }
     public void setResources(List<OreResource> resources, Map<Integer, BlockInfo> registry) { discoveredResources = resources; loadedRegistry = registry; rebuildResourceChecklist(); resourceBox.getItems().setAll(resources.isEmpty() ? presetResources() : resources); if (!resourceBox.getItems().isEmpty()) resourceBox.setValue(resourceBox.getItems().getFirst()); updateResourceStatus(); updateSurfaceResourceStatus(); }
     public void setDiscoveryFailure() { resourceBox.getItems().setAll(presetResources()); discoveredResources = presetResources(); loadedRegistry = Map.of(); rebuildResourceChecklist(); resourceBox.setValue(resourceBox.getItems().getFirst()); resourceStatusLabel.setText("Registry match: unavailable"); }
 
     public void setBusy(boolean busy) {
         for (javafx.scene.control.Control control : List.of(renderButton, selectAllButton, clearAllButton, radius128Button, radius256Button, radius512Button, radius1024Button, allYButton, customYButton, singleResourceButton, multipleResourcesButton, resourceBox, surfaceResourceBox, rockUpperButton, rockAtYButton, rockYField, prospectingResourceField, yMinField, yMaxField)) control.setDisable(busy);
         yMinField.setDisable(busy || allYButton.isSelected() || mode != SearchMode.ORE); yMaxField.setDisable(busy || allYButton.isSelected() || mode != SearchMode.ORE);
-        rockYField.setDisable(busy || !rockAtYButton.isSelected() || mode != SearchMode.ROCK); progress.setVisible(busy);
+        rockYField.setDisable(busy || !rockAtYButton.isSelected() || mode != SearchMode.ROCK);
     }
-    public void setDiscoveryBusy(boolean busy) { renderButton.setDisable(busy); resourceBox.setDisable(busy); surfaceResourceBox.setDisable(busy); prospectingResourceField.setDisable(busy); singleResourceButton.setDisable(busy); multipleResourcesButton.setDisable(busy); selectAllButton.setDisable(busy); clearAllButton.setDisable(busy); progress.setVisible(false); }
+    public void setDiscoveryBusy(boolean busy) { renderButton.setDisable(busy); resourceBox.setDisable(busy); surfaceResourceBox.setDisable(busy); prospectingResourceField.setDisable(busy); singleResourceButton.setDisable(busy); multipleResourcesButton.setDisable(busy); selectAllButton.setDisable(busy); clearAllButton.setDisable(busy); }
 
 
     public List<ActualOreOverlaySpec> selectedOverlays() {

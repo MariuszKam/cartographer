@@ -128,14 +128,16 @@ public class CartographerDesktopApp extends Application {
         var selected = chooser.showOpenDialog(stage);
         if (selected != null) {
             worldPanel.setSavePath(selected.toPath().toString());
-            searchPanel.setStatus("");
+            workstation.setSavePath(selected.toPath());
+            workstation.setStatus("");
             loadSaveData(selected.toPath());
         }
     }
 
     private void loadSaveData(Path savePath) {
         workstation.setDiscoveryBusy(true);
-        searchPanel.setStatus("Loading resources and player position...");
+        workstation.setStatus("Loading resources and player position...");
+        workstation.setPlayerLoaded(false);
         worldPanel.setPlayerStatus("Player: loading...");
 
         Task<SaveLoadResult> task = new Task<>() {
@@ -161,7 +163,8 @@ public class CartographerDesktopApp extends Application {
             worldPanel.setPlayerStatus(
                     loaded.player().map(this::formatPlayer).orElse("Player: unavailable")
             );
-            searchPanel.setStatus(
+            workstation.setPlayerLoaded(loaded.player().isPresent());
+            workstation.setStatus(
                     discovered.isEmpty()
                             ? "No resource maps found; custom matches are available."
                             : "Loaded " + discovered.size() + " resources."
@@ -171,6 +174,7 @@ public class CartographerDesktopApp extends Application {
         task.setOnFailed(event -> {
             searchPanel.setDiscoveryFailure();
             worldPanel.setPlayerStatus("Player: unavailable");
+            workstation.setPlayerLoaded(false);
             showFailure(task.getException());
             workstation.setDiscoveryBusy(false);
         });
@@ -196,7 +200,7 @@ public class CartographerDesktopApp extends Application {
             }
             RenderActualOreMapRequest request = requestFromControls();
             setBusy(true);
-            searchPanel.setStatus("Rendering...");
+            workstation.setStatus("Rendering...");
             Task<RenderActualOreMapResult> task = new Task<>() {
                 @Override
                 protected RenderActualOreMapResult call() {
@@ -216,7 +220,7 @@ public class CartographerDesktopApp extends Application {
     private void renderRockMap() {
         RenderRockMapRequest request = rockRequestFromControls();
         setBusy(true);
-        searchPanel.setStatus("Rendering observed rock geology...");
+        workstation.setStatus("Rendering observed rock geology...");
         Task<RenderRockMapResult> task = new Task<>() {
             @Override
             protected RenderRockMapResult call() {
@@ -243,7 +247,7 @@ public class CartographerDesktopApp extends Application {
                 resource.isBlank() ? Optional.empty() : Optional.of(resource)
         );
         setBusy(true);
-        searchPanel.setStatus("Analyzing prospecting evidence...");
+        workstation.setStatus("Analyzing prospecting evidence...");
         Task<ProspectingAreaResult> task = new Task<>() {
             @Override
             protected ProspectingAreaResult call() {
@@ -283,7 +287,7 @@ public class CartographerDesktopApp extends Application {
     private void renderSurfaceResource() {
         RenderSurfaceResourceMapRequest request = surfaceRequestFromControls();
         setBusy(true);
-        searchPanel.setStatus("Rendering surface resource...");
+        workstation.setStatus("Rendering surface resource...");
         Task<RenderSurfaceResourceMapResult> task = new Task<>() {
             @Override
             protected RenderSurfaceResourceMapResult call() {
@@ -382,7 +386,7 @@ public class CartographerDesktopApp extends Application {
                     .append(foundY(map));
         }
         resultText.append("\n\nTotal matching blocks: ").append(total);
-        searchPanel.setStatus("Rendered.");
+        workstation.setStatus("Rendered.");
         setBusy(false);
     }
 
@@ -461,7 +465,7 @@ public class CartographerDesktopApp extends Application {
                         .append(deposit.maxY());
             }
         }
-        searchPanel.setStatus("Rendered.");
+        workstation.setStatus("Rendered.");
         setBusy(false);
     }
 
@@ -485,13 +489,13 @@ public class CartographerDesktopApp extends Application {
                 .append("\nObserved: ").append(result.rendered().observedCount())
                 .append("\nNo rock: ").append(result.rendered().noRockCount())
                 .append("\nUnavailable: ").append(result.rendered().unavailableCount());
-        searchPanel.setStatus("Rock map rendered.");
+        workstation.setStatus("Rock map rendered.");
         setBusy(false);
     }
 
     private void showProspectingResult(ProspectingAreaResult result) {
         resultInspector.showProspectingResult(result);
-        searchPanel.setStatus("Prospecting analysis complete.");
+        workstation.setStatus("Prospecting analysis complete.");
         setBusy(false);
     }
 
@@ -532,7 +536,7 @@ public class CartographerDesktopApp extends Application {
     }
 
     private void showFailure(Throwable failure) {
-        searchPanel.setStatus("Error: " + conciseMessage(failure));
+        workstation.setStatus("Error: " + conciseMessage(failure));
         resultInspector.showError(failure);
         setBusy(false);
     }

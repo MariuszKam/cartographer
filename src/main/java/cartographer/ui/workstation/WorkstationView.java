@@ -2,7 +2,10 @@ package cartographer.ui.workstation;
 
 import javafx.geometry.Insets;
 import javafx.scene.Parent;
+import javafx.scene.control.Button;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 
 public final class WorkstationView {
     private final BorderPane root = new BorderPane();
@@ -12,6 +15,12 @@ public final class WorkstationView {
     private final LayerPanel layerPanel;
     private final ResultInspectorPane resultInspectorPane;
     private final MapPanel mapPanel = new MapPanel();
+    private final WorkstationWorldBar worldBar = new WorkstationWorldBar();
+    private final WorkstationStatusBar statusBar = new WorkstationStatusBar();
+    private final VBox leftContent;
+    private final VBox rightContent;
+    private final Button leftToggle = new Button("Hide tools");
+    private final Button rightToggle = new Button("Hide inspector");
 
     public WorkstationView(Runnable onBrowse, Runnable onRender) {
         worldPanel = new WorldPanel(panel -> onBrowse.run());
@@ -20,10 +29,20 @@ public final class WorkstationView {
         layerPanel = new LayerPanel();
         resultInspectorPane = new ResultInspectorPane();
         setMode(SearchPanel.SearchMode.ORE);
+        searchPanel.setOnRadiusChanged(statusBar::setRadius);
+        mapPanel.setOnZoomChanged(statusBar::setZoomFactor);
 
-        root.setLeft(new javafx.scene.layout.VBox(8, worldPanel, toolNavigationPane, searchPanel, layerPanel));
+        leftContent = new VBox(8, worldPanel, toolNavigationPane, searchPanel, layerPanel);
+        leftToggle.setOnAction(event -> toggleLeft());
+        VBox left = new VBox(4, leftToggle, leftContent);
+        rightContent = new VBox(4, rightToggle, resultInspectorPane);
+        rightToggle.setOnAction(event -> toggleRight());
+
+        root.setTop(worldBar);
+        root.setLeft(left);
         root.setCenter(mapPanel);
-        root.setRight(resultInspectorPane);
+        root.setRight(rightContent);
+        root.setBottom(statusBar);
         BorderPane.setMargin(root.getLeft(), new Insets(12));
         BorderPane.setMargin(mapPanel, new Insets(12, 12, 12, 0));
     }
@@ -55,6 +74,7 @@ public final class WorkstationView {
         toolNavigationPane.setBusy(busy);
         searchPanel.setBusy(busy);
         layerPanel.setBusy(busy);
+        statusBar.setBusy(busy);
     }
 
     public void setDiscoveryBusy(boolean busy) {
@@ -62,6 +82,27 @@ public final class WorkstationView {
         toolNavigationPane.setBusy(busy);
         searchPanel.setDiscoveryBusy(busy);
         layerPanel.setBusy(busy);
+        statusBar.setBusy(false);
+    }
+
+    public void setStatus(String text) { statusBar.setStatus(text); }
+    public void setSavePath(java.nio.file.Path path) { worldBar.setSavePath(path); }
+    public void setPlayerLoaded(boolean loaded) { worldBar.setPlayerLoaded(loaded); }
+
+    private void toggleLeft() {
+        boolean visible = leftContent.isVisible();
+        leftContent.setVisible(!visible);
+        leftContent.setManaged(!visible);
+        leftToggle.setText(visible ? "Show tools" : "Hide tools");
+    }
+
+    private void toggleRight() {
+        boolean visible = resultInspectorPane.isVisible();
+        resultInspectorPane.setVisible(!visible);
+        resultInspectorPane.setManaged(!visible);
+        rightToggle.setText(visible ? "Show inspector" : "Hide inspector");
+        if (visible) rightContent.setPrefWidth(Region.USE_COMPUTED_SIZE);
+        else rightContent.setPrefWidth(310);
     }
 
     public Set<cartographer.render.RenderLayer> selectedRenderLayers() {
