@@ -16,6 +16,7 @@ public final class LayerPanel extends VBox {
 
     public LayerPanel() {
         super(4);
+        getStyleClass().add("layer-panel");
         getChildren().addAll(new Label("LAYERS"), terrain, surface, markers);
         terrain.setSelected(true);
         surface.setSelected(true);

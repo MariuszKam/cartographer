@@ -25,6 +25,7 @@ public final class MapPanel extends BorderPane {
     private Consumer<Double> zoomListener = ignored -> { };
 
     public MapPanel() {
+        getStyleClass().add("map-viewport");
         toolbar = new MapToolbar(this::zoomOut, this::zoomIn, this::fit, this::centerPlayer, this::resetView);
         preview.setPannable(true);
         preview.setFitToWidth(false);

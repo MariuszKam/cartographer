@@ -12,6 +12,7 @@ public final class WorkstationStatusBar extends HBox {
 
     public WorkstationStatusBar() {
         super(12);
+        getStyleClass().add("status-bar");
         progress.setPrefSize(18, 18);
         progress.setVisible(false);
         getChildren().addAll(operation, zoom, radius, progress);

@@ -12,7 +12,6 @@ import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
@@ -74,6 +73,7 @@ public final class SearchPanel extends VBox {
 
     public SearchPanel(Runnable onRender) {
         configureControls(onRender);
+        getStyleClass().add("tool-options");
         buildControls();
         getChildren().addAll(
                 new Separator(),

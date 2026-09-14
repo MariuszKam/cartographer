@@ -23,6 +23,7 @@ public final class WorkstationView {
     private final Button rightToggle = new Button("Hide inspector");
 
     public WorkstationView(Runnable onBrowse, Runnable onRender) {
+        root.getStyleClass().add("workstation-root");
         worldPanel = new WorldPanel(panel -> onBrowse.run());
         searchPanel = new SearchPanel(onRender);
         toolNavigationPane = new ToolNavigationPane(this::setMode);
@@ -34,8 +35,11 @@ public final class WorkstationView {
 
         leftContent = new VBox(8, worldPanel, toolNavigationPane, searchPanel, layerPanel);
         leftToggle.setOnAction(event -> toggleLeft());
+        leftContent.getStyleClass().add("sidebar");
         VBox left = new VBox(4, leftToggle, leftContent);
+        left.getStyleClass().add("sidebar");
         rightContent = new VBox(4, rightToggle, resultInspectorPane);
+        rightContent.getStyleClass().add("result-inspector");
         rightToggle.setOnAction(event -> toggleRight());
 
         root.setTop(worldBar);

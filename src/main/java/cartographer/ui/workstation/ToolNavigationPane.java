@@ -16,6 +16,11 @@ public final class ToolNavigationPane extends VBox {
 
     public ToolNavigationPane(Consumer<SearchPanel.SearchMode> onModeChanged) {
         super(4);
+        getStyleClass().add("tool-navigation");
+        ores.getStyleClass().add("tool-nav-item");
+        surface.getStyleClass().add("tool-nav-item");
+        geology.getStyleClass().add("tool-nav-item");
+        prospecting.getStyleClass().add("tool-nav-item");
         getChildren().add(new Label("MAP TOOLS"));
         getChildren().addAll(ores, surface, geology, prospecting);
         ores.setToggleGroup(group);

@@ -12,6 +12,7 @@ public final class MapToolbar extends HBox {
 
     public MapToolbar(Runnable onZoomOut, Runnable onZoomIn, Runnable onFit, Runnable onCenterPlayer, Runnable onReset) {
         super(4);
+        getStyleClass().add("map-toolbar");
         getChildren().addAll(zoomOut, zoomIn, fit, centerPlayer, reset);
         zoomOut.setOnAction(event -> onZoomOut.run());
         zoomIn.setOnAction(event -> onZoomIn.run());

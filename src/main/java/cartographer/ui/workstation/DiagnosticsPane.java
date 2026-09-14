@@ -12,6 +12,7 @@ public final class DiagnosticsPane extends VBox {
 
     public DiagnosticsPane() {
         super(5);
+        getStyleClass().add("diagnostics");
         details.setVisible(false);
         details.setManaged(false);
         toggle.setOnAction(event -> {

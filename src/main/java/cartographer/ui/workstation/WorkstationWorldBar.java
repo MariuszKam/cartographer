@@ -11,6 +11,7 @@ public final class WorkstationWorldBar extends HBox {
 
     public WorkstationWorldBar() {
         super(12);
+        getStyleClass().add("world-bar");
         getChildren().addAll(new Label("VS Cartographer"), save, player);
     }
 

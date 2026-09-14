@@ -18,6 +18,7 @@ public final class ResultInspectorPane extends VBox {
 
     public ResultInspectorPane() {
         super(8);
+        getStyleClass().add("result-inspector");
         setPrefWidth(310);
         ScrollPane scroll = new ScrollPane(content);
         scroll.setFitToWidth(true);
@@ -93,7 +94,9 @@ public final class ResultInspectorPane extends VBox {
     }
 
     private VBox card(String title, String key1, String value1, String key2, String value2, String key3, String value3) {
-        return new VBox(2, new Label(title), new Label(key1 + ": " + value1), new Label(key2 + ": " + value2), new Label(key3 + ": " + value3));
+        VBox card = new VBox(2, new Label(title), new Label(key1 + ": " + value1), new Label(key2 + ": " + value2), new Label(key3 + ": " + value3));
+        card.getStyleClass().add("result-card");
+        return card;
     }
 
     private List<String> oreDiagnostics(RenderActualOreMapResult result) {

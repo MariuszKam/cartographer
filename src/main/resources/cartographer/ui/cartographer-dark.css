@@ -1,0 +1,99 @@
+.workstation-root {
+    -fx-background-color: #16191f;
+    -fx-font-size: 13px;
+}
+
+.world-bar, .status-bar {
+    -fx-background-color: #20252d;
+    -fx-padding: 8px 12px;
+    -fx-border-color: #343b46;
+}
+
+.world-bar {
+    -fx-border-width: 0 0 1px 0;
+}
+
+.status-bar {
+    -fx-border-width: 1px 0 0 0;
+}
+
+.sidebar, .result-inspector {
+    -fx-background-color: #1d222a;
+    -fx-padding: 10px;
+}
+
+.sidebar-title, .section-title, .inspector-title {
+    -fx-text-fill: #f0f3f7;
+    -fx-font-weight: bold;
+}
+
+.tool-navigation {
+    -fx-padding: 0 0 4px 0;
+}
+
+.tool-nav-item {
+    -fx-alignment: CENTER_LEFT;
+    -fx-background-color: #292f38;
+    -fx-text-fill: #d9dee6;
+    -fx-border-color: #3b4450;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+}
+
+.tool-nav-item:selected {
+    -fx-background-color: #365b7d;
+    -fx-text-fill: white;
+}
+
+.tool-options, .layer-panel, .result-card, .diagnostics {
+    -fx-background-color: #242a33;
+    -fx-border-color: #39414d;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+    -fx-padding: 8px;
+}
+
+.map-toolbar {
+    -fx-background-color: #20252d;
+    -fx-padding: 6px;
+    -fx-border-color: #343b46;
+    -fx-border-width: 0 0 1px 0;
+}
+
+.map-viewport {
+    -fx-background-color: #111419;
+}
+
+.button {
+    -fx-background-color: #303742;
+    -fx-text-fill: #e7ebf0;
+    -fx-border-color: #46505d;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+}
+
+.button:hover {
+    -fx-background-color: #3b4653;
+}
+
+.text-field, .combo-box, .scroll-pane {
+    -fx-background-color: #1a1f26;
+    -fx-text-fill: #e7ebf0;
+    -fx-border-color: #3d4652;
+}
+
+.label, .check-box, .radio-button {
+    -fx-text-fill: #d9dee6;
+}
+
+.warning {
+    -fx-text-fill: #e4b96a;
+}
+
+.error {
+    -fx-text-fill: #ef8e8e;
+}
+
+.diagnostics {
+    -fx-background-color: #1b2027;
+}

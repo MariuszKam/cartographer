@@ -107,6 +107,9 @@ public class CartographerDesktopApp extends Application {
         mapPanel = workstation.mapPanel();
         resultInspector = workstation.resultInspectorPane();
         Scene scene = new Scene(workstation.root(), 1180, 760);
+        scene.getStylesheets().add(
+                getClass().getResource("/cartographer/ui/cartographer-dark.css").toExternalForm()
+        );
         stage.setScene(scene);
         stage.show();
     }
