@@ -204,7 +204,7 @@ public class CartographerDesktopApp extends Application {
             RenderActualOreMapRequest request = requestFromControls();
             setBusy(true);
             workstation.setStatus("Rendering ore map...");
-            Task<RenderActualOreMapResult> task = new Task<>() {
+            ProgressTask<RenderActualOreMapResult> task = new ProgressTask<>() {
                 @Override
                 protected RenderActualOreMapResult call() {
                     return useCase.execute(request, taskProgress(this));
@@ -225,7 +225,7 @@ public class CartographerDesktopApp extends Application {
         RenderRockMapRequest request = rockRequestFromControls();
         setBusy(true);
         workstation.setStatus("Rendering observed rock geology...");
-        Task<RenderRockMapResult> task = new Task<>() {
+        ProgressTask<RenderRockMapResult> task = new ProgressTask<>() {
             @Override
             protected RenderRockMapResult call() {
                 return rockUseCase.execute(request, taskProgress(this));
@@ -293,7 +293,7 @@ public class CartographerDesktopApp extends Application {
         RenderSurfaceResourceMapRequest request = surfaceRequestFromControls();
         setBusy(true);
         workstation.setStatus("Rendering surface resource...");
-        Task<RenderSurfaceResourceMapResult> task = new Task<>() {
+        ProgressTask<RenderSurfaceResourceMapResult> task = new ProgressTask<>() {
             @Override
             protected RenderSurfaceResourceMapResult call() {
                 return surfaceUseCase.execute(request, taskProgress(this));
@@ -446,30 +446,44 @@ public class CartographerDesktopApp extends Application {
         });
     }
 
-    private ProgressReporter taskProgress(Task<?> task) {
+    private ProgressReporter taskProgress(ProgressTask<?> task) {
         return new ProgressReporter() {
             @Override
             public void start(String stage) {
-                task.updateMessage(stage);
-                task.updateProgress(-1, 1);
+                task.reportStage(stage);
             }
 
             @Override
             public void progress(String stage, int current, int total) {
-                task.updateMessage(stage);
-                if (total <= 0) {
-                    task.updateProgress(-1, 1);
-                } else {
-                    task.updateProgress(current, total);
-                }
+                task.reportProgress(stage, current, total);
             }
 
             @Override
             public void done(String stage) {
-                task.updateMessage(stage);
-                task.updateProgress(1, 1);
+                task.reportDone(stage);
             }
         };
+    }
+
+    private abstract static class ProgressTask<T> extends Task<T> {
+        final void reportStage(String stage) {
+            updateMessage(stage);
+            updateProgress(-1, 1);
+        }
+
+        final void reportProgress(String stage, int current, int total) {
+            updateMessage(stage);
+            if (total <= 0) {
+                updateProgress(-1, 1);
+            } else {
+                updateProgress(current, total);
+            }
+        }
+
+        final void reportDone(String stage) {
+            updateMessage(stage);
+            updateProgress(1, 1);
+        }
     }
 
     private List<ActualOreOverlaySpec> selectedOverlays() {
