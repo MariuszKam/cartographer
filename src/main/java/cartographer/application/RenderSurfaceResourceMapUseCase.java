@@ -302,14 +302,9 @@ public class RenderSurfaceResourceMapUseCase {
                 new SelectiveChunkStreamStats(0, 0, 0, 0, 0, 0, 0, 0);
         if (request.observedResource().isPresent()) {
             ObservedSurfaceResource resource = request.observedResource().orElseThrow();
-            // Discovery already performed the selective scan; these values
-            // describe the reused observations rather than a new scan.
+            // Discovery already performed the selective scan. Render-time
+            // diagnostics must not present observations as scanned positions.
             surfaceObjectRegistryVariants = resource.candidate().blockIds().size();
-            surfaceObjectPositionsInspected = resource.observedCount();
-            surfaceObjectObservedTargets = (int) resource.observations().stream()
-                    .map(observation -> observation.worldX() + ":" + observation.worldZ())
-                    .distinct()
-                    .count();
         }
         if (request.legacyMatch().map(SurfaceResourceMatch::usesSurfaceObjectScan).orElse(false)) {
             SurfaceResourceMatch legacyMatch = request.legacyMatch().orElseThrow();
@@ -416,7 +411,10 @@ public class RenderSurfaceResourceMapUseCase {
                 surfaceObjectNotObservedTargets,
                 surfaceObjectChunkStats,
                 request.observedResource().isPresent()
-                        || request.legacyMatch().map(SurfaceResourceMatch::usesSurfaceObjectScan).orElse(false)
+                        ? SurfaceObjectDataSource.DISCOVERY_RESULT
+                        : request.legacyMatch().map(SurfaceResourceMatch::usesSurfaceObjectScan).orElse(false)
+                                ? SurfaceObjectDataSource.LEGACY_SCAN
+                                : SurfaceObjectDataSource.NONE
         );
     }
 

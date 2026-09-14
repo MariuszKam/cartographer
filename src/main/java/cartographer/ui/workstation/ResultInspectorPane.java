@@ -71,7 +71,9 @@ public final class ResultInspectorPane extends VBox {
                         : "Surface scan complete.";
         content.getChildren().setAll(sectionTitle("Surface Resource"),
                 card(request.resourceDisplayName(), "Matches", Integer.toString(result.analysis().matchingBlockCount()),
-                        "Deposits", Integer.toString(result.analysis().depositCount()),
+                        request.observedResource().isPresent() ? "Occurrences" : "Deposits",
+                        request.observedResource().map(resource -> Integer.toString(resource.observedCount()))
+                                .orElseGet(() -> Integer.toString(result.analysis().depositCount())),
                         "Radius", Integer.toString(request.radius())),
                 label(summary));
         diagnostics.show(surfaceDiagnostics(result, request));

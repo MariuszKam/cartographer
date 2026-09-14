@@ -99,6 +99,10 @@ public final class WorkstationView {
         radiusListener.accept(searchPanel.selectedRadius());
     }
 
+    public void setOnSurfaceModeChanged(Consumer<SearchPanel.SurfaceMode> listener) {
+        searchPanel.setOnSurfaceModeChanged(listener);
+    }
+
     private void handleRadiusChanged(int radius) {
         statusBar.setRadius(radius);
         radiusListener.accept(radius);
@@ -118,6 +122,10 @@ public final class WorkstationView {
         searchPanel.setDiscoveryBusy(busy);
         layerPanel.setBusy(busy);
         statusBar.setBusy(busy);
+    }
+
+    public void setSurfaceObjectDiscoveryState(SurfaceObjectDiscoveryState state) {
+        searchPanel.setSurfaceObjectDiscoveryState(state);
     }
 
     public void setStatus(String text) { statusBar.setStatus(text); }
@@ -168,10 +176,6 @@ public final class WorkstationView {
 
     public void clearObservedSurfaceResources() {
         searchPanel.clearObservedSurfaceResources();
-    }
-
-    public void setSurfaceObjectDiscoveryStatus(String status) {
-        searchPanel.setSurfaceObjectDiscoveryStatus(status);
     }
 
     public java.util.Optional<cartographer.resource.ObservedSurfaceResource>

@@ -25,8 +25,37 @@ public record RenderSurfaceResourceMapResult(
         int surfaceObjectObservedTargets,
         int surfaceObjectNotObservedTargets,
         SelectiveChunkStreamStats surfaceObjectChunkStats,
-        boolean surfaceObjectScanUsed
+        SurfaceObjectDataSource surfaceObjectDataSource
 ) {
+
+    public RenderSurfaceResourceMapResult(
+            BufferedImage image,
+            SurfaceResourceAnalysis analysis,
+            SurfaceScanResult surfaceScan,
+            MapRenderReport renderReport,
+            ReadDiagnostics mapChunkDiagnostics,
+            ReadDiagnostics chunkDiagnostics,
+            int userMarkersDrawn,
+            int exposedObsidianCount,
+            int looseObsidianCount,
+            int surfaceObjectRegistryVariants,
+            int surfaceObjectPositionsInspected,
+            int surfaceObjectUnavailablePositions,
+            int surfaceObjectObservedTargets,
+            int surfaceObjectNotObservedTargets,
+            SelectiveChunkStreamStats surfaceObjectChunkStats,
+            boolean surfaceObjectScanUsed
+    ) {
+        this(image, analysis, surfaceScan, renderReport, mapChunkDiagnostics,
+                chunkDiagnostics, userMarkersDrawn, exposedObsidianCount,
+                looseObsidianCount, surfaceObjectRegistryVariants,
+                surfaceObjectPositionsInspected, surfaceObjectUnavailablePositions,
+                surfaceObjectObservedTargets, surfaceObjectNotObservedTargets,
+                surfaceObjectChunkStats,
+                surfaceObjectScanUsed
+                        ? SurfaceObjectDataSource.LEGACY_SCAN
+                        : SurfaceObjectDataSource.NONE);
+    }
 
     public RenderSurfaceResourceMapResult {
         Objects.requireNonNull(image, "image is required");
@@ -45,5 +74,10 @@ public record RenderSurfaceResourceMapResult(
             throw new IllegalArgumentException("surface object diagnostics cannot be negative");
         }
         Objects.requireNonNull(surfaceObjectChunkStats, "surfaceObjectChunkStats is required");
+        Objects.requireNonNull(surfaceObjectDataSource, "surfaceObjectDataSource is required");
+    }
+
+    public boolean surfaceObjectScanUsed() {
+        return surfaceObjectDataSource == SurfaceObjectDataSource.LEGACY_SCAN;
     }
 }

@@ -37,8 +37,12 @@ public record SurfaceResourceSelection(
     }
 
     public String displayName() {
-        return legacyMatch.map(SurfaceResourceMatch::displayName)
-                .orElseGet(() -> observedResource.orElseThrow()
-                        .candidate().displayName());
+        if (legacyMatch.isPresent()) {
+            return legacyMatch.orElseThrow().displayName();
+        }
+        var candidate = observedResource.orElseThrow().candidate();
+        return "game".equals(candidate.namespace()) || candidate.namespace().isBlank()
+                ? candidate.displayName()
+                : candidate.displayName() + " [" + candidate.namespace() + "]";
     }
 }

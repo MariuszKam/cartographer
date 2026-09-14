@@ -44,6 +44,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RenderSurfaceResourceMapUseCaseTest {
@@ -142,6 +143,9 @@ class RenderSurfaceResourceMapUseCaseTest {
 
         assertEquals(0, reader.coverageCalls);
         assertEquals(1, result.analysis().matchingBlockCount());
+        assertFalse(result.surfaceObjectScanUsed());
+        assertEquals(0, result.surfaceObjectPositionsInspected());
+        assertEquals(SurfaceObjectDataSource.DISCOVERY_RESULT, result.surfaceObjectDataSource());
     }
 
     @Test
