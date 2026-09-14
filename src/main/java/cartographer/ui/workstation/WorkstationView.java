@@ -7,6 +7,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
+import cartographer.render.RenderLayer;
 import java.util.Set;
 
 public final class WorkstationView {
@@ -88,7 +89,7 @@ public final class WorkstationView {
         toolNavigationPane.setBusy(busy);
         searchPanel.setDiscoveryBusy(busy);
         layerPanel.setBusy(busy);
-        statusBar.setBusy(false);
+        statusBar.setBusy(busy);
     }
 
     public void setStatus(String text) { statusBar.setStatus(text); }
@@ -111,7 +112,7 @@ public final class WorkstationView {
         else rightContent.setPrefWidth(310);
     }
 
-    public Set<cartographer.render.RenderLayer> selectedRenderLayers() {
+    public Set<RenderLayer> selectedRenderLayers() {
         return layerPanel.selectedRenderLayers();
     }
 

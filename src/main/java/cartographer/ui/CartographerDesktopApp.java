@@ -15,7 +15,6 @@ import cartographer.application.AnalyzeProspectingAreaUseCase;
 import cartographer.application.ProspectingAreaRequest;
 import cartographer.application.ProspectingAreaResult;
 import cartographer.geology.rock.RockMapMode;
-import cartographer.prospecting.ProspectingAssessment;
 import cartographer.prospecting.SavedOreObservationProvider;
 import cartographer.marker.MarkerStore;
 import cartographer.navigation.HomeStore;
@@ -368,27 +367,6 @@ public class CartographerDesktopApp extends Application {
     private void showResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
         mapPanel.show(result.image());
         resultInspector.showOreResult(result, request);
-        StringBuilder resultText = new StringBuilder()
-                .append("Resources: ")
-                .append(result.actualOreOverlays().size())
-                .append("\nRadius: ")
-                .append(request.radius())
-                .append("\nY filter: ")
-                .append(request.yFilter().description());
-        long total = 0;
-        for (var overlay : result.actualOreOverlays()) {
-            var map = overlay.map();
-            total += map.matchingBlocks();
-            resultText.append("\n\n")
-                    .append(overlay.spec().displayName())
-                    .append("\n  Blocks: ")
-                    .append(map.matchingBlocks())
-                    .append("\n  Columns: ")
-                    .append(map.hitColumns())
-                    .append("\n  Y: ")
-                    .append(foundY(map));
-        }
-        resultText.append("\n\nTotal matching blocks: ").append(total);
         workstation.setStatus("Rendered.");
         setBusy(false);
     }
@@ -399,75 +377,6 @@ public class CartographerDesktopApp extends Application {
     ) {
         mapPanel.show(result.image());
         resultInspector.showSurfaceResult(result, request);
-        StringBuilder resultText = new StringBuilder()
-                .append("Surface resource: ")
-                .append(request.match().displayName())
-                .append("\nRadius: ")
-                .append(request.radius())
-                .append("\nMatching surface blocks: ")
-                .append(result.analysis().matchingBlockCount())
-                .append("\nConnected deposits: ")
-                .append(result.analysis().depositCount());
-        if (result.surfaceObjectScanUsed()) {
-            resultText.append("\nExposed obsidian rock: ")
-                    .append(result.exposedObsidianCount())
-                    .append("\nLoose obsidian: ")
-                    .append(result.looseObsidianCount())
-                    .append("\nTotal surface observations: ")
-                    .append(result.analysis().matchingBlockCount());
-            resultText.append("\nRegistry variants: ")
-                    .append(result.surfaceObjectRegistryVariants())
-                    .append("\nSurface positions inspected: ")
-                    .append(result.surfaceObjectPositionsInspected())
-                    .append("\nUnavailable surface positions: ")
-                    .append(result.surfaceObjectUnavailablePositions())
-                    .append("\nObserved surface objects: ")
-                    .append(result.surfaceObjectObservedTargets())
-                    .append("\nNot observed: ")
-                    .append(result.surfaceObjectNotObservedTargets())
-                    .append("\nChunk outcomes: decoded=")
-                    .append(result.surfaceObjectChunkStats().fullyDecodedChunks())
-                    .append(", palette rejected=")
-                    .append(result.surfaceObjectChunkStats().paletteRejectedChunks())
-                    .append(", missing=")
-                    .append(result.surfaceObjectChunkStats().uniquePositionsRequested()
-                            - result.surfaceObjectChunkStats().rowsFound())
-                    .append(", failed=")
-                    .append(result.surfaceObjectChunkStats().failedChunks());
-            if (result.surfaceObjectRegistryVariants() == 0) {
-                resultText.append("\nNo block registry codes matched the surface resource families.");
-            }
-            int observationLimit = Math.min(20, result.analysis().matchingBlocks().size());
-            if (observationLimit > 0) {
-                resultText.append("\nObservations:");
-                for (int index = 0; index < observationLimit; index++) {
-                    var point = result.analysis().matchingBlocks().get(index);
-                    resultText.append("\n  ")
-                            .append(point.blockCode())
-                            .append(" @ ")
-                            .append(point.worldX())
-                            .append(", ")
-                            .append(point.y())
-                            .append(", ")
-                            .append(point.worldZ());
-                }
-            }
-        }
-        int limit = Math.min(5, result.analysis().deposits().size());
-        if (limit > 0) {
-            resultText.append("\n\nLargest deposits:");
-            for (int index = 0; index < limit; index++) {
-                var deposit = result.analysis().deposits().get(index);
-                resultText.append("\n")
-                        .append(index + 1)
-                        .append(". blocks=")
-                        .append(deposit.blockCount())
-                        .append(" Y=")
-                        .append(deposit.minY())
-                        .append("..")
-                        .append(deposit.maxY());
-            }
-        }
         workstation.setStatus("Rendered.");
         setBusy(false);
     }
@@ -478,20 +387,6 @@ public class CartographerDesktopApp extends Application {
     ) {
         mapPanel.show(result.rendered().image());
         resultInspector.showRockResult(result, request);
-        StringBuilder text = new StringBuilder("Observed saved geology")
-                .append("\nMode: ").append(request.mode())
-                .append("\nRadius: ").append(request.radius());
-        if (request.mode() == RockMapMode.AT_Y) {
-            text.append("\nY: ").append(request.y().orElseThrow());
-        } else {
-            text.append("\nY range: ")
-                    .append(result.minY()).append("..")
-                    .append(result.maxYExclusive()).append(" (exclusive)");
-        }
-        text.append("\nRecognized rock types: ").append(result.catalog().rocks().size())
-                .append("\nObserved: ").append(result.rendered().observedCount())
-                .append("\nNo rock: ").append(result.rendered().noRockCount())
-                .append("\nUnavailable: ").append(result.rendered().unavailableCount());
         workstation.setStatus("Rock map rendered.");
         setBusy(false);
     }
@@ -500,30 +395,6 @@ public class CartographerDesktopApp extends Application {
         resultInspector.showProspectingResult(result);
         workstation.setStatus("Prospecting analysis complete.");
         setBusy(false);
-    }
-
-    private String signalText(ProspectingAssessment assessment) {
-        return assessment.candidate().evidence().worldgenSignal().isPresent()
-                ? String.format(
-                        java.util.Locale.ROOT,
-                        "%.3f relative",
-                        assessment.candidate().evidence().worldgenSignal().getAsDouble()
-                )
-                : "unavailable";
-    }
-
-    private String actualOreText(ProspectingAssessment assessment) {
-        return switch (assessment.candidate().evidence().actualOreObservation()) {
-            case OBSERVED -> "observed";
-            case NOT_OBSERVED -> "not observed";
-            case UNAVAILABLE -> "unavailable";
-        };
-    }
-
-    private String foundY(cartographer.scanner.ActualBlockMap map) {
-        return map.cells().isEmpty()
-                ? "none"
-                : map.minMatchedY() + ".." + map.maxMatchedY();
     }
 
     private String formatPlayer(PlayerPositionView player) {
