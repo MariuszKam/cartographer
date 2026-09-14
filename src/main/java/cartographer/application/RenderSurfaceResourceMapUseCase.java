@@ -21,8 +21,7 @@ import cartographer.render.SurfaceResourceOverlayRenderer;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.resource.SurfaceMaterialAnalysis;
 import cartographer.resource.SurfaceMaterialAnalyzer;
-import cartographer.resource.ObservedSurfaceResource;
-import cartographer.resource.SurfaceObjectAnalysis;
+import cartographer.resource.SurfaceObjectSelectionAnalysis;
 import cartographer.resource.SurfaceObjectAnalyzer;
 import cartographer.resource.SurfaceRenderAnalysis;
 import cartographer.save.ReadDiagnostics;
@@ -104,21 +103,6 @@ public class RenderSurfaceResourceMapUseCase {
 
     public RenderSurfaceResourceMapResult execute(RenderSurfaceResourceMapRequest request) {
         return execute(request, ProgressReporter.NONE);
-    }
-
-    public RenderSurfaceResourceMapResult execute(
-            RenderSurfaceResourceMapRequest request,
-            ObservedSurfaceResource observedResource,
-            ProgressReporter progress
-    ) {
-        Objects.requireNonNull(observedResource, "observed resource is required");
-        if (request.observedResource().isEmpty()
-                || !request.observedResource().orElseThrow().equals(observedResource)) {
-            throw new IllegalArgumentException(
-                    "request and observed resource selection do not match"
-            );
-        }
-        return execute(request, progress);
     }
 
     public RenderSurfaceResourceMapResult execute(
@@ -280,8 +264,10 @@ public class RenderSurfaceResourceMapUseCase {
             analysis = surfaceMaterialAnalyzer.analyzeMatched(
                     request.resourceDisplayName(), matchingBlocks, surface.columnsScanned());
         } else {
-            analysis = surfaceObjectAnalyzer.analyze(
-                    request.observedResource().orElseThrow(), registry);
+            analysis = new SurfaceObjectSelectionAnalysis(
+                    request.observedResources().stream()
+                            .map(resource -> surfaceObjectAnalyzer.analyze(resource, registry))
+                            .toList());
         }
 
         RenderedMap rendered = renderer.render(
@@ -298,8 +284,8 @@ public class RenderSurfaceResourceMapUseCase {
         if (analysis instanceof SurfaceMaterialAnalysis materialAnalysis) {
             overlayRenderer.drawMaterial(rendered.image(), center, request.radius(),
                     materialAnalysis, player, home);
-        } else if (analysis instanceof SurfaceObjectAnalysis objectAnalysis) {
-            overlayRenderer.drawObject(rendered.image(), center, request.radius(),
+        } else if (analysis instanceof SurfaceObjectSelectionAnalysis objectAnalysis) {
+            overlayRenderer.drawObjects(rendered.image(), center, request.radius(),
                     objectAnalysis, player, home);
         }
 

@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -68,6 +69,25 @@ class ObservedSurfaceResourceSelectionTest {
                 .contains("Family: Loose stone"));
         assertTrue(ObservedSurfaceResourceSelection.statusText(resource)
                 .contains("Registry variants: 1"));
+    }
+
+    @Test
+    void preservesMultipleSelectionsByQualifiedKey() {
+        ObservedSurfaceResourceCatalog catalog = observed.build(
+                candidates.build(Map.of(
+                        1, new BlockInfo(1, "game:loosestones-something-free"),
+                        2, new BlockInfo(2, "somemod:loosestones-something-free"))),
+                List.of(
+                        new SurfaceBlock(0, 0, 0,
+                                new BlockInfo(1, "game:loosestones-something-free")),
+                        new SurfaceBlock(1, 0, 0,
+                                new BlockInfo(2, "somemod:loosestones-something-free"))));
+
+        assertEquals(List.of("game:something", "somemod:something"),
+                ObservedSurfaceResourceSelection.preserveAll(
+                        Set.of("game:something", "somemod:something", "game:missing"),
+                        catalog.resources()).stream()
+                        .map(resource -> resource.candidate().qualifiedResourceKey()).toList());
     }
 
     private ObservedSurfaceResourceCatalog catalog() {

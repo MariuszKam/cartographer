@@ -6,6 +6,8 @@ import cartographer.model.WorldPosition;
 import cartographer.resource.SurfaceMaterialAnalysis;
 import cartographer.resource.SurfaceMaterialDeposit;
 import cartographer.resource.SurfaceObjectAnalysis;
+import cartographer.resource.SurfaceObjectPresentation;
+import cartographer.resource.SurfaceObjectSelectionAnalysis;
 import cartographer.resource.SurfaceResourcePoint;
 
 import java.awt.BasicStroke;
@@ -235,9 +237,19 @@ public class SurfaceResourceOverlayRenderer {
             WorldPosition player,
             HomeState home
     ) {
-        if (analysis == null) {
-            throw new IllegalArgumentException("Surface object analysis is required");
-        }
+        return drawObjects(image, center, radiusBlocks,
+                new SurfaceObjectSelectionAnalysis(List.of(analysis)), player, home);
+    }
+
+    public int drawObjects(
+            BufferedImage image,
+            WorldPosition center,
+            int radiusBlocks,
+            SurfaceObjectSelectionAnalysis analysis,
+            WorldPosition player,
+            HomeState home
+    ) {
+        Objects.requireNonNull(analysis, "Surface object selection analysis is required");
         Objects.requireNonNull(image, "Image is required");
         Objects.requireNonNull(center, "Map center is required");
         Objects.requireNonNull(home, "Home state is required");
@@ -252,25 +264,23 @@ public class SurfaceResourceOverlayRenderer {
                     RenderingHints.VALUE_ANTIALIAS_ON);
             graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
                     RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-            graphics.setColor(new Color(255, 0, 220, 210));
-            SurfaceObjectMarkerStyle style = objectMarkerStyles.forFamilies(analysis.families());
-            for (SurfaceResourcePoint point : analysis.occurrences()) {
-                int startX = (int) Math.floor((point.worldX() - minWorldX) * scaleX);
-                int endX = (int) Math.ceil((point.worldX() + 1 - minWorldX) * scaleX);
-                int startY = (int) Math.floor((point.worldZ() - minWorldZ) * scaleZ);
-                int endY = (int) Math.ceil((point.worldZ() + 1 - minWorldZ) * scaleZ);
-                if (endX <= 0 || endY <= 0 || startX >= image.getWidth()
-                        || startY >= image.getHeight()) continue;
-                startX = Math.max(0, startX);
-                startY = Math.max(0, startY);
-                endX = Math.min(image.getWidth(), endX);
-                endY = Math.min(image.getHeight(), endY);
-                int markerX = (int) Math.round((point.worldX() + 0.5 - minWorldX) * scaleX);
-                int markerY = (int) Math.round((point.worldZ() + 0.5 - minWorldZ) * scaleZ);
-                drawObjectMarker(graphics, markerX, markerY, style);
-                drawn++;
+            for (SurfaceObjectAnalysis resource : analysis.resources()) {
+                SurfaceObjectMarkerStyle style = objectMarkerStyles.forFamilies(resource.families());
+                graphics.setColor(SurfaceObjectColorPolicy.colorFor(resource.qualifiedResourceKey()));
+                for (SurfaceResourcePoint point : resource.occurrences()) {
+                    int startX = (int) Math.floor((point.worldX() - minWorldX) * scaleX);
+                    int endX = (int) Math.ceil((point.worldX() + 1 - minWorldX) * scaleX);
+                    int startY = (int) Math.floor((point.worldZ() - minWorldZ) * scaleZ);
+                    int endY = (int) Math.ceil((point.worldZ() + 1 - minWorldZ) * scaleZ);
+                    if (endX <= 0 || endY <= 0 || startX >= image.getWidth()
+                            || startY >= image.getHeight()) continue;
+                    int markerX = (int) Math.round((point.worldX() + 0.5 - minWorldX) * scaleX);
+                    int markerY = (int) Math.round((point.worldZ() + 0.5 - minWorldZ) * scaleZ);
+                    drawObjectMarker(graphics, markerX, markerY, style);
+                    drawn++;
+                }
             }
-            drawObjectLegend(graphics, image, analysis, style);
+            drawObjectLegend(graphics, image, analysis);
             drawMarkers(graphics, image, player, home, minWorldX, minWorldZ, scaleX, scaleZ);
         } finally {
             graphics.dispose();
@@ -281,23 +291,41 @@ public class SurfaceResourceOverlayRenderer {
     private void drawObjectLegend(
             Graphics2D graphics,
             BufferedImage image,
-            SurfaceObjectAnalysis analysis,
-            SurfaceObjectMarkerStyle style
+            SurfaceObjectSelectionAnalysis analysis
     ) {
         if (image.getWidth() < MIN_LEGEND_WIDTH || image.getHeight() < MIN_LEGEND_HEIGHT) return;
         int x = 8;
         int y = 8;
-        SurfaceOverlayLegend legend = SurfaceOverlayLegend.forAnalysis(analysis);
-        int height = 16 + (legend.metrics().size() * 16) + 8;
+        int entryHeight = 32;
+        int availableHeight = image.getHeight() - y - 8;
+        int maxEntries = Math.max(1, (availableHeight - 24) / entryHeight);
+        boolean overflow = analysis.resources().size() > maxEntries;
+        if (overflow) {
+            maxEntries = Math.max(1, (availableHeight - 24 - 16) / entryHeight);
+        }
+        int visibleEntries = Math.min(analysis.resources().size(), maxEntries);
+        int height = 24 + visibleEntries * entryHeight + (overflow ? 16 : 0);
         graphics.setColor(new Color(0, 0, 0, 150));
         graphics.fillRect(x, y, 225, height);
         graphics.setColor(Color.WHITE);
-        graphics.drawString(legend.title(), x + 8, y + 16);
-        for (int index = 0; index < legend.metrics().size(); index++) {
-            graphics.drawString(legend.metrics().get(index), x + 8, y + 32 + index * 16);
+        graphics.drawString("Surface objects: " + analysis.resourceCount(), x + 8, y + 16);
+        for (int index = 0; index < visibleEntries; index++) {
+            SurfaceObjectAnalysis resource = analysis.resources().get(index);
+            int rowY = y + 32 + index * entryHeight;
+            SurfaceObjectMarkerStyle style = objectMarkerStyles.forFamilies(resource.families());
+            graphics.setColor(SurfaceObjectColorPolicy.colorFor(resource.qualifiedResourceKey()));
+            drawObjectMarker(graphics, x + 14, rowY - 4, style);
+            graphics.setColor(Color.WHITE);
+            graphics.drawString(resource.displayName(), x + 26, rowY);
+            graphics.drawString(SurfaceObjectPresentation.familyMetricLabel(resource.families()) + ": "
+                    + SurfaceObjectPresentation.analysisFamilyText(resource), x + 8, rowY + 12);
+            graphics.drawString(resource.occurrenceCount() + " occurrences • "
+                    + resource.registryVariantCount() + " variants", x + 8, rowY + 24);
         }
-        graphics.setColor(new Color(255, 0, 220));
-        drawObjectMarker(graphics, x + 161, y + 31, style);
+        if (visibleEntries < analysis.resources().size()) {
+            graphics.drawString("+" + (analysis.resources().size() - visibleEntries) + " more selected resources",
+                    x + 8, y + height - 4);
+        }
     }
 
     private void drawObjectMarker(

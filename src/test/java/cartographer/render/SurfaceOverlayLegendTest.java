@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SurfaceOverlayLegendTest {
     @Test
     void objectLegendUsesOccurrencesAndNoDepositCenters() {
-        SurfaceOverlayLegend legend = SurfaceOverlayLegend.forAnalysis(
+        SurfaceOverlayLegend legend = SurfaceOverlayLegend.forObject(
                 new SurfaceObjectAnalysis("Obsidian", "game:obsidian", 2,
                         List.of(new SurfaceResourcePoint(1, 2, 3, "game:loose-obsidian")),
                         new TreeSet<>(Set.of(SurfaceObjectFamily.LOOSE_STONE))));

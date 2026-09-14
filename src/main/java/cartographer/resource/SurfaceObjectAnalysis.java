@@ -13,7 +13,7 @@ public record SurfaceObjectAnalysis(
         int registryVariantCount,
         List<SurfaceResourcePoint> occurrences,
         SortedSet<SurfaceObjectFamily> families
-) implements SurfaceRenderAnalysis {
+) {
     public SurfaceObjectAnalysis {
         if (displayName == null || displayName.isBlank()) {
             throw new IllegalArgumentException("Surface object display name is required");

@@ -77,7 +77,8 @@ class RenderSurfaceResourceMapUseCaseTest {
         Map<Integer, BlockInfo> registry = Map.of(
                 0, new BlockInfo(0, "air"),
                 1, new BlockInfo(1, "game:soil-grass"),
-                7, new BlockInfo(7, "game:loosestones-obsidian-free")
+                7, new BlockInfo(7, "game:loosestones-obsidian-free"),
+                8, new BlockInfo(8, "game:looseores-nativecopper-granite-free")
         );
         FakeReader reader = new FakeReader(
                 List.of(mapChunkCoordinate),
@@ -92,25 +93,30 @@ class RenderSurfaceResourceMapUseCaseTest {
                 candidate,
                 List.of(new SurfaceObjectObservation(candidate, 16, 6, 16, 7))
         );
+        SurfaceObjectCandidate copperCandidate = new SurfaceObjectCandidateCatalogBuilder()
+                .build(registry).findByBlockId(8).orElseThrow();
+        ObservedSurfaceResource copper = new ObservedSurfaceResource(
+                copperCandidate,
+                List.of(new SurfaceObjectObservation(copperCandidate, 16, 7, 16, 8))
+        );
         RenderSurfaceResourceMapRequest request =
-                RenderSurfaceResourceMapRequest.forObservedResource(
+                RenderSurfaceResourceMapRequest.forObservedResources(
                         Path.of("save.vcdbs"),
                         1,
                         1,
                         RenderStyle.TOPOGRAPHIC,
                         EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
-                        observed,
+                        List.of(observed, copper),
                         new WorldPosition(16, 100, 16)
                 );
 
         RenderSurfaceResourceMapResult result = useCase(reader).execute(
                 request,
-                observed,
                 cartographer.application.ProgressReporter.NONE
         );
 
         assertEquals(0, reader.coverageCalls);
-        assertEquals(1, ((cartographer.resource.SurfaceObjectAnalysis) result.analysis()).occurrenceCount());
+        assertEquals(2, ((cartographer.resource.SurfaceObjectSelectionAnalysis) result.analysis()).occurrenceCount());
     }
 
     @Test
@@ -138,7 +144,7 @@ class RenderSurfaceResourceMapUseCaseTest {
                         new WorldPosition(16, 100, 16));
 
         IllegalStateException failure = assertThrows(IllegalStateException.class,
-                () -> useCase(reader).execute(request, observed,
+                () -> useCase(reader).execute(request,
                         cartographer.application.ProgressReporter.NONE));
         assertTrue(failure.getMessage().contains("missing block ID: 7"));
     }

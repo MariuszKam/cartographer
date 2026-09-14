@@ -6,6 +6,7 @@ import cartographer.prospecting.ProspectingAssessment;
 import cartographer.render.RockLegendEntry;
 import cartographer.resource.SurfaceMaterialAnalysis;
 import cartographer.resource.SurfaceObjectAnalysis;
+import cartographer.resource.SurfaceObjectSelectionAnalysis;
 import cartographer.resource.SurfaceObjectPresentation;
 import cartographer.resource.SurfaceRenderAnalysis;
 import cartographer.save.ReadDiagnostics;
@@ -66,15 +67,21 @@ public final class ResultInspectorPane extends VBox {
     }
 
     public void showSurfaceResult(RenderSurfaceResourceMapResult result, RenderSurfaceResourceMapRequest request) {
-        if (result.analysis() instanceof SurfaceObjectAnalysis objectAnalysis) {
-            content.getChildren().setAll(sectionTitle("Surface Object"),
-                    card(objectAnalysis.displayName(), "Occurrences",
-                            Integer.toString(objectAnalysis.occurrenceCount()),
-                            SurfaceObjectPresentation.familyMetricLabel(objectAnalysis.families()),
-                            SurfaceObjectPresentation.analysisFamilyText(objectAnalysis),
-                            "Registry variants", Integer.toString(objectAnalysis.registryVariantCount()),
-                            "Radius", Integer.toString(request.radius())),
-                    label("Source: discovery result"));
+        if (result.analysis() instanceof SurfaceObjectSelectionAnalysis objectSelection) {
+            List<javafx.scene.Node> nodes = new ArrayList<>();
+            nodes.add(sectionTitle("Surface Objects"));
+            nodes.add(label("Resources: " + objectSelection.resourceCount()));
+            nodes.add(label("Total occurrences: " + objectSelection.occurrenceCount()));
+            nodes.add(label("Radius: " + request.radius()));
+            nodes.add(label("Source: discovery result"));
+            for (SurfaceObjectAnalysis objectAnalysis : objectSelection.resources()) {
+                nodes.add(card(objectAnalysis.displayName(), "Occurrences",
+                        Integer.toString(objectAnalysis.occurrenceCount()),
+                        SurfaceObjectPresentation.familyMetricLabel(objectAnalysis.families()),
+                        SurfaceObjectPresentation.analysisFamilyText(objectAnalysis),
+                        "Registry variants", Integer.toString(objectAnalysis.registryVariantCount())));
+            }
+            content.getChildren().setAll(nodes);
         } else if (result.analysis() instanceof SurfaceMaterialAnalysis materialAnalysis) {
             content.getChildren().setAll(sectionTitle("Surface Material"),
                     card(materialAnalysis.materialName(), "Matched blocks",
@@ -192,9 +199,9 @@ public final class ResultInspectorPane extends VBox {
         SurfaceRenderAnalysis analysis = result.analysis();
         List<String> lines = new ArrayList<>(diagnostics(
                 result.mapChunkDiagnostics(), result.chunkDiagnostics()));
-        if (analysis instanceof SurfaceObjectAnalysis objectAnalysis) {
+        if (analysis instanceof SurfaceObjectSelectionAnalysis objectSelection) {
             lines.add("Source: discovery result");
-            lines.add("Observed occurrences: " + objectAnalysis.occurrenceCount());
+            lines.add("Observed occurrences: " + objectSelection.occurrenceCount());
         }
         return lines;
     }

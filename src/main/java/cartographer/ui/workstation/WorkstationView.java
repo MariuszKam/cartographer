@@ -169,6 +169,13 @@ public final class WorkstationView {
 
     public void setObservedSurfaceResources(
             ObservedSurfaceResourceCatalog catalog,
+            java.util.Set<String> previousKeys
+    ) {
+        searchPanel.setObservedSurfaceResources(catalog, previousKeys);
+    }
+
+    public void setObservedSurfaceResources(
+            ObservedSurfaceResourceCatalog catalog,
             String previousKey
     ) {
         searchPanel.setObservedSurfaceResources(catalog, previousKey);
@@ -181,5 +188,10 @@ public final class WorkstationView {
     public java.util.Optional<cartographer.resource.ObservedSurfaceResource>
     selectedObservedSurfaceResource() {
         return searchPanel.selectedObservedSurfaceResource();
+    }
+
+    public java.util.List<cartographer.resource.ObservedSurfaceResource>
+    selectedObservedSurfaceResources() {
+        return searchPanel.selectedObservedSurfaceResources();
     }
 }

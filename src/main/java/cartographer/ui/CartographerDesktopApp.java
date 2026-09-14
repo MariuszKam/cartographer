@@ -61,6 +61,7 @@ import java.util.Optional;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.Set;
 
 public class CartographerDesktopApp extends Application {
 
@@ -86,7 +87,7 @@ public class CartographerDesktopApp extends Application {
     private Optional<cartographer.model.WorldPosition> surfaceDiscoveryCenter = Optional.empty();
     private SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey surfaceDiscoveryTaskKey;
     private Task<DiscoverObservedSurfaceResourcesResult> surfaceDiscoveryTask;
-    private String surfaceSelectionKey = "";
+    private Set<String> surfaceSelectionKeys = Set.of();
 
     @Override
     public void start(Stage stage) {
@@ -163,7 +164,7 @@ public class CartographerDesktopApp extends Application {
     }
 
     private void loadSaveData(Path savePath) {
-        surfaceSelectionKey = "";
+        surfaceSelectionKeys = Set.of();
         invalidateSurfaceDiscovery();
         workstation.setDiscoveryBusy(true);
         workstation.setStatus("Loading resources and player position...");
@@ -322,18 +323,27 @@ public class CartographerDesktopApp extends Application {
             renderSurfaceMaterial();
             return;
         }
-        ObservedSurfaceResource selected = selectedSurfaceResourceForRender();
+        List<ObservedSurfaceResource> selected = selectedSurfaceResourcesForRender();
         SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey key = currentSurfaceDiscoveryKey();
         if (surfaceDiscoveryResult == null
                 || !key.equals(surfaceDiscoveryTaskKey)
-                || surfaceDiscoveryResult.observedResources()
-                .findByQualifiedResourceKey(selected.candidate().qualifiedResourceKey())
-                .isEmpty()) {
+                || !surfaceDiscoveryResult.observedResources().resources().stream()
+                .map(resource -> resource.candidate().qualifiedResourceKey())
+                .collect(java.util.stream.Collectors.toSet())
+                .containsAll(selected.stream()
+                        .map(resource -> resource.candidate().qualifiedResourceKey()).toList())) {
             throw new IllegalStateException(
                     "Surface object discovery is not current; scan the save first."
             );
         }
-        RenderSurfaceResourceMapRequest request = RenderSurfaceResourceMapRequest.forObservedResource(
+        selected = selected.stream()
+                .map(resource -> surfaceDiscoveryResult.observedResources()
+                        .findByQualifiedResourceKey(resource.candidate().qualifiedResourceKey())
+                        .orElseThrow(() -> new IllegalStateException(
+                                "Selected surface object is not in the current discovery result: "
+                                        + resource.candidate().qualifiedResourceKey())))
+                .toList();
+        RenderSurfaceResourceMapRequest request = RenderSurfaceResourceMapRequest.forObservedResources(
                 key.savePath(),
                 key.radius(),
                 1,
@@ -347,7 +357,7 @@ public class CartographerDesktopApp extends Application {
         ProgressTask<RenderSurfaceResourceMapResult> task = new ProgressTask<>() {
             @Override
             protected RenderSurfaceResourceMapResult call() {
-                return surfaceUseCase.execute(request, selected, taskProgress(this));
+                return surfaceUseCase.execute(request, taskProgress(this));
             }
         };
         wireTaskProgress(task);
@@ -435,15 +445,17 @@ public class CartographerDesktopApp extends Application {
         setBusy(false);
     }
 
-    private ObservedSurfaceResource selectedSurfaceResourceForRender() {
+    private List<ObservedSurfaceResource> selectedSurfaceResourcesForRender() {
         if (worldPanel.savePathText().isBlank()) {
             throw new IllegalArgumentException("Select a .vcdbs save.");
         }
-        return workstation.selectedObservedSurfaceResource().orElseThrow(
-                () -> new IllegalStateException(
-                        "No observed surface object is available in this radius."
-                )
-        );
+        List<ObservedSurfaceResource> selected = workstation.selectedObservedSurfaceResources();
+        if (selected.isEmpty()) {
+            throw new IllegalStateException(
+                    "No observed surface object is available in this radius."
+            );
+        }
+        return selected;
     }
 
     private void handleModeChanged(SearchPanel.SearchMode mode) {
@@ -506,9 +518,9 @@ public class CartographerDesktopApp extends Application {
             if (SurfaceDiscoveryPolicy.activation(cached.isPresent(), false)
                     == SurfaceDiscoveryPolicy.Activation.CACHE_HIT) {
                 surfaceDiscoveryGate.begin(key);
-                surfaceSelectionKey = workstation.selectedObservedSurfaceResource()
+                surfaceSelectionKeys = workstation.selectedObservedSurfaceResources().stream()
                         .map(resource -> resource.candidate().qualifiedResourceKey())
-                        .orElse(surfaceSelectionKey);
+                        .collect(java.util.stream.Collectors.toUnmodifiableSet());
                 applySurfaceDiscoveryResult(key, cached.orElseThrow());
                 return;
             }
@@ -523,9 +535,9 @@ public class CartographerDesktopApp extends Application {
         SurfaceDiscoveryRequestGate.SurfaceDiscoveryToken token = surfaceDiscoveryGate.begin(key);
         surfaceDiscoveryResult = null;
         surfaceDiscoveryTaskKey = key;
-        surfaceSelectionKey = workstation.selectedObservedSurfaceResource()
+        surfaceSelectionKeys = workstation.selectedObservedSurfaceResources().stream()
                 .map(resource -> resource.candidate().qualifiedResourceKey())
-                .orElse(surfaceSelectionKey);
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
         workstation.clearObservedSurfaceResources();
         surfaceObjectDiscoveryState = SurfaceObjectDiscoveryState.SCANNING;
         workstation.setSurfaceObjectDiscoveryState(surfaceObjectDiscoveryState);
@@ -574,10 +586,10 @@ public class CartographerDesktopApp extends Application {
     ) {
         surfaceDiscoveryTaskKey = key;
         surfaceDiscoveryResult = result;
-        workstation.setObservedSurfaceResources(result.observedResources(), surfaceSelectionKey);
-        surfaceSelectionKey = workstation.selectedObservedSurfaceResource()
+        workstation.setObservedSurfaceResources(result.observedResources(), surfaceSelectionKeys);
+        surfaceSelectionKeys = workstation.selectedObservedSurfaceResources().stream()
                 .map(resource -> resource.candidate().qualifiedResourceKey())
-                .orElse("");
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
         surfaceObjectDiscoveryState = result.observedResources().resources().isEmpty()
                 ? SurfaceObjectDiscoveryState.EMPTY
                 : SurfaceObjectDiscoveryState.READY;

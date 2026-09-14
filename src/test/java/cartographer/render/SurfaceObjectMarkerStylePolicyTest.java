@@ -39,6 +39,14 @@ class SurfaceObjectMarkerStylePolicyTest {
     }
 
     @Test
+    void keepsStylesIndependentForDifferentSelectedResources() {
+        assertEquals(SurfaceObjectMarkerShape.DIAMOND,
+                policy.forFamilies(Set.of(SurfaceObjectFamily.ORE_BITS)).shape());
+        assertEquals(SurfaceObjectMarkerShape.CIRCLE,
+                policy.forFamilies(Set.of(SurfaceObjectFamily.LOOSE_STONE)).shape());
+    }
+
+    @Test
     void boulderIsNotSmallerThanStone() {
         assertTrue(policy.forFamilies(Set.of(SurfaceObjectFamily.LOOSE_BOULDER)).radius()
                 >= policy.forFamilies(Set.of(SurfaceObjectFamily.LOOSE_STONE)).radius());

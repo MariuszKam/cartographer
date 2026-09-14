@@ -8,6 +8,7 @@ import cartographer.render.RenderStyle;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.Set;
+import java.util.List;
 
 public record RenderSurfaceResourceMapRequest(
         Path savePath,
@@ -41,15 +42,29 @@ public record RenderSurfaceResourceMapRequest(
             ObservedSurfaceResource resource,
             WorldPosition center
     ) {
-        return new RenderSurfaceResourceMapRequest(
+        return forObservedResources(
                 savePath,
                 radius,
                 pixelsPerBlock,
                 style,
                 layers,
-                SurfaceResourceSelection.observed(resource),
-                Optional.of(center)
+                List.of(resource), center
         );
+    }
+
+    public static RenderSurfaceResourceMapRequest forObservedResources(
+            Path savePath,
+            int radius,
+            int pixelsPerBlock,
+            RenderStyle style,
+            Set<RenderLayer> layers,
+            List<ObservedSurfaceResource> resources,
+            WorldPosition center
+    ) {
+        return new RenderSurfaceResourceMapRequest(
+                savePath, radius, pixelsPerBlock, style, layers,
+                SurfaceResourceSelection.observedResources(resources),
+                Optional.of(center));
     }
 
     public RenderSurfaceResourceMapRequest {
@@ -82,8 +97,8 @@ public record RenderSurfaceResourceMapRequest(
                 "Observed-resource requests do not expose a material match"));
     }
 
-    public Optional<ObservedSurfaceResource> observedResource() {
-        return selection.observedResource();
+    public List<ObservedSurfaceResource> observedResources() {
+        return selection.observedResources();
     }
 
     public String resourceDisplayName() {

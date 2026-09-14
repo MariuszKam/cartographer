@@ -19,22 +19,23 @@ public record SurfaceOverlayLegend(
     }
 
     public static SurfaceOverlayLegend forAnalysis(SurfaceRenderAnalysis analysis) {
-        if (analysis instanceof SurfaceObjectAnalysis object) {
-            return new SurfaceOverlayLegend(
-                    "Surface object: " + object.displayName(),
-                    List.of(SurfaceObjectPresentation.familyMetricLabel(object.families()) + ": "
-                                    + SurfaceObjectPresentation.analysisFamilyText(object),
-                            "Occurrences: " + object.occurrenceCount(),
-                            "Variants: " + object.registryVariantCount()),
-                    false
-            );
-        }
         SurfaceMaterialAnalysis material = (SurfaceMaterialAnalysis) analysis;
         return new SurfaceOverlayLegend(
                 "Surface material: " + material.materialName(),
                 List.of("Matched blocks: " + material.matchedBlockCount(),
                         "Areas/deposits: " + material.depositCount()),
                 true
+        );
+    }
+
+    public static SurfaceOverlayLegend forObject(SurfaceObjectAnalysis object) {
+        return new SurfaceOverlayLegend(
+                "Surface object: " + object.displayName(),
+                List.of(SurfaceObjectPresentation.familyMetricLabel(object.families()) + ": "
+                                + SurfaceObjectPresentation.analysisFamilyText(object),
+                        "Occurrences: " + object.occurrenceCount(),
+                        "Variants: " + object.registryVariantCount()),
+                false
         );
     }
 }

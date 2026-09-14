@@ -5,6 +5,7 @@ import cartographer.resource.SurfaceObjectPresentation;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /** Pure selection policy for the observed surface-resource combo box. */
 final class ObservedSurfaceResourceSelection {
@@ -20,6 +21,16 @@ final class ObservedSurfaceResourceSelection {
                         .equals(previousQualifiedKey))
                 .findFirst()
                 .or(() -> resources.stream().findFirst());
+    }
+
+    static List<ObservedSurfaceResource> preserveAll(
+            Set<String> previousKeys,
+            List<ObservedSurfaceResource> resources
+    ) {
+        return resources.stream()
+                .filter(resource -> previousKeys.contains(
+                        resource.candidate().qualifiedResourceKey()))
+                .toList();
     }
 
     static String displayName(ObservedSurfaceResource resource) {
