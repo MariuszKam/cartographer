@@ -19,7 +19,7 @@ import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.render.SurfaceResourceOverlayRenderer;
 import cartographer.render.UserMarkerRenderer;
-import cartographer.resource.SurfaceResourceAnalyzer;
+import cartographer.resource.SurfaceMaterialAnalyzer;
 import cartographer.resource.ObservedSurfaceResource;
 import cartographer.resource.SurfaceObjectCandidate;
 import cartographer.resource.SurfaceObjectCandidateCatalogBuilder;
@@ -67,7 +67,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         assertEquals(1, reader.adaptiveExactChunkCalls);
         assertEquals(1, reader.exactChunkCalls);
         assertEquals(List.of(List.of(exactPosition)), reader.exactRequests);
-        assertTrue(result.analysis().matchingBlockCount() > 0);
+        assertTrue(((cartographer.resource.SurfaceMaterialAnalysis) result.analysis()).matchedBlockCount() > 0);
     }
 
     @Test
@@ -110,7 +110,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         );
 
         assertEquals(0, reader.coverageCalls);
-        assertEquals(1, result.analysis().matchingBlockCount());
+        assertEquals(1, ((cartographer.resource.SurfaceObjectAnalysis) result.analysis()).occurrenceCount());
     }
 
     @Test
@@ -185,7 +185,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         assertTrue(reader.exactRequests.get(1).stream().allMatch(
                 position -> position.x() == second.x() && position.z() == second.z()
         ));
-        assertTrue(result.analysis().matchingBlockCount() > 0);
+        assertTrue(((cartographer.resource.SurfaceMaterialAnalysis) result.analysis()).matchedBlockCount() > 0);
     }
 
     @Test
@@ -202,7 +202,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         assertEquals(1, reader.directMapChunkCalls);
         assertEquals(1, reader.exactChunkCalls);
         assertEquals(8, reader.exactRequests.getFirst().size());
-        assertTrue(result.analysis().matchingBlockCount() > 0);
+        assertTrue(((cartographer.resource.SurfaceMaterialAnalysis) result.analysis()).matchedBlockCount() > 0);
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
     }
@@ -282,7 +282,7 @@ class RenderSurfaceResourceMapUseCaseTest {
             expectedFallback.add(new ChunkPosition(0, y, 0, 0));
         }
         assertEquals(expectedFallback, Set.copyOf(reader.exactRequests.get(1)));
-        assertTrue(result.analysis().matchingBlockCount() > 0);
+        assertTrue(((cartographer.resource.SurfaceMaterialAnalysis) result.analysis()).matchedBlockCount() > 0);
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
     }
@@ -334,7 +334,7 @@ class RenderSurfaceResourceMapUseCaseTest {
 
         RenderSurfaceResourceMapResult result = useCase(reader).execute(request(16, 16, 1));
 
-        assertEquals(1, result.analysis().matchingBlockCount());
+        assertEquals(1, ((cartographer.resource.SurfaceMaterialAnalysis) result.analysis()).matchedBlockCount());
         assertEquals(0, reader.coverageCalls);
     }
 
@@ -366,7 +366,7 @@ class RenderSurfaceResourceMapUseCaseTest {
                 new HomeStore(Path.of("build", "surface-test-home.properties")),
                 new MarkerStore(Path.of("build", "surface-test-markers.csv")),
                 new MapRenderer(), new UserMarkerRenderer(), new SurfaceScanner(),
-                new SurfaceResourceAnalyzer(), new SurfaceResourceOverlayRenderer()
+                new SurfaceMaterialAnalyzer(), new SurfaceResourceOverlayRenderer()
         );
     }
 

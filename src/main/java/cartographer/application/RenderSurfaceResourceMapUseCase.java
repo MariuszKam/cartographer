@@ -19,9 +19,11 @@ import cartographer.render.RenderOptions;
 import cartographer.render.RenderedMap;
 import cartographer.render.SurfaceResourceOverlayRenderer;
 import cartographer.render.UserMarkerRenderer;
-import cartographer.resource.SurfaceResourceAnalysis;
-import cartographer.resource.SurfaceResourceAnalyzer;
-import cartographer.resource.ObservedSurfaceResource;
+import cartographer.resource.SurfaceMaterialAnalysis;
+import cartographer.resource.SurfaceMaterialAnalyzer;
+import cartographer.resource.SurfaceObjectAnalysis;
+import cartographer.resource.SurfaceObjectAnalyzer;
+import cartographer.resource.SurfaceRenderAnalysis;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.VcdbsReader;
@@ -55,7 +57,8 @@ public class RenderSurfaceResourceMapUseCase {
     private final MapRenderer renderer;
     private final UserMarkerRenderer userMarkerRenderer;
     private final SurfaceScanner surfaceScanner;
-    private final SurfaceResourceAnalyzer surfaceResourceAnalyzer;
+    private final SurfaceMaterialAnalyzer surfaceMaterialAnalyzer;
+    private final SurfaceObjectAnalyzer surfaceObjectAnalyzer;
     private final SurfaceResourceOverlayRenderer overlayRenderer;
     private final MapChunkRenderWindowPlanner mapChunkRenderWindowPlanner =
             new MapChunkRenderWindowPlanner();
@@ -80,7 +83,7 @@ public class RenderSurfaceResourceMapUseCase {
             MapRenderer renderer,
             UserMarkerRenderer userMarkerRenderer,
             SurfaceScanner surfaceScanner,
-            SurfaceResourceAnalyzer surfaceResourceAnalyzer,
+            SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
             SurfaceResourceOverlayRenderer overlayRenderer
     ) {
         this.reader = Objects.requireNonNull(reader, "reader is required");
@@ -90,10 +93,11 @@ public class RenderSurfaceResourceMapUseCase {
         this.renderer = Objects.requireNonNull(renderer, "renderer is required");
         this.userMarkerRenderer = Objects.requireNonNull(userMarkerRenderer, "userMarkerRenderer is required");
         this.surfaceScanner = Objects.requireNonNull(surfaceScanner, "surfaceScanner is required");
-        this.surfaceResourceAnalyzer = Objects.requireNonNull(
-                surfaceResourceAnalyzer,
-                "surfaceResourceAnalyzer is required"
+        this.surfaceMaterialAnalyzer = Objects.requireNonNull(
+                surfaceMaterialAnalyzer,
+                "surfaceMaterialAnalyzer is required"
         );
+        this.surfaceObjectAnalyzer = new SurfaceObjectAnalyzer();
         this.overlayRenderer = Objects.requireNonNull(overlayRenderer, "overlayRenderer is required");
     }
 
@@ -268,14 +272,16 @@ public class RenderSurfaceResourceMapUseCase {
                 fallbackSurface.emptyColumns(),
                 fallbackSurface.liquidUnavailableColumns()
         );
-        List<SurfaceBlock> matchingBlocks = request.material()
-                .map(match -> match.matchingBlocks(surface.blocks()))
-                .orElseGet(() -> observedBlocks(request.observedResource().orElseThrow(), registry));
-        SurfaceResourceAnalysis analysis = surfaceResourceAnalyzer.analyzeMatched(
-                request.resourceDisplayName(),
-                matchingBlocks,
-                surface.columnsScanned()
-        );
+        SurfaceRenderAnalysis analysis;
+        if (request.material().isPresent()) {
+            List<SurfaceBlock> matchingBlocks = request.material().orElseThrow()
+                    .matchingBlocks(surface.blocks());
+            analysis = surfaceMaterialAnalyzer.analyzeMatched(
+                    request.resourceDisplayName(), matchingBlocks, surface.columnsScanned());
+        } else {
+            analysis = surfaceObjectAnalyzer.analyze(
+                    request.observedResource().orElseThrow(), registry);
+        }
 
         RenderedMap rendered = renderer.render(
                 center,
@@ -288,14 +294,13 @@ public class RenderSurfaceResourceMapUseCase {
         );
 
         progress.start("Painting surface resource overlay");
-        overlayRenderer.draw(
-                rendered.image(),
-                center,
-                request.radius(),
-                analysis,
-                player,
-                home
-        );
+        if (analysis instanceof SurfaceMaterialAnalysis materialAnalysis) {
+            overlayRenderer.drawMaterial(rendered.image(), center, request.radius(),
+                    materialAnalysis, player, home);
+        } else if (analysis instanceof SurfaceObjectAnalysis objectAnalysis) {
+            overlayRenderer.drawObject(rendered.image(), center, request.radius(),
+                    objectAnalysis, player, home);
+        }
 
         int userMarkersDrawn = 0;
         if (options.layers().contains(RenderLayer.MARKERS)) {
@@ -316,27 +321,6 @@ public class RenderSurfaceResourceMapUseCase {
                 chunkDiagnostics,
                 userMarkersDrawn
         );
-    }
-
-    private List<SurfaceBlock> observedBlocks(
-            ObservedSurfaceResource resource,
-            Map<Integer, BlockInfo> registry
-    ) {
-        return resource.observations().stream().map(observation -> {
-            BlockInfo block = registry.get(observation.blockId());
-            if (block == null) {
-                throw new IllegalStateException(
-                        "Discovery observation references missing block ID: "
-                                + observation.blockId()
-                );
-            }
-            return new SurfaceBlock(
-                    observation.worldX(),
-                    observation.worldY(),
-                    observation.worldZ(),
-                    block
-            );
-        }).toList();
     }
 
     private HomeState absoluteHome(

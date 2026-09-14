@@ -36,7 +36,7 @@ import cartographer.render.RenderStyle;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.render.SurfaceResourceOverlayRenderer;
 import cartographer.resource.ResourceAnalyzer;
-import cartographer.resource.SurfaceResourceAnalyzer;
+import cartographer.resource.SurfaceMaterialAnalyzer;
 import cartographer.resource.ObservedSurfaceResource;
 import cartographer.model.BlockInfo;
 import cartographer.save.VcdbsReader;
@@ -746,7 +746,7 @@ public class CartographerDesktopApp extends Application {
                 new MapRenderer(),
                 new UserMarkerRenderer(),
                 new cartographer.scanner.SurfaceScanner(),
-                new SurfaceResourceAnalyzer(),
+                new SurfaceMaterialAnalyzer(),
                 new SurfaceResourceOverlayRenderer()
         );
     }

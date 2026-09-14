@@ -12,7 +12,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
-public class SurfaceResourceAnalyzer {
+/** Internal implementation retained to preserve the existing material clustering algorithm. */
+final class SurfaceResourceAnalyzer {
 
     public SurfaceResourceAnalysis analyze(
             List<SurfaceBlock> surfaceBlocks,

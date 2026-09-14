@@ -2,7 +2,8 @@ package cartographer.resource;
 
 import java.util.List;
 
-public record SurfaceResourceAnalysis(
+/** Internal adapter result for the legacy material clustering implementation. */
+record SurfaceResourceAnalysis(
         String query,
         int surfaceColumns,
         List<SurfaceResourcePoint> matchingBlocks,

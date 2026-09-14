@@ -2,8 +2,8 @@ package cartographer.application;
 
 import cartographer.model.BlockInfo;
 import cartographer.model.SurfaceBlock;
-import cartographer.resource.SurfaceResourceAnalysis;
-import cartographer.resource.SurfaceResourceAnalyzer;
+import cartographer.resource.SurfaceMaterialAnalysis;
+import cartographer.resource.SurfaceMaterialAnalyzer;
 import cartographer.resource.SurfaceResourcePoint;
 import org.junit.jupiter.api.Test;
 
@@ -71,13 +71,13 @@ class SurfaceMaterialMatchTest {
         SurfaceMaterialMatch match = new SurfaceMaterialMatch(
                 "Fire Clay", List.of("fire", "clay")
         );
-        SurfaceResourceAnalyzer analyzer = new SurfaceResourceAnalyzer();
+        SurfaceMaterialAnalyzer analyzer = new SurfaceMaterialAnalyzer();
         List<SurfaceBlock> blocks = List.of(
                 new SurfaceBlock(10, 5, 20, new BlockInfo(1, "game:fire-clay-blue")),
                 new SurfaceBlock(11, 5, 20, new BlockInfo(2, "game:fire-clay-blue"))
         );
 
-        SurfaceResourceAnalysis result = analyzer.analyzeMatched(
+        SurfaceMaterialAnalysis result = analyzer.analyzeMatched(
                 match.displayName(), match.matchingBlocks(blocks), 2
         );
 
@@ -89,7 +89,7 @@ class SurfaceMaterialMatchTest {
 
     @Test
     void emptyMatchInputProducesValidAnalysis() {
-        SurfaceResourceAnalysis analysis = new SurfaceResourceAnalyzer().analyze(
+        SurfaceMaterialAnalysis analysis = new SurfaceMaterialAnalyzer().analyze(
                 List.of(), "peat"
         );
 

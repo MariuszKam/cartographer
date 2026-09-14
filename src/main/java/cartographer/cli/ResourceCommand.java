@@ -28,9 +28,9 @@ import cartographer.resource.ResourceCandidate;
 import cartographer.resource.ResourceHotspot;
 import cartographer.resource.ResourceOverlayCell;
 import cartographer.resource.ResourceSummary;
-import cartographer.resource.SurfaceResourceAnalysis;
-import cartographer.resource.SurfaceResourceAnalyzer;
-import cartographer.resource.SurfaceResourceDeposit;
+import cartographer.resource.SurfaceMaterialAnalysis;
+import cartographer.resource.SurfaceMaterialAnalyzer;
+import cartographer.resource.SurfaceMaterialDeposit;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
@@ -78,8 +78,8 @@ public class ResourceCommand implements Command {
     private final SurfaceScanner surfaceScanner =
             new SurfaceScanner();
 
-    private final SurfaceResourceAnalyzer surfaceResourceAnalyzer =
-            new SurfaceResourceAnalyzer();
+    private final SurfaceMaterialAnalyzer surfaceResourceAnalyzer =
+            new SurfaceMaterialAnalyzer();
 
     private final SurfaceResourceOverlayRenderer surfaceResourceOverlayRenderer =
             new SurfaceResourceOverlayRenderer();
@@ -724,7 +724,7 @@ public class ResourceCommand implements Command {
         out.println(
                 "Match: "
                         + loaded.analysis()
-                        .query()
+                        .materialName()
         );
 
         out.println(
@@ -758,7 +758,7 @@ public class ResourceCommand implements Command {
         out.println(
                 "Matching surface blocks: "
                         + loaded.analysis()
-                        .matchingBlockCount()
+                        .matchedBlockCount()
         );
 
         out.println(
@@ -767,7 +767,7 @@ public class ResourceCommand implements Command {
                         .depositCount()
         );
 
-        List<SurfaceResourceDeposit> deposits =
+        List<SurfaceMaterialDeposit> deposits =
                 loaded.analysis()
                         .deposits();
 
@@ -793,7 +793,7 @@ public class ResourceCommand implements Command {
              index < count;
              index++) {
 
-            SurfaceResourceDeposit deposit =
+            SurfaceMaterialDeposit deposit =
                     deposits.get(
                             index
                     );
@@ -1016,7 +1016,7 @@ public class ResourceCommand implements Command {
         );
 
         int blocksDrawn =
-                surfaceResourceOverlayRenderer.draw(
+                surfaceResourceOverlayRenderer.drawMaterial(
                         rendered.image(),
                         loaded.center(),
                         radius,
@@ -1049,7 +1049,7 @@ public class ResourceCommand implements Command {
         out.println(
                 "Match: "
                         + loaded.analysis()
-                        .query()
+                        .materialName()
         );
 
         out.println(
@@ -1073,7 +1073,7 @@ public class ResourceCommand implements Command {
         out.println(
                 "Matching blocks: "
                         + loaded.analysis()
-                        .matchingBlockCount()
+                        .matchedBlockCount()
         );
 
         out.println(
@@ -1162,7 +1162,7 @@ public class ResourceCommand implements Command {
                 );
 
         SurfaceMaterialMatch surfaceMatch = surfaceMatch(match);
-        SurfaceResourceAnalysis analysis = surfaceResourceAnalyzer.analyzeMatched(
+        SurfaceMaterialAnalysis analysis = surfaceResourceAnalyzer.analyzeMatched(
                 surfaceMatch.displayName(),
                 surfaceMatch.matchingBlocks(surface.blocks()),
                 surface.columnsScanned()
@@ -1674,7 +1674,7 @@ public class ResourceCommand implements Command {
             WorldPosition center,
             ReadDiagnostics chunkDiagnostics,
             SurfaceScanResult surface,
-            SurfaceResourceAnalysis analysis
+            SurfaceMaterialAnalysis analysis
     ) {
     }
 }

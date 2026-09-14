@@ -4,6 +4,9 @@ import cartographer.application.*;
 import cartographer.geology.rock.RockMapMode;
 import cartographer.prospecting.ProspectingAssessment;
 import cartographer.render.RockLegendEntry;
+import cartographer.resource.SurfaceMaterialAnalysis;
+import cartographer.resource.SurfaceObjectAnalysis;
+import cartographer.resource.SurfaceRenderAnalysis;
 import cartographer.save.ReadDiagnostics;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
@@ -62,28 +65,24 @@ public final class ResultInspectorPane extends VBox {
     }
 
     public void showSurfaceResult(RenderSurfaceResourceMapResult result, RenderSurfaceResourceMapRequest request) {
-        boolean observed = request.observedResource().isPresent();
-        String summary = observed
-                ? "Source: discovery result\nObserved occurrences: "
-                        + request.observedResource().orElseThrow().observedCount()
-                : "Surface material scan complete.";
-        if (observed) {
+        if (result.analysis() instanceof SurfaceObjectAnalysis objectAnalysis) {
             content.getChildren().setAll(sectionTitle("Surface Object"),
-                    card(request.resourceDisplayName(), "Occurrences",
-                            Integer.toString(request.observedResource().orElseThrow().observedCount()),
-                            "Registry variants", Integer.toString(
-                                    request.observedResource().orElseThrow().candidate().blockIds().size()),
+                    card(objectAnalysis.displayName(), "Occurrences",
+                            Integer.toString(objectAnalysis.occurrenceCount()),
+                            "Registry variants", Integer.toString(objectAnalysis.registryVariantCount()),
                             "Radius", Integer.toString(request.radius())),
-                    label(summary));
-        } else {
+                    label("Source: discovery result"));
+        } else if (result.analysis() instanceof SurfaceMaterialAnalysis materialAnalysis) {
             content.getChildren().setAll(sectionTitle("Surface Material"),
-                    card(request.resourceDisplayName(), "Matched blocks",
-                            Integer.toString(result.analysis().matchingBlockCount()),
-                            "Areas/deposits", Integer.toString(result.analysis().depositCount()),
+                    card(materialAnalysis.materialName(), "Matched blocks",
+                            Integer.toString(materialAnalysis.matchedBlockCount()),
+                            "Areas/deposits", Integer.toString(materialAnalysis.depositCount()),
                             "Radius", Integer.toString(request.radius())),
-                    label(summary));
+                    label("Surface material scan complete."));
+        } else {
+            throw new IllegalStateException("Unsupported surface analysis type");
         }
-        diagnostics.show(surfaceDiagnostics(result, request));
+        diagnostics.show(surfaceDiagnostics(result));
     }
 
     public void showRockResult(RenderRockMapResult result, RenderRockMapRequest request) {
@@ -167,15 +166,13 @@ public final class ResultInspectorPane extends VBox {
         return diagnostics(result.mapChunkDiagnostics(), result.chunkDiagnostics(), result.mapRegionDiagnostics(), result.actualOreDiagnostics());
     }
 
-    private List<String> surfaceDiagnostics(
-            RenderSurfaceResourceMapResult result,
-            RenderSurfaceResourceMapRequest request
-    ) {
-        List<String> lines = new ArrayList<>(diagnostics(result.mapChunkDiagnostics(), result.chunkDiagnostics()));
-        if (request.observedResource().isPresent()) {
+    private List<String> surfaceDiagnostics(RenderSurfaceResourceMapResult result) {
+        SurfaceRenderAnalysis analysis = result.analysis();
+        List<String> lines = new ArrayList<>(diagnostics(
+                result.mapChunkDiagnostics(), result.chunkDiagnostics()));
+        if (analysis instanceof SurfaceObjectAnalysis objectAnalysis) {
             lines.add("Source: discovery result");
-            lines.add("Observed occurrences: " + request.observedResource().orElseThrow().observedCount());
-            return lines;
+            lines.add("Observed occurrences: " + objectAnalysis.occurrenceCount());
         }
         return lines;
     }

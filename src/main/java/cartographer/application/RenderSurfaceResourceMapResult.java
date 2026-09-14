@@ -1,7 +1,7 @@
 package cartographer.application;
 
 import cartographer.render.MapRenderReport;
-import cartographer.resource.SurfaceResourceAnalysis;
+import cartographer.resource.SurfaceRenderAnalysis;
 import cartographer.scanner.SurfaceScanResult;
 import cartographer.save.ReadDiagnostics;
 
@@ -10,7 +10,7 @@ import java.util.Objects;
 
 public record RenderSurfaceResourceMapResult(
         BufferedImage image,
-        SurfaceResourceAnalysis analysis,
+        SurfaceRenderAnalysis analysis,
         SurfaceScanResult surface,
         MapRenderReport renderReport,
         ReadDiagnostics mapChunkDiagnostics,
