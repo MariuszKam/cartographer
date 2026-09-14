@@ -5,9 +5,13 @@ import cartographer.application.SurfaceMaterialMatch;
 import cartographer.application.SurfaceMaterialPreset;
 import cartographer.model.BlockInfo;
 import cartographer.render.OreOverlayPalette;
+import cartographer.render.SurfaceObjectColorPolicy;
 import cartographer.resource.ObservedSurfaceResource;
 import cartographer.resource.ObservedSurfaceResourceCatalog;
+import cartographer.resource.SurfaceObjectFamily;
+import cartographer.resource.SurfaceObjectFilter;
 import cartographer.resource.SurfaceObjectPresentation;
+import cartographer.resource.SurfaceObjectSelectionActions;
 import cartographer.ui.OrePreset;
 import cartographer.ui.OreResource;
 import javafx.scene.control.Button;
@@ -32,6 +36,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.EnumMap;
 import java.util.function.Consumer;
 
 public final class SearchPanel extends VBox {
@@ -48,8 +54,13 @@ public final class SearchPanel extends VBox {
     private final ToggleButton surfaceMultipleObjectButton = new ToggleButton("Multiple resources");
     private final VBox surfaceObjectChecklist = new VBox(4);
     private final ScrollPane surfaceObjectChecklistScroll = new ScrollPane(surfaceObjectChecklist);
-    private final Button selectAllSurfaceObjectsButton = new Button("Select all");
-    private final Button clearSurfaceObjectsButton = new Button("Clear");
+    private final TextField surfaceObjectSearchField = new TextField();
+    private final Label surfaceObjectVisibilityLabel = new Label();
+    private final Map<SurfaceObjectFamily, ToggleButton> surfaceObjectFamilyFilters = new EnumMap<>(SurfaceObjectFamily.class);
+    private final Button selectVisibleSurfaceObjectsButton = new Button("Select visible");
+    private final Button clearVisibleSurfaceObjectsButton = new Button("Clear visible");
+    private final Button clearAllSurfaceObjectsButton = new Button("Clear all");
+    private final Button resetSurfaceObjectFiltersButton = new Button("Reset filters");
     private final Map<String, ObservedSurfaceResource> surfaceObjectsByKey = new LinkedHashMap<>();
     private final Map<String, CheckBox> surfaceObjectChecks = new LinkedHashMap<>();
     private final RadioButton singleResourceButton = new RadioButton("Single resource");
@@ -143,10 +154,19 @@ public final class SearchPanel extends VBox {
             }
             updateSurfaceObjectMode();
         });
-        selectAllSurfaceObjectsButton.setOnAction(e -> surfaceObjectChecks.values()
-                .forEach(check -> check.setSelected(true)));
-        clearSurfaceObjectsButton.setOnAction(e -> surfaceObjectChecks.values()
-                .forEach(check -> check.setSelected(false)));
+        selectVisibleSurfaceObjectsButton.setOnAction(e -> applySurfaceObjectSelection(
+                SurfaceObjectSelectionActions.selectVisible(selectedSurfaceObjectKeys(), visibleSurfaceObjects())));
+        clearVisibleSurfaceObjectsButton.setOnAction(e -> applySurfaceObjectSelection(
+                SurfaceObjectSelectionActions.clearVisible(selectedSurfaceObjectKeys(), visibleSurfaceObjects())));
+        clearAllSurfaceObjectsButton.setOnAction(e -> applySurfaceObjectSelection(
+                SurfaceObjectSelectionActions.clearAll()));
+        resetSurfaceObjectFiltersButton.setOnAction(e -> {
+            surfaceObjectSearchField.clear();
+            surfaceObjectFamilyFilters.values().forEach(filter -> filter.setSelected(false));
+            applySurfaceObjectFilter();
+        });
+        surfaceObjectSearchField.setPromptText("Search surface objects...");
+        surfaceObjectSearchField.textProperty().addListener((o, old, value) -> applySurfaceObjectFilter());
         surfaceMaterialBox.getItems().setAll(surfaceMaterials());
         surfaceMaterialBox.setValue(SurfaceMaterialPreset.FIRE_CLAY);
         surfaceMaterialBox.setEditable(false);
@@ -196,8 +216,19 @@ public final class SearchPanel extends VBox {
                 singleResourceContent, multiResourceContent);
         HBox surfaceObjectMode = new HBox(6, surfaceSingleObjectButton, surfaceMultipleObjectButton);
         surfaceSingleObjectContent = new VBox(4, surfaceResourceBox, surfaceResourceStatusLabel);
+        FlowPane surfaceObjectFamilyFilters = new FlowPane(4, 4);
+        for (SurfaceObjectFamily family : SurfaceObjectFamily.values()) {
+            ToggleButton filter = new ToggleButton(SurfaceObjectPresentation.familyLabel(family));
+            filter.selectedProperty().addListener((o, old, selected) -> applySurfaceObjectFilter());
+            this.surfaceObjectFamilyFilters.put(family, filter);
+            surfaceObjectFamilyFilters.getChildren().add(filter);
+        }
         surfaceMultipleObjectContent = new VBox(4,
-                new HBox(6, selectAllSurfaceObjectsButton, clearSurfaceObjectsButton),
+                surfaceObjectSearchField,
+                surfaceObjectFamilyFilters,
+                surfaceObjectVisibilityLabel,
+                new HBox(6, selectVisibleSurfaceObjectsButton, clearVisibleSurfaceObjectsButton,
+                        clearAllSurfaceObjectsButton, resetSurfaceObjectFiltersButton),
                 surfaceObjectChecklistScroll);
         surfaceObjectChecklistScroll.setFitToWidth(true);
         surfaceObjectChecklistScroll.setPrefViewportHeight(130);
@@ -276,6 +307,49 @@ public final class SearchPanel extends VBox {
                 .toList();
     }
 
+    private Set<String> selectedSurfaceObjectKeys() {
+        return surfaceObjectChecks.entrySet().stream()
+                .filter(entry -> entry.getValue().isSelected())
+                .map(Map.Entry::getKey)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
+    private Set<SurfaceObjectFamily> enabledSurfaceObjectFamilies() {
+        return surfaceObjectFamilyFilters.entrySet().stream()
+                .filter(entry -> entry.getValue().isSelected())
+                .map(Map.Entry::getKey)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
+    private List<ObservedSurfaceResource> visibleSurfaceObjects() {
+        return SurfaceObjectFilter.visibleResources(
+                surfaceObjectsByKey.values(),
+                surfaceObjectSearchField.getText(),
+                enabledSurfaceObjectFamilies());
+    }
+
+    private void applySurfaceObjectFilter() {
+        if (surfaceObjectVisibilityLabel == null) return;
+        List<ObservedSurfaceResource> visible = visibleSurfaceObjects();
+        surfaceObjectChecks.forEach((key, check) -> {
+            boolean isVisible = visible.stream()
+                    .anyMatch(resource -> resource.candidate().qualifiedResourceKey().equals(key));
+            check.setVisible(isVisible);
+            check.setManaged(isVisible);
+        });
+        surfaceObjectVisibilityLabel.setText(visible.isEmpty() && !surfaceObjectsByKey.isEmpty()
+                ? "No surface objects match the current filters."
+                : "Showing " + visible.size() + " of " + surfaceObjectsByKey.size()
+                        + " observed resources");
+        updateSurfaceResourceStatus();
+        updateRenderAvailability();
+    }
+
+    private void applySurfaceObjectSelection(Set<String> selectedKeys) {
+        surfaceObjectChecks.forEach((key, check) -> check.setSelected(selectedKeys.contains(key)));
+        onSurfaceObjectSelectionChanged();
+    }
+
     public void setObservedSurfaceResources(ObservedSurfaceResourceCatalog catalog) {
         String previousKey = selectedObservedSurfaceResource()
                 .map(resource -> resource.candidate().qualifiedResourceKey())
@@ -297,6 +371,11 @@ public final class SearchPanel extends VBox {
             String key = resource.candidate().qualifiedResourceKey();
             CheckBox check = new CheckBox(ObservedSurfaceResourceSelection.dropdownLabel(resource));
             check.setMaxWidth(Double.MAX_VALUE);
+            Region color = new Region();
+            Color awt = SurfaceObjectColorPolicy.colorFor(key);
+            color.setPrefSize(12, 12);
+            color.setStyle("-fx-background-color: rgb(" + awt.getRed() + "," + awt.getGreen() + "," + awt.getBlue() + ");");
+            check.setGraphic(color);
             check.selectedProperty().addListener((o, old, selected) -> onSurfaceObjectSelectionChanged());
             surfaceObjectChecks.put(key, check);
             surfaceObjectChecklist.getChildren().add(check);
@@ -319,6 +398,7 @@ public final class SearchPanel extends VBox {
                 || discoveryState != SurfaceObjectDiscoveryState.READY);
         updateSurfaceResourceStatus();
         updateRenderAvailability();
+        applySurfaceObjectFilter();
     }
 
     public void setObservedSurfaceResources(
@@ -364,14 +444,15 @@ public final class SearchPanel extends VBox {
 
     public void setBusy(boolean busy) {
         globallyBusy = busy;
-        for (javafx.scene.control.Control control : List.of(renderButton, selectAllButton, clearAllButton, selectAllSurfaceObjectsButton, clearSurfaceObjectsButton, radius128Button, radius256Button, radius512Button, radius1024Button, allYButton, customYButton, singleResourceButton, multipleResourcesButton, surfaceSingleObjectButton, surfaceMultipleObjectButton, resourceBox, surfaceResourceBox, surfaceMaterialBox, surfaceObjectsButton, surfaceMaterialsButton, rockUpperButton, rockAtYButton, rockYField, prospectingResourceField, yMinField, yMaxField)) control.setDisable(busy);
+        for (javafx.scene.control.Control control : List.of(renderButton, selectAllButton, clearAllButton, selectVisibleSurfaceObjectsButton, clearVisibleSurfaceObjectsButton, clearAllSurfaceObjectsButton, resetSurfaceObjectFiltersButton, surfaceObjectSearchField, radius128Button, radius256Button, radius512Button, radius1024Button, allYButton, customYButton, singleResourceButton, multipleResourcesButton, surfaceSingleObjectButton, surfaceMultipleObjectButton, resourceBox, surfaceResourceBox, surfaceMaterialBox, surfaceObjectsButton, surfaceMaterialsButton, rockUpperButton, rockAtYButton, rockYField, prospectingResourceField, yMinField, yMaxField)) control.setDisable(busy);
         surfaceObjectChecks.values().forEach(check -> check.setDisable(busy));
+        surfaceObjectFamilyFilters.values().forEach(filter -> filter.setDisable(busy));
         surfaceResourceBox.setDisable(busy || discoveryState != SurfaceObjectDiscoveryState.READY || surfaceResourceBox.getItems().isEmpty());
         yMinField.setDisable(busy || allYButton.isSelected() || mode != SearchMode.ORE); yMaxField.setDisable(busy || allYButton.isSelected() || mode != SearchMode.ORE);
         rockYField.setDisable(busy || !rockAtYButton.isSelected() || mode != SearchMode.ROCK);
         updateRenderAvailability();
     }
-    public void setDiscoveryBusy(boolean busy) { globallyBusy = busy; renderButton.setDisable(busy); resourceBox.setDisable(busy); surfaceResourceBox.setDisable(busy || discoveryState != SurfaceObjectDiscoveryState.READY || surfaceResourceBox.getItems().isEmpty()); surfaceMaterialBox.setDisable(busy); surfaceObjectsButton.setDisable(busy); surfaceMaterialsButton.setDisable(busy); surfaceSingleObjectButton.setDisable(busy); surfaceMultipleObjectButton.setDisable(busy); selectAllSurfaceObjectsButton.setDisable(busy); clearSurfaceObjectsButton.setDisable(busy); prospectingResourceField.setDisable(busy); singleResourceButton.setDisable(busy); multipleResourcesButton.setDisable(busy); selectAllButton.setDisable(busy); clearAllButton.setDisable(busy); surfaceObjectChecks.values().forEach(check -> check.setDisable(busy)); updateRenderAvailability(); }
+    public void setDiscoveryBusy(boolean busy) { globallyBusy = busy; renderButton.setDisable(busy); resourceBox.setDisable(busy); surfaceResourceBox.setDisable(busy || discoveryState != SurfaceObjectDiscoveryState.READY || surfaceResourceBox.getItems().isEmpty()); surfaceMaterialBox.setDisable(busy); surfaceObjectsButton.setDisable(busy); surfaceMaterialsButton.setDisable(busy); surfaceSingleObjectButton.setDisable(busy); surfaceMultipleObjectButton.setDisable(busy); selectVisibleSurfaceObjectsButton.setDisable(busy); clearVisibleSurfaceObjectsButton.setDisable(busy); clearAllSurfaceObjectsButton.setDisable(busy); resetSurfaceObjectFiltersButton.setDisable(busy); surfaceObjectSearchField.setDisable(busy); surfaceObjectFamilyFilters.values().forEach(filter -> filter.setDisable(busy)); prospectingResourceField.setDisable(busy); singleResourceButton.setDisable(busy); multipleResourcesButton.setDisable(busy); selectAllButton.setDisable(busy); clearAllButton.setDisable(busy); surfaceObjectChecks.values().forEach(check -> check.setDisable(busy)); updateRenderAvailability(); }
 
 
     public List<ActualOreOverlaySpec> selectedOverlays() {
