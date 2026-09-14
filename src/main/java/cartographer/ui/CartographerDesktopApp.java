@@ -18,6 +18,8 @@ import cartographer.application.ProspectingAreaRequest;
 import cartographer.application.ProspectingAreaResult;
 import cartographer.application.ProgressReporter;
 import cartographer.application.SurfaceDiscoveryRequestGate;
+import cartographer.application.SurfaceDiscoveryCache;
+import cartographer.application.SurfaceDiscoveryCacheKey;
 import cartographer.application.SurfaceResourceMatch;
 import cartographer.geology.rock.RockMapMode;
 import cartographer.prospecting.SavedOreObservationProvider;
@@ -79,6 +81,8 @@ public class CartographerDesktopApp extends Application {
     private DiscoverObservedSurfaceResourcesResult surfaceDiscoveryResult;
     private SurfaceObjectDiscoveryState surfaceObjectDiscoveryState = SurfaceObjectDiscoveryState.NOT_SCANNED;
     private final SurfaceDiscoveryRequestGate surfaceDiscoveryGate = new SurfaceDiscoveryRequestGate();
+    private final SurfaceDiscoveryCache surfaceDiscoveryCache = new SurfaceDiscoveryCache(4);
+    private Optional<cartographer.model.WorldPosition> surfaceDiscoveryCenter = Optional.empty();
     private SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey surfaceDiscoveryTaskKey;
     private Task<DiscoverObservedSurfaceResourcesResult> surfaceDiscoveryTask;
     private String surfaceSelectionKey = "";
@@ -479,6 +483,8 @@ public class CartographerDesktopApp extends Application {
 
     private void invalidateSurfaceDiscovery() {
         surfaceDiscoveryGate.invalidate();
+        surfaceDiscoveryCache.clear();
+        surfaceDiscoveryCenter = Optional.empty();
         surfaceDiscoveryResult = null;
         surfaceDiscoveryTaskKey = null;
         workstation.clearObservedSurfaceResources();
@@ -491,6 +497,17 @@ public class CartographerDesktopApp extends Application {
                 savePath,
                 searchPanel.selectedRadius()
         );
+
+        if (surfaceDiscoveryCenter.isPresent()) {
+            SurfaceDiscoveryCacheKey cacheKey = SurfaceDiscoveryCacheKey.of(
+                    key.savePath(), key.radius(), surfaceDiscoveryCenter.orElseThrow());
+            Optional<DiscoverObservedSurfaceResourcesResult> cached = surfaceDiscoveryCache.get(cacheKey);
+            if (cached.isPresent()) {
+                surfaceDiscoveryGate.begin(key);
+                applySurfaceDiscoveryResult(key, cached.orElseThrow());
+                return;
+            }
+        }
         if (surfaceDiscoveryTask != null
                 && !surfaceDiscoveryTask.isDone()
                 && key.equals(surfaceDiscoveryTaskKey)) {
@@ -512,7 +529,7 @@ public class CartographerDesktopApp extends Application {
                         new DiscoverObservedSurfaceResourcesRequest(
                                 key.savePath(),
                                 key.radius(),
-                                Optional.empty()
+                                surfaceDiscoveryCenter
                         )
                 );
             }
@@ -522,19 +539,15 @@ public class CartographerDesktopApp extends Application {
             if (!surfaceDiscoveryGate.accepts(token, currentSurfaceDiscoveryKey())) {
                 return;
             }
-            surfaceDiscoveryResult = task.getValue();
-            workstation.setObservedSurfaceResources(
-                    task.getValue().observedResources(),
-                    surfaceSelectionKey
+            DiscoverObservedSurfaceResourcesResult result = task.getValue();
+            if (surfaceDiscoveryCenter.isEmpty()) {
+                surfaceDiscoveryCenter = Optional.of(result.center());
+            }
+            surfaceDiscoveryCache.put(
+                    SurfaceDiscoveryCacheKey.of(key.savePath(), key.radius(), result.center()),
+                    result
             );
-            surfaceSelectionKey = workstation.selectedObservedSurfaceResource()
-                    .map(resource -> resource.candidate().qualifiedResourceKey())
-                    .orElse("");
-            int count = task.getValue().observedResources().resources().size();
-            surfaceObjectDiscoveryState = count == 0
-                    ? SurfaceObjectDiscoveryState.EMPTY
-                    : SurfaceObjectDiscoveryState.READY;
-            workstation.setSurfaceObjectDiscoveryState(surfaceObjectDiscoveryState);
+            applySurfaceDiscoveryResult(key, result);
         });
         task.setOnFailed(event -> {
             if (!surfaceDiscoveryGate.accepts(token, currentSurfaceDiscoveryKey())) {
@@ -545,6 +558,22 @@ public class CartographerDesktopApp extends Application {
         Thread worker = new Thread(task, "cartographer-surface-object-discovery");
         worker.setDaemon(true);
         worker.start();
+    }
+
+    private void applySurfaceDiscoveryResult(
+            SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey key,
+            DiscoverObservedSurfaceResourcesResult result
+    ) {
+        surfaceDiscoveryTaskKey = key;
+        surfaceDiscoveryResult = result;
+        workstation.setObservedSurfaceResources(result.observedResources(), surfaceSelectionKey);
+        surfaceSelectionKey = workstation.selectedObservedSurfaceResource()
+                .map(resource -> resource.candidate().qualifiedResourceKey())
+                .orElse("");
+        surfaceObjectDiscoveryState = result.observedResources().resources().isEmpty()
+                ? SurfaceObjectDiscoveryState.EMPTY
+                : SurfaceObjectDiscoveryState.READY;
+        workstation.setSurfaceObjectDiscoveryState(surfaceObjectDiscoveryState);
     }
 
     private void showRockResult(
