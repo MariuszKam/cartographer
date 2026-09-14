@@ -67,19 +67,22 @@ public final class ResultInspectorPane extends VBox {
                 ? "Source: discovery result\nObserved occurrences: "
                         + request.observedResource().orElseThrow().observedCount()
                 : "Surface material scan complete.";
-        String key2 = observed ? "Occurrences" : "Matched blocks";
-        String value2 = observed
-                ? Integer.toString(request.observedResource().orElseThrow().observedCount())
-                : Integer.toString(result.analysis().matchingBlockCount());
-        String key3 = observed ? "Registry variants" : "Areas/deposits";
-        String value3 = observed
-                ? Integer.toString(request.observedResource().orElseThrow().candidate().blockIds().size())
-                : Integer.toString(result.analysis().depositCount());
-        content.getChildren().setAll(sectionTitle(observed ? "Surface Object" : "Surface Material"),
-                card(request.resourceDisplayName(), "Matches", Integer.toString(result.analysis().matchingBlockCount()),
-                        key2, value2, key3, value3),
-                label("Radius: " + request.radius()),
-                label(summary));
+        if (observed) {
+            content.getChildren().setAll(sectionTitle("Surface Object"),
+                    card(request.resourceDisplayName(), "Occurrences",
+                            Integer.toString(request.observedResource().orElseThrow().observedCount()),
+                            "Registry variants", Integer.toString(
+                                    request.observedResource().orElseThrow().candidate().blockIds().size()),
+                            "Radius", Integer.toString(request.radius())),
+                    label(summary));
+        } else {
+            content.getChildren().setAll(sectionTitle("Surface Material"),
+                    card(request.resourceDisplayName(), "Matched blocks",
+                            Integer.toString(result.analysis().matchingBlockCount()),
+                            "Areas/deposits", Integer.toString(result.analysis().depositCount()),
+                            "Radius", Integer.toString(request.radius())),
+                    label(summary));
+        }
         diagnostics.show(surfaceDiagnostics(result, request));
     }
 

@@ -2,13 +2,13 @@ package cartographer.ui.workstation;
 
 import cartographer.application.ActualOreOverlaySpec;
 import cartographer.application.SurfaceMaterialMatch;
+import cartographer.application.SurfaceMaterialPreset;
 import cartographer.model.BlockInfo;
 import cartographer.render.OreOverlayPalette;
 import cartographer.resource.ObservedSurfaceResource;
 import cartographer.resource.ObservedSurfaceResourceCatalog;
 import cartographer.ui.OrePreset;
 import cartographer.ui.OreResource;
-import cartographer.ui.SurfaceMaterialPreset;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;

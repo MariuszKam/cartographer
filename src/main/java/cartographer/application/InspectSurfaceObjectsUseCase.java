@@ -9,6 +9,7 @@ import cartographer.model.WorldPosition;
 import cartographer.resource.SurfaceObjectCandidate;
 import cartographer.resource.SurfaceObjectCandidateCatalog;
 import cartographer.resource.SurfaceObjectCandidateCatalogBuilder;
+import cartographer.resource.SurfaceObjectCandidateResolver;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SelectiveChunkStreamStats;
 import cartographer.save.SelectiveChunkVisitStatus;
@@ -37,6 +38,8 @@ public final class InspectSurfaceObjectsUseCase {
     private final SurfaceObjectScanner scanner = new SurfaceObjectScanner();
     private final SurfaceObjectCandidateCatalogBuilder candidateBuilder =
             new SurfaceObjectCandidateCatalogBuilder();
+    private final SurfaceObjectCandidateResolver candidateResolver =
+            new SurfaceObjectCandidateResolver();
 
     public InspectSurfaceObjectsUseCase(
             VcdbsReader reader,
@@ -69,10 +72,9 @@ public final class InspectSurfaceObjectsUseCase {
         SurfaceObjectPlan plan = planning.finish();
         Map<Integer, BlockInfo> registry = reader.readBlockRegistry(request.savePath());
         SurfaceObjectCandidateCatalog catalog = candidateBuilder.build(registry);
-        List<SurfaceObjectCandidate> selectedCandidates = catalog.candidates().stream()
-                .filter(candidate -> candidate.qualifiedResourceKey().equalsIgnoreCase(request.resourceKey())
-                        || candidate.resourceKey().equalsIgnoreCase(request.resourceKey()))
-                .toList();
+        SurfaceObjectCandidate selectedCandidate = candidateResolver.resolve(
+                catalog, request.resourceKey());
+        List<SurfaceObjectCandidate> selectedCandidates = List.of(selectedCandidate);
         int[] wantedIds = selectedCandidates.stream()
                 .flatMapToInt(candidate -> candidate.blockIds().stream().mapToInt(Integer::intValue))
                 .distinct().sorted().toArray();

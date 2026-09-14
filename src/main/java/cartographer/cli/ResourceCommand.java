@@ -4,6 +4,7 @@ import cartographer.application.InspectSurfaceObjectsRequest;
 import cartographer.application.InspectSurfaceObjectsResult;
 import cartographer.application.InspectSurfaceObjectsUseCase;
 import cartographer.application.SurfaceMaterialMatch;
+import cartographer.application.SurfaceMaterialPreset;
 import cartographer.model.BlockInfo;
 import cartographer.model.DisplayPosition;
 import cartographer.model.HomeLocation;
@@ -671,7 +672,7 @@ public class ResourceCommand implements Command {
     ) {
         if (args.length < 2) {
             throw new CommandException(
-                    "Usage: resource surface-search <save.vcdbs> <match> "
+                    "Usage: resource surface-search <save.vcdbs> <material> "
                             + "[--radius <blocks>] "
                             + "[--top <n>] "
                             + "[--center-x <x> --center-z <z>]"
@@ -852,7 +853,7 @@ public class ResourceCommand implements Command {
     ) {
         if (args.length < 2) {
             throw new CommandException(
-                    "Usage: resource surface-inspect <save.vcdbs> <match> "
+                    "Usage: resource surface-inspect <save.vcdbs> <resource-key> "
                             + "[--radius <blocks>] [--center-x <x> --center-z <z>]"
             );
         }
@@ -903,7 +904,7 @@ public class ResourceCommand implements Command {
     ) {
         if (args.length < 2) {
             throw new CommandException(
-                    "Usage: resource surface-render <save.vcdbs> <match> "
+                    "Usage: resource surface-render <save.vcdbs> <material> "
                             + "[--radius <blocks>] "
                             + "[--out <map.png>] "
                             + "[--scale <n>] "
@@ -1177,7 +1178,13 @@ public class ResourceCommand implements Command {
     }
 
     private SurfaceMaterialMatch surfaceMatch(String value) {
-        return new SurfaceMaterialMatch(value, List.of(value));
+        SurfaceMaterialPreset preset = SurfaceMaterialPreset.resolve(value).orElseThrow(
+                () -> new CommandException(
+                        "Unsupported surface material \"" + value + "\". Supported materials: "
+                                + "Fire Clay, Clay, Peat"
+                )
+        );
+        return new SurfaceMaterialMatch(preset.label(), preset.requiredTokens());
     }
 
     private RenderOptions terrainRenderOptions(

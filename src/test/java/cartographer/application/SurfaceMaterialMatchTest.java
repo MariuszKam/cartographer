@@ -56,6 +56,17 @@ class SurfaceMaterialMatchTest {
     }
 
     @Test
+    void supportedMaterialResolverRejectsObjectAndUnknownNames() {
+        assertTrue(SurfaceMaterialPreset.resolve("Fire Clay").isPresent());
+        assertTrue(SurfaceMaterialPreset.resolve("clay").isPresent());
+        assertTrue(SurfaceMaterialPreset.resolve("PEAT").isPresent());
+        assertFalse(SurfaceMaterialPreset.resolve("obsidian").isPresent());
+        assertFalse(SurfaceMaterialPreset.resolve("nativecopper").isPresent());
+        assertFalse(SurfaceMaterialPreset.resolve("cassiterite").isPresent());
+        assertFalse(SurfaceMaterialPreset.resolve("arbitrary-unknown-value").isPresent());
+    }
+
+    @Test
     void analyzerKeepsExactPointsAndGroupsAdjacentMaterialBlocks() {
         SurfaceMaterialMatch match = new SurfaceMaterialMatch(
                 "Fire Clay", List.of("fire", "clay")

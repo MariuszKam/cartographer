@@ -2,7 +2,7 @@ package cartographer.ui.workstation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import cartographer.ui.SurfaceMaterialPreset;
+import cartographer.application.SurfaceMaterialPreset;
 import org.junit.jupiter.api.Test;
 
 class SurfaceMaterialOptionsTest {

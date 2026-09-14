@@ -44,6 +44,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RenderSurfaceResourceMapUseCaseTest {
@@ -110,6 +111,36 @@ class RenderSurfaceResourceMapUseCaseTest {
 
         assertEquals(0, reader.coverageCalls);
         assertEquals(1, result.analysis().matchingBlockCount());
+    }
+
+    @Test
+    void observedRenderFailsWhenObservationBlockIsMissingFromRegistry() {
+        ChunkPosition exactPosition = new ChunkPosition(0, 0, 0, 0);
+        Map<Integer, BlockInfo> registry = Map.of(
+                0, new BlockInfo(0, "air"),
+                1, new BlockInfo(1, "game:soil-grass")
+        );
+        FakeReader reader = new FakeReader(
+                List.of(new MapChunkCoordinate(0, 0)),
+                Map.of(exactPosition, surfaceChunkWithObsidian()),
+                registry
+        );
+        SurfaceObjectCandidate candidate = new SurfaceObjectCandidateCatalogBuilder()
+                .build(Map.of(7, new BlockInfo(7, "game:loosestones-obsidian-free")))
+                .findByBlockId(7)
+                .orElseThrow();
+        ObservedSurfaceResource observed = new ObservedSurfaceResource(candidate, List.of(
+                new SurfaceObjectObservation(candidate, 16, 6, 16, 7)));
+        RenderSurfaceResourceMapRequest request =
+                RenderSurfaceResourceMapRequest.forObservedResource(
+                        Path.of("save.vcdbs"), 1, 1, RenderStyle.TOPOGRAPHIC,
+                        EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE), observed,
+                        new WorldPosition(16, 100, 16));
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> useCase(reader).execute(request, observed,
+                        cartographer.application.ProgressReporter.NONE));
+        assertTrue(failure.getMessage().contains("missing block ID: 7"));
     }
 
     @Test
@@ -304,6 +335,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         RenderSurfaceResourceMapResult result = useCase(reader).execute(request(16, 16, 1));
 
         assertEquals(1, result.analysis().matchingBlockCount());
+        assertEquals(0, reader.coverageCalls);
     }
 
     private RenderSurfaceResourceMapRequest request(double x, double z, int radius) {
