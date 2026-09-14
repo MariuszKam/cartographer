@@ -25,8 +25,9 @@ public final class SurfaceObjectClassifier {
      * The currently supported vanilla loose ore grammar is
      * looseores-{resource}-{hostRock}-{variant}. The final known visual
      * variant is removed, and the token immediately before it is treated as
-     * host rock. Arbitrary modded hyphenated host-rock names are therefore
-     * intentionally not inferred beyond this contract.
+     * host rock. Arbitrary modded hyphenated host-rock names may be
+     * ambiguous, so they are intentionally not inferred beyond this
+     * contract.
      */
     public Optional<SurfaceObjectIdentity> classify(String code) {
         if (code == null || code.isBlank()) {
