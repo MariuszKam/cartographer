@@ -2,7 +2,7 @@ package cartographer.cli;
 
 import java.io.PrintStream;
 
-public class ProgressReporter {
+public class ProgressReporter extends cartographer.application.ProgressReporter {
 
     public static final ProgressReporter NONE =
             new ProgressReporter(
@@ -24,6 +24,7 @@ public class ProgressReporter {
                 out;
     }
 
+    @Override
     public void start(
             String stage
     ) {
@@ -43,6 +44,7 @@ public class ProgressReporter {
         );
     }
 
+    @Override
     public void progress(
             String stage,
             int current,
@@ -96,6 +98,7 @@ public class ProgressReporter {
         }
     }
 
+    @Override
     public void done(
             String stage
     ) {

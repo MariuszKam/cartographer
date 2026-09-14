@@ -167,7 +167,15 @@ public class RenderActualOreMapUseCase {
     }
 
     public RenderActualOreMapResult execute(RenderActualOreMapRequest request) {
+        return execute(request, ProgressReporter.NONE);
+    }
+
+    public RenderActualOreMapResult execute(
+            RenderActualOreMapRequest request,
+            ProgressReporter progress
+    ) {
         Objects.requireNonNull(request, "request is required");
+        Objects.requireNonNull(progress, "progress is required");
 
         WorldMetadata metadata = metadataReader.read(request.savePath());
         WorldPosition player = reader.readPlayerPosition(request.savePath());
@@ -218,7 +226,8 @@ public class RenderActualOreMapUseCase {
                 MapTerrainPreparation.builder(
                         center,
                         options,
-                        renderMapChunkCoordinates.size()
+                        renderMapChunkCoordinates.size(),
+                        progress
                 );
         RainHeightSurfacePlanner.StreamingSession rainPlannerSession =
                 surfaceEnabled
@@ -242,7 +251,8 @@ public class RenderActualOreMapUseCase {
                         deliveredSurfaceMapChunks.add(mapChunk.coordinate());
                         rainPlannerSession.accept(mapChunk);
                     }
-                }
+                },
+                progress
         );
         MapTerrainPreparation terrain = terrainBuilder.finish();
         SurfaceScanResult surface = surfaceEnabled
@@ -255,11 +265,12 @@ public class RenderActualOreMapUseCase {
                         surfaceMapChunkCoordinates,
                         deliveredSurfaceMapChunks,
                         rainPlannerSession,
-                        chunkDiagnostics
+                        chunkDiagnostics,
+                        progress
                 )
                 : new SurfaceScanResult(List.of(), 0, 0, 0, 0);
         RenderedMap rendered = renderer.render(
-                center, player, home, terrain, surface.blocks(), options
+                center, player, home, terrain, surface.blocks(), options, progress
         );
 
         ReadDiagnostics mapRegionDiagnostics = new ReadDiagnostics();
@@ -275,7 +286,7 @@ public class RenderActualOreMapUseCase {
 
         ReadDiagnostics actualOreDiagnostics = new ReadDiagnostics();
         List<ActualOreOverlayResult> actualOreOverlays = drawActualOreOverlays(
-                request, rendered, center, metadata, actualOreDiagnostics
+                request, rendered, center, metadata, actualOreDiagnostics, progress
         );
 
         if ((hasMapRegionOverlay(options) || !actualOreOverlays.isEmpty())
@@ -311,7 +322,8 @@ public class RenderActualOreMapUseCase {
             RenderedMap rendered,
             WorldPosition center,
             WorldMetadata metadata,
-            ReadDiagnostics diagnostics
+            ReadDiagnostics diagnostics,
+            ProgressReporter progress
     ) {
         List<ActualOreOverlaySpec> specs = request.oreOverlays();
         if (specs.isEmpty()) {
@@ -346,7 +358,8 @@ public class RenderActualOreMapUseCase {
                     positions,
                     wantedBlockIds,
                     diagnostics,
-                    session::accept
+                    session::accept,
+                    progress
             );
         }
         List<ActualBlockMap> maps = session.finish();
@@ -379,7 +392,8 @@ public class RenderActualOreMapUseCase {
             List<MapChunkCoordinate> surfaceMapChunkCoordinates,
             Set<MapChunkCoordinate> deliveredSurfaceMapChunks,
             RainHeightSurfacePlanner.StreamingSession rainPlannerSession,
-            ReadDiagnostics chunkDiagnostics
+            ReadDiagnostics chunkDiagnostics,
+            ProgressReporter progress
     ) {
         Map<Integer, BlockInfo> registry = reader.readBlockRegistry(savePath);
         RainHeightSurfacePlan rainPlan = rainPlannerSession.finish();
@@ -391,7 +405,8 @@ public class RenderActualOreMapUseCase {
                     savePath,
                     rainPlan.chunkPositions(),
                     chunkDiagnostics,
-                    fastSession::accept
+                    fastSession::accept,
+                    progress
             );
         }
         RainHeightSurfaceScanResult fastResult = fastSession.finish();
@@ -412,12 +427,13 @@ public class RenderActualOreMapUseCase {
                     savePath,
                     fallbackPositions,
                     chunkDiagnostics,
-                    fallbackChunks::add
+                    fallbackChunks::add,
+                    progress
             );
         }
         SurfaceScanResult fallbackSurface = fallbackMapChunks.isEmpty()
                 ? new SurfaceScanResult(List.of(), 0, 0, 0, 0)
-                : surfaceScanner.scan(fallbackChunks, registry, true);
+                : surfaceScanner.scan(fallbackChunks, registry, true, progress);
         int healthyFastColumns = (int) rainPlan.targets().stream()
                 .filter(target -> !fallbackMapChunks.contains(target.mapChunkCoordinate()))
                 .count();

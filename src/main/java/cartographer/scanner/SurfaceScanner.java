@@ -1,6 +1,6 @@
 package cartographer.scanner;
 
-import cartographer.cli.ProgressReporter;
+import cartographer.application.ProgressReporter;
 import cartographer.model.BlockInfo;
 import cartographer.model.ParsedChunk;
 import cartographer.model.SurfaceBlock;

@@ -1,6 +1,6 @@
 package cartographer.render;
 
-import cartographer.cli.ProgressReporter;
+import cartographer.application.ProgressReporter;
 import cartographer.model.MapChunk;
 
 import java.util.BitSet;

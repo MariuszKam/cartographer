@@ -108,7 +108,15 @@ public class RenderSurfaceResourceMapUseCase {
     }
 
     public RenderSurfaceResourceMapResult execute(RenderSurfaceResourceMapRequest request) {
+        return execute(request, ProgressReporter.NONE);
+    }
+
+    public RenderSurfaceResourceMapResult execute(
+            RenderSurfaceResourceMapRequest request,
+            ProgressReporter progress
+    ) {
         Objects.requireNonNull(request, "request is required");
+        Objects.requireNonNull(progress, "progress is required");
 
         WorldMetadata metadata = metadataReader.read(request.savePath());
         WorldPosition player = reader.readPlayerPosition(request.savePath());
@@ -156,7 +164,8 @@ public class RenderSurfaceResourceMapUseCase {
                 MapTerrainPreparation.builder(
                         center,
                         options,
-                        renderMapChunkCoordinates.size()
+                        renderMapChunkCoordinates.size(),
+                        progress
                 );
         RainHeightSurfacePlanner.StreamingSession rainPlannerSession =
                 rainHeightSurfacePlanner.begin(
@@ -185,7 +194,8 @@ public class RenderSurfaceResourceMapUseCase {
                         rainPlannerSession.accept(mapChunk);
                         surfaceObjectPlannerSession.accept(mapChunk);
                     }
-                }
+                },
+                progress
         );
         MapTerrainPreparation terrain = terrainBuilder.finish();
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
@@ -205,7 +215,8 @@ public class RenderSurfaceResourceMapUseCase {
                     request.savePath(),
                     rainPlan.chunkPositions(),
                     chunkDiagnostics,
-                    fastSession::accept
+                    fastSession::accept,
+                    progress
             );
         }
         RainHeightSurfaceScanResult fastResult = fastSession.finish();
@@ -226,12 +237,13 @@ public class RenderSurfaceResourceMapUseCase {
                     request.savePath(),
                     fallbackChunkPositions,
                     chunkDiagnostics,
-                    fallbackChunks::add
+                    fallbackChunks::add,
+                    progress
             );
         }
         SurfaceScanResult fallbackSurface = fallbackMapChunks.isEmpty()
                 ? new SurfaceScanResult(List.of(), 0, 0, 0, 0)
-                : surfaceScanner.scan(fallbackChunks, registry, true);
+                : surfaceScanner.scan(fallbackChunks, registry, true, progress);
         int healthyFastColumns = rainPlan.targets().stream()
                 .filter(target -> !fallbackMapChunks.contains(target.mapChunkCoordinate()))
                 .toList()
@@ -290,7 +302,8 @@ public class RenderSurfaceResourceMapUseCase {
                                     == SelectiveChunkVisitStatus.PALETTE_REJECTED) {
                                 availableObjectPositions.add(visit.position());
                             }
-                        }
+                        },
+                        progress
                 );
             }
             SurfaceObjectScanResult objectResult = surfaceObjectScanner.scan(
@@ -331,7 +344,8 @@ public class RenderSurfaceResourceMapUseCase {
                 home,
                 terrain,
                 surface.blocks(),
-                options
+                options,
+                progress
         );
 
         overlayRenderer.draw(

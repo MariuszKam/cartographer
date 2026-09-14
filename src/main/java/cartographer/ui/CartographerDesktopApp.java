@@ -14,6 +14,7 @@ import cartographer.application.RenderRockMapUseCase;
 import cartographer.application.AnalyzeProspectingAreaUseCase;
 import cartographer.application.ProspectingAreaRequest;
 import cartographer.application.ProspectingAreaResult;
+import cartographer.application.ProgressReporter;
 import cartographer.geology.rock.RockMapMode;
 import cartographer.prospecting.SavedOreObservationProvider;
 import cartographer.marker.MarkerStore;
@@ -206,9 +207,10 @@ public class CartographerDesktopApp extends Application {
             Task<RenderActualOreMapResult> task = new Task<>() {
                 @Override
                 protected RenderActualOreMapResult call() {
-                    return useCase.execute(request);
+                    return useCase.execute(request, taskProgress(this));
                 }
             };
+            wireTaskProgress(task);
             task.setOnSucceeded(event -> showResult(task.getValue(), request));
             task.setOnFailed(event -> showFailure(task.getException()));
             Thread worker = new Thread(task, "cartographer-ore-map-render");
@@ -226,9 +228,10 @@ public class CartographerDesktopApp extends Application {
         Task<RenderRockMapResult> task = new Task<>() {
             @Override
             protected RenderRockMapResult call() {
-                return rockUseCase.execute(request);
+                return rockUseCase.execute(request, taskProgress(this));
             }
         };
+        wireTaskProgress(task);
         task.setOnSucceeded(event -> showRockResult(task.getValue(), request));
         task.setOnFailed(event -> showFailure(task.getException()));
         Thread worker = new Thread(task, "cartographer-rock-map-render");
@@ -293,9 +296,10 @@ public class CartographerDesktopApp extends Application {
         Task<RenderSurfaceResourceMapResult> task = new Task<>() {
             @Override
             protected RenderSurfaceResourceMapResult call() {
-                return surfaceUseCase.execute(request);
+                return surfaceUseCase.execute(request, taskProgress(this));
             }
         };
+        wireTaskProgress(task);
         task.setOnSucceeded(event -> showSurfaceResult(task.getValue(), request));
         task.setOnFailed(event -> showFailure(task.getException()));
         Thread worker = new Thread(task, "cartographer-surface-resource-render");
@@ -425,6 +429,47 @@ public class CartographerDesktopApp extends Application {
 
     private void setBusy(boolean busy) {
         workstation.setBusy(busy);
+    }
+
+    private void wireTaskProgress(Task<?> task) {
+        task.messageProperty().addListener((observable, oldMessage, message) -> {
+            if (message != null && !message.isBlank()) {
+                workstation.setStatus(message);
+            }
+        });
+        task.progressProperty().addListener((observable, oldProgress, progress) -> {
+            if (progress == null || progress.doubleValue() < 0.0) {
+                workstation.setIndeterminateProgress();
+            } else {
+                workstation.setProgress(progress.doubleValue(), 1.0);
+            }
+        });
+    }
+
+    private ProgressReporter taskProgress(Task<?> task) {
+        return new ProgressReporter() {
+            @Override
+            public void start(String stage) {
+                task.updateMessage(stage);
+                task.updateProgress(-1, 1);
+            }
+
+            @Override
+            public void progress(String stage, int current, int total) {
+                task.updateMessage(stage);
+                if (total <= 0) {
+                    task.updateProgress(-1, 1);
+                } else {
+                    task.updateProgress(current, total);
+                }
+            }
+
+            @Override
+            public void done(String stage) {
+                task.updateMessage(stage);
+                task.updateProgress(1, 1);
+            }
+        };
     }
 
     private List<ActualOreOverlaySpec> selectedOverlays() {

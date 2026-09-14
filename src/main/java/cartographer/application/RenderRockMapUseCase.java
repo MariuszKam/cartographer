@@ -44,7 +44,15 @@ public final class RenderRockMapUseCase {
     }
 
     public RenderRockMapResult execute(RenderRockMapRequest request) {
+        return execute(request, ProgressReporter.NONE);
+    }
+
+    public RenderRockMapResult execute(
+            RenderRockMapRequest request,
+            ProgressReporter progress
+    ) {
         Objects.requireNonNull(request, "rock map request is required");
+        Objects.requireNonNull(progress, "progress is required");
         WorldMetadata metadata = metadataReader.read(request.savePath());
         WorldPosition center = request.center().orElseGet(
                 () -> reader.readPlayerPosition(request.savePath())
@@ -95,7 +103,8 @@ public final class RenderRockMapUseCase {
                                     == SelectiveChunkVisitStatus.PALETTE_REJECTED) {
                                 available.add(visit.position());
                             }
-                        }
+                        },
+                        progress
                 );
         RockChunkCoverage coverage = RockChunkCoverage.fromChunkPositions(available);
         RockMap map = request.mode() == RockMapMode.AT_Y
