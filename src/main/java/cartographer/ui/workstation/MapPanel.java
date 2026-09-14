@@ -4,6 +4,8 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
+import javafx.embed.swing.SwingFXUtils;
+import java.awt.image.BufferedImage;
 
 public final class MapPanel extends BorderPane {
     private final ImageView imageView = new ImageView();
@@ -24,6 +26,6 @@ public final class MapPanel extends BorderPane {
         imageView.setFitHeight(Math.max(620, height));
     }
 
-    public ImageView imageView() { return imageView; }
-    public ScrollPane preview() { return preview; }
+    public void show(BufferedImage image) { show(SwingFXUtils.toFXImage(image, null), image.getWidth(), image.getHeight()); }
+
 }

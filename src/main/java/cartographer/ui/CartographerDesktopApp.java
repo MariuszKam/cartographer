@@ -25,7 +25,6 @@ import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.render.ActualOreOverlayPainter;
 import cartographer.render.MapRenderer;
-import cartographer.render.OreOverlayPalette;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.render.UserMarkerRenderer;
@@ -34,11 +33,9 @@ import cartographer.render.RockLegendEntry;
 import cartographer.resource.ResourceAnalyzer;
 import cartographer.resource.SurfaceResourceAnalyzer;
 import cartographer.model.BlockInfo;
-import cartographer.model.SurfaceBlock;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMapScanner;
-import cartographer.scanner.ActualBlockMatchMode;
 import cartographer.scanner.ActualBlockYFilter;
 import cartographer.ui.workstation.MapPanel;
 import cartographer.ui.workstation.SearchPanel;
@@ -46,77 +43,20 @@ import cartographer.ui.workstation.WorkstationView;
 import cartographer.ui.workstation.WorldPanel;
 import javafx.application.Application;
 import javafx.concurrent.Task;
-import javafx.embed.swing.SwingFXUtils;
-import javafx.geometry.Insets;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.CheckBox;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.Label;
-import javafx.scene.control.ProgressIndicator;
-import javafx.scene.control.RadioButton;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.Separator;
-import javafx.scene.control.TextField;
-import javafx.scene.control.ToggleGroup;
-import javafx.scene.image.ImageView;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.FlowPane;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-import javafx.util.StringConverter;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.EnumSet;
 import java.util.Optional;
 import java.util.List;
-import java.util.LinkedHashMap;
 import java.util.Map;
-import java.awt.Color;
 import java.util.OptionalInt;
 
 public class CartographerDesktopApp extends Application {
 
-    private TextField saveField;
-    private Button browseButton;
-    private RadioButton oreSearchButton;
-    private RadioButton surfaceSearchButton;
-    private RadioButton rockSearchButton;
-    private RadioButton prospectingSearchButton;
-    private ComboBox<OreResource> resourceBox;
-    private ComboBox<SurfaceResourcePreset> surfaceResourceBox;
-    private RadioButton singleResourceButton;
-    private RadioButton multipleResourcesButton;
-    private Button selectAllButton;
-    private Button clearAllButton;
-    private TextField yMinField;
-    private TextField yMaxField;
-    private RadioButton rockUpperButton;
-    private RadioButton rockAtYButton;
-    private TextField rockYField;
-    private VBox rockLegendBox;
-    private TextField prospectingResourceField;
-    private VBox prospectingResultsBox;
-    private RadioButton allYButton;
-    private RadioButton customYButton;
-    private RadioButton radius128Button;
-    private RadioButton radius256Button;
-    private RadioButton radius512Button;
-    private RadioButton radius1024Button;
-    private Button renderButton;
-    private ProgressIndicator progress;
-    private Label statusLabel;
-    private Label resourceStatusLabel;
-    private Label surfaceResourceStatusLabel;
-    private Label playerStatusLabel;
-    private Label resultLabel;
-    private ImageView imageView;
-    private ScrollPane preview;
     private WorkstationView workstation;
     private SearchPanel searchPanel;
     private WorldPanel worldPanel;
@@ -130,8 +70,6 @@ public class CartographerDesktopApp extends Application {
     private WorldMetadataReader metadataReader;
     private ResourceCatalogService resourceCatalogService;
     private PlayerPositionService playerPositionService;
-    private List<OreResource> discoveredResources = List.of();
-    private Map<Integer, BlockInfo> loadedRegistry = Map.of();
 
     @Override
     public void start(Stage stage) {
@@ -168,41 +106,6 @@ public class CartographerDesktopApp extends Application {
         worldPanel = workstation.worldPanel();
         searchPanel = workstation.searchPanel();
         mapPanel = workstation.mapPanel();
-        saveField = worldPanel.saveField();
-        browseButton = worldPanel.browseButton();
-        oreSearchButton = searchPanel.oreSearchButton();
-        surfaceSearchButton = searchPanel.surfaceSearchButton();
-        rockSearchButton = searchPanel.rockSearchButton();
-        prospectingSearchButton = searchPanel.prospectingSearchButton();
-        resourceBox = searchPanel.resourceBox();
-        surfaceResourceBox = searchPanel.surfaceResourceBox();
-        singleResourceButton = searchPanel.singleResourceButton();
-        multipleResourcesButton = searchPanel.multipleResourcesButton();
-        selectAllButton = searchPanel.selectAllButton();
-        clearAllButton = searchPanel.clearAllButton();
-        yMinField = searchPanel.yMinField();
-        yMaxField = searchPanel.yMaxField();
-        rockUpperButton = searchPanel.rockUpperButton();
-        rockAtYButton = searchPanel.rockAtYButton();
-        rockYField = searchPanel.rockYField();
-        rockLegendBox = searchPanel.rockLegendBox();
-        prospectingResourceField = searchPanel.prospectingResourceField();
-        prospectingResultsBox = searchPanel.prospectingResultsBox();
-        allYButton = searchPanel.allYButton();
-        customYButton = searchPanel.customYButton();
-        radius128Button = searchPanel.radius128Button();
-        radius256Button = searchPanel.radius256Button();
-        radius512Button = searchPanel.radius512Button();
-        radius1024Button = searchPanel.radius1024Button();
-        renderButton = searchPanel.renderButton();
-        progress = searchPanel.progress();
-        statusLabel = searchPanel.statusLabel();
-        resourceStatusLabel = searchPanel.resourceStatusLabel();
-        surfaceResourceStatusLabel = searchPanel.surfaceResourceStatusLabel();
-        resultLabel = searchPanel.resultLabel();
-        playerStatusLabel = worldPanel.playerStatusLabel();
-        imageView = mapPanel.imageView();
-        preview = mapPanel.preview();
         Scene scene = new Scene(workstation.root(), 1180, 760);
         stage.setScene(scene);
         stage.show();
@@ -224,16 +127,17 @@ public class CartographerDesktopApp extends Application {
         }
         var selected = chooser.showOpenDialog(stage);
         if (selected != null) {
-            saveField.setText(selected.toPath().toString());
-            statusLabel.setText("");
+            worldPanel.setSavePath(selected.toPath().toString());
+            searchPanel.setStatus("");
             loadSaveData(selected.toPath());
         }
     }
 
     private void loadSaveData(Path savePath) {
-        setDiscoveryBusy(true);
-        statusLabel.setText("Loading resources and player position...");
-        playerStatusLabel.setText("Player: loading...");
+        searchPanel.setDiscoveryBusy(true);
+        worldPanel.setBusy(true);
+        searchPanel.setStatus("Loading resources and player position...");
+        worldPanel.setPlayerStatus("Player: loading...");
 
         Task<SaveLoadResult> task = new Task<>() {
             @Override
@@ -254,28 +158,24 @@ public class CartographerDesktopApp extends Application {
         task.setOnSucceeded(event -> {
             SaveLoadResult loaded = task.getValue();
             List<OreResource> discovered = loaded.resources();
-            discoveredResources = discovered;
-            loadedRegistry = loaded.registry();
             searchPanel.setResources(discovered, loaded.registry());
-            updateResourceStatus();
-            updateSurfaceResourceStatus();
-            playerStatusLabel.setText(
+            worldPanel.setPlayerStatus(
                     loaded.player().map(this::formatPlayer).orElse("Player: unavailable")
             );
-            statusLabel.setText(
+            searchPanel.setStatus(
                     discovered.isEmpty()
                             ? "No resource maps found; custom matches are available."
                             : "Loaded " + discovered.size() + " resources."
             );
-            setDiscoveryBusy(false);
+            searchPanel.setDiscoveryBusy(false);
+            worldPanel.setBusy(false);
         });
         task.setOnFailed(event -> {
             searchPanel.setDiscoveryFailure();
-            discoveredResources = searchPanel.presetResources();
-            loadedRegistry = Map.of();
-            playerStatusLabel.setText("Player: unavailable");
+            worldPanel.setPlayerStatus("Player: unavailable");
             showFailure(task.getException());
-            setDiscoveryBusy(false);
+            searchPanel.setDiscoveryBusy(false);
+            worldPanel.setBusy(false);
         });
 
         Thread worker = new Thread(task, "cartographer-resource-discovery");
@@ -285,21 +185,21 @@ public class CartographerDesktopApp extends Application {
 
     private void render() {
         try {
-            if (prospectingSearchButton.isSelected()) {
+            if (searchPanel.selectedMode() == SearchPanel.SearchMode.PROSPECTING) {
                 analyzeProspectingArea();
                 return;
             }
-            if (rockSearchButton.isSelected()) {
+            if (searchPanel.selectedMode() == SearchPanel.SearchMode.ROCK) {
                 renderRockMap();
                 return;
             }
-            if (surfaceSearchButton.isSelected()) {
+            if (searchPanel.selectedMode() == SearchPanel.SearchMode.SURFACE) {
                 renderSurfaceResource();
                 return;
             }
             RenderActualOreMapRequest request = requestFromControls();
             setBusy(true);
-            statusLabel.setText("Rendering...");
+            searchPanel.setStatus("Rendering...");
             Task<RenderActualOreMapResult> task = new Task<>() {
                 @Override
                 protected RenderActualOreMapResult call() {
@@ -319,7 +219,7 @@ public class CartographerDesktopApp extends Application {
     private void renderRockMap() {
         RenderRockMapRequest request = rockRequestFromControls();
         setBusy(true);
-        statusLabel.setText("Rendering observed rock geology...");
+        searchPanel.setStatus("Rendering observed rock geology...");
         Task<RenderRockMapResult> task = new Task<>() {
             @Override
             protected RenderRockMapResult call() {
@@ -334,19 +234,19 @@ public class CartographerDesktopApp extends Application {
     }
 
     private void analyzeProspectingArea() {
-        if (saveField.getText().isBlank()) {
+        if (worldPanel.savePathText().isBlank()) {
             showFailure(new IllegalArgumentException("Select a .vcdbs save."));
             return;
         }
-        String resource = prospectingResourceField.getText().trim();
+        String resource = searchPanel.prospectingResourceText();
         ProspectingAreaRequest request = new ProspectingAreaRequest(
-                Path.of(saveField.getText()),
+                Path.of(worldPanel.savePathText()),
                 Optional.empty(),
-                selectedRadius(),
+                searchPanel.selectedRadius(),
                 resource.isBlank() ? Optional.empty() : Optional.of(resource)
         );
         setBusy(true);
-        statusLabel.setText("Analyzing prospecting evidence...");
+        searchPanel.setStatus("Analyzing prospecting evidence...");
         Task<ProspectingAreaResult> task = new Task<>() {
             @Override
             protected ProspectingAreaResult call() {
@@ -361,21 +261,21 @@ public class CartographerDesktopApp extends Application {
     }
 
     private RenderRockMapRequest rockRequestFromControls() {
-        if (saveField.getText().isBlank()) {
+        if (worldPanel.savePathText().isBlank()) {
             throw new IllegalArgumentException("Select a .vcdbs save.");
         }
         OptionalInt y = OptionalInt.empty();
-        if (rockAtYButton.isSelected()) {
-            Integer value = parseOptionalInteger(rockYField, "Rock Y");
+        if (searchPanel.rockAtY()) {
+            Integer value = parseOptionalInteger(searchPanel.rockYText(), "Rock Y");
             if (value == null) {
                 throw new IllegalArgumentException("Enter a world Y for At Y mode.");
             }
             y = OptionalInt.of(value);
         }
         return new RenderRockMapRequest(
-                Path.of(saveField.getText()),
-                rockAtYButton.isSelected() ? RockMapMode.AT_Y : RockMapMode.UPPER_ROCK,
-                selectedRadius(),
+                Path.of(worldPanel.savePathText()),
+                searchPanel.rockAtY() ? RockMapMode.AT_Y : RockMapMode.UPPER_ROCK,
+                searchPanel.selectedRadius(),
                 Optional.empty(),
                 y,
                 OptionalInt.empty(),
@@ -386,7 +286,7 @@ public class CartographerDesktopApp extends Application {
     private void renderSurfaceResource() {
         RenderSurfaceResourceMapRequest request = surfaceRequestFromControls();
         setBusy(true);
-        statusLabel.setText("Rendering surface resource...");
+        searchPanel.setStatus("Rendering surface resource...");
         Task<RenderSurfaceResourceMapResult> task = new Task<>() {
             @Override
             protected RenderSurfaceResourceMapResult call() {
@@ -401,14 +301,14 @@ public class CartographerDesktopApp extends Application {
     }
 
     private RenderSurfaceResourceMapRequest surfaceRequestFromControls() {
-        if (saveField.getText().isBlank()) {
+        if (worldPanel.savePathText().isBlank()) {
             throw new IllegalArgumentException("Select a .vcdbs save.");
         }
-        String typed = surfaceResourceBox.getEditor().getText().trim();
+        String typed = searchPanel.surfaceResourceText();
         if (typed.isBlank()) {
             throw new IllegalArgumentException("Enter a surface resource match.");
         }
-        SurfaceResourceMatch match = surfacePresetFor(typed)
+        SurfaceResourceMatch match = searchPanel.surfacePresetFor(typed)
                 .map(preset -> new SurfaceResourceMatch(
                         preset.label(),
                         preset.requiredTokens(),
@@ -416,8 +316,8 @@ public class CartographerDesktopApp extends Application {
                 ))
                 .orElseGet(() -> new SurfaceResourceMatch(typed, List.of(typed)));
         return new RenderSurfaceResourceMapRequest(
-                Path.of(saveField.getText()),
-                selectedRadius(),
+                Path.of(worldPanel.savePathText()),
+                searchPanel.selectedRadius(),
                 1,
                 RenderStyle.TOPOGRAPHIC,
                 EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE, RenderLayer.MARKERS),
@@ -427,30 +327,30 @@ public class CartographerDesktopApp extends Application {
     }
 
     private RenderActualOreMapRequest requestFromControls() {
-        if (saveField.getText().isBlank()) {
+        if (worldPanel.savePathText().isBlank()) {
             throw new IllegalArgumentException("Select a .vcdbs save.");
         }
         List<ActualOreOverlaySpec> overlays = selectedOverlays();
         String match = overlays.isEmpty() ? "" : overlays.getFirst().match();
         if (match.isBlank()) {
             throw new IllegalArgumentException(
-                    multipleResourcesButton.isSelected()
+                            searchPanel.multipleResources()
                             ? "Select at least one resource."
                             : "Enter an ore match."
             );
         }
         Integer min = null;
         Integer max = null;
-        if (customYButton.isSelected()) {
-            min = parseOptionalInteger(yMinField, "Y minimum");
-            max = parseOptionalInteger(yMaxField, "Y maximum");
+        if (searchPanel.customYEnabled()) {
+            min = parseOptionalInteger(searchPanel.yMinText(), "Y minimum");
+            max = parseOptionalInteger(searchPanel.yMaxText(), "Y maximum");
             if (min != null && max != null && min > max) {
                 throw new IllegalArgumentException("Y minimum must not exceed Y maximum.");
             }
         }
         return new RenderActualOreMapRequest(
-                Path.of(saveField.getText()),
-                selectedRadius(),
+                Path.of(worldPanel.savePathText()),
+                searchPanel.selectedRadius(),
                 1,
                 RenderStyle.TOPOGRAPHIC,
                 EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE, RenderLayer.MARKERS),
@@ -462,9 +362,7 @@ public class CartographerDesktopApp extends Application {
     }
 
     private void showResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
-        imageView.setImage(SwingFXUtils.toFXImage(result.image(), null));
-        imageView.setFitWidth(Math.max(720, result.image().getWidth()));
-        imageView.setFitHeight(Math.max(620, result.image().getHeight()));
+        mapPanel.show(result.image());
         StringBuilder resultText = new StringBuilder()
                 .append("Resources: ")
                 .append(result.actualOreOverlays().size())
@@ -486,8 +384,8 @@ public class CartographerDesktopApp extends Application {
                     .append(foundY(map));
         }
         resultText.append("\n\nTotal matching blocks: ").append(total);
-        resultLabel.setText(resultText.toString());
-        statusLabel.setText("Rendered.");
+        searchPanel.setResult(resultText.toString());
+        searchPanel.setStatus("Rendered.");
         setBusy(false);
     }
 
@@ -495,9 +393,7 @@ public class CartographerDesktopApp extends Application {
             RenderSurfaceResourceMapResult result,
             RenderSurfaceResourceMapRequest request
     ) {
-        imageView.setImage(SwingFXUtils.toFXImage(result.image(), null));
-        imageView.setFitWidth(Math.max(720, result.image().getWidth()));
-        imageView.setFitHeight(Math.max(620, result.image().getHeight()));
+        mapPanel.show(result.image());
         StringBuilder resultText = new StringBuilder()
                 .append("Surface resource: ")
                 .append(request.match().displayName())
@@ -567,8 +463,8 @@ public class CartographerDesktopApp extends Application {
                         .append(deposit.maxY());
             }
         }
-        resultLabel.setText(resultText.toString());
-        statusLabel.setText("Rendered.");
+        searchPanel.setResult(resultText.toString());
+        searchPanel.setStatus("Rendered.");
         setBusy(false);
     }
 
@@ -576,30 +472,10 @@ public class CartographerDesktopApp extends Application {
             RenderRockMapResult result,
             RenderRockMapRequest request
     ) {
-        imageView.setImage(SwingFXUtils.toFXImage(result.rendered().image(), null));
-        imageView.setFitWidth(Math.max(720, result.rendered().image().getWidth()));
-        imageView.setFitHeight(Math.max(620, result.rendered().image().getHeight()));
-        rockLegendBox.getChildren().clear();
+        mapPanel.show(result.rendered().image());
+        searchPanel.clearRockLegend();
         for (RockLegendEntry entry : result.rendered().legend()) {
-            Region swatch = new Region();
-            swatch.setPrefSize(12, 12);
-            int rgb = entry.argb();
-            swatch.setStyle(
-                    "-fx-background-color: rgb("
-                            + ((rgb >> 16) & 0xff) + ","
-                            + ((rgb >> 8) & 0xff) + ","
-                            + (rgb & 0xff) + ");"
-            );
-            Label label = new Label(
-                    entry.rock().code()
-                            + " (" + entry.observedCellCount()
-                            + ", " + String.format(
-                                    java.util.Locale.ROOT,
-                                    "%.2f%%",
-                                    entry.observedPercentage()
-                            ) + ")"
-            );
-            rockLegendBox.getChildren().add(new HBox(6, swatch, label));
+            searchPanel.addRockLegend(entry);
         }
         StringBuilder text = new StringBuilder("Observed saved geology")
                 .append("\nMode: ").append(request.mode())
@@ -615,16 +491,15 @@ public class CartographerDesktopApp extends Application {
                 .append("\nObserved: ").append(result.rendered().observedCount())
                 .append("\nNo rock: ").append(result.rendered().noRockCount())
                 .append("\nUnavailable: ").append(result.rendered().unavailableCount());
-        resultLabel.setText(text.toString());
-        statusLabel.setText("Rock map rendered.");
+        searchPanel.setResult(text.toString());
+        searchPanel.setStatus("Rock map rendered.");
         setBusy(false);
     }
 
     private void showProspectingResult(ProspectingAreaResult result) {
-        prospectingResultsBox.getChildren().clear();
+        searchPanel.clearProspectingResults();
         for (ProspectingAssessment assessment : result.assessments()) {
-            prospectingResultsBox.getChildren().add(
-                    new Label(
+            searchPanel.addProspectingResult(
                             assessment.candidate().resourceKey()
                                     + " - " + assessment.rank()
                                     + " | signal: " + signalText(assessment)
@@ -638,15 +513,14 @@ public class CartographerDesktopApp extends Application {
                                     "; ",
                                     assessment.reasons()
                             )
-                    )
             );
         }
-        resultLabel.setText(
+        searchPanel.setResult(
                 "Prospecting evidence\n"
                         + "Observed saved geology and relative worldgen signals\n"
                         + "Candidates: " + result.assessments().size()
         );
-        statusLabel.setText("Prospecting analysis complete.");
+        searchPanel.setStatus("Prospecting analysis complete.");
         setBusy(false);
     }
 
@@ -687,7 +561,7 @@ public class CartographerDesktopApp extends Application {
     }
 
     private void showFailure(Throwable failure) {
-        statusLabel.setText("Error: " + conciseMessage(failure));
+        searchPanel.setStatus("Error: " + conciseMessage(failure));
         setBusy(false);
     }
 
@@ -700,138 +574,20 @@ public class CartographerDesktopApp extends Application {
     }
 
     private void setBusy(boolean busy) {
-        renderButton.setDisable(busy);
-        browseButton.setDisable(busy);
-        saveField.setDisable(busy);
-        resourceBox.setDisable(busy);
-        surfaceResourceBox.setDisable(busy);
-        oreSearchButton.setDisable(busy);
-        surfaceSearchButton.setDisable(busy);
-        rockSearchButton.setDisable(busy);
-        prospectingSearchButton.setDisable(busy);
-        rockUpperButton.setDisable(busy);
-        rockAtYButton.setDisable(busy);
-        rockYField.setDisable(busy || !rockAtYButton.isSelected() || !rockSearchButton.isSelected());
-        prospectingResourceField.setDisable(busy);
-        singleResourceButton.setDisable(busy);
-        multipleResourcesButton.setDisable(busy);
-        selectAllButton.setDisable(busy);
-        clearAllButton.setDisable(busy);
-        radius128Button.setDisable(busy);
-        radius256Button.setDisable(busy);
-        radius512Button.setDisable(busy);
-        radius1024Button.setDisable(busy);
-        allYButton.setDisable(busy);
-        customYButton.setDisable(busy);
-        yMinField.setDisable(busy || allYButton.isSelected() || surfaceSearchButton.isSelected());
-        yMaxField.setDisable(busy || allYButton.isSelected() || surfaceSearchButton.isSelected());
-        progress.setVisible(busy);
-    }
-
-    private void setDiscoveryBusy(boolean busy) {
-        renderButton.setDisable(busy);
-        browseButton.setDisable(busy);
-        saveField.setDisable(busy);
-        resourceBox.setDisable(busy);
-        surfaceResourceBox.setDisable(busy);
-        oreSearchButton.setDisable(busy);
-        surfaceSearchButton.setDisable(busy);
-        rockSearchButton.setDisable(busy);
-        prospectingSearchButton.setDisable(busy);
-        prospectingResourceField.setDisable(busy);
-        singleResourceButton.setDisable(busy);
-        multipleResourcesButton.setDisable(busy);
-        selectAllButton.setDisable(busy);
-        clearAllButton.setDisable(busy);
-    }
-
-    private void updateYFields() {
-        boolean disabled = allYButton.isSelected()
-                || surfaceSearchButton.isSelected()
-                || rockSearchButton.isSelected()
-                || prospectingSearchButton.isSelected();
-        yMinField.setDisable(disabled);
-        yMaxField.setDisable(disabled);
-        updateRockMode();
-    }
-
-    private void updateRockMode() {
-        rockYField.setDisable(
-                !rockSearchButton.isSelected() || !rockAtYButton.isSelected()
-        );
-    }
-
-    private int selectedRadius() {
-        if (radius128Button.isSelected()) {
-            return 128;
-        }
-        if (radius512Button.isSelected()) {
-            return 512;
-        }
-        if (radius1024Button.isSelected()) {
-            return 1024;
-        }
-        return 256;
-    }
-
-    private String resourceMatch() {
-        String editor = resourceBox.getEditor().getText().trim();
-        return resourceForDisplayName(editor)
-                .map(OreResource::match)
-                .orElse(editor);
-    }
-
-    private void updateResourceStatus() {
-        searchPanel.updateResourceStatus();
-    }
-
-    private void updateSurfaceResourceStatus() {
-        searchPanel.updateSurfaceResourceStatus();
-    }
-
-    private void updateSearchType() {
-        updateYFields();
-        updateRockMode();
-        updateResourceStatus();
-        updateSurfaceResourceStatus();
-    }
-
-    private Optional<SurfaceResourcePreset> surfacePresetFor(String value) {
-        return searchPanel.surfacePresetFor(value);
+        worldPanel.setBusy(busy);
+        searchPanel.setBusy(busy);
     }
 
     private List<ActualOreOverlaySpec> selectedOverlays() {
         return searchPanel.selectedOverlays();
     }
 
-    private Color colorForCustomMatch(String match) {
-        return OreOverlayPalette.colorFor(match, 0);
-    }
-
-    private Optional<OreResource> resourceForDisplayName(String value) {
-        return resourceBox.getItems().stream()
-                .filter(resource -> resource.displayName().equalsIgnoreCase(value.trim()))
-                .findFirst();
-    }
-
-    private List<OreResource> presetResources() {
-        return java.util.Arrays.stream(OrePreset.values())
-                .map(preset -> new OreResource(
-                        preset.label(),
-                        preset.match(),
-                        preset.match(),
-                        false,
-                        0
-                ))
-                .toList();
-    }
-
-    private Integer parseOptionalInteger(TextField field, String label) {
-        if (field.getText().isBlank()) {
+    private Integer parseOptionalInteger(String text, String label) {
+        if (text.isBlank()) {
             return null;
         }
         try {
-            return Integer.parseInt(field.getText().trim());
+            return Integer.parseInt(text.trim());
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException(label + " must be an integer.");
         }

@@ -7,7 +7,6 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Region;
 
-import java.nio.file.Path;
 import java.util.function.Consumer;
 
 public final class WorldPanel extends GridPane {
@@ -30,17 +29,8 @@ public final class WorldPanel extends GridPane {
         browseButton.setOnAction(event -> onBrowse.accept(this));
     }
 
-    public TextField saveField() {
-        return saveField;
-    }
-
-    public Button browseButton() {
-        return browseButton;
-    }
-
-    public Label playerStatusLabel() {
-        return playerStatusLabel;
-    }
+    public String savePathText() { return saveField.getText(); }
+    public void setSavePath(String path) { saveField.setText(path); }
 
     public void setPlayerStatus(String text) {
         playerStatusLabel.setText(text);

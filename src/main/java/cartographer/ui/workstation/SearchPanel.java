@@ -5,6 +5,7 @@ import cartographer.application.SurfaceResourceMatch;
 import cartographer.model.BlockInfo;
 import cartographer.model.SurfaceBlock;
 import cartographer.render.OreOverlayPalette;
+import cartographer.render.RockLegendEntry;
 import cartographer.resource.ResourceAnalyzer;
 import cartographer.ui.OrePreset;
 import cartographer.ui.OreResource;
@@ -37,6 +38,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 public final class SearchPanel extends VBox {
+    public enum SearchMode { ORE, SURFACE, ROCK, PROSPECTING }
     private final RadioButton oreSearchButton = new RadioButton("Ore deposits");
     private final RadioButton surfaceSearchButton = new RadioButton("Surface resources");
     private final RadioButton rockSearchButton = new RadioButton("Rock geology");
@@ -156,44 +158,17 @@ public final class SearchPanel extends VBox {
         return grid;
     }
 
-    public Button renderButton() { return renderButton; }
-    public RadioButton oreSearchButton() { return oreSearchButton; }
-    public RadioButton surfaceSearchButton() { return surfaceSearchButton; }
-    public RadioButton rockSearchButton() { return rockSearchButton; }
-    public RadioButton prospectingSearchButton() { return prospectingSearchButton; }
-    public RadioButton singleResourceButton() { return singleResourceButton; }
-    public RadioButton multipleResourcesButton() { return multipleResourcesButton; }
-    public RadioButton rockUpperButton() { return rockUpperButton; }
-    public RadioButton rockAtYButton() { return rockAtYButton; }
-    public RadioButton allYButton() { return allYButton; }
-    public RadioButton customYButton() { return customYButton; }
-    public RadioButton radius128Button() { return radius128Button; }
-    public RadioButton radius256Button() { return radius256Button; }
-    public RadioButton radius512Button() { return radius512Button; }
-    public RadioButton radius1024Button() { return radius1024Button; }
-    public Button selectAllButton() { return selectAllButton; }
-    public Button clearAllButton() { return clearAllButton; }
-    public ProgressIndicator progress() { return progress; }
-    public Label resourceStatusLabel() { return resourceStatusLabel; }
-    public Label surfaceResourceStatusLabel() { return surfaceResourceStatusLabel; }
-    public Label statusLabel() { return statusLabel; }
-    public Label resultLabel() { return resultLabel; }
-    public TextField prospectingResourceField() { return prospectingResourceField; }
-    public TextField rockYField() { return rockYField; }
-    public boolean rockAtY() { return rockAtYButton.isSelected(); }
-    public boolean rockSearchSelected() { return rockSearchButton.isSelected(); }
-    public boolean prospectingSelected() { return prospectingSearchButton.isSelected(); }
-    public boolean surfaceSearchSelected() { return surfaceSearchButton.isSelected(); }
-    public boolean customYSelected() { return customYButton.isSelected(); }
-    public TextField yMinField() { return yMinField; }
-    public TextField yMaxField() { return yMaxField; }
-    public ComboBox<SurfaceResourcePreset> surfaceResourceBox() { return surfaceResourceBox; }
-    public ComboBox<OreResource> resourceBox() { return resourceBox; }
-    public VBox rockLegendBox() { return rockLegendBox; }
-    public VBox prospectingResultsBox() { return prospectingResultsBox; }
-    public int selectedRadius() { return radius128Button.isSelected() ? 128 : radius512Button.isSelected() ? 512 : radius1024Button.isSelected() ? 1024 : 256; }
-    public String resourceMatch() { String editor = resourceBox.getEditor().getText().trim(); return resourceForDisplayName(editor).map(OreResource::match).orElse(editor); }
+    public SearchMode selectedMode() { return oreSearchButton.isSelected() ? SearchMode.ORE : surfaceSearchButton.isSelected() ? SearchMode.SURFACE : rockSearchButton.isSelected() ? SearchMode.ROCK : SearchMode.PROSPECTING; }
+    public String oreResourceText() { return resourceBox.getEditor().getText().trim(); }
     public String surfaceResourceText() { return surfaceResourceBox.getEditor().getText().trim(); }
+    public String prospectingResourceText() { return prospectingResourceField.getText().trim(); }
+    public boolean customYEnabled() { return customYButton.isSelected(); }
+    public boolean multipleResources() { return multipleResourcesButton.isSelected(); }
+    public String yMinText() { return yMinField.getText(); }
+    public String yMaxText() { return yMaxField.getText(); }
+    public String rockYText() { return rockYField.getText(); }
+    public int selectedRadius() { return radius128Button.isSelected() ? 128 : radius512Button.isSelected() ? 512 : radius1024Button.isSelected() ? 1024 : 256; }
+    public String resourceMatch() { String editor = oreResourceText(); return resourceForDisplayName(editor).map(OreResource::match).orElse(editor); }
     public void setStatus(String text) { statusLabel.setText(text); }
     public void setResult(String text) { resultLabel.setText(text); }
     public void setResources(List<OreResource> resources, Map<Integer, BlockInfo> registry) { discoveredResources = resources; loadedRegistry = registry; rebuildResourceChecklist(); resourceBox.getItems().setAll(resources.isEmpty() ? presetResources() : resources); if (!resourceBox.getItems().isEmpty()) resourceBox.setValue(resourceBox.getItems().getFirst()); updateResourceStatus(); updateSurfaceResourceStatus(); }
@@ -204,12 +179,12 @@ public final class SearchPanel extends VBox {
         yMinField.setDisable(busy || allYButton.isSelected() || surfaceSearchButton.isSelected()); yMaxField.setDisable(busy || allYButton.isSelected() || surfaceSearchButton.isSelected());
         rockYField.setDisable(busy || !rockAtYButton.isSelected() || !rockSearchButton.isSelected()); progress.setVisible(busy);
     }
-    public void setDiscoveryBusy(boolean busy) { setBusy(busy); progress.setVisible(false); }
+    public void setDiscoveryBusy(boolean busy) { renderButton.setDisable(busy); resourceBox.setDisable(busy); surfaceResourceBox.setDisable(busy); oreSearchButton.setDisable(busy); surfaceSearchButton.setDisable(busy); rockSearchButton.setDisable(busy); prospectingSearchButton.setDisable(busy); prospectingResourceField.setDisable(busy); singleResourceButton.setDisable(busy); multipleResourcesButton.setDisable(busy); selectAllButton.setDisable(busy); clearAllButton.setDisable(busy); progress.setVisible(false); }
 
-    public void addProspectingResult(Label label) { prospectingResultsBox.getChildren().add(label); }
+    public void addProspectingResult(String text) { prospectingResultsBox.getChildren().add(new Label(text)); }
     public void clearProspectingResults() { prospectingResultsBox.getChildren().clear(); }
     public void clearRockLegend() { rockLegendBox.getChildren().clear(); }
-    public void addRockLegend(Region swatch, Label label) { rockLegendBox.getChildren().add(new HBox(6, swatch, label)); }
+    public void addRockLegend(RockLegendEntry entry) { Region swatch = new Region(); swatch.setPrefSize(12, 12); int rgb = entry.argb(); swatch.setStyle("-fx-background-color: rgb(" + ((rgb >> 16) & 0xff) + "," + ((rgb >> 8) & 0xff) + "," + (rgb & 0xff) + ");"); Label label = new Label(entry.rock().code() + " (" + entry.observedCellCount() + ", " + String.format(java.util.Locale.ROOT, "%.2f%%", entry.observedPercentage()) + ")"); rockLegendBox.getChildren().add(new HBox(6, swatch, label)); }
 
     public List<ActualOreOverlaySpec> selectedOverlays() {
         if (singleResourceButton.isSelected()) { String match = resourceMatch(); if (match.isBlank()) return List.of(); OreResource selected = resourceForDisplayName(resourceBox.getEditor().getText()).orElse(null); Color color = selected == null ? OreOverlayPalette.colorFor(match, 0) : resourceColors.getOrDefault(selected, OreOverlayPalette.colorFor(match, 0)); return List.of(new ActualOreOverlaySpec(selected == null ? match : selected.displayName(), match, color, selected != null && selected.registryVerified() ? cartographer.scanner.ActualBlockMatchMode.ORE_CODE : cartographer.scanner.ActualBlockMatchMode.GENERIC_SUBSTRING)); }
@@ -217,15 +192,15 @@ public final class SearchPanel extends VBox {
     }
 
     public Optional<SurfaceResourcePreset> surfacePresetFor(String value) { return Arrays.stream(SurfaceResourcePreset.values()).filter(preset -> preset.label().equalsIgnoreCase(value.trim())).findFirst(); }
-    public void updateSurfaceResourceStatus() { if (!surfaceSearchButton.isSelected()) return; Optional<SurfaceResourcePreset> preset = surfacePresetFor(surfaceResourceText()); if (preset.isEmpty()) { surfaceResourceStatusLabel.setText("Registry candidates: custom input"); return; } SurfaceResourceMatch match = new SurfaceResourceMatch(preset.get().label(), preset.get().requiredTokens(), preset.get().acceptedCodePrefixes()); long candidates = loadedRegistry.values().stream().map(block -> new SurfaceBlock(0, 0, 0, block)).filter(match::matches).count(); surfaceResourceStatusLabel.setText("Registry candidates: " + (candidates == 0 ? "none" : candidates)); }
-    public Optional<OreResource> resourceForDisplayName(String value) { return resourceBox.getItems().stream().filter(resource -> resource.displayName().equalsIgnoreCase(value.trim())).findFirst(); }
-    public List<OreResource> presetResources() { return Arrays.stream(OrePreset.values()).map(preset -> new OreResource(preset.label(), preset.match(), preset.match(), false, 0)).toList(); }
+    private void updateSurfaceResourceStatus() { if (!surfaceSearchButton.isSelected()) return; Optional<SurfaceResourcePreset> preset = surfacePresetFor(surfaceResourceText()); if (preset.isEmpty()) { surfaceResourceStatusLabel.setText("Registry candidates: custom input"); return; } SurfaceResourceMatch match = new SurfaceResourceMatch(preset.get().label(), preset.get().requiredTokens(), preset.get().acceptedCodePrefixes()); long candidates = loadedRegistry.values().stream().map(block -> new SurfaceBlock(0, 0, 0, block)).filter(match::matches).count(); surfaceResourceStatusLabel.setText("Registry candidates: " + (candidates == 0 ? "none" : candidates)); }
+    private Optional<OreResource> resourceForDisplayName(String value) { return resourceBox.getItems().stream().filter(resource -> resource.displayName().equalsIgnoreCase(value.trim())).findFirst(); }
+    private List<OreResource> presetResources() { return Arrays.stream(OrePreset.values()).map(preset -> new OreResource(preset.label(), preset.match(), preset.match(), false, 0)).toList(); }
 
     private void updateYFields() { boolean disabled = allYButton.isSelected() || surfaceSearchButton.isSelected() || rockSearchButton.isSelected() || prospectingSearchButton.isSelected(); yMinField.setDisable(disabled); yMaxField.setDisable(disabled); updateRockMode(); }
     private void updateRockMode() { rockYField.setDisable(!rockSearchButton.isSelected() || !rockAtYButton.isSelected()); }
     private void updateRadiusWarning() { boolean visible = radius1024Button.isSelected(); radiusWarningLabel.setVisible(visible); radiusWarningLabel.setManaged(visible); }
     private void updateSearchType() { updateYFields(); updateRockMode(); updateResourceStatus(); updateSurfaceResourceStatus(); }
     private void updateResourceMode() { if (multipleResourcesButton.isSelected()) { String match = resourceMatch(); resourceChecks.forEach((resource, check) -> check.setSelected(resource.match().equalsIgnoreCase(match))); } updateResourceStatus(); }
-    public void updateResourceStatus() { if (!oreSearchButton.isSelected()) return; Optional<OreResource> selected = resourceForDisplayName(resourceBox.getEditor().getText()); resourceStatusLabel.setText(selected.isEmpty() ? "Registry match: custom input" : selected.get().registryVerified() ? "Registry match: verified (" + selected.get().registryMatchCount() + " block codes)" : "Registry match: not verified - using \"" + selected.get().match() + "\" as custom match"); }
+    private void updateResourceStatus() { if (!oreSearchButton.isSelected()) return; Optional<OreResource> selected = resourceForDisplayName(resourceBox.getEditor().getText()); resourceStatusLabel.setText(selected.isEmpty() ? "Registry match: custom input" : selected.get().registryVerified() ? "Registry match: verified (" + selected.get().registryMatchCount() + " block codes)" : "Registry match: not verified - using \"" + selected.get().match() + "\" as custom match"); }
     private void rebuildResourceChecklist() { resourceChecks.clear(); resourceColors.clear(); resourceChecklist.getChildren().clear(); for (int index = 0; index < discoveredResources.size(); index++) { OreResource resource = discoveredResources.get(index); CheckBox check = new CheckBox(resource.displayName()); Region color = new Region(); color.setPrefSize(12, 12); Color awt = OreOverlayPalette.colorFor(resource.match(), index); resourceColors.put(resource, awt); color.setStyle("-fx-background-color: rgb(" + awt.getRed() + "," + awt.getGreen() + "," + awt.getBlue() + ");"); check.setGraphic(color); resourceChecks.put(resource, check); resourceChecklist.getChildren().add(check); } }
 }
