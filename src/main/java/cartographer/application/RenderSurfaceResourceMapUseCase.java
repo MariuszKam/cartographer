@@ -21,6 +21,7 @@ import cartographer.render.SurfaceResourceOverlayRenderer;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.resource.SurfaceMaterialAnalysis;
 import cartographer.resource.SurfaceMaterialAnalyzer;
+import cartographer.resource.ObservedSurfaceResource;
 import cartographer.resource.SurfaceObjectAnalysis;
 import cartographer.resource.SurfaceObjectAnalyzer;
 import cartographer.resource.SurfaceRenderAnalysis;
