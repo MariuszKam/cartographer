@@ -2,6 +2,7 @@ package cartographer.resource;
 
 import cartographer.model.BlockInfo;
 import cartographer.model.SurfaceBlock;
+import cartographer.ui.workstation.SurfaceObjectDiscoveryState;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -9,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SurfaceObjectFilterTest {
     @Test
@@ -61,6 +63,31 @@ class SurfaceObjectFilterTest {
                 SurfaceObjectSelectionActions.clearVisible(
                         Set.of("game:nativecopper", "game:obsidian"), visible));
         assertEquals(Set.of(), SurfaceObjectSelectionActions.clearAll());
+    }
+
+    @Test
+    void noVisibleResourcesDoNotClearSelectedResourcesOrDisableRender() {
+        Set<String> selectedBefore = Set.of("game:nativecopper", "game:obsidian");
+        List<ObservedSurfaceResource> visible = SurfaceObjectFilter.visibleResources(
+                resources(), "does-not-match", Set.of());
+        Set<String> selectedAfter = SurfaceObjectSelectionActions.clearVisible(selectedBefore, visible);
+
+        assertEquals(List.of(), visible);
+        assertEquals(selectedBefore, selectedAfter);
+        assertTrue(SurfaceObjectDiscoveryState.READY.allowsRender(false, !selectedAfter.isEmpty()));
+    }
+
+    @Test
+    void resettingFiltersLeavesSelectionStateUntouched() {
+        SurfaceObjectFilterState before = new SurfaceObjectFilterState(
+                "  copper  ", Set.of(SurfaceObjectFamily.ORE_BITS));
+        Set<String> selected = Set.of("game:nativecopper", "game:obsidian");
+        SurfaceObjectFilterState after = before.reset();
+        Set<String> selectedAfter = SurfaceObjectSelectionActions.selectVisible(selected, List.of());
+
+        assertEquals("", after.searchText());
+        assertEquals(Set.of(), after.enabledFamilies());
+        assertEquals(selected, selectedAfter);
     }
 
     private List<ObservedSurfaceResource> visible(String search, Set<SurfaceObjectFamily> families) {

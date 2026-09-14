@@ -331,9 +331,11 @@ public final class SearchPanel extends VBox {
     private void applySurfaceObjectFilter() {
         if (surfaceObjectVisibilityLabel == null) return;
         List<ObservedSurfaceResource> visible = visibleSurfaceObjects();
+        Set<String> visibleKeys = visible.stream()
+                .map(resource -> resource.candidate().qualifiedResourceKey())
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
         surfaceObjectChecks.forEach((key, check) -> {
-            boolean isVisible = visible.stream()
-                    .anyMatch(resource -> resource.candidate().qualifiedResourceKey().equals(key));
+            boolean isVisible = visibleKeys.contains(key);
             check.setVisible(isVisible);
             check.setManaged(isVisible);
         });
@@ -418,6 +420,7 @@ public final class SearchPanel extends VBox {
         surfaceObjectChecklist.getChildren().clear();
         surfaceResourceBox.setDisable(true);
         surfaceResourceStatusLabel.setText("Surface objects not scanned yet");
+        applySurfaceObjectFilter();
         updateRenderAvailability();
     }
 
