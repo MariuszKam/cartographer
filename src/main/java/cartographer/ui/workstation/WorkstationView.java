@@ -10,6 +10,7 @@ public final class WorkstationView {
     private final ToolNavigationPane toolNavigationPane;
     private final SearchPanel searchPanel;
     private final LayerPanel layerPanel;
+    private final ResultInspectorPane resultInspectorPane;
     private final MapPanel mapPanel = new MapPanel();
 
     public WorkstationView(Runnable onBrowse, Runnable onRender) {
@@ -17,10 +18,12 @@ public final class WorkstationView {
         searchPanel = new SearchPanel(onRender);
         toolNavigationPane = new ToolNavigationPane(this::setMode);
         layerPanel = new LayerPanel();
+        resultInspectorPane = new ResultInspectorPane();
         setMode(SearchPanel.SearchMode.ORE);
 
         root.setLeft(new javafx.scene.layout.VBox(8, worldPanel, toolNavigationPane, searchPanel, layerPanel));
         root.setCenter(mapPanel);
+        root.setRight(resultInspectorPane);
         BorderPane.setMargin(root.getLeft(), new Insets(12));
         BorderPane.setMargin(mapPanel, new Insets(12, 12, 12, 0));
     }
@@ -67,5 +70,9 @@ public final class WorkstationView {
 
     public MapPanel mapPanel() {
         return mapPanel;
+    }
+
+    public ResultInspectorPane resultInspectorPane() {
+        return resultInspectorPane;
     }
 }

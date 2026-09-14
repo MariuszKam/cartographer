@@ -28,7 +28,6 @@ import cartographer.render.MapRenderer;
 import cartographer.render.RenderStyle;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.render.SurfaceResourceOverlayRenderer;
-import cartographer.render.RockLegendEntry;
 import cartographer.resource.ResourceAnalyzer;
 import cartographer.resource.SurfaceResourceAnalyzer;
 import cartographer.model.BlockInfo;
@@ -37,6 +36,7 @@ import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockYFilter;
 import cartographer.ui.workstation.MapPanel;
+import cartographer.ui.workstation.ResultInspectorPane;
 import cartographer.ui.workstation.SearchPanel;
 import cartographer.ui.workstation.WorkstationView;
 import cartographer.ui.workstation.WorldPanel;
@@ -59,6 +59,7 @@ public class CartographerDesktopApp extends Application {
     private SearchPanel searchPanel;
     private WorldPanel worldPanel;
     private MapPanel mapPanel;
+    private ResultInspectorPane resultInspector;
 
     private RenderActualOreMapUseCase useCase;
     private RenderSurfaceResourceMapUseCase surfaceUseCase;
@@ -104,6 +105,7 @@ public class CartographerDesktopApp extends Application {
         worldPanel = workstation.worldPanel();
         searchPanel = workstation.searchPanel();
         mapPanel = workstation.mapPanel();
+        resultInspector = workstation.resultInspectorPane();
         Scene scene = new Scene(workstation.root(), 1180, 760);
         stage.setScene(scene);
         stage.show();
@@ -358,6 +360,7 @@ public class CartographerDesktopApp extends Application {
 
     private void showResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
         mapPanel.show(result.image());
+        resultInspector.showOreResult(result, request);
         StringBuilder resultText = new StringBuilder()
                 .append("Resources: ")
                 .append(result.actualOreOverlays().size())
@@ -379,7 +382,6 @@ public class CartographerDesktopApp extends Application {
                     .append(foundY(map));
         }
         resultText.append("\n\nTotal matching blocks: ").append(total);
-        searchPanel.setResult(resultText.toString());
         searchPanel.setStatus("Rendered.");
         setBusy(false);
     }
@@ -389,6 +391,7 @@ public class CartographerDesktopApp extends Application {
             RenderSurfaceResourceMapRequest request
     ) {
         mapPanel.show(result.image());
+        resultInspector.showSurfaceResult(result, request);
         StringBuilder resultText = new StringBuilder()
                 .append("Surface resource: ")
                 .append(request.match().displayName())
@@ -458,7 +461,6 @@ public class CartographerDesktopApp extends Application {
                         .append(deposit.maxY());
             }
         }
-        searchPanel.setResult(resultText.toString());
         searchPanel.setStatus("Rendered.");
         setBusy(false);
     }
@@ -468,10 +470,7 @@ public class CartographerDesktopApp extends Application {
             RenderRockMapRequest request
     ) {
         mapPanel.show(result.rendered().image());
-        searchPanel.clearRockLegend();
-        for (RockLegendEntry entry : result.rendered().legend()) {
-            searchPanel.addRockLegend(entry);
-        }
+        resultInspector.showRockResult(result, request);
         StringBuilder text = new StringBuilder("Observed saved geology")
                 .append("\nMode: ").append(request.mode())
                 .append("\nRadius: ").append(request.radius());
@@ -486,35 +485,12 @@ public class CartographerDesktopApp extends Application {
                 .append("\nObserved: ").append(result.rendered().observedCount())
                 .append("\nNo rock: ").append(result.rendered().noRockCount())
                 .append("\nUnavailable: ").append(result.rendered().unavailableCount());
-        searchPanel.setResult(text.toString());
         searchPanel.setStatus("Rock map rendered.");
         setBusy(false);
     }
 
     private void showProspectingResult(ProspectingAreaResult result) {
-        searchPanel.clearProspectingResults();
-        for (ProspectingAssessment assessment : result.assessments()) {
-            searchPanel.addProspectingResult(
-                            assessment.candidate().resourceKey()
-                                    + " - " + assessment.rank()
-                                    + " | signal: " + signalText(assessment)
-                                    + " | geology: "
-                                    + assessment.candidate().evidence().geologyState()
-                                    + " | compatibility: "
-                                    + assessment.compatibility()
-                                    + " | actual ore: "
-                                    + actualOreText(assessment)
-                                    + "\n  " + String.join(
-                                    "; ",
-                                    assessment.reasons()
-                            )
-            );
-        }
-        searchPanel.setResult(
-                "Prospecting evidence\n"
-                        + "Observed saved geology and relative worldgen signals\n"
-                        + "Candidates: " + result.assessments().size()
-        );
+        resultInspector.showProspectingResult(result);
         searchPanel.setStatus("Prospecting analysis complete.");
         setBusy(false);
     }
@@ -557,6 +533,7 @@ public class CartographerDesktopApp extends Application {
 
     private void showFailure(Throwable failure) {
         searchPanel.setStatus("Error: " + conciseMessage(failure));
+        resultInspector.showError(failure);
         setBusy(false);
     }
 
