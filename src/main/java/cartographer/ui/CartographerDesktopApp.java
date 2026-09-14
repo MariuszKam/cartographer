@@ -25,7 +25,6 @@ import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.render.ActualOreOverlayPainter;
 import cartographer.render.MapRenderer;
-import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.render.SurfaceResourceOverlayRenderer;
@@ -49,7 +48,6 @@ import javafx.stage.Stage;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.EnumSet;
 import java.util.Optional;
 import java.util.List;
 import java.util.Map;
@@ -317,7 +315,7 @@ public class CartographerDesktopApp extends Application {
                 searchPanel.selectedRadius(),
                 1,
                 RenderStyle.TOPOGRAPHIC,
-                EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE, RenderLayer.MARKERS),
+                workstation.selectedRenderLayers(),
                 match,
                 Optional.empty()
         );
@@ -350,7 +348,7 @@ public class CartographerDesktopApp extends Application {
                 searchPanel.selectedRadius(),
                 1,
                 RenderStyle.TOPOGRAPHIC,
-                EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE, RenderLayer.MARKERS),
+                workstation.selectedRenderLayers(),
                 Optional.of(match),
                 new ActualBlockYFilter(min, max),
                 Optional.empty(),
