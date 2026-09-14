@@ -2,6 +2,7 @@ package cartographer.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -23,9 +24,9 @@ class SurfaceDiscoveryCacheTest {
         var key = key("world.vcdbs", 256, 100.5, 200.5);
         var result = resultAt(100.5, 200.5);
 
-        cache.put(key, resultAt(100.5, 200.5));
+        cache.put(key, result);
 
-        assertEquals(result, cache.get(key).orElseThrow());
+        assertSame(result, cache.get(key).orElseThrow());
         assertTrue(result.observedResources().resources().isEmpty());
     }
 
