@@ -1,26 +1,31 @@
 package cartographer.ui.workstation;
 
-import javafx.scene.control.Label;
-import javafx.scene.control.ProgressIndicator;
 import javafx.geometry.Pos;
+import javafx.scene.control.Label;
+import javafx.scene.control.ProgressBar;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.layout.HBox;
 
 public final class WorkstationStatusBar extends HBox {
     private final Label operation = new Label("Ready");
+    private final ProgressBar progress = new ProgressBar();
+    private final Label progressText = new Label();
     private final Label zoom = new Label("Zoom 100%");
     private final Label radius = new Label("Radius 256");
-    private final ProgressIndicator progress = new ProgressIndicator();
 
     public WorkstationStatusBar() {
         super(12);
         getStyleClass().add("status-bar");
         setAlignment(Pos.CENTER_LEFT);
-        progress.setMinSize(18, 18);
-        progress.setPrefSize(18, 18);
-        progress.setMaxSize(18, 18);
+        progress.getStyleClass().add("status-progress");
+        progress.setPrefWidth(160);
+        progress.setMaxWidth(160);
         progress.setVisible(false);
         progress.setManaged(false);
-        getChildren().addAll(operation, progress, zoom, radius);
+        progressText.getStyleClass().add("status-progress-text");
+        progressText.setVisible(false);
+        progressText.setManaged(false);
+        getChildren().addAll(operation, progress, progressText, zoom, radius);
     }
 
     public void setStatus(String text) {
@@ -28,8 +33,28 @@ public final class WorkstationStatusBar extends HBox {
     }
 
     public void setBusy(boolean busy) {
+        if (busy) {
+            setIndeterminateProgress();
+        }
         progress.setVisible(busy);
         progress.setManaged(busy);
+        progressText.setVisible(busy);
+        progressText.setManaged(busy);
+    }
+
+    public void setIndeterminateProgress() {
+        progress.setProgress(ProgressIndicator.INDETERMINATE_PROGRESS);
+        progressText.setText("Working...");
+    }
+
+    public void setProgress(double completed, double total) {
+        if (total <= 0.0 || !Double.isFinite(completed) || !Double.isFinite(total)) {
+            setIndeterminateProgress();
+            return;
+        }
+        double fraction = Math.clamp(completed / total, 0.0, 1.0);
+        progress.setProgress(fraction);
+        progressText.setText(Math.round(fraction * 100.0) + "%");
     }
 
     public void setZoomFactor(double factor) {

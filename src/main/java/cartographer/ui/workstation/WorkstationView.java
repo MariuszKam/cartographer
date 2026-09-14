@@ -102,6 +102,8 @@ public final class WorkstationView {
     }
 
     public void setStatus(String text) { statusBar.setStatus(text); }
+    public void setIndeterminateProgress() { statusBar.setIndeterminateProgress(); }
+    public void setProgress(double completed, double total) { statusBar.setProgress(completed, total); }
     public void setSavePath(java.nio.file.Path path) { worldBar.setSavePath(path); }
     public void setPlayerLoaded(boolean loaded) { worldBar.setPlayerLoaded(loaded); }
 

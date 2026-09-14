@@ -17,6 +17,18 @@
     -fx-border-width: 1px 0 0 0;
 }
 
+.status-progress {
+    -fx-pref-height: 12px;
+    -fx-max-height: 12px;
+    -fx-accent: #5f9dcc;
+    -fx-control-inner-background: #303742;
+}
+
+.status-progress-text {
+    -fx-text-fill: #cbd4df;
+    -fx-min-width: 55px;
+}
+
 .sidebar, .sidebar-container, .inspector-container {
     -fx-background-color: #1d222a;
     -fx-padding: 10px;
