@@ -18,6 +18,15 @@ class SurfaceObjectDiscoveryStateTest {
     }
 
     @Test
+    void multipleObjectRenderAvailabilityFollowsSelectionCount() {
+        int selectedResources = 2;
+        assertTrue(SurfaceObjectDiscoveryState.READY.allowsRender(false, selectedResources > 0));
+
+        selectedResources = 0;
+        assertFalse(SurfaceObjectDiscoveryState.READY.allowsRender(false, selectedResources > 0));
+    }
+
+    @Test
     void emptyAndFailedRemainCurrentOnlyForTheSameKey() {
         assertTrue(SurfaceObjectDiscoveryState.EMPTY.isCurrentFor(true));
         assertTrue(SurfaceObjectDiscoveryState.FAILED.isCurrentFor(true));

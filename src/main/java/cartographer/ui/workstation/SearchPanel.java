@@ -297,7 +297,7 @@ public final class SearchPanel extends VBox {
             String key = resource.candidate().qualifiedResourceKey();
             CheckBox check = new CheckBox(ObservedSurfaceResourceSelection.dropdownLabel(resource));
             check.setMaxWidth(Double.MAX_VALUE);
-            check.selectedProperty().addListener((o, old, selected) -> updateSurfaceResourceStatus());
+            check.selectedProperty().addListener((o, old, selected) -> onSurfaceObjectSelectionChanged());
             surfaceObjectChecks.put(key, check);
             surfaceObjectChecklist.getChildren().add(check);
         }
@@ -391,6 +391,10 @@ public final class SearchPanel extends VBox {
                 surfaceResourceStatusLabel.setText(ObservedSurfaceResourceSelection.statusText(selected.getFirst()));
             }
         }
+    }
+    private void onSurfaceObjectSelectionChanged() {
+        updateSurfaceResourceStatus();
+        updateRenderAvailability();
     }
     private Optional<OreResource> resourceForDisplayName(String value) { return resourceBox.getItems().stream().filter(resource -> resource.displayName().equalsIgnoreCase(value.trim())).findFirst(); }
     private List<OreResource> presetResources() { return Arrays.stream(OrePreset.values()).map(preset -> new OreResource(preset.label(), preset.match(), preset.match(), false, 0)).toList(); }
