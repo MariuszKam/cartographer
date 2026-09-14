@@ -127,7 +127,7 @@ public final class SearchPanel extends VBox {
         updateResourceStatus(); updateSurfaceResourceStatus();
     }
 
-    private VBox buildControls() {
+    private void buildControls() {
         HBox resourceMode = new HBox(8, singleResourceButton, multipleResourcesButton);
         VBox single = new VBox(4, resourceBox, resourceStatusLabel);
         VBox multi = new VBox(4, new HBox(6, selectAllButton, clearAllButton), resourceChecklistScroll);
