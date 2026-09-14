@@ -324,7 +324,7 @@ public class SurfaceResourceOverlayRenderer {
                         0,
                         0,
                         0,
-                        190
+                        150
                 )
         );
 

@@ -400,10 +400,10 @@ public class CartographerDesktopApp extends Application {
     private String formatPlayer(PlayerPositionView player) {
         return String.format(
                 java.util.Locale.ROOT,
-                "X: %.1f%nY: %.1f%nZ: %.1f%nChunk: %d, %d",
+                "X: %.1f   Z: %.1f%nY: %.1f%nChunk: %d, %d",
                 player.x(),
-                player.y(),
                 player.z(),
+                player.y(),
                 player.chunkX(),
                 player.chunkZ()
         );

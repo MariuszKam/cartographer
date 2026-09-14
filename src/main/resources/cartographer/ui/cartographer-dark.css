@@ -22,6 +22,14 @@
     -fx-padding: 10px;
 }
 
+.world-details {
+    -fx-padding: 4px;
+}
+
+.world-details > .label {
+    -fx-text-fill: #bfc7d2;
+}
+
 .sidebar-title, .section-title, .inspector-title {
     -fx-text-fill: #f0f3f7;
     -fx-font-weight: bold;
@@ -46,12 +54,43 @@
     -fx-text-fill: white;
 }
 
+.radius-selector {
+    -fx-padding: 1px;
+}
+
+.radius-option {
+    -fx-background-color: #292f38;
+    -fx-text-fill: #d9dee6;
+    -fx-border-color: #3b4450;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+}
+
+.radius-option:selected {
+    -fx-background-color: #365b7d;
+    -fx-text-fill: white;
+}
+
 .tool-options, .layer-panel, .result-inspector, .result-card, .diagnostics {
     -fx-background-color: #242a33;
     -fx-border-color: #39414d;
     -fx-border-radius: 6px;
     -fx-background-radius: 6px;
     -fx-padding: 8px;
+}
+
+.layer-row {
+    -fx-padding: 2px 0;
+}
+
+.result-section-title {
+    -fx-text-fill: #cbd4df;
+    -fx-font-weight: bold;
+}
+
+.result-card-title {
+    -fx-text-fill: #f0f3f7;
+    -fx-font-weight: bold;
 }
 
 .map-toolbar {

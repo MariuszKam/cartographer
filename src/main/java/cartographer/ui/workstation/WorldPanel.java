@@ -17,15 +17,16 @@ public final class WorldPanel extends GridPane {
     public WorldPanel(Consumer<WorldPanel> onBrowse) {
         setHgap(6);
         setVgap(5);
+        getStyleClass().add("world-details");
         ColumnConstraints pathColumn = new ColumnConstraints();
         pathColumn.setHgrow(Priority.ALWAYS);
         pathColumn.setFillWidth(true);
         ColumnConstraints browseColumn = new ColumnConstraints();
         getColumnConstraints().addAll(pathColumn, browseColumn);
-        add(new Label("SAVE"), 0, 0);
+        add(new Label("Save"), 0, 0);
         add(saveField, 0, 1);
         add(browseButton, 1, 1);
-        add(new Label("PLAYER"), 0, 2);
+        add(new Label("Player"), 0, 2);
         add(playerStatusLabel, 0, 3, 2, 1);
 
         saveField.setEditable(false);

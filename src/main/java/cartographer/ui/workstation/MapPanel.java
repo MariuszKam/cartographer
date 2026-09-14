@@ -3,6 +3,8 @@ package cartographer.ui.workstation;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.application.Platform;
+import javafx.geometry.Pos;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
 import javafx.embed.swing.SwingFXUtils;
@@ -30,6 +32,9 @@ public final class MapPanel extends BorderPane {
         preview.setPannable(true);
         preview.setFitToWidth(false);
         preview.setFitToHeight(false);
+        mapContent.setAlignment(Pos.CENTER);
+        preview.viewportBoundsProperty().addListener((observable, oldBounds, bounds) ->
+                mapContent.setMinSize(bounds.getWidth(), bounds.getHeight()));
         preview.addEventFilter(javafx.scene.input.ScrollEvent.SCROLL, event -> {
             if (event.isControlDown() && mapAvailable) {
                 if (event.getDeltaY() > 0) zoomIn();
@@ -56,7 +61,7 @@ public final class MapPanel extends BorderPane {
         baseHeight = height;
         mapAvailable = true;
         toolbar.setMapAvailable(true);
-        resetView();
+        Platform.runLater(this::fit);
     }
 
     public void zoomIn() { setZoom(zoomFactor * ZOOM_STEP); }

@@ -47,7 +47,7 @@ public final class ResultInspectorPane extends VBox {
 
     public void showOreResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
         List<javafx.scene.Node> nodes = new ArrayList<>();
-        nodes.add(label("ORE MAP"));
+        nodes.add(sectionTitle("Ore Map"));
         nodes.add(label("Resources: " + result.actualOreOverlays().size()));
         for (ActualOreOverlayResult overlay : result.actualOreOverlays()) {
             var map = overlay.map();
@@ -62,7 +62,7 @@ public final class ResultInspectorPane extends VBox {
     }
 
     public void showSurfaceResult(RenderSurfaceResourceMapResult result, RenderSurfaceResourceMapRequest request) {
-        content.getChildren().setAll(label("SURFACE RESOURCE"),
+        content.getChildren().setAll(sectionTitle("Surface Resource"),
                 card(request.match().displayName(), "Matches", Integer.toString(result.analysis().matchingBlockCount()),
                         "Deposits", Integer.toString(result.analysis().depositCount()),
                         "Radius", Integer.toString(request.radius())),
@@ -73,7 +73,7 @@ public final class ResultInspectorPane extends VBox {
 
     public void showRockResult(RenderRockMapResult result, RenderRockMapRequest request) {
         List<javafx.scene.Node> nodes = new ArrayList<>();
-        nodes.add(label("GEOLOGY"));
+        nodes.add(sectionTitle("Geology"));
         nodes.add(card(request.mode() == RockMapMode.AT_Y ? "At Y" : "Upper rock",
                 "Observed", Long.toString(result.rendered().observedCount()),
                 "Rock types", Integer.toString(result.catalog().rocks().size()),
@@ -95,7 +95,7 @@ public final class ResultInspectorPane extends VBox {
 
     public void showProspectingResult(ProspectingAreaResult result, ProspectingAreaRequest request) {
         List<javafx.scene.Node> nodes = new ArrayList<>();
-        nodes.add(label("PROSPECTING"));
+        nodes.add(sectionTitle("Prospecting"));
         nodes.add(label("Resource: " + request.resource().orElse("All resources")));
         nodes.add(label("Radius: " + result.radius()));
         for (ProspectingAssessment assessment : result.assessments()) {
@@ -115,9 +115,18 @@ public final class ResultInspectorPane extends VBox {
     }
 
     private VBox card(String title, String key1, String value1, String key2, String value2, String key3, String value3) {
-        VBox card = new VBox(2, label(title), label(key1 + ": " + value1), label(key2 + ": " + value2), label(key3 + ": " + value3));
+        Label cardTitle = label(title);
+        cardTitle.getStyleClass().add("result-card-title");
+        VBox card = new VBox(2, cardTitle, label(key1 + ": " + value1), label(key2 + ": " + value2), label(key3 + ": " + value3));
+        card.setMaxWidth(Double.MAX_VALUE);
         card.getStyleClass().add("result-card");
         return card;
+    }
+
+    private Label sectionTitle(String text) {
+        Label title = label(text);
+        title.getStyleClass().add("result-section-title");
+        return title;
     }
 
     private HBox legendLine(RockLegendEntry entry) {

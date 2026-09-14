@@ -16,6 +16,7 @@ import javafx.scene.control.RadioButton;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
@@ -52,10 +53,10 @@ public final class SearchPanel extends VBox {
     private final TextField prospectingResourceField = new TextField();
     private final RadioButton allYButton = new RadioButton("All Y");
     private final RadioButton customYButton = new RadioButton("Custom range");
-    private final RadioButton radius128Button = new RadioButton("128");
-    private final RadioButton radius256Button = new RadioButton("256");
-    private final RadioButton radius512Button = new RadioButton("512");
-    private final RadioButton radius1024Button = new RadioButton("1024");
+    private final ToggleButton radius128Button = new ToggleButton("128");
+    private final ToggleButton radius256Button = new ToggleButton("256");
+    private final ToggleButton radius512Button = new ToggleButton("512");
+    private final ToggleButton radius1024Button = new ToggleButton("1024");
     private final Label radiusWarningLabel = new Label("Large radius: rendering may take longer and use substantially more memory.");
     private final Button renderButton = new Button("Render");
     private final Label resourceStatusLabel = new Label();
@@ -113,7 +114,7 @@ public final class SearchPanel extends VBox {
         clearAllButton.setOnAction(e -> resourceChecks.values().forEach(check -> check.setSelected(false)));
 
         ToggleGroup radiusGroup = new ToggleGroup();
-        for (RadioButton button : List.of(radius128Button, radius256Button, radius512Button, radius1024Button)) button.setToggleGroup(radiusGroup);
+        for (ToggleButton button : List.of(radius128Button, radius256Button, radius512Button, radius1024Button)) button.setToggleGroup(radiusGroup);
         radius256Button.setSelected(true); radius1024Button.selectedProperty().addListener((o, old, selected) -> { updateRadiusWarning(); radiusListener.accept(selectedRadius()); });
         radius128Button.selectedProperty().addListener((o, old, selected) -> { if (selected) radiusListener.accept(selectedRadius()); });
         radius256Button.selectedProperty().addListener((o, old, selected) -> { if (selected) radiusListener.accept(selectedRadius()); });
@@ -145,7 +146,12 @@ public final class SearchPanel extends VBox {
         prospectingContent.getChildren().setAll(new Label("PROSPECTING"), prospectingResourceField);
         modeContent.getChildren().setAll(oreContent);
 
-        radiusContent = new VBox(4, new Label("RADIUS"), new FlowPane(8, 4, radius128Button, radius256Button, radius512Button, radius1024Button), radiusWarningLabel);
+        FlowPane radiusSelector = new FlowPane(4, 4, radius128Button, radius256Button, radius512Button, radius1024Button);
+        radiusSelector.getStyleClass().add("radius-selector");
+        for (ToggleButton button : List.of(radius128Button, radius256Button, radius512Button, radius1024Button)) {
+            button.getStyleClass().add("radius-option");
+        }
+        radiusContent = new VBox(4, new Label("RADIUS"), radiusSelector, radiusWarningLabel);
         yFilterContent = new VBox(4, new Label("Y FILTER"), new HBox(8, allYButton, customYButton), new HBox(8, yMinField, yMaxField));
         getChildren().addAll(new Label("TOOL OPTIONS"), modeContent, radiusContent, yFilterContent);
     }

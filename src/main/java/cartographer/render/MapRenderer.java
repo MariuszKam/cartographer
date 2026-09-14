@@ -697,7 +697,7 @@ public class MapRenderer {
                             0,
                             0,
                             0,
-                            180
+                            145
                     )
             );
 
