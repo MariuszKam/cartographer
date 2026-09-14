@@ -285,9 +285,10 @@ public class SurfaceResourceOverlayRenderer {
         graphics.setColor(new Color(0, 0, 0, 150));
         graphics.fillRect(x, y, 225, 63);
         graphics.setColor(Color.WHITE);
-        graphics.drawString("Surface object: " + analysis.displayName(), x + 8, y + 16);
-        graphics.drawString("Occurrences: " + analysis.occurrenceCount(), x + 8, y + 32);
-        graphics.drawString("Variants: " + analysis.registryVariantCount(), x + 8, y + 48);
+        SurfaceOverlayLegend legend = SurfaceOverlayLegend.forAnalysis(analysis);
+        graphics.drawString(legend.title(), x + 8, y + 16);
+        graphics.drawString(legend.metrics().get(0), x + 8, y + 32);
+        graphics.drawString(legend.metrics().get(1), x + 8, y + 48);
         graphics.setColor(new Color(255, 0, 220));
         graphics.fillRect(x + 155, y + 25, 12, 12);
     }
@@ -407,26 +408,10 @@ public class SurfaceResourceOverlayRenderer {
                 Color.WHITE
         );
 
-        graphics.drawString(
-                "Surface resource: "
-                        + analysis.materialName(),
-                x + 8,
-                y + 16
-        );
-
-        graphics.drawString(
-                "Blocks: "
-                        + analysis.matchedBlockCount(),
-                x + 8,
-                y + 32
-        );
-
-        graphics.drawString(
-                "Deposits: "
-                        + analysis.depositCount(),
-                x + 8,
-                y + 48
-        );
+        SurfaceOverlayLegend legend = SurfaceOverlayLegend.forAnalysis(analysis);
+        graphics.drawString(legend.title(), x + 8, y + 16);
+        graphics.drawString(legend.metrics().get(0), x + 8, y + 32);
+        graphics.drawString(legend.metrics().get(1), x + 8, y + 48);
 
         graphics.setColor(
                 new Color(

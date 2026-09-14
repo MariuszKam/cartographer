@@ -26,4 +26,19 @@ class SurfaceObjectAnalyzerTest {
         assertEquals(List.of(60, 61), analysis.occurrences().stream()
                 .map(SurfaceResourcePoint::y).toList());
     }
+
+    @Test
+    void preservesModdedNamespaceInAnalysisIdentityAndDisplayName() {
+        BlockInfo block = new BlockInfo(7, "somemod:loosestones-obsidian-free");
+        SurfaceObjectCandidate candidate = new SurfaceObjectCandidateCatalogBuilder()
+                .build(Map.of(7, block)).findByBlockId(7).orElseThrow();
+        ObservedSurfaceResource resource = new ObservedSurfaceResource(candidate, List.of(
+                new SurfaceObjectObservation(candidate, 10, 60, 20, 7)));
+
+        SurfaceObjectAnalysis analysis = new SurfaceObjectAnalyzer().analyze(
+                resource, Map.of(7, block));
+
+        assertEquals("Obsidian [somemod]", analysis.displayName());
+        assertEquals("somemod:obsidian", analysis.qualifiedResourceKey());
+    }
 }
