@@ -1,6 +1,7 @@
 package cartographer.ui.workstation;
 
 import cartographer.resource.ObservedSurfaceResource;
+import cartographer.resource.SurfaceObjectPresentation;
 
 import java.util.List;
 import java.util.Optional;
@@ -22,10 +23,14 @@ final class ObservedSurfaceResourceSelection {
     }
 
     static String displayName(ObservedSurfaceResource resource) {
-        String name = resource.candidate().displayName();
-        String namespace = resource.candidate().namespace();
-        return "game".equals(namespace) || namespace.isBlank()
-                ? name
-                : name + " [" + namespace + "]";
+        return SurfaceObjectPresentation.displayName(resource.candidate());
+    }
+
+    static String dropdownLabel(ObservedSurfaceResource resource) {
+        return SurfaceObjectPresentation.dropdownLabel(resource);
+    }
+
+    static String statusText(ObservedSurfaceResource resource) {
+        return SurfaceObjectPresentation.statusText(resource);
     }
 }

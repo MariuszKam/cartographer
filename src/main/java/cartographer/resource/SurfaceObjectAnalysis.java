@@ -1,13 +1,18 @@
 package cartographer.resource;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 /** Exact physical loose-object occurrences; no clustering or deposit semantics. */
 public record SurfaceObjectAnalysis(
         String displayName,
         String qualifiedResourceKey,
         int registryVariantCount,
-        List<SurfaceResourcePoint> occurrences
+        List<SurfaceResourcePoint> occurrences,
+        SortedSet<SurfaceObjectFamily> families
 ) implements SurfaceRenderAnalysis {
     public SurfaceObjectAnalysis {
         if (displayName == null || displayName.isBlank()) {
@@ -20,6 +25,11 @@ public record SurfaceObjectAnalysis(
             throw new IllegalArgumentException("Surface object variant count cannot be negative");
         }
         occurrences = occurrences == null ? List.of() : List.copyOf(occurrences);
+        Objects.requireNonNull(families, "Surface object families are required");
+        if (families.isEmpty()) {
+            throw new IllegalArgumentException("Surface object families are required");
+        }
+        families = Collections.unmodifiableSortedSet(new TreeSet<>(families));
     }
 
     public int occurrenceCount() { return occurrences.size(); }

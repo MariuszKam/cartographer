@@ -54,6 +54,22 @@ class ObservedSurfaceResourceSelectionTest {
                 .displayName(catalog.resources().get(1)));
     }
 
+    @Test
+    void presentsFamilyAndOccurrenceCountForDropdownAndStatus() {
+        ObservedSurfaceResource resource = catalog().resources().getFirst();
+
+        assertTrue(ObservedSurfaceResourceSelection.dropdownLabel(resource)
+                .contains("Loose stone"));
+        assertTrue(ObservedSurfaceResourceSelection.dropdownLabel(resource)
+                .contains("1 found"));
+        assertTrue(ObservedSurfaceResourceSelection.statusText(resource)
+                .contains("Observed: 1 occurrences"));
+        assertTrue(ObservedSurfaceResourceSelection.statusText(resource)
+                .contains("Family: Loose stone"));
+        assertTrue(ObservedSurfaceResourceSelection.statusText(resource)
+                .contains("Registry variants: 1"));
+    }
+
     private ObservedSurfaceResourceCatalog catalog() {
         var candidateCatalog = candidates.build(Map.of(
                 1, new BlockInfo(1, "game:loosestones-obsidian-free"),

@@ -11,11 +11,6 @@ public final class SurfaceObjectAnalyzer {
             ObservedSurfaceResource resource,
             Map<Integer, BlockInfo> registry
     ) {
-        String displayName = resource.candidate().namespace().equals("game")
-                || resource.candidate().namespace().isBlank()
-                ? resource.candidate().displayName()
-                : resource.candidate().displayName() + " ["
-                        + resource.candidate().namespace() + "]";
         List<SurfaceResourcePoint> occurrences = resource.observations().stream()
                 .map(observation -> {
                     BlockInfo block = registry.get(observation.blockId());
@@ -30,10 +25,11 @@ public final class SurfaceObjectAnalyzer {
                 })
                 .toList();
         return new SurfaceObjectAnalysis(
-                displayName,
-                resource.candidate().qualifiedResourceKey(),
+                SurfaceObjectPresentation.displayName(resource.candidate()),
+                SurfaceObjectPresentation.qualifiedResourceKey(resource.candidate()),
                 resource.candidate().blockIds().size(),
-                occurrences
+                occurrences,
+                resource.candidate().families()
         );
     }
 }

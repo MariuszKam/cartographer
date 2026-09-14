@@ -6,6 +6,7 @@ import cartographer.prospecting.ProspectingAssessment;
 import cartographer.render.RockLegendEntry;
 import cartographer.resource.SurfaceMaterialAnalysis;
 import cartographer.resource.SurfaceObjectAnalysis;
+import cartographer.resource.SurfaceObjectPresentation;
 import cartographer.resource.SurfaceRenderAnalysis;
 import cartographer.save.ReadDiagnostics;
 import javafx.scene.control.Label;
@@ -69,6 +70,8 @@ public final class ResultInspectorPane extends VBox {
             content.getChildren().setAll(sectionTitle("Surface Object"),
                     card(objectAnalysis.displayName(), "Occurrences",
                             Integer.toString(objectAnalysis.occurrenceCount()),
+                            SurfaceObjectPresentation.familyMetricLabel(objectAnalysis.families()),
+                            SurfaceObjectPresentation.analysisFamilyText(objectAnalysis),
                             "Registry variants", Integer.toString(objectAnalysis.registryVariantCount()),
                             "Radius", Integer.toString(request.radius())),
                     label("Source: discovery result"));

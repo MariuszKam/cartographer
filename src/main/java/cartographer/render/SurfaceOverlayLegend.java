@@ -2,6 +2,7 @@ package cartographer.render;
 
 import cartographer.resource.SurfaceMaterialAnalysis;
 import cartographer.resource.SurfaceObjectAnalysis;
+import cartographer.resource.SurfaceObjectPresentation;
 import cartographer.resource.SurfaceRenderAnalysis;
 
 import java.util.List;
@@ -21,7 +22,9 @@ public record SurfaceOverlayLegend(
         if (analysis instanceof SurfaceObjectAnalysis object) {
             return new SurfaceOverlayLegend(
                     "Surface object: " + object.displayName(),
-                    List.of("Occurrences: " + object.occurrenceCount(),
+                    List.of(SurfaceObjectPresentation.familyMetricLabel(object.families()) + ": "
+                                    + SurfaceObjectPresentation.analysisFamilyText(object),
+                            "Occurrences: " + object.occurrenceCount(),
                             "Variants: " + object.registryVariantCount()),
                     false
             );

@@ -1,6 +1,7 @@
 package cartographer.application;
 
 import cartographer.resource.ObservedSurfaceResource;
+import cartographer.resource.SurfaceObjectPresentation;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -40,9 +41,6 @@ public record SurfaceResourceSelection(
         if (material.isPresent()) {
             return material.orElseThrow().displayName();
         }
-        var candidate = observedResource.orElseThrow().candidate();
-        return "game".equals(candidate.namespace()) || candidate.namespace().isBlank()
-                ? candidate.displayName()
-                : candidate.displayName() + " [" + candidate.namespace() + "]";
+        return SurfaceObjectPresentation.displayName(observedResource.orElseThrow().candidate());
     }
 }

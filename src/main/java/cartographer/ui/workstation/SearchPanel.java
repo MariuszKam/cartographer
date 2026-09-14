@@ -112,7 +112,7 @@ public final class SearchPanel extends VBox {
         surfaceResourceBox.setDisable(true);
         surfaceResourceBox.setConverter(new StringConverter<>() {
             public String toString(ObservedSurfaceResource value) {
-                return value == null ? "" : ObservedSurfaceResourceSelection.displayName(value);
+                return value == null ? "" : ObservedSurfaceResourceSelection.dropdownLabel(value);
             }
             public ObservedSurfaceResource fromString(String value) { return null; }
         });
@@ -292,7 +292,7 @@ public final class SearchPanel extends VBox {
         if (mode != SearchMode.SURFACE) return;
         ObservedSurfaceResource selected = surfaceResourceBox.getValue();
         if (discoveryState == SurfaceObjectDiscoveryState.READY && selected != null) {
-            surfaceResourceStatusLabel.setText("Observed: " + selected.observedCount() + " occurrences");
+            surfaceResourceStatusLabel.setText(ObservedSurfaceResourceSelection.statusText(selected));
         }
     }
     private Optional<OreResource> resourceForDisplayName(String value) { return resourceBox.getItems().stream().filter(resource -> resource.displayName().equalsIgnoreCase(value.trim())).findFirst(); }
