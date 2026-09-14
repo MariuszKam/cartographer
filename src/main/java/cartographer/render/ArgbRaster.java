@@ -26,6 +26,19 @@ final class ArgbRaster {
             );
         }
 
+        DataBufferInt dataBuffer = getDataBuffer(image);
+
+        int required = Math.multiplyExact(image.getWidth(), image.getHeight());
+        int[] pixels = dataBuffer.getData();
+        if (pixels.length < required) {
+            throw new IllegalArgumentException(
+                    "image raster does not contain the complete image"
+            );
+        }
+        return new ArgbRaster(pixels, image.getWidth(), image.getHeight());
+    }
+
+    private static DataBufferInt getDataBuffer(BufferedImage image) {
         WritableRaster raster = image.getRaster();
         if (!(raster.getDataBuffer() instanceof DataBufferInt dataBuffer)
                 || !(raster.getSampleModel() instanceof SinglePixelPackedSampleModel sampleModel)) {
@@ -40,15 +53,7 @@ final class ArgbRaster {
                     "image raster layout is not directly addressable"
             );
         }
-
-        int required = Math.multiplyExact(image.getWidth(), image.getHeight());
-        int[] pixels = dataBuffer.getData();
-        if (pixels.length < required) {
-            throw new IllegalArgumentException(
-                    "image raster does not contain the complete image"
-            );
-        }
-        return new ArgbRaster(pixels, image.getWidth(), image.getHeight());
+        return dataBuffer;
     }
 
     void setArgb(int x, int y, int argb) {
