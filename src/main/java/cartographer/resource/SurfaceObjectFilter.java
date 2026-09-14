@@ -21,7 +21,7 @@ public final class SurfaceObjectFilter {
         String query = normalize(searchText);
         return resources.stream()
                 .filter(Objects::nonNull)
-                .filter(resource -> matches(resource, query, enabledFamilies))
+                .filter(resource -> matchesNormalized(resource, query, enabledFamilies))
                 .toList();
     }
 
@@ -32,10 +32,10 @@ public final class SurfaceObjectFilter {
     ) {
         Objects.requireNonNull(resource, "resource is required");
         Objects.requireNonNull(enabledFamilies, "enabled families are required");
-        return matches(resource, normalize(searchText), enabledFamilies);
+        return matchesNormalized(resource, normalize(searchText), enabledFamilies);
     }
 
-    private static boolean matches(
+    private static boolean matchesNormalized(
             ObservedSurfaceResource resource,
             String query,
             Set<SurfaceObjectFamily> enabledFamilies
