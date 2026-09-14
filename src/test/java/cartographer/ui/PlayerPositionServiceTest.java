@@ -45,7 +45,7 @@ class PlayerPositionServiceTest {
         @Override
         public WorldPosition readPlayerPosition(
                 Path savePath,
-                cartographer.cli.ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             return new WorldPosition(510918.2, 111.0, 511939.9);
         }

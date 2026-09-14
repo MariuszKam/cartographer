@@ -390,7 +390,7 @@ class MapCommandTest {
         @Override
         public WorldPosition readPlayerPosition(
                 Path savePath,
-                ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             return new WorldPosition(
                     512.0,
@@ -405,7 +405,7 @@ class MapCommandTest {
                 WorldPosition center,
                 int radiusBlocks,
                 ReadDiagnostics diagnostics,
-                ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             return List.of();
         }
@@ -416,7 +416,7 @@ class MapCommandTest {
                 WorldPosition center,
                 int radiusBlocks,
                 ReadDiagnostics diagnostics,
-                ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             return List.of(
                     oreChunk()
@@ -546,7 +546,7 @@ class MapCommandTest {
         @Override
         public Map<Integer, BlockInfo> readBlockRegistry(
                 Path savePath,
-                ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             return Map.of(
                     1,
@@ -632,7 +632,7 @@ class MapCommandTest {
                 List<MapChunk> chunks,
                 List<SurfaceBlock> surfaceBlocks,
                 RenderOptions options,
-                ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             this.player =
                     player;
@@ -668,7 +668,7 @@ class MapCommandTest {
                 MapTerrainPreparation terrain,
                 List<SurfaceBlock> surfaceBlocks,
                 RenderOptions options,
-                ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             this.player = player;
             this.home = home;

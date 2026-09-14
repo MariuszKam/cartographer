@@ -305,7 +305,7 @@ class GeologyCommandPlayerCenteredSectionTest {
         @Override
         public WorldPosition readPlayerPosition(
                 Path savePath,
-                ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             return player;
         }
@@ -316,7 +316,7 @@ class GeologyCommandPlayerCenteredSectionTest {
                 WorldPosition center,
                 int radiusBlocks,
                 ReadDiagnostics diagnostics,
-                ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             lastCenter =
                     center;
@@ -332,7 +332,7 @@ class GeologyCommandPlayerCenteredSectionTest {
         @Override
         public Map<Integer, BlockInfo> readBlockRegistry(
                 Path savePath,
-                ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             return Map.of(
                     0,

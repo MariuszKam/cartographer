@@ -152,7 +152,7 @@ class CoverageCommandTest {
         public List<ServerMapRegion> readMapRegions(
                 Path savePath,
                 ReadDiagnostics diagnostics,
-                ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             diagnostics.recordParsed();
 
@@ -174,7 +174,7 @@ class CoverageCommandTest {
         @Override
         public WorldPosition readPlayerPosition(
                 Path savePath,
-                ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             return new WorldPosition(
                     512.0,

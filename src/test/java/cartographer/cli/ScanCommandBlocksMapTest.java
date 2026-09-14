@@ -581,7 +581,7 @@ class ScanCommandBlocksMapTest {
         @Override
         public WorldPosition readPlayerPosition(
                 Path savePath,
-                ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             return new WorldPosition(
                     0.0,
@@ -596,7 +596,7 @@ class ScanCommandBlocksMapTest {
                 WorldPosition center,
                 int radiusBlocks,
                 ReadDiagnostics diagnostics,
-                ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             lastCenter =
                     center;
@@ -612,7 +612,7 @@ class ScanCommandBlocksMapTest {
         @Override
         public Map<Integer, BlockInfo> readBlockRegistry(
                 Path savePath,
-                ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             registryReads++;
 

@@ -217,7 +217,7 @@ class GeologyCommandSectionTest {
                 WorldPosition center,
                 int radiusBlocks,
                 ReadDiagnostics diagnostics,
-                ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             return chunks;
         }
@@ -225,7 +225,7 @@ class GeologyCommandSectionTest {
         @Override
         public Map<Integer, BlockInfo> readBlockRegistry(
                 Path savePath,
-                ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             return registry;
         }
@@ -233,7 +233,7 @@ class GeologyCommandSectionTest {
         @Override
         public WorldPosition readPlayerPosition(
                 Path savePath,
-                ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             return new WorldPosition(
                     1.0,

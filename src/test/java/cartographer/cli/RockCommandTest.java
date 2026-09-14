@@ -126,7 +126,7 @@ class RockCommandTest {
                 int[] wantedBlockIds,
                 ReadDiagnostics diagnostics,
                 Consumer<SelectiveChunkVisit> consumer,
-                cartographer.cli.ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             int size = ChunkCoordinate.SIZE_BLOCKS;
             int[] blocks = new int[size * size * size];
