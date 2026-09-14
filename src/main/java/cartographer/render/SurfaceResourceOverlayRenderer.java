@@ -282,13 +282,15 @@ public class SurfaceResourceOverlayRenderer {
         if (image.getWidth() < MIN_LEGEND_WIDTH || image.getHeight() < MIN_LEGEND_HEIGHT) return;
         int x = 8;
         int y = 8;
-        graphics.setColor(new Color(0, 0, 0, 150));
-        graphics.fillRect(x, y, 225, 63);
-        graphics.setColor(Color.WHITE);
         SurfaceOverlayLegend legend = SurfaceOverlayLegend.forAnalysis(analysis);
+        int height = 16 + (legend.metrics().size() * 16) + 8;
+        graphics.setColor(new Color(0, 0, 0, 150));
+        graphics.fillRect(x, y, 225, height);
+        graphics.setColor(Color.WHITE);
         graphics.drawString(legend.title(), x + 8, y + 16);
-        graphics.drawString(legend.metrics().get(0), x + 8, y + 32);
-        graphics.drawString(legend.metrics().get(1), x + 8, y + 48);
+        for (int index = 0; index < legend.metrics().size(); index++) {
+            graphics.drawString(legend.metrics().get(index), x + 8, y + 32 + index * 16);
+        }
         graphics.setColor(new Color(255, 0, 220));
         graphics.fillRect(x + 155, y + 25, 12, 12);
     }

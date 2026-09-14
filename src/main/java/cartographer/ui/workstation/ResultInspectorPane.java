@@ -132,9 +132,28 @@ public final class ResultInspectorPane extends VBox {
     }
 
     private VBox card(String title, String key1, String value1, String key2, String value2, String key3, String value3) {
+        return card(title, List.of(
+                key1 + ": " + value1,
+                key2 + ": " + value2,
+                key3 + ": " + value3));
+    }
+
+    private VBox card(String title, String key1, String value1, String key2, String value2,
+                      String key3, String value3, String key4, String value4) {
+        return card(title, List.of(
+                key1 + ": " + value1,
+                key2 + ": " + value2,
+                key3 + ": " + value3,
+                key4 + ": " + value4));
+    }
+
+    private VBox card(String title, List<String> rows) {
         Label cardTitle = label(title);
         cardTitle.getStyleClass().add("result-card-title");
-        VBox card = new VBox(2, cardTitle, label(key1 + ": " + value1), label(key2 + ": " + value2), label(key3 + ": " + value3));
+        List<javafx.scene.Node> children = new ArrayList<>();
+        children.add(cardTitle);
+        rows.stream().map(this::label).forEach(children::add);
+        VBox card = new VBox(2, children.toArray(javafx.scene.Node[]::new));
         card.setMaxWidth(Double.MAX_VALUE);
         card.getStyleClass().add("result-card");
         return card;

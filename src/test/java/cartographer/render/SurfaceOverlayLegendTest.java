@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SurfaceOverlayLegendTest {
@@ -22,9 +23,10 @@ class SurfaceOverlayLegendTest {
                         new TreeSet<>(Set.of(SurfaceObjectFamily.LOOSE_STONE))));
 
         assertTrue(legend.title().contains("Surface object"));
+        assertEquals(3, legend.metrics().size());
+        assertTrue(legend.metrics().contains("Family: Loose stone"));
         assertTrue(legend.metrics().contains("Occurrences: 1"));
         assertTrue(legend.metrics().contains("Variants: 2"));
-        assertTrue(legend.metrics().contains("Family: Loose stone"));
         assertFalse(legend.metrics().stream().anyMatch(line -> line.contains("Deposits")));
         assertFalse(legend.depositCenters());
     }
