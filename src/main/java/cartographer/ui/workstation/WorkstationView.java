@@ -23,6 +23,8 @@ public final class WorkstationView {
     private final WorkstationWorldBar worldBar = new WorkstationWorldBar();
     private final WorkstationStatusBar statusBar = new WorkstationStatusBar();
     private final VBox leftContent;
+    private final ScrollPane leftScroll;
+    private final VBox left;
     private final VBox rightContent;
     private final Button leftToggle = new Button("Hide tools");
     private final Button rightToggle = new Button("Hide inspector");
@@ -41,11 +43,11 @@ public final class WorkstationView {
         leftContent = new VBox(8, worldPanel, toolNavigationPane, searchPanel, layerPanel);
         leftToggle.setOnAction(event -> toggleLeft());
         leftContent.getStyleClass().add("sidebar");
-        ScrollPane leftScroll = new ScrollPane(leftContent);
+        leftScroll = new ScrollPane(leftContent);
         leftScroll.setFitToWidth(true);
         leftScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         VBox.setVgrow(leftScroll, Priority.ALWAYS);
-        VBox left = new VBox(4, leftToggle, leftScroll);
+        left = new VBox(4, leftToggle, leftScroll);
         left.getStyleClass().add("sidebar-container");
         left.setPrefWidth(310);
         rightContent = new VBox(4, rightToggle, resultInspectorPane);
@@ -104,9 +106,10 @@ public final class WorkstationView {
     public void setPlayerLoaded(boolean loaded) { worldBar.setPlayerLoaded(loaded); }
 
     private void toggleLeft() {
-        boolean visible = leftContent.isVisible();
-        leftContent.setVisible(!visible);
-        leftContent.setManaged(!visible);
+        boolean visible = leftScroll.isVisible();
+        leftScroll.setVisible(!visible);
+        leftScroll.setManaged(!visible);
+        left.setPrefWidth(visible ? Region.USE_COMPUTED_SIZE : 310);
         leftToggle.setText(visible ? "Show tools" : "Hide tools");
     }
 
