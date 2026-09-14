@@ -2,6 +2,7 @@ package cartographer.ui.workstation;
 
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressIndicator;
+import javafx.geometry.Pos;
 import javafx.scene.layout.HBox;
 
 public final class WorkstationStatusBar extends HBox {
@@ -13,9 +14,13 @@ public final class WorkstationStatusBar extends HBox {
     public WorkstationStatusBar() {
         super(12);
         getStyleClass().add("status-bar");
+        setAlignment(Pos.CENTER_LEFT);
+        progress.setMinSize(18, 18);
         progress.setPrefSize(18, 18);
+        progress.setMaxSize(18, 18);
         progress.setVisible(false);
-        getChildren().addAll(operation, zoom, radius, progress);
+        progress.setManaged(false);
+        getChildren().addAll(operation, progress, zoom, radius);
     }
 
     public void setStatus(String text) {
@@ -24,6 +29,7 @@ public final class WorkstationStatusBar extends HBox {
 
     public void setBusy(boolean busy) {
         progress.setVisible(busy);
+        progress.setManaged(busy);
     }
 
     public void setZoomFactor(double factor) {

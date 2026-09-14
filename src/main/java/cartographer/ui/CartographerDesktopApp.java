@@ -202,7 +202,7 @@ public class CartographerDesktopApp extends Application {
             }
             RenderActualOreMapRequest request = requestFromControls();
             setBusy(true);
-            workstation.setStatus("Rendering...");
+            workstation.setStatus("Rendering ore map...");
             Task<RenderActualOreMapResult> task = new Task<>() {
                 @Override
                 protected RenderActualOreMapResult call() {
