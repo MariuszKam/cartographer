@@ -16,4 +16,14 @@ class SurfaceObjectDiscoveryStateTest {
         assertFalse(SurfaceObjectDiscoveryState.NOT_SCANNED.allowsRender(false, true));
         assertFalse(SurfaceObjectDiscoveryState.SCANNING.allowsRender(false, true));
     }
+
+    @Test
+    void emptyAndFailedRemainCurrentOnlyForTheSameKey() {
+        assertTrue(SurfaceObjectDiscoveryState.EMPTY.isCurrentFor(true));
+        assertTrue(SurfaceObjectDiscoveryState.FAILED.isCurrentFor(true));
+        assertTrue(SurfaceObjectDiscoveryState.READY.isCurrentFor(true));
+        assertFalse(SurfaceObjectDiscoveryState.EMPTY.isCurrentFor(false));
+        assertFalse(SurfaceObjectDiscoveryState.NOT_SCANNED.isCurrentFor(true));
+        assertFalse(SurfaceObjectDiscoveryState.SCANNING.isCurrentFor(true));
+    }
 }

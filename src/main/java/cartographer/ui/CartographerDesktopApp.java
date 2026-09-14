@@ -446,9 +446,8 @@ public class CartographerDesktopApp extends Application {
                 && searchPanel.selectedSurfaceMode() == SearchPanel.SurfaceMode.OBJECTS
                 && !worldPanel.savePathText().isBlank()) {
             SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey currentKey = currentSurfaceDiscoveryKey();
-            if (surfaceObjectDiscoveryState != SurfaceObjectDiscoveryState.READY
-                    || surfaceDiscoveryTaskKey == null
-                    || !surfaceDiscoveryTaskKey.equals(currentKey)) {
+            if (!surfaceObjectDiscoveryState.isCurrentFor(
+                    surfaceDiscoveryTaskKey != null && surfaceDiscoveryTaskKey.equals(currentKey))) {
                 startSurfaceDiscovery(currentKey.savePath());
             }
         }
@@ -458,7 +457,9 @@ public class CartographerDesktopApp extends Application {
         if (mode == SearchPanel.SurfaceMode.OBJECTS
                 && searchPanel.selectedMode() == SearchPanel.SearchMode.SURFACE
                 && !worldPanel.savePathText().isBlank()
-                && surfaceObjectDiscoveryState != SurfaceObjectDiscoveryState.READY) {
+                && !surfaceObjectDiscoveryState.isCurrentFor(
+                        surfaceDiscoveryTaskKey != null
+                                && surfaceDiscoveryTaskKey.equals(currentSurfaceDiscoveryKey()))) {
             startSurfaceDiscovery(Path.of(worldPanel.savePathText()));
         }
     }
@@ -504,7 +505,6 @@ public class CartographerDesktopApp extends Application {
         workstation.clearObservedSurfaceResources();
         surfaceObjectDiscoveryState = SurfaceObjectDiscoveryState.SCANNING;
         workstation.setSurfaceObjectDiscoveryState(surfaceObjectDiscoveryState);
-        workstation.setStatus("Scanning surface objects...");
         ProgressTask<DiscoverObservedSurfaceResourcesResult> task = new ProgressTask<>() {
             @Override
             protected DiscoverObservedSurfaceResourcesResult call() {
@@ -518,7 +518,6 @@ public class CartographerDesktopApp extends Application {
             }
         };
         surfaceDiscoveryTask = task;
-        wireTaskProgress(task);
         task.setOnSucceeded(event -> {
             if (!surfaceDiscoveryGate.accepts(token, currentSurfaceDiscoveryKey())) {
                 return;
@@ -536,19 +535,12 @@ public class CartographerDesktopApp extends Application {
                     ? SurfaceObjectDiscoveryState.EMPTY
                     : SurfaceObjectDiscoveryState.READY;
             workstation.setSurfaceObjectDiscoveryState(surfaceObjectDiscoveryState);
-            workstation.setStatus(count == 0
-                    ? "No supported surface objects observed in this radius."
-                    : "Surface objects scanned.");
         });
         task.setOnFailed(event -> {
             if (!surfaceDiscoveryGate.accepts(token, currentSurfaceDiscoveryKey())) {
                 return;
             }
-            surfaceDiscoveryResult = null;
-            workstation.clearObservedSurfaceResources();
-            surfaceObjectDiscoveryState = SurfaceObjectDiscoveryState.FAILED;
-            workstation.setSurfaceObjectDiscoveryState(surfaceObjectDiscoveryState);
-            showFailure(task.getException());
+            showSurfaceDiscoveryFailure();
         });
         Thread worker = new Thread(task, "cartographer-surface-object-discovery");
         worker.setDaemon(true);
@@ -599,6 +591,13 @@ public class CartographerDesktopApp extends Application {
 
     private void setBusy(boolean busy) {
         workstation.setBusy(busy);
+    }
+
+    private void showSurfaceDiscoveryFailure() {
+        surfaceDiscoveryResult = null;
+        surfaceObjectDiscoveryState = SurfaceObjectDiscoveryState.FAILED;
+        workstation.clearObservedSurfaceResources();
+        workstation.setSurfaceObjectDiscoveryState(surfaceObjectDiscoveryState);
     }
 
     private void wireTaskProgress(Task<?> task) {

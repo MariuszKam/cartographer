@@ -13,10 +13,10 @@ class SurfaceDiscoveryRequestGateTest {
         var save = Path.of("world.vcdbs");
         var first = gate.begin(new SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey(save, 256));
         var secondKey = new SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey(save, 512);
-        gate.begin(secondKey);
+        var second = gate.begin(secondKey);
 
         assertFalse(gate.accepts(first, first.key()));
-        assertTrue(gate.accepts(gate.begin(secondKey), secondKey));
+        assertTrue(gate.accepts(second, secondKey));
     }
 
     @Test

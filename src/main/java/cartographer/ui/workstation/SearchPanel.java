@@ -70,6 +70,8 @@ public final class SearchPanel extends VBox {
     private final VBox modeContent = new VBox(4);
     private final VBox oreContent = new VBox(4);
     private final VBox surfaceContent = new VBox(4);
+    private VBox surfaceObjectsContent;
+    private VBox surfaceMaterialsContent;
     private final VBox rockContent = new VBox(4);
     private final VBox prospectingContent = new VBox(4);
     private VBox singleResourceContent;
@@ -162,9 +164,9 @@ public final class SearchPanel extends VBox {
         resourceChecklistScroll.setPrefViewportHeight(130);
         oreContent.getChildren().setAll(new Label("ORE SEARCH"), new Label("RESOURCE"), resourceMode,
                 singleResourceContent, multiResourceContent);
-        VBox surfaceObjects = new VBox(4, new Label("SURFACE OBJECTS"), surfaceResourceBox, surfaceResourceStatusLabel);
-        VBox surfaceMaterials = new VBox(4, new Label("SURFACE MATERIAL"), surfaceMaterialBox);
-        surfaceContent.getChildren().setAll(new HBox(6, surfaceObjectsButton, surfaceMaterialsButton), surfaceObjects, surfaceMaterials);
+        surfaceObjectsContent = new VBox(4, new Label("SURFACE OBJECTS"), surfaceResourceBox, surfaceResourceStatusLabel);
+        surfaceMaterialsContent = new VBox(4, new Label("SURFACE MATERIAL"), surfaceMaterialBox);
+        surfaceContent.getChildren().setAll(new HBox(6, surfaceObjectsButton, surfaceMaterialsButton), surfaceObjectsContent, surfaceMaterialsContent);
         rockContent.getChildren().setAll(new Label("GEOLOGY"), new HBox(8, rockUpperButton, rockAtYButton), rockYField);
         prospectingResourceField.setPromptText("Resource name, or blank for all");
         prospectingContent.getChildren().setAll(new Label("PROSPECTING"), prospectingResourceField);
@@ -323,6 +325,8 @@ public final class SearchPanel extends VBox {
         boolean objects = surfaceMode == SurfaceMode.OBJECTS;
         surfaceResourceBox.setVisible(objects); surfaceResourceBox.setManaged(objects);
         surfaceResourceStatusLabel.setVisible(objects); surfaceResourceStatusLabel.setManaged(objects);
+        surfaceObjectsContent.setVisible(objects); surfaceObjectsContent.setManaged(objects);
+        surfaceMaterialsContent.setVisible(!objects); surfaceMaterialsContent.setManaged(!objects);
         surfaceMaterialBox.setVisible(!objects); surfaceMaterialBox.setManaged(!objects);
         updateRenderAvailability();
     }
@@ -331,7 +335,7 @@ public final class SearchPanel extends VBox {
         if (mode != SearchMode.SURFACE) { renderButton.setDisable(false); return; }
         boolean valid = surfaceMode == SurfaceMode.MATERIALS
                 ? surfaceMaterialBox.getValue() != null
-                : discoveryState == SurfaceObjectDiscoveryState.READY && surfaceResourceBox.getValue() != null;
+                : discoveryState.allowsRender(globallyBusy, surfaceResourceBox.getValue() != null);
         renderButton.setDisable(!valid);
     }
     private void rebuildResourceChecklist() { resourceChecks.clear(); resourceColors.clear(); resourceChecklist.getChildren().clear(); for (int index = 0; index < discoveredResources.size(); index++) { OreResource resource = discoveredResources.get(index); CheckBox check = new CheckBox(resource.displayName()); Region color = new Region(); color.setPrefSize(12, 12); Color awt = OreOverlayPalette.colorFor(resource.match(), index); resourceColors.put(resource, awt); color.setStyle("-fx-background-color: rgb(" + awt.getRed() + "," + awt.getGreen() + "," + awt.getBlue() + ");"); check.setGraphic(color); resourceChecks.put(resource, check); resourceChecklist.getChildren().add(check); } }
