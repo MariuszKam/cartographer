@@ -5,6 +5,7 @@ import java.util.Optional;
 
 public record SurfaceObjectIdentity(
         String originalCode,
+        String namespace,
         String normalizedPath,
         SurfaceObjectFamily family,
         String resourceKey,
@@ -15,6 +16,9 @@ public record SurfaceObjectIdentity(
     public SurfaceObjectIdentity {
         if (originalCode == null || originalCode.isBlank()) {
             throw new IllegalArgumentException("Original block code is required");
+        }
+        if (namespace == null || namespace.contains(":")) {
+            throw new IllegalArgumentException("Normalized namespace is invalid");
         }
         if (normalizedPath == null || normalizedPath.isBlank()) {
             throw new IllegalArgumentException("Normalized block path is required");
@@ -28,5 +32,11 @@ public record SurfaceObjectIdentity(
         }
         hostRock = Objects.requireNonNull(hostRock, "Host rock is required");
         variant = Objects.requireNonNull(variant, "Variant is required");
+    }
+
+    public String qualifiedResourceKey() {
+        return namespace.isBlank()
+                ? resourceKey
+                : namespace + ":" + resourceKey;
     }
 }

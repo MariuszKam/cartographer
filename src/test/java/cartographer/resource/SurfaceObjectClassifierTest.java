@@ -8,6 +8,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SurfaceObjectClassifierTest {
@@ -20,6 +21,7 @@ class SurfaceObjectClassifierTest {
         );
 
         assertEquals(SurfaceObjectFamily.ORE_BITS, identity.family());
+        assertEquals("game", identity.namespace());
         assertEquals("nativecopper", identity.resourceKey());
         assertEquals(Optional.of("granite"), identity.hostRock());
         assertEquals(Optional.of("free"), identity.variant());
@@ -52,9 +54,24 @@ class SurfaceObjectClassifierTest {
                 "SOMEMOD:LOOSESTONES-SOMETHING-FREE"
         );
 
+        assertEquals("somemod", identity.namespace());
         assertEquals("loosestones-something-free", identity.normalizedPath());
         assertEquals("something", identity.resourceKey());
         assertEquals("SOMEMOD:LOOSESTONES-SOMETHING-FREE", identity.originalCode());
+    }
+
+    @Test
+    void keepsSameResourceKeyDistinctAcrossNamespaces() {
+        SurfaceObjectIdentity vanilla = classify("game:loosestones-something-free");
+        SurfaceObjectIdentity modded = classify("somemod:loosestones-something-free");
+
+        assertEquals("something", vanilla.resourceKey());
+        assertEquals("something", modded.resourceKey());
+        assertEquals("game", vanilla.namespace());
+        assertEquals("somemod", modded.namespace());
+        assertNotEquals(vanilla.qualifiedResourceKey(), modded.qualifiedResourceKey());
+        assertEquals("game:something", vanilla.qualifiedResourceKey());
+        assertEquals("somemod:something", modded.qualifiedResourceKey());
     }
 
     @Test

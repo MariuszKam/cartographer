@@ -8,6 +8,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
+/** Classifies registry codes without depending on a fixed resource catalogue. */
 public final class SurfaceObjectClassifier {
     private static final Set<String> VISUAL_VARIANTS = Set.of(
             "free",
@@ -20,6 +21,13 @@ public final class SurfaceObjectClassifier {
         return block == null ? Optional.empty() : classify(block.code());
     }
 
+    /**
+     * The currently supported vanilla loose ore grammar is
+     * looseores-{resource}-{hostRock}-{variant}. The final known visual
+     * variant is removed, and the token immediately before it is treated as
+     * host rock. Arbitrary modded hyphenated host-rock names are therefore
+     * intentionally not inferred beyond this contract.
+     */
     public Optional<SurfaceObjectIdentity> classify(String code) {
         if (code == null || code.isBlank()) {
             return Optional.empty();
@@ -65,6 +73,7 @@ public final class SurfaceObjectClassifier {
         String resourceKey = String.join("-", resourceTokens);
         return Optional.of(new SurfaceObjectIdentity(
                 code,
+                namespaceOf(normalizedCode),
                 path,
                 family,
                 resourceKey,
@@ -85,6 +94,13 @@ public final class SurfaceObjectClassifier {
             return null;
         }
         return normalizedCode.substring(namespaceSeparator + 1);
+    }
+
+    private String namespaceOf(String normalizedCode) {
+        int namespaceSeparator = normalizedCode.indexOf(':');
+        return namespaceSeparator < 0
+                ? ""
+                : normalizedCode.substring(0, namespaceSeparator);
     }
 
     private SurfaceObjectFamily familyOf(String path) {
@@ -113,6 +129,7 @@ public final class SurfaceObjectClassifier {
     }
 
     private String displayName(String resourceKey) {
+        // Best-effort presentation only; this is not part of canonical identity.
         String words = resourceKey.replace('-', ' ').replace('_', ' ');
         return Character.toUpperCase(words.charAt(0)) + words.substring(1);
     }
