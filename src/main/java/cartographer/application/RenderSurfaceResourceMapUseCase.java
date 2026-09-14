@@ -21,6 +21,7 @@ import cartographer.render.SurfaceResourceOverlayRenderer;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.resource.SurfaceResourceAnalysis;
 import cartographer.resource.SurfaceResourceAnalyzer;
+import cartographer.resource.ObservedSurfaceResource;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.VcdbsReader;
@@ -109,6 +110,21 @@ public class RenderSurfaceResourceMapUseCase {
 
     public RenderSurfaceResourceMapResult execute(RenderSurfaceResourceMapRequest request) {
         return execute(request, ProgressReporter.NONE);
+    }
+
+    public RenderSurfaceResourceMapResult execute(
+            RenderSurfaceResourceMapRequest request,
+            ObservedSurfaceResource observedResource,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(observedResource, "observed resource is required");
+        if (request.observedResource().isEmpty()
+                || !request.observedResource().orElseThrow().equals(observedResource)) {
+            throw new IllegalArgumentException(
+                    "request and observed resource selection do not match"
+            );
+        }
+        return execute(request, progress);
     }
 
     public RenderSurfaceResourceMapResult execute(
@@ -272,7 +288,9 @@ public class RenderSurfaceResourceMapUseCase {
                 fallbackSurface.emptyColumns(),
                 fallbackSurface.liquidUnavailableColumns()
         );
-        List<SurfaceBlock> matchingBlocks = request.match().matchingBlocks(surface.blocks());
+        List<SurfaceBlock> matchingBlocks = request.legacyMatch()
+                .map(match -> match.matchingBlocks(surface.blocks()))
+                .orElseGet(() -> observedBlocks(request.observedResource().orElseThrow(), registry));
         int exposedObsidianCount = 0;
         int looseObsidianCount = 0;
         int surfaceObjectRegistryVariants = 0;
@@ -282,8 +300,20 @@ public class RenderSurfaceResourceMapUseCase {
         int surfaceObjectNotObservedTargets = 0;
         SelectiveChunkStreamStats surfaceObjectChunkStats =
                 new SelectiveChunkStreamStats(0, 0, 0, 0, 0, 0, 0, 0);
-        if (request.match().usesSurfaceObjectScan()) {
-            int[] wantedBlockIds = request.match().matchingBlockIds(registry);
+        if (request.observedResource().isPresent()) {
+            ObservedSurfaceResource resource = request.observedResource().orElseThrow();
+            // Discovery already performed the selective scan; these values
+            // describe the reused observations rather than a new scan.
+            surfaceObjectRegistryVariants = resource.candidate().blockIds().size();
+            surfaceObjectPositionsInspected = resource.observedCount();
+            surfaceObjectObservedTargets = (int) resource.observations().stream()
+                    .map(observation -> observation.worldX() + ":" + observation.worldZ())
+                    .distinct()
+                    .count();
+        }
+        if (request.legacyMatch().map(SurfaceResourceMatch::usesSurfaceObjectScan).orElse(false)) {
+            SurfaceResourceMatch legacyMatch = request.legacyMatch().orElseThrow();
+            int[] wantedBlockIds = legacyMatch.matchingBlockIds(registry);
             surfaceObjectRegistryVariants = wantedBlockIds.length;
             List<ChunkPosition> objectPositions = surfaceObjectPlan.chunkPositions();
             List<ParsedChunk> objectChunks = new ArrayList<>();
@@ -321,20 +351,20 @@ public class RenderSurfaceResourceMapUseCase {
             surfaceObjectObservedTargets = objectResult.observedTargets();
             surfaceObjectNotObservedTargets = objectResult.notObservedTargets();
             List<SurfaceBlock> exposedObsidian = surface.blocks().stream()
-                    .filter(request.match()::matchesExposedSurfaceObsidian)
+                    .filter(legacyMatch::matchesExposedSurfaceObsidian)
                     .toList();
             List<SurfaceBlock> looseObsidian = new ArrayList<>(
-                    request.match().matchingBlocks(fallbackSurface.blocks())
+                    legacyMatch.matchingBlocks(fallbackSurface.blocks())
             );
             looseObsidian.addAll(objectResult.blocks());
             matchingBlocks = distinctSurfaceBlocks(exposedObsidian, looseObsidian);
             exposedObsidianCount = (int) matchingBlocks.stream()
-                    .filter(request.match()::matchesExposedSurfaceObsidian)
+                    .filter(legacyMatch::matchesExposedSurfaceObsidian)
                     .count();
             looseObsidianCount = matchingBlocks.size() - exposedObsidianCount;
         }
         SurfaceResourceAnalysis analysis = surfaceResourceAnalyzer.analyzeMatched(
-                request.match().displayName(),
+                request.resourceDisplayName(),
                 matchingBlocks,
                 surface.columnsScanned()
         );
@@ -385,8 +415,30 @@ public class RenderSurfaceResourceMapUseCase {
                 surfaceObjectObservedTargets,
                 surfaceObjectNotObservedTargets,
                 surfaceObjectChunkStats,
-                request.match().usesSurfaceObjectScan()
+                request.observedResource().isPresent()
+                        || request.legacyMatch().map(SurfaceResourceMatch::usesSurfaceObjectScan).orElse(false)
         );
+    }
+
+    private List<SurfaceBlock> observedBlocks(
+            ObservedSurfaceResource resource,
+            Map<Integer, BlockInfo> registry
+    ) {
+        return resource.observations().stream().map(observation -> {
+            BlockInfo block = registry.get(observation.blockId());
+            if (block == null) {
+                throw new IllegalStateException(
+                        "Discovery observation references missing block ID: "
+                                + observation.blockId()
+                );
+            }
+            return new SurfaceBlock(
+                    observation.worldX(),
+                    observation.worldY(),
+                    observation.worldZ(),
+                    block
+            );
+        }).toList();
     }
 
     private List<SurfaceBlock> distinctSurfaceBlocks(

@@ -62,13 +62,19 @@ public final class ResultInspectorPane extends VBox {
     }
 
     public void showSurfaceResult(RenderSurfaceResourceMapResult result, RenderSurfaceResourceMapRequest request) {
+        String summary = request.observedResource().isPresent()
+                ? "Observed occurrences: "
+                        + request.observedResource().orElseThrow().observedCount()
+                : result.surfaceObjectScanUsed()
+                        ? "Exposed obsidian: " + result.exposedObsidianCount()
+                        + "\nLoose obsidian: " + result.looseObsidianCount()
+                        : "Surface scan complete.";
         content.getChildren().setAll(sectionTitle("Surface Resource"),
-                card(request.match().displayName(), "Matches", Integer.toString(result.analysis().matchingBlockCount()),
+                card(request.resourceDisplayName(), "Matches", Integer.toString(result.analysis().matchingBlockCount()),
                         "Deposits", Integer.toString(result.analysis().depositCount()),
                         "Radius", Integer.toString(request.radius())),
-                label(result.surfaceObjectScanUsed() ? "Exposed obsidian: " + result.exposedObsidianCount()
-                        + "\nLoose obsidian: " + result.looseObsidianCount() : "Surface scan complete."));
-        diagnostics.show(surfaceDiagnostics(result));
+                label(summary));
+        diagnostics.show(surfaceDiagnostics(result, request));
     }
 
     public void showRockResult(RenderRockMapResult result, RenderRockMapRequest request) {
@@ -152,8 +158,18 @@ public final class ResultInspectorPane extends VBox {
         return diagnostics(result.mapChunkDiagnostics(), result.chunkDiagnostics(), result.mapRegionDiagnostics(), result.actualOreDiagnostics());
     }
 
-    private List<String> surfaceDiagnostics(RenderSurfaceResourceMapResult result) {
+    private List<String> surfaceDiagnostics(
+            RenderSurfaceResourceMapResult result,
+            RenderSurfaceResourceMapRequest request
+    ) {
         List<String> lines = new ArrayList<>(diagnostics(result.mapChunkDiagnostics(), result.chunkDiagnostics()));
+        if (request.observedResource().isPresent()) {
+            lines.add("Surface object source: discovery result");
+            lines.add("Observed occurrences: "
+                    + request.observedResource().orElseThrow().observedCount());
+            return lines;
+        }
+        lines.add("Surface object source: legacy surface scan");
         var stats = result.surfaceObjectChunkStats();
         lines.add("Registry variants: " + result.surfaceObjectRegistryVariants());
         lines.add("Positions inspected: " + result.surfaceObjectPositionsInspected());

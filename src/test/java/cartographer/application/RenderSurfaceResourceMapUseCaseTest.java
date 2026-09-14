@@ -20,6 +20,10 @@ import cartographer.render.RenderStyle;
 import cartographer.render.SurfaceResourceOverlayRenderer;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.resource.SurfaceResourceAnalyzer;
+import cartographer.resource.ObservedSurfaceResource;
+import cartographer.resource.SurfaceObjectCandidate;
+import cartographer.resource.SurfaceObjectCandidateCatalogBuilder;
+import cartographer.resource.SurfaceObjectObservation;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.MapChunkStreamStats;
 import cartographer.save.ReadDiagnostics;
@@ -95,6 +99,49 @@ class RenderSurfaceResourceMapUseCaseTest {
                 .anyMatch(point -> point.y() == 6));
         assertEquals(1, result.surfaceObjectRegistryVariants());
         assertTrue(reader.coverageCalls > 0);
+    }
+
+    @Test
+    void observedSurfaceObjectRenderReusesDiscoveryWithoutSelectiveScan() {
+        MapChunkCoordinate mapChunkCoordinate = new MapChunkCoordinate(0, 0);
+        ChunkPosition exactPosition = new ChunkPosition(0, 0, 0, 0);
+        Map<Integer, BlockInfo> registry = Map.of(
+                0, new BlockInfo(0, "air"),
+                1, new BlockInfo(1, "game:soil-grass"),
+                7, new BlockInfo(7, "game:loosestones-obsidian-free")
+        );
+        FakeReader reader = new FakeReader(
+                List.of(mapChunkCoordinate),
+                Map.of(exactPosition, surfaceChunkWithObsidian()),
+                registry
+        );
+        SurfaceObjectCandidate candidate = new SurfaceObjectCandidateCatalogBuilder()
+                .build(registry)
+                .findByBlockId(7)
+                .orElseThrow();
+        ObservedSurfaceResource observed = new ObservedSurfaceResource(
+                candidate,
+                List.of(new SurfaceObjectObservation(candidate, 16, 6, 16, 7))
+        );
+        RenderSurfaceResourceMapRequest request =
+                RenderSurfaceResourceMapRequest.forObservedResource(
+                        Path.of("save.vcdbs"),
+                        1,
+                        1,
+                        RenderStyle.TOPOGRAPHIC,
+                        EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
+                        observed,
+                        new WorldPosition(16, 100, 16)
+                );
+
+        RenderSurfaceResourceMapResult result = useCase(reader).execute(
+                request,
+                observed,
+                cartographer.application.ProgressReporter.NONE
+        );
+
+        assertEquals(0, reader.coverageCalls);
+        assertEquals(1, result.analysis().matchingBlockCount());
     }
 
     @Test

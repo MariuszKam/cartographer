@@ -7,7 +7,9 @@ import cartographer.application.ActualOreOverlaySpec;
 import cartographer.application.RenderSurfaceResourceMapRequest;
 import cartographer.application.RenderSurfaceResourceMapResult;
 import cartographer.application.RenderSurfaceResourceMapUseCase;
-import cartographer.application.SurfaceResourceMatch;
+import cartographer.application.DiscoverObservedSurfaceResourcesRequest;
+import cartographer.application.DiscoverObservedSurfaceResourcesResult;
+import cartographer.application.DiscoverObservedSurfaceResourcesUseCase;
 import cartographer.application.RenderRockMapRequest;
 import cartographer.application.RenderRockMapResult;
 import cartographer.application.RenderRockMapUseCase;
@@ -30,6 +32,7 @@ import cartographer.render.UserMarkerRenderer;
 import cartographer.render.SurfaceResourceOverlayRenderer;
 import cartographer.resource.ResourceAnalyzer;
 import cartographer.resource.SurfaceResourceAnalyzer;
+import cartographer.resource.ObservedSurfaceResource;
 import cartographer.model.BlockInfo;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
@@ -63,12 +66,18 @@ public class CartographerDesktopApp extends Application {
 
     private RenderActualOreMapUseCase useCase;
     private RenderSurfaceResourceMapUseCase surfaceUseCase;
+    private DiscoverObservedSurfaceResourcesUseCase surfaceDiscoveryUseCase;
     private RenderRockMapUseCase rockUseCase;
     private AnalyzeProspectingAreaUseCase prospectingUseCase;
     private VcdbsReader reader;
     private WorldMetadataReader metadataReader;
     private ResourceCatalogService resourceCatalogService;
     private PlayerPositionService playerPositionService;
+    private SurfaceDiscoveryState surfaceDiscoveryState;
+    private SurfaceDiscoveryKey surfaceDiscoveryTaskKey;
+    private Task<DiscoverObservedSurfaceResourcesResult> surfaceDiscoveryTask;
+    private long surfaceDiscoveryGeneration;
+    private String surfaceSelectionKey = "";
 
     @Override
     public void start(Stage stage) {
@@ -76,6 +85,10 @@ public class CartographerDesktopApp extends Application {
         metadataReader = new WorldMetadataReader();
         useCase = createUseCase(reader, metadataReader);
         surfaceUseCase = createSurfaceUseCase(reader, metadataReader);
+        surfaceDiscoveryUseCase = new DiscoverObservedSurfaceResourcesUseCase(
+                reader,
+                metadataReader
+        );
         rockUseCase = new RenderRockMapUseCase(
                 reader,
                 metadataReader,
@@ -106,6 +119,8 @@ public class CartographerDesktopApp extends Application {
         searchPanel = workstation.searchPanel();
         mapPanel = workstation.mapPanel();
         resultInspector = workstation.resultInspectorPane();
+        workstation.setOnModeChanged(this::handleModeChanged);
+        workstation.setOnRadiusChanged(this::handleRadiusChanged);
         Scene scene = new Scene(workstation.root(), 1180, 760);
         scene.getStylesheets().add(
                 getClass().getResource("/cartographer/ui/cartographer-dark.css").toExternalForm()
@@ -138,6 +153,8 @@ public class CartographerDesktopApp extends Application {
     }
 
     private void loadSaveData(Path savePath) {
+        surfaceSelectionKey = "";
+        invalidateSurfaceDiscovery();
         workstation.setDiscoveryBusy(true);
         workstation.setStatus("Loading resources and player position...");
         workstation.setPlayerLoaded(false);
@@ -173,6 +190,7 @@ public class CartographerDesktopApp extends Application {
                             : "Loaded " + discovered.size() + " resources."
             );
             workstation.setDiscoveryBusy(false);
+            startSurfaceDiscovery(savePath);
         });
         task.setOnFailed(event -> {
             searchPanel.setDiscoveryFailure();
@@ -290,13 +308,32 @@ public class CartographerDesktopApp extends Application {
     }
 
     private void renderSurfaceResource() {
-        RenderSurfaceResourceMapRequest request = surfaceRequestFromControls();
+        ObservedSurfaceResource selected = selectedSurfaceResourceForRender();
+        SurfaceDiscoveryState discovery = surfaceDiscoveryState;
+        if (discovery == null
+                || !discovery.key().equals(currentSurfaceDiscoveryKey())
+                || discovery.result().observedResources()
+                .findByQualifiedResourceKey(selected.candidate().qualifiedResourceKey())
+                .isEmpty()) {
+            throw new IllegalStateException(
+                    "Surface object discovery is not current; scan the save first."
+            );
+        }
+        RenderSurfaceResourceMapRequest request = RenderSurfaceResourceMapRequest.forObservedResource(
+                discovery.key().savePath(),
+                discovery.key().radius(),
+                1,
+                RenderStyle.TOPOGRAPHIC,
+                workstation.selectedRenderLayers(),
+                selected,
+                discovery.result().center()
+        );
         setBusy(true);
         workstation.setStatus("Rendering surface resource...");
         ProgressTask<RenderSurfaceResourceMapResult> task = new ProgressTask<>() {
             @Override
             protected RenderSurfaceResourceMapResult call() {
-                return surfaceUseCase.execute(request, taskProgress(this));
+                return surfaceUseCase.execute(request, selected, taskProgress(this));
             }
         };
         wireTaskProgress(task);
@@ -305,32 +342,6 @@ public class CartographerDesktopApp extends Application {
         Thread worker = new Thread(task, "cartographer-surface-resource-render");
         worker.setDaemon(true);
         worker.start();
-    }
-
-    private RenderSurfaceResourceMapRequest surfaceRequestFromControls() {
-        if (worldPanel.savePathText().isBlank()) {
-            throw new IllegalArgumentException("Select a .vcdbs save.");
-        }
-        String typed = searchPanel.surfaceResourceText();
-        if (typed.isBlank()) {
-            throw new IllegalArgumentException("Enter a surface resource match.");
-        }
-        SurfaceResourceMatch match = searchPanel.surfacePresetFor(typed)
-                .map(preset -> new SurfaceResourceMatch(
-                        preset.label(),
-                        preset.requiredTokens(),
-                        preset.acceptedCodePrefixes()
-                ))
-                .orElseGet(() -> new SurfaceResourceMatch(typed, List.of(typed)));
-        return new RenderSurfaceResourceMapRequest(
-                Path.of(worldPanel.savePathText()),
-                searchPanel.selectedRadius(),
-                1,
-                RenderStyle.TOPOGRAPHIC,
-                workstation.selectedRenderLayers(),
-                match,
-                Optional.empty()
-        );
     }
 
     private RenderActualOreMapRequest requestFromControls() {
@@ -383,6 +394,122 @@ public class CartographerDesktopApp extends Application {
         resultInspector.showSurfaceResult(result, request);
         workstation.setStatus("Rendered.");
         setBusy(false);
+    }
+
+    private ObservedSurfaceResource selectedSurfaceResourceForRender() {
+        if (worldPanel.savePathText().isBlank()) {
+            throw new IllegalArgumentException("Select a .vcdbs save.");
+        }
+        return workstation.selectedObservedSurfaceResource().orElseThrow(
+                () -> new IllegalStateException(
+                        "No observed surface object is available in this radius."
+                )
+        );
+    }
+
+    private void handleModeChanged(SearchPanel.SearchMode mode) {
+        if (mode == SearchPanel.SearchMode.SURFACE
+                && !worldPanel.savePathText().isBlank()) {
+            SurfaceDiscoveryKey currentKey = currentSurfaceDiscoveryKey();
+            if (surfaceDiscoveryState == null
+                    || !surfaceDiscoveryState.key().equals(currentKey)) {
+                startSurfaceDiscovery(currentKey.savePath());
+            }
+        }
+    }
+
+    private void handleRadiusChanged(int radius) {
+        if (!worldPanel.savePathText().isBlank()) {
+            startSurfaceDiscovery(Path.of(worldPanel.savePathText()));
+        }
+    }
+
+    private SurfaceDiscoveryKey currentSurfaceDiscoveryKey() {
+        return new SurfaceDiscoveryKey(
+                Path.of(worldPanel.savePathText()),
+                searchPanel.selectedRadius()
+        );
+    }
+
+    private void invalidateSurfaceDiscovery() {
+        surfaceDiscoveryGeneration++;
+        surfaceDiscoveryState = null;
+        surfaceDiscoveryTaskKey = null;
+        workstation.clearObservedSurfaceResources();
+    }
+
+    private void startSurfaceDiscovery(Path savePath) {
+        SurfaceDiscoveryKey key = new SurfaceDiscoveryKey(
+                savePath,
+                searchPanel.selectedRadius()
+        );
+        if (surfaceDiscoveryTask != null
+                && !surfaceDiscoveryTask.isDone()
+                && key.equals(surfaceDiscoveryTaskKey)) {
+            return;
+        }
+        long generation = ++surfaceDiscoveryGeneration;
+        surfaceDiscoveryState = null;
+        surfaceDiscoveryTaskKey = key;
+        surfaceSelectionKey = workstation.selectedObservedSurfaceResource()
+                .map(resource -> resource.candidate().qualifiedResourceKey())
+                .orElse(surfaceSelectionKey);
+        workstation.clearObservedSurfaceResources();
+        workstation.setDiscoveryBusy(true);
+        workstation.setSurfaceObjectDiscoveryStatus("Scanning surface objects...");
+        workstation.setStatus("Scanning surface objects...");
+        ProgressTask<DiscoverObservedSurfaceResourcesResult> task = new ProgressTask<>() {
+            @Override
+            protected DiscoverObservedSurfaceResourcesResult call() {
+                return surfaceDiscoveryUseCase.execute(
+                        new DiscoverObservedSurfaceResourcesRequest(
+                                key.savePath(),
+                                key.radius(),
+                                Optional.empty()
+                        )
+                );
+            }
+        };
+        surfaceDiscoveryTask = task;
+        wireTaskProgress(task);
+        task.setOnSucceeded(event -> {
+            if (generation != surfaceDiscoveryGeneration
+                    || !key.equals(currentSurfaceDiscoveryKey())) {
+                return;
+            }
+            surfaceDiscoveryState = new SurfaceDiscoveryState(key, task.getValue());
+            workstation.setObservedSurfaceResources(
+                    task.getValue().observedResources(),
+                    surfaceSelectionKey
+            );
+            surfaceSelectionKey = workstation.selectedObservedSurfaceResource()
+                    .map(resource -> resource.candidate().qualifiedResourceKey())
+                    .orElse("");
+            int count = task.getValue().observedResources().resources().size();
+            workstation.setSurfaceObjectDiscoveryStatus(count == 0
+                    ? "No supported surface objects observed in this radius."
+                    : "Observed resources: " + count);
+            workstation.setStatus(count == 0
+                    ? "No supported surface objects observed in this radius."
+                    : "Surface objects scanned.");
+            workstation.setDiscoveryBusy(false);
+        });
+        task.setOnFailed(event -> {
+            if (generation != surfaceDiscoveryGeneration
+                    || !key.equals(currentSurfaceDiscoveryKey())) {
+                return;
+            }
+            surfaceDiscoveryState = null;
+            workstation.clearObservedSurfaceResources();
+            workstation.setSurfaceObjectDiscoveryStatus(
+                    "Surface object discovery unavailable."
+            );
+            showFailure(task.getException());
+            workstation.setDiscoveryBusy(false);
+        });
+        Thread worker = new Thread(task, "cartographer-surface-object-discovery");
+        worker.setDaemon(true);
+        worker.start();
     }
 
     private void showRockResult(
@@ -549,6 +676,15 @@ public class CartographerDesktopApp extends Application {
             List<OreResource> resources,
             Optional<PlayerPositionView> player,
             Map<Integer, BlockInfo> registry
+    ) {
+    }
+
+    private record SurfaceDiscoveryKey(Path savePath, int radius) {
+    }
+
+    private record SurfaceDiscoveryState(
+            SurfaceDiscoveryKey key,
+            DiscoverObservedSurfaceResourcesResult result
     ) {
     }
 }
