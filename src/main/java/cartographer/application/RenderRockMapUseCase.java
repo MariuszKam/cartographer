@@ -107,6 +107,7 @@ public final class RenderRockMapUseCase {
                         progress
                 );
         RockChunkCoverage coverage = RockChunkCoverage.fromChunkPositions(available);
+        progress.start("Analyzing rock geology");
         RockMap map = request.mode() == RockMapMode.AT_Y
                 ? new RockAtYScanner().scan(
                         chunks,
@@ -125,6 +126,7 @@ public final class RenderRockMapUseCase {
                         maxYExclusive,
                         coverage
                 );
+        progress.start("Rendering geology map");
         RockMapRenderResult rendered = renderer.render(map);
         return new RenderRockMapResult(
                 map,

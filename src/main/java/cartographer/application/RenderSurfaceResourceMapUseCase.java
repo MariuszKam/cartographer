@@ -306,6 +306,7 @@ public class RenderSurfaceResourceMapUseCase {
                         progress
                 );
             }
+            progress.start("Analyzing surface resources");
             SurfaceObjectScanResult objectResult = surfaceObjectScanner.scan(
                     surfaceObjectPlan,
                     registry,
@@ -348,6 +349,7 @@ public class RenderSurfaceResourceMapUseCase {
                 progress
         );
 
+        progress.start("Painting surface resource overlay");
         overlayRenderer.draw(
                 rendered.image(),
                 center,

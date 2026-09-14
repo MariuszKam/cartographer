@@ -275,8 +275,13 @@ public class RenderActualOreMapUseCase {
 
         ReadDiagnostics mapRegionDiagnostics = new ReadDiagnostics();
         List<ServerMapRegion> mapRegions = hasMapRegionOverlay(options)
-                ? reader.readMapRegions(request.savePath(), mapRegionDiagnostics)
+                ? readMapRegionsWithProgress(
+                        request.savePath(), mapRegionDiagnostics, progress
+                )
                 : List.of();
+        if (hasMapRegionOverlay(options)) {
+            progress.start("Painting map-region overlays");
+        }
         OverlayRenderReport environmentOverlay = drawEnvironmentOverlay(
                 rendered, center, request.radius(), options, mapRegions
         );
@@ -315,6 +320,15 @@ public class RenderActualOreMapUseCase {
                 mapChunkDiagnostics, chunkDiagnostics, mapRegionDiagnostics,
                 actualOreDiagnostics, userMarkersDrawn, actualOreOverlays
         );
+    }
+
+    private List<ServerMapRegion> readMapRegionsWithProgress(
+            Path savePath,
+            ReadDiagnostics diagnostics,
+            ProgressReporter progress
+    ) {
+        progress.start("Reading map regions");
+        return reader.readMapRegions(savePath, diagnostics);
     }
 
     private List<ActualOreOverlayResult> drawActualOreOverlays(
