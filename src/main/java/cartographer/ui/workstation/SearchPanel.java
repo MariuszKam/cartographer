@@ -82,7 +82,7 @@ public final class SearchPanel extends VBox {
                 new Separator(),
                 new HBox(8, renderButton)
         );
-        setPrefWidth(280);
+        setPrefWidth(270);
     }
 
     private void configureControls(Runnable onRender) {

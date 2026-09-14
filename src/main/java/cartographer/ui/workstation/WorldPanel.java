@@ -3,7 +3,9 @@ package cartographer.ui.workstation;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Priority;
 
 import java.util.function.Consumer;
 
@@ -13,15 +15,21 @@ public final class WorldPanel extends GridPane {
     private final Label playerStatusLabel = new Label("Player: not loaded");
 
     public WorldPanel(Consumer<WorldPanel> onBrowse) {
-        setHgap(8);
-        setVgap(8);
+        setHgap(6);
+        setVgap(5);
+        ColumnConstraints pathColumn = new ColumnConstraints();
+        pathColumn.setHgrow(Priority.ALWAYS);
+        pathColumn.setFillWidth(true);
+        ColumnConstraints browseColumn = new ColumnConstraints();
+        getColumnConstraints().addAll(pathColumn, browseColumn);
         add(new Label("SAVE"), 0, 0);
-        add(saveField, 0, 1, 2, 1);
+        add(saveField, 0, 1);
         add(browseButton, 1, 1);
         add(new Label("PLAYER"), 0, 2);
         add(playerStatusLabel, 0, 3, 2, 1);
 
         saveField.setEditable(false);
+        saveField.setMaxWidth(Double.MAX_VALUE);
         saveField.setPromptText("Select a .vcdbs save");
         playerStatusLabel.setWrapText(true);
         browseButton.setOnAction(event -> onBrowse.accept(this));

@@ -7,6 +7,7 @@ import cartographer.render.RockLegendEntry;
 import cartographer.save.ReadDiagnostics;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.geometry.Insets;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -22,12 +23,15 @@ public final class ResultInspectorPane extends VBox {
     public ResultInspectorPane() {
         super(8);
         getStyleClass().add("result-inspector");
-        setPrefWidth(310);
+        setPrefWidth(290);
         VBox scrollContent = new VBox(8, content, diagnostics);
+        scrollContent.setPadding(new Insets(4));
         ScrollPane scroll = new ScrollPane(scrollContent);
         scroll.setFitToWidth(true);
         VBox.setVgrow(scroll, Priority.ALWAYS);
-        getChildren().addAll(label("RESULT INSPECTOR"), scroll);
+        Label header = label("RESULT INSPECTOR");
+        header.getStyleClass().add("inspector-title");
+        getChildren().addAll(header, scroll);
         clear();
     }
 

@@ -49,7 +49,7 @@ public final class WorkstationView {
         VBox.setVgrow(leftScroll, Priority.ALWAYS);
         left = new VBox(4, leftToggle, leftScroll);
         left.getStyleClass().add("sidebar-container");
-        left.setPrefWidth(310);
+        left.setPrefWidth(290);
         rightContent = new VBox(4, rightToggle, resultInspectorPane);
         rightContent.getStyleClass().add("inspector-container");
         rightToggle.setOnAction(event -> toggleRight());
@@ -109,7 +109,7 @@ public final class WorkstationView {
         boolean visible = leftScroll.isVisible();
         leftScroll.setVisible(!visible);
         leftScroll.setManaged(!visible);
-        left.setPrefWidth(visible ? Region.USE_COMPUTED_SIZE : 310);
+        left.setPrefWidth(visible ? Region.USE_COMPUTED_SIZE : 290);
         leftToggle.setText(visible ? "Show tools" : "Hide tools");
     }
 
@@ -119,7 +119,7 @@ public final class WorkstationView {
         resultInspectorPane.setManaged(!visible);
         rightToggle.setText(visible ? "Show inspector" : "Hide inspector");
         if (visible) rightContent.setPrefWidth(Region.USE_COMPUTED_SIZE);
-        else rightContent.setPrefWidth(310);
+        else rightContent.setPrefWidth(290);
     }
 
     public Set<RenderLayer> selectedRenderLayers() {

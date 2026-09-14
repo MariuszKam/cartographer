@@ -77,10 +77,38 @@
     -fx-background-color: #3b4653;
 }
 
-.text-field, .combo-box, .scroll-pane {
+.text-field, .combo-box {
     -fx-background-color: #1a1f26;
     -fx-text-fill: #e7ebf0;
     -fx-border-color: #3d4652;
+}
+
+.scroll-pane {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane > .corner {
+    -fx-background-color: #1a1f26;
+}
+
+.scroll-bar:vertical, .scroll-bar:horizontal {
+    -fx-background-color: #1a1f26;
+}
+
+.scroll-bar .track {
+    -fx-background-color: #1a1f26;
+    -fx-background-radius: 3px;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #4a5563;
+    -fx-background-radius: 3px;
 }
 
 .label, .check-box, .radio-button {
