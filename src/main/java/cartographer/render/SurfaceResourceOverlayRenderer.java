@@ -26,6 +26,8 @@ public class SurfaceResourceOverlayRenderer {
 
     private final MarkerRenderer markerRenderer =
             new MarkerRenderer();
+    private final SurfaceObjectMarkerStylePolicy objectMarkerStyles =
+            new SurfaceObjectMarkerStylePolicy();
 
     public int drawMaterial(
             BufferedImage image,
@@ -251,6 +253,7 @@ public class SurfaceResourceOverlayRenderer {
             graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
                     RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             graphics.setColor(new Color(255, 0, 220, 210));
+            SurfaceObjectMarkerStyle style = objectMarkerStyles.forFamilies(analysis.families());
             for (SurfaceResourcePoint point : analysis.occurrences()) {
                 int startX = (int) Math.floor((point.worldX() - minWorldX) * scaleX);
                 int endX = (int) Math.ceil((point.worldX() + 1 - minWorldX) * scaleX);
@@ -262,11 +265,12 @@ public class SurfaceResourceOverlayRenderer {
                 startY = Math.max(0, startY);
                 endX = Math.min(image.getWidth(), endX);
                 endY = Math.min(image.getHeight(), endY);
-                graphics.fillRect(startX, startY, Math.max(1, endX - startX),
-                        Math.max(1, endY - startY));
+                int markerX = (int) Math.round((point.worldX() + 0.5 - minWorldX) * scaleX);
+                int markerY = (int) Math.round((point.worldZ() + 0.5 - minWorldZ) * scaleZ);
+                drawObjectMarker(graphics, markerX, markerY, style);
                 drawn++;
             }
-            drawObjectLegend(graphics, image, analysis);
+            drawObjectLegend(graphics, image, analysis, style);
             drawMarkers(graphics, image, player, home, minWorldX, minWorldZ, scaleX, scaleZ);
         } finally {
             graphics.dispose();
@@ -277,7 +281,8 @@ public class SurfaceResourceOverlayRenderer {
     private void drawObjectLegend(
             Graphics2D graphics,
             BufferedImage image,
-            SurfaceObjectAnalysis analysis
+            SurfaceObjectAnalysis analysis,
+            SurfaceObjectMarkerStyle style
     ) {
         if (image.getWidth() < MIN_LEGEND_WIDTH || image.getHeight() < MIN_LEGEND_HEIGHT) return;
         int x = 8;
@@ -292,7 +297,32 @@ public class SurfaceResourceOverlayRenderer {
             graphics.drawString(legend.metrics().get(index), x + 8, y + 32 + index * 16);
         }
         graphics.setColor(new Color(255, 0, 220));
-        graphics.fillRect(x + 155, y + 25, 12, 12);
+        drawObjectMarker(graphics, x + 161, y + 31, style);
+    }
+
+    private void drawObjectMarker(
+            Graphics2D graphics,
+            int centerX,
+            int centerY,
+            SurfaceObjectMarkerStyle style
+    ) {
+        int radius = style.radius();
+        switch (style.shape()) {
+            case DIAMOND -> graphics.fillPolygon(
+                    new int[]{centerX, centerX + radius, centerX, centerX - radius},
+                    new int[]{centerY - radius, centerY, centerY + radius, centerY}, 4);
+            case TRIANGLE -> graphics.fillPolygon(
+                    new int[]{centerX, centerX + radius, centerX - radius},
+                    new int[]{centerY - radius, centerY + radius, centerY + radius}, 3);
+            case CIRCLE -> graphics.fillOval(
+                    centerX - radius, centerY - radius, radius * 2 + 1, radius * 2 + 1);
+            case SQUARE -> graphics.fillRect(
+                    centerX - radius, centerY - radius, radius * 2 + 1, radius * 2 + 1);
+            case MIXED -> {
+                graphics.fillRect(centerX - radius, centerY - 1, radius * 2 + 1, 3);
+                graphics.fillRect(centerX - 1, centerY - radius, 3, radius * 2 + 1);
+            }
+        }
     }
 
     private void drawDepositCenters(
