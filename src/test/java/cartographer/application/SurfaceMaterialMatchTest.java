@@ -81,7 +81,7 @@ class SurfaceMaterialMatchTest {
                 match.displayName(), match.matchingBlocks(blocks), 2
         );
 
-        assertEquals(2, result.matchingBlockCount());
+        assertEquals(2, result.matchedBlockCount());
         assertEquals(1, result.depositCount());
         assertEquals(List.of(10, 11), result.matchingBlocks().stream()
                 .map(SurfaceResourcePoint::worldX).toList());
