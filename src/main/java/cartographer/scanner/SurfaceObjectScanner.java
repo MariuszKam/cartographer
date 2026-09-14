@@ -71,6 +71,7 @@ public final class SurfaceObjectScanner {
         Set<String> observedCoordinates = new java.util.HashSet<>();
         int unavailable = 0;
         int notObserved = 0;
+        int observedTargets = 0;
         for (SurfaceObjectTarget target : plan.targets()) {
             boolean targetUnavailable = false;
             boolean observed = false;
@@ -111,9 +112,11 @@ public final class SurfaceObjectScanner {
                     observed = true;
                 }
             }
-            if (!observed && targetUnavailable) {
+            if (observed) {
+                observedTargets++;
+            } else if (targetUnavailable) {
                 unavailable++;
-            } else if (!observed) {
+            } else {
                 notObserved++;
             }
         }
@@ -126,7 +129,7 @@ public final class SurfaceObjectScanner {
                 blocks,
                 plan.targets().size(),
                 unavailable,
-                blocks.size(),
+                observedTargets,
                 notObserved
         );
     }
