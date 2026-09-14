@@ -134,8 +134,7 @@ public class CartographerDesktopApp extends Application {
     }
 
     private void loadSaveData(Path savePath) {
-        searchPanel.setDiscoveryBusy(true);
-        worldPanel.setBusy(true);
+        workstation.setDiscoveryBusy(true);
         searchPanel.setStatus("Loading resources and player position...");
         worldPanel.setPlayerStatus("Player: loading...");
 
@@ -167,15 +166,13 @@ public class CartographerDesktopApp extends Application {
                             ? "No resource maps found; custom matches are available."
                             : "Loaded " + discovered.size() + " resources."
             );
-            searchPanel.setDiscoveryBusy(false);
-            worldPanel.setBusy(false);
+            workstation.setDiscoveryBusy(false);
         });
         task.setOnFailed(event -> {
             searchPanel.setDiscoveryFailure();
             worldPanel.setPlayerStatus("Player: unavailable");
             showFailure(task.getException());
-            searchPanel.setDiscoveryBusy(false);
-            worldPanel.setBusy(false);
+            workstation.setDiscoveryBusy(false);
         });
 
         Thread worker = new Thread(task, "cartographer-resource-discovery");
@@ -574,8 +571,7 @@ public class CartographerDesktopApp extends Application {
     }
 
     private void setBusy(boolean busy) {
-        worldPanel.setBusy(busy);
-        searchPanel.setBusy(busy);
+        workstation.setBusy(busy);
     }
 
     private List<ActualOreOverlaySpec> selectedOverlays() {

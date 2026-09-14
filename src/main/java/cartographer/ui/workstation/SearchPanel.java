@@ -6,7 +6,6 @@ import cartographer.model.BlockInfo;
 import cartographer.model.SurfaceBlock;
 import cartographer.render.OreOverlayPalette;
 import cartographer.render.RockLegendEntry;
-import cartographer.resource.ResourceAnalyzer;
 import cartographer.ui.OrePreset;
 import cartographer.ui.OreResource;
 import cartographer.ui.SurfaceResourcePreset;
@@ -20,9 +19,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleGroup;
-import javafx.scene.image.ImageView;
 import javafx.scene.layout.FlowPane;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
@@ -30,19 +27,14 @@ import javafx.util.StringConverter;
 
 import java.awt.Color;
 import java.util.Arrays;
-import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Consumer;
 
 public final class SearchPanel extends VBox {
     public enum SearchMode { ORE, SURFACE, ROCK, PROSPECTING }
-    private final RadioButton oreSearchButton = new RadioButton("Ore deposits");
-    private final RadioButton surfaceSearchButton = new RadioButton("Surface resources");
-    private final RadioButton rockSearchButton = new RadioButton("Rock geology");
-    private final RadioButton prospectingSearchButton = new RadioButton("Prospecting");
+    private SearchMode mode = SearchMode.ORE;
     private final ComboBox<OreResource> resourceBox = new ComboBox<>();
     private final ComboBox<SurfaceResourcePreset> surfaceResourceBox = new ComboBox<>();
     private final RadioButton singleResourceButton = new RadioButton("Single resource");
@@ -75,13 +67,20 @@ public final class SearchPanel extends VBox {
     private final Label resourceStatusLabel = new Label();
     private final Label surfaceResourceStatusLabel = new Label();
     private final Label resultLabel = new Label("Select a save and render an ore map.");
+    private final VBox modeContent = new VBox(4);
+    private final VBox oreContent = new VBox(4);
+    private final VBox surfaceContent = new VBox(4);
+    private final VBox rockContent = new VBox(4);
+    private final VBox prospectingContent = new VBox(4);
+    private VBox radiusContent;
+    private VBox yFilterContent;
     private List<OreResource> discoveredResources = List.of();
     private Map<Integer, BlockInfo> loadedRegistry = Map.of();
 
     public SearchPanel(Runnable onRender) {
         configureControls(onRender);
+        buildControls();
         getChildren().addAll(
-                buildControls(),
                 new Separator(),
                 new HBox(8, renderButton, progress),
                 statusLabel,
@@ -111,10 +110,6 @@ public final class SearchPanel extends VBox {
         surfaceResourceBox.setValue(SurfaceResourcePreset.FIRE_CLAY);
         surfaceResourceBox.getEditor().textProperty().addListener((o, old, typed) -> updateSurfaceResourceStatus());
 
-        ToggleGroup searchType = new ToggleGroup();
-        for (RadioButton button : List.of(oreSearchButton, surfaceSearchButton, rockSearchButton, prospectingSearchButton)) button.setToggleGroup(searchType);
-        oreSearchButton.setSelected(true);
-        searchType.selectedToggleProperty().addListener((o, old, selected) -> updateSearchType());
         ToggleGroup resourceMode = new ToggleGroup();
         singleResourceButton.setToggleGroup(resourceMode); multipleResourcesButton.setToggleGroup(resourceMode); singleResourceButton.setSelected(true);
         resourceMode.selectedToggleProperty().addListener((o, old, selected) -> updateResourceMode());
@@ -137,28 +132,42 @@ public final class SearchPanel extends VBox {
         updateResourceStatus(); updateSurfaceResourceStatus();
     }
 
-    private GridPane buildControls() {
-        GridPane grid = new GridPane(); grid.setHgap(8); grid.setVgap(8);
-        grid.add(new Label("SEARCH TYPE"), 0, 0);
-        grid.add(new FlowPane(8, 4, oreSearchButton, surfaceSearchButton, rockSearchButton, prospectingSearchButton), 0, 1, 2, 1);
-        grid.add(new Label("RESOURCE"), 0, 2);
-        HBox resourceMode = new HBox(8, singleResourceButton, multipleResourcesButton); grid.add(resourceMode, 0, 3, 2, 1);
-        VBox single = new VBox(4, resourceBox, resourceStatusLabel); grid.add(single, 0, 4, 2, 1);
-        VBox multi = new VBox(4, new HBox(6, selectAllButton, clearAllButton), resourceChecklistScroll); grid.add(multi, 0, 5, 2, 1);
-        resourceChecklistScroll.setFitToWidth(true); resourceChecklistScroll.setPrefViewportHeight(130);
-        single.managedProperty().bind(single.visibleProperty()); multi.managedProperty().bind(multi.visibleProperty());
-        resourceMode.visibleProperty().bind(oreSearchButton.selectedProperty()); resourceMode.managedProperty().bind(resourceMode.visibleProperty());
-        single.visibleProperty().bind(oreSearchButton.selectedProperty().and(singleResourceButton.selectedProperty()));
-        multi.visibleProperty().bind(oreSearchButton.selectedProperty().and(multipleResourcesButton.selectedProperty()));
-        VBox surface = new VBox(4, surfaceResourceBox, surfaceResourceStatusLabel); grid.add(surface, 0, 3, 2, 3); surface.visibleProperty().bind(surfaceSearchButton.selectedProperty()); surface.managedProperty().bind(surface.visibleProperty());
-        VBox rock = new VBox(4, new HBox(8, rockUpperButton, rockAtYButton), rockYField, rockLegendScroll); grid.add(rock, 0, 3, 2, 3); rock.visibleProperty().bind(rockSearchButton.selectedProperty()); rock.managedProperty().bind(rock.visibleProperty());
-        VBox prospecting = new VBox(4, prospectingResourceField, prospectingResultsBox); prospectingResourceField.setPromptText("Resource name, or blank for all"); grid.add(prospecting, 0, 3, 2, 3); prospecting.visibleProperty().bind(prospectingSearchButton.selectedProperty()); prospecting.managedProperty().bind(prospecting.visibleProperty());
-        grid.add(new Label("RADIUS"), 0, 6); grid.add(new FlowPane(8, 4, radius128Button, radius256Button, radius512Button, radius1024Button), 0, 7, 2, 1); grid.add(radiusWarningLabel, 0, 8, 2, 1);
-        grid.add(new Label("Y FILTER"), 0, 9); grid.add(allYButton, 0, 10); grid.add(customYButton, 1, 10); grid.add(yMinField, 0, 11); grid.add(yMaxField, 1, 11);
-        return grid;
+    private VBox buildControls() {
+        HBox resourceMode = new HBox(8, singleResourceButton, multipleResourcesButton);
+        VBox single = new VBox(4, resourceBox, resourceStatusLabel);
+        VBox multi = new VBox(4, new HBox(6, selectAllButton, clearAllButton), resourceChecklistScroll);
+        resourceChecklistScroll.setFitToWidth(true);
+        resourceChecklistScroll.setPrefViewportHeight(130);
+        oreContent.getChildren().setAll(new Label("ORE SEARCH"), new Label("RESOURCE"), resourceMode, single, multi);
+        VBox surface = new VBox(4, new Label("SURFACE RESOURCE"), surfaceResourceBox, surfaceResourceStatusLabel);
+        surfaceContent.getChildren().setAll(surface);
+        rockContent.getChildren().setAll(new Label("GEOLOGY"), new HBox(8, rockUpperButton, rockAtYButton), rockYField, rockLegendScroll);
+        prospectingResourceField.setPromptText("Resource name, or blank for all");
+        prospectingContent.getChildren().setAll(new Label("PROSPECTING"), prospectingResourceField, prospectingResultsBox);
+        modeContent.getChildren().setAll(oreContent);
+
+        radiusContent = new VBox(4, new Label("RADIUS"), new FlowPane(8, 4, radius128Button, radius256Button, radius512Button, radius1024Button), radiusWarningLabel);
+        yFilterContent = new VBox(4, new Label("Y FILTER"), new HBox(8, allYButton, customYButton), new HBox(8, yMinField, yMaxField));
+        getChildren().addAll(new Label("TOOL OPTIONS"), modeContent, radiusContent, yFilterContent);
     }
 
-    public SearchMode selectedMode() { return oreSearchButton.isSelected() ? SearchMode.ORE : surfaceSearchButton.isSelected() ? SearchMode.SURFACE : rockSearchButton.isSelected() ? SearchMode.ROCK : SearchMode.PROSPECTING; }
+    public SearchMode selectedMode() { return mode; }
+    public void setMode(SearchMode selected) {
+        mode = selected;
+        modeContent.getChildren().setAll(switch (selected) {
+            case ORE -> oreContent;
+            case SURFACE -> surfaceContent;
+            case ROCK -> rockContent;
+            case PROSPECTING -> prospectingContent;
+        });
+        yFilterContent.setManaged(selected == SearchMode.ORE);
+        yFilterContent.setVisible(selected == SearchMode.ORE);
+        renderButton.setText(selected == SearchMode.PROSPECTING ? "Analyze" : "Render");
+        updateYFields();
+        updateRockMode();
+        updateResourceStatus();
+        updateSurfaceResourceStatus();
+    }
     public String oreResourceText() { return resourceBox.getEditor().getText().trim(); }
     public String surfaceResourceText() { return surfaceResourceBox.getEditor().getText().trim(); }
     public String prospectingResourceText() { return prospectingResourceField.getText().trim(); }
@@ -175,11 +184,11 @@ public final class SearchPanel extends VBox {
     public void setDiscoveryFailure() { resourceBox.getItems().setAll(presetResources()); discoveredResources = presetResources(); loadedRegistry = Map.of(); rebuildResourceChecklist(); resourceBox.setValue(resourceBox.getItems().getFirst()); resourceStatusLabel.setText("Registry match: unavailable"); }
 
     public void setBusy(boolean busy) {
-        for (javafx.scene.control.Control control : List.of(renderButton, selectAllButton, clearAllButton, radius128Button, radius256Button, radius512Button, radius1024Button, allYButton, customYButton, oreSearchButton, surfaceSearchButton, rockSearchButton, prospectingSearchButton, singleResourceButton, multipleResourcesButton, resourceBox, surfaceResourceBox, rockUpperButton, rockAtYButton, rockYField, prospectingResourceField, yMinField, yMaxField)) control.setDisable(busy);
-        yMinField.setDisable(busy || allYButton.isSelected() || surfaceSearchButton.isSelected()); yMaxField.setDisable(busy || allYButton.isSelected() || surfaceSearchButton.isSelected());
-        rockYField.setDisable(busy || !rockAtYButton.isSelected() || !rockSearchButton.isSelected()); progress.setVisible(busy);
+        for (javafx.scene.control.Control control : List.of(renderButton, selectAllButton, clearAllButton, radius128Button, radius256Button, radius512Button, radius1024Button, allYButton, customYButton, singleResourceButton, multipleResourcesButton, resourceBox, surfaceResourceBox, rockUpperButton, rockAtYButton, rockYField, prospectingResourceField, yMinField, yMaxField)) control.setDisable(busy);
+        yMinField.setDisable(busy || allYButton.isSelected() || mode != SearchMode.ORE); yMaxField.setDisable(busy || allYButton.isSelected() || mode != SearchMode.ORE);
+        rockYField.setDisable(busy || !rockAtYButton.isSelected() || mode != SearchMode.ROCK); progress.setVisible(busy);
     }
-    public void setDiscoveryBusy(boolean busy) { renderButton.setDisable(busy); resourceBox.setDisable(busy); surfaceResourceBox.setDisable(busy); oreSearchButton.setDisable(busy); surfaceSearchButton.setDisable(busy); rockSearchButton.setDisable(busy); prospectingSearchButton.setDisable(busy); prospectingResourceField.setDisable(busy); singleResourceButton.setDisable(busy); multipleResourcesButton.setDisable(busy); selectAllButton.setDisable(busy); clearAllButton.setDisable(busy); progress.setVisible(false); }
+    public void setDiscoveryBusy(boolean busy) { renderButton.setDisable(busy); resourceBox.setDisable(busy); surfaceResourceBox.setDisable(busy); prospectingResourceField.setDisable(busy); singleResourceButton.setDisable(busy); multipleResourcesButton.setDisable(busy); selectAllButton.setDisable(busy); clearAllButton.setDisable(busy); progress.setVisible(false); }
 
     public void addProspectingResult(String text) { prospectingResultsBox.getChildren().add(new Label(text)); }
     public void clearProspectingResults() { prospectingResultsBox.getChildren().clear(); }
@@ -192,15 +201,14 @@ public final class SearchPanel extends VBox {
     }
 
     public Optional<SurfaceResourcePreset> surfacePresetFor(String value) { return Arrays.stream(SurfaceResourcePreset.values()).filter(preset -> preset.label().equalsIgnoreCase(value.trim())).findFirst(); }
-    private void updateSurfaceResourceStatus() { if (!surfaceSearchButton.isSelected()) return; Optional<SurfaceResourcePreset> preset = surfacePresetFor(surfaceResourceText()); if (preset.isEmpty()) { surfaceResourceStatusLabel.setText("Registry candidates: custom input"); return; } SurfaceResourceMatch match = new SurfaceResourceMatch(preset.get().label(), preset.get().requiredTokens(), preset.get().acceptedCodePrefixes()); long candidates = loadedRegistry.values().stream().map(block -> new SurfaceBlock(0, 0, 0, block)).filter(match::matches).count(); surfaceResourceStatusLabel.setText("Registry candidates: " + (candidates == 0 ? "none" : candidates)); }
+    private void updateSurfaceResourceStatus() { if (mode != SearchMode.SURFACE) return; Optional<SurfaceResourcePreset> preset = surfacePresetFor(surfaceResourceText()); if (preset.isEmpty()) { surfaceResourceStatusLabel.setText("Registry candidates: custom input"); return; } SurfaceResourceMatch match = new SurfaceResourceMatch(preset.get().label(), preset.get().requiredTokens(), preset.get().acceptedCodePrefixes()); long candidates = loadedRegistry.values().stream().map(block -> new SurfaceBlock(0, 0, 0, block)).filter(match::matches).count(); surfaceResourceStatusLabel.setText("Registry candidates: " + (candidates == 0 ? "none" : candidates)); }
     private Optional<OreResource> resourceForDisplayName(String value) { return resourceBox.getItems().stream().filter(resource -> resource.displayName().equalsIgnoreCase(value.trim())).findFirst(); }
     private List<OreResource> presetResources() { return Arrays.stream(OrePreset.values()).map(preset -> new OreResource(preset.label(), preset.match(), preset.match(), false, 0)).toList(); }
 
-    private void updateYFields() { boolean disabled = allYButton.isSelected() || surfaceSearchButton.isSelected() || rockSearchButton.isSelected() || prospectingSearchButton.isSelected(); yMinField.setDisable(disabled); yMaxField.setDisable(disabled); updateRockMode(); }
-    private void updateRockMode() { rockYField.setDisable(!rockSearchButton.isSelected() || !rockAtYButton.isSelected()); }
+    private void updateYFields() { boolean disabled = allYButton.isSelected() || mode != SearchMode.ORE; yMinField.setDisable(disabled); yMaxField.setDisable(disabled); updateRockMode(); }
+    private void updateRockMode() { rockYField.setDisable(mode != SearchMode.ROCK || !rockAtYButton.isSelected()); }
     private void updateRadiusWarning() { boolean visible = radius1024Button.isSelected(); radiusWarningLabel.setVisible(visible); radiusWarningLabel.setManaged(visible); }
-    private void updateSearchType() { updateYFields(); updateRockMode(); updateResourceStatus(); updateSurfaceResourceStatus(); }
     private void updateResourceMode() { if (multipleResourcesButton.isSelected()) { String match = resourceMatch(); resourceChecks.forEach((resource, check) -> check.setSelected(resource.match().equalsIgnoreCase(match))); } updateResourceStatus(); }
-    private void updateResourceStatus() { if (!oreSearchButton.isSelected()) return; Optional<OreResource> selected = resourceForDisplayName(resourceBox.getEditor().getText()); resourceStatusLabel.setText(selected.isEmpty() ? "Registry match: custom input" : selected.get().registryVerified() ? "Registry match: verified (" + selected.get().registryMatchCount() + " block codes)" : "Registry match: not verified - using \"" + selected.get().match() + "\" as custom match"); }
+    private void updateResourceStatus() { if (mode != SearchMode.ORE) return; Optional<OreResource> selected = resourceForDisplayName(resourceBox.getEditor().getText()); resourceStatusLabel.setText(selected.isEmpty() ? "Registry match: custom input" : selected.get().registryVerified() ? "Registry match: verified (" + selected.get().registryMatchCount() + " block codes)" : "Registry match: not verified - using \"" + selected.get().match() + "\" as custom match"); }
     private void rebuildResourceChecklist() { resourceChecks.clear(); resourceColors.clear(); resourceChecklist.getChildren().clear(); for (int index = 0; index < discoveredResources.size(); index++) { OreResource resource = discoveredResources.get(index); CheckBox check = new CheckBox(resource.displayName()); Region color = new Region(); color.setPrefSize(12, 12); Color awt = OreOverlayPalette.colorFor(resource.match(), index); resourceColors.put(resource, awt); color.setStyle("-fx-background-color: rgb(" + awt.getRed() + "," + awt.getGreen() + "," + awt.getBlue() + ");"); check.setGraphic(color); resourceChecks.put(resource, check); resourceChecklist.getChildren().add(check); } }
 }
