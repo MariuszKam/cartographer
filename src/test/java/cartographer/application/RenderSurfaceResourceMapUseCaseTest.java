@@ -478,6 +478,19 @@ class RenderSurfaceResourceMapUseCaseTest {
         }
 
         @Override
+        public MapChunkStreamStats forEachMapChunkByCoordinate(
+                Path savePath,
+                java.util.Collection<MapChunkCoordinate> coordinates,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<MapChunk> consumer,
+                ProgressReporter progress
+        ) {
+            return forEachMapChunkByCoordinate(
+                    savePath, coordinates, diagnostics, consumer
+            );
+        }
+
+        @Override
         public ChunkStreamStats forEachChunkByPositionAdaptive(
                 Path savePath,
                 java.util.Collection<ChunkPosition> positions,
@@ -486,6 +499,19 @@ class RenderSurfaceResourceMapUseCaseTest {
         ) {
             adaptiveExactChunkCalls++;
             return forEachChunkByPosition(
+                    savePath, positions, diagnostics, consumer
+            );
+        }
+
+        @Override
+        public ChunkStreamStats forEachChunkByPositionAdaptive(
+                Path savePath,
+                java.util.Collection<ChunkPosition> positions,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer,
+                ProgressReporter progress
+        ) {
+            return forEachChunkByPositionAdaptive(
                     savePath, positions, diagnostics, consumer
             );
         }
@@ -552,6 +578,21 @@ class RenderSurfaceResourceMapUseCaseTest {
             return new cartographer.save.SelectiveChunkStreamStats(
                     positions.size(), positions.isEmpty() ? 0 : 1,
                     decoded + rejected, decoded, rejected, decoded, 0, 0
+            );
+        }
+
+        @Override
+        public cartographer.save.SelectiveChunkStreamStats
+        forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                Path savePath,
+                java.util.Collection<ChunkPosition> positions,
+                int[] wantedBlockIds,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<cartographer.save.SelectiveChunkVisit> consumer,
+                ProgressReporter progress
+        ) {
+            return forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                    savePath, positions, wantedBlockIds, diagnostics, consumer
             );
         }
 

@@ -145,6 +145,20 @@ class AnalyzeProspectingAreaUseCaseTest {
                     1
             );
         }
+
+        @Override
+        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                Path savePath,
+                java.util.Collection<ChunkPosition> positions,
+                int[] wantedBlockIds,
+                ReadDiagnostics diagnostics,
+                Consumer<SelectiveChunkVisit> consumer,
+                ProgressReporter progress
+        ) {
+            return forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                    savePath, positions, wantedBlockIds, diagnostics, consumer
+            );
+        }
     }
 
     private static final class TestMetadataReader extends WorldMetadataReader {

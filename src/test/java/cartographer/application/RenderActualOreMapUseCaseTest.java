@@ -553,6 +553,19 @@ class RenderActualOreMapUseCaseTest {
         }
 
         @Override
+        public MapChunkStreamStats forEachMapChunkByCoordinate(
+                Path savePath,
+                java.util.Collection<MapChunkCoordinate> coordinates,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<MapChunk> consumer,
+                ProgressReporter progress
+        ) {
+            return forEachMapChunkByCoordinate(
+                    savePath, coordinates, diagnostics, consumer
+            );
+        }
+
+        @Override
         public ChunkStreamStats forEachChunkByPositionAdaptive(
                 Path savePath,
                 java.util.Collection<ChunkPosition> positions,
@@ -561,6 +574,19 @@ class RenderActualOreMapUseCaseTest {
         ) {
             adaptiveExactChunkCalls++;
             return forEachChunkByPosition(
+                    savePath, positions, diagnostics, consumer
+            );
+        }
+
+        @Override
+        public ChunkStreamStats forEachChunkByPositionAdaptive(
+                Path savePath,
+                java.util.Collection<ChunkPosition> positions,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer,
+                ProgressReporter progress
+        ) {
+            return forEachChunkByPositionAdaptive(
                     savePath, positions, diagnostics, consumer
             );
         }
@@ -630,6 +656,20 @@ class RenderActualOreMapUseCaseTest {
         ) {
             adaptiveSelectiveCalls++;
             return forEachChunkByPositionMatchingBlockIds(
+                    savePath, positions, wantedBlockIds, diagnostics, consumer
+            );
+        }
+
+        @Override
+        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
+                Path savePath,
+                java.util.Collection<ChunkPosition> positions,
+                int[] wantedBlockIds,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer,
+                ProgressReporter progress
+        ) {
+            return forEachChunkByPositionMatchingBlockIdsAdaptive(
                     savePath, positions, wantedBlockIds, diagnostics, consumer
             );
         }

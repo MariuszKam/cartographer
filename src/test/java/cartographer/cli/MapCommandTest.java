@@ -441,6 +441,19 @@ class MapCommandTest {
         }
 
         @Override
+        public MapChunkStreamStats forEachMapChunkByCoordinate(
+                Path savePath,
+                java.util.Collection<cartographer.model.MapChunkCoordinate> coordinates,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<MapChunk> consumer,
+                cartographer.application.ProgressReporter progress
+        ) {
+            return forEachMapChunkByCoordinate(
+                    savePath, coordinates, diagnostics, consumer
+            );
+        }
+
+        @Override
         public ChunkStreamStats forEachChunkByPositionAdaptive(
                 Path savePath,
                 java.util.Collection<ChunkPosition> positions,
@@ -448,6 +461,19 @@ class MapCommandTest {
                 java.util.function.Consumer<ParsedChunk> consumer
         ) {
             return forEachChunkByPosition(
+                    savePath, positions, diagnostics, consumer
+            );
+        }
+
+        @Override
+        public ChunkStreamStats forEachChunkByPositionAdaptive(
+                Path savePath,
+                java.util.Collection<ChunkPosition> positions,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer,
+                cartographer.application.ProgressReporter progress
+        ) {
+            return forEachChunkByPositionAdaptive(
                     savePath, positions, diagnostics, consumer
             );
         }
@@ -484,6 +510,20 @@ class MapCommandTest {
                 java.util.function.Consumer<ParsedChunk> consumer
         ) {
             return forEachChunkByPositionMatchingBlockIds(
+                    savePath, positions, wantedBlockIds, diagnostics, consumer
+            );
+        }
+
+        @Override
+        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
+                Path savePath,
+                java.util.Collection<cartographer.model.ChunkPosition> positions,
+                int[] wantedBlockIds,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer,
+                cartographer.application.ProgressReporter progress
+        ) {
+            return forEachChunkByPositionMatchingBlockIdsAdaptive(
                     savePath, positions, wantedBlockIds, diagnostics, consumer
             );
         }
