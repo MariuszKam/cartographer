@@ -256,7 +256,7 @@ public class CartographerDesktopApp extends Application {
                 return prospectingUseCase.execute(request);
             }
         };
-        task.setOnSucceeded(event -> showProspectingResult(task.getValue()));
+        task.setOnSucceeded(event -> showProspectingResult(task.getValue(), request));
         task.setOnFailed(event -> showFailure(task.getException()));
         Thread worker = new Thread(task, "cartographer-prospecting-analysis");
         worker.setDaemon(true);
@@ -391,8 +391,8 @@ public class CartographerDesktopApp extends Application {
         setBusy(false);
     }
 
-    private void showProspectingResult(ProspectingAreaResult result) {
-        resultInspector.showProspectingResult(result);
+    private void showProspectingResult(ProspectingAreaResult result, ProspectingAreaRequest request) {
+        resultInspector.showProspectingResult(result, request);
         workstation.setStatus("Prospecting analysis complete.");
         setBusy(false);
     }

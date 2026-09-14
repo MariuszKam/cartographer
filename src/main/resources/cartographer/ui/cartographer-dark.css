@@ -17,7 +17,7 @@
     -fx-border-width: 1px 0 0 0;
 }
 
-.sidebar, .result-inspector {
+.sidebar, .sidebar-container, .inspector-container {
     -fx-background-color: #1d222a;
     -fx-padding: 10px;
 }
@@ -32,6 +32,7 @@
 }
 
 .tool-nav-item {
+    -fx-max-width: infinity;
     -fx-alignment: CENTER_LEFT;
     -fx-background-color: #292f38;
     -fx-text-fill: #d9dee6;
@@ -45,7 +46,7 @@
     -fx-text-fill: white;
 }
 
-.tool-options, .layer-panel, .result-card, .diagnostics {
+.tool-options, .layer-panel, .result-inspector, .result-card, .diagnostics {
     -fx-background-color: #242a33;
     -fx-border-color: #39414d;
     -fx-border-radius: 6px;

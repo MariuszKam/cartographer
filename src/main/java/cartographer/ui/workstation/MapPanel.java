@@ -52,8 +52,8 @@ public final class MapPanel extends BorderPane {
 
     private void show(Image image, int width, int height) {
         imageView.setImage(image);
-        baseWidth = Math.max(720, width);
-        baseHeight = Math.max(620, height);
+        baseWidth = width;
+        baseHeight = height;
         mapAvailable = true;
         toolbar.setMapAvailable(true);
         resetView();

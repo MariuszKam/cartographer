@@ -65,6 +65,8 @@ public final class SearchPanel extends VBox {
     private final VBox surfaceContent = new VBox(4);
     private final VBox rockContent = new VBox(4);
     private final VBox prospectingContent = new VBox(4);
+    private VBox singleResourceContent;
+    private VBox multiResourceContent;
     private VBox radiusContent;
     private VBox yFilterContent;
     private Consumer<Integer> radiusListener = ignored -> { };
@@ -75,6 +77,7 @@ public final class SearchPanel extends VBox {
         configureControls(onRender);
         getStyleClass().add("tool-options");
         buildControls();
+        updateResourceMode();
         getChildren().addAll(
                 new Separator(),
                 new HBox(8, renderButton)
@@ -129,11 +132,12 @@ public final class SearchPanel extends VBox {
 
     private void buildControls() {
         HBox resourceMode = new HBox(8, singleResourceButton, multipleResourcesButton);
-        VBox single = new VBox(4, resourceBox, resourceStatusLabel);
-        VBox multi = new VBox(4, new HBox(6, selectAllButton, clearAllButton), resourceChecklistScroll);
+        singleResourceContent = new VBox(4, resourceBox, resourceStatusLabel);
+        multiResourceContent = new VBox(4, new HBox(6, selectAllButton, clearAllButton), resourceChecklistScroll);
         resourceChecklistScroll.setFitToWidth(true);
         resourceChecklistScroll.setPrefViewportHeight(130);
-        oreContent.getChildren().setAll(new Label("ORE SEARCH"), new Label("RESOURCE"), resourceMode, single, multi);
+        oreContent.getChildren().setAll(new Label("ORE SEARCH"), new Label("RESOURCE"), resourceMode,
+                singleResourceContent, multiResourceContent);
         VBox surface = new VBox(4, new Label("SURFACE RESOURCE"), surfaceResourceBox, surfaceResourceStatusLabel);
         surfaceContent.getChildren().setAll(surface);
         rockContent.getChildren().setAll(new Label("GEOLOGY"), new HBox(8, rockUpperButton, rockAtYButton), rockYField);
@@ -199,7 +203,22 @@ public final class SearchPanel extends VBox {
     private void updateYFields() { boolean disabled = allYButton.isSelected() || mode != SearchMode.ORE; yMinField.setDisable(disabled); yMaxField.setDisable(disabled); updateRockMode(); }
     private void updateRockMode() { rockYField.setDisable(mode != SearchMode.ROCK || !rockAtYButton.isSelected()); }
     private void updateRadiusWarning() { boolean visible = radius1024Button.isSelected(); radiusWarningLabel.setVisible(visible); radiusWarningLabel.setManaged(visible); }
-    private void updateResourceMode() { if (multipleResourcesButton.isSelected()) { String match = resourceMatch(); resourceChecks.forEach((resource, check) -> check.setSelected(resource.match().equalsIgnoreCase(match))); } updateResourceStatus(); }
+    private void updateResourceMode() {
+        boolean multiple = multipleResourcesButton.isSelected();
+        if (singleResourceContent != null) {
+            singleResourceContent.setVisible(!multiple);
+            singleResourceContent.setManaged(!multiple);
+        }
+        if (multiResourceContent != null) {
+            multiResourceContent.setVisible(multiple);
+            multiResourceContent.setManaged(multiple);
+        }
+        if (multiple) {
+            String match = resourceMatch();
+            resourceChecks.forEach((resource, check) -> check.setSelected(resource.match().equalsIgnoreCase(match)));
+        }
+        updateResourceStatus();
+    }
     private void updateResourceStatus() { if (mode != SearchMode.ORE) return; Optional<OreResource> selected = resourceForDisplayName(resourceBox.getEditor().getText()); resourceStatusLabel.setText(selected.isEmpty() ? "Registry match: custom input" : selected.get().registryVerified() ? "Registry match: verified (" + selected.get().registryMatchCount() + " block codes)" : "Registry match: not verified - using \"" + selected.get().match() + "\" as custom match"); }
     private void rebuildResourceChecklist() { resourceChecks.clear(); resourceColors.clear(); resourceChecklist.getChildren().clear(); for (int index = 0; index < discoveredResources.size(); index++) { OreResource resource = discoveredResources.get(index); CheckBox check = new CheckBox(resource.displayName()); Region color = new Region(); color.setPrefSize(12, 12); Color awt = OreOverlayPalette.colorFor(resource.match(), index); resourceColors.put(resource, awt); color.setStyle("-fx-background-color: rgb(" + awt.getRed() + "," + awt.getGreen() + "," + awt.getBlue() + ");"); check.setGraphic(color); resourceChecks.put(resource, check); resourceChecklist.getChildren().add(check); } }
 }

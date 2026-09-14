@@ -3,7 +3,9 @@ package cartographer.ui.workstation;
 import javafx.geometry.Insets;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
@@ -39,10 +41,15 @@ public final class WorkstationView {
         leftContent = new VBox(8, worldPanel, toolNavigationPane, searchPanel, layerPanel);
         leftToggle.setOnAction(event -> toggleLeft());
         leftContent.getStyleClass().add("sidebar");
-        VBox left = new VBox(4, leftToggle, leftContent);
-        left.getStyleClass().add("sidebar");
+        ScrollPane leftScroll = new ScrollPane(leftContent);
+        leftScroll.setFitToWidth(true);
+        leftScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        VBox.setVgrow(leftScroll, Priority.ALWAYS);
+        VBox left = new VBox(4, leftToggle, leftScroll);
+        left.getStyleClass().add("sidebar-container");
+        left.setPrefWidth(310);
         rightContent = new VBox(4, rightToggle, resultInspectorPane);
-        rightContent.getStyleClass().add("result-inspector");
+        rightContent.getStyleClass().add("inspector-container");
         rightToggle.setOnAction(event -> toggleRight());
 
         root.setTop(worldBar);

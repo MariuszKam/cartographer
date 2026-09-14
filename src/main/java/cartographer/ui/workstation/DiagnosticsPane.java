@@ -25,12 +25,14 @@ public final class DiagnosticsPane extends VBox {
     }
 
     public void show(List<String> lines) {
-        details.getChildren().setAll(lines.stream().map(Label::new).toList());
+        details.getChildren().setAll(lines.stream().map(line -> {
+            Label label = new Label(line);
+            label.setWrapText(true);
+            return label;
+        }).toList());
         toggle.setDisable(lines.isEmpty());
-        if (lines.isEmpty()) {
-            details.setVisible(false);
-            details.setManaged(false);
-            toggle.setText("Show technical details");
-        }
+        details.setVisible(false);
+        details.setManaged(false);
+        toggle.setText("Show technical details");
     }
 }
