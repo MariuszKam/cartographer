@@ -1,3 +1,10 @@
+import java.util.Locale
+import org.gradle.api.GradleException
+import org.gradle.api.tasks.Delete
+import org.gradle.api.tasks.bundling.Zip
+import org.gradle.jvm.tasks.Jar
+import org.gradle.jvm.toolchain.JavaToolchainService
+
 plugins {
     application
     id("java")
@@ -11,6 +18,10 @@ val packagingApplicationName = "VS Cartographer"
 val packagingDesktopMainClass = "cartographer.ui.CartographerDesktopLauncher"
 val packagingVendor = "MariuszKam"
 val jpackageInputDirectory = layout.buildDirectory.dir("jpackage/input")
+val jpackageAppImageDirectory = layout.buildDirectory.dir("jpackage/app-image")
+val jpackageJavaLauncher = extensions.getByType<JavaToolchainService>().launcherFor {
+    languageVersion.set(JavaLanguageVersion.of(25))
+}
 
 repositories {
     mavenCentral()
@@ -61,4 +72,51 @@ tasks.register<Sync>("prepareJpackageInput") {
     into(jpackageInputDirectory)
     from(tasks.jar)
     from(configurations.runtimeClasspath)
+}
+
+val cleanWindowsAppImage = tasks.register<Delete>("cleanWindowsAppImage") {
+    description = "Removes only the generated Windows app-image output"
+    delete(jpackageAppImageDirectory)
+}
+
+val packageWindowsAppImage = tasks.register<Exec>("packageWindowsAppImage") {
+    group = "distribution"
+    description = "Creates the portable Windows app-image with the Java 25 jpackage tool"
+    dependsOn(tasks.named("prepareJpackageInput"), cleanWindowsAppImage)
+
+    doFirst {
+        val operatingSystem = System.getProperty("os.name").lowercase(Locale.ROOT)
+        if (!operatingSystem.contains("win")) {
+            throw GradleException("packageWindowsAppImage is supported only on Windows hosts")
+        }
+
+        val jpackage = jpackageJavaLauncher.get().metadata.installationPath
+            .file("bin/jpackage.exe")
+            .asFile
+        if (!jpackage.isFile) {
+            throw GradleException("Java 25 toolchain does not contain jpackage.exe: $jpackage")
+        }
+
+        val applicationJar = tasks.named<Jar>("jar").get().archiveFile.get().asFile.name
+        commandLine(
+            jpackage.absolutePath,
+            "--type", "app-image",
+            "--name", packagingApplicationName,
+            "--input", jpackageInputDirectory.get().asFile.absolutePath,
+            "--main-jar", applicationJar,
+            "--main-class", packagingDesktopMainClass,
+            "--dest", jpackageAppImageDirectory.get().asFile.absolutePath,
+            "--vendor", packagingVendor,
+            "--java-options", "--enable-native-access=ALL-UNNAMED"
+        )
+    }
+}
+
+tasks.register<Zip>("packageWindowsPortable") {
+    group = "distribution"
+    description = "Packages the complete Windows app-image as a portable ZIP"
+    dependsOn(packageWindowsAppImage)
+    archiveFileName.set("VS-Cartographer-${project.version}-win-x64.zip")
+    destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+    from(jpackageAppImageDirectory)
 }
