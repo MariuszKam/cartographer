@@ -163,6 +163,119 @@ The installer remains GUI-only and does not use `--win-console`. It is currently
 unsigned, so Windows SmartScreen may warn during manual validation. It does not
 provide `.vcdbs` file associations or automatic updates.
 
+## Stage 5: release validation and hardening
+
+Stage 5 provides a repeatable structural and save-integrity validation helper.
+It does not launch the application, installer, or Java, and it does not open a
+save through SQLite.
+
+### Automated structural/integrity checks
+
+Run artifact checks later, after the release artifacts have been built:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/validate-windows-release.ps1 -Mode Artifacts
+```
+
+Artifacts mode checks the app-image launcher and `app/` and `runtime/`
+directories, checks the canonical portable ZIP and installer for non-zero size,
+inspects the ZIP entries without extracting or executing them, and writes the
+portable ZIP and installer SHA-256 values to:
+
+```text
+build/release-validation/SHA256SUMS.txt
+```
+
+The helper does not require `runtime/bin/java.exe` and does not require the
+unsigned installer to have Authenticode signing. It reports structure only; it
+does not claim that the GUI, CLI, installer, shortcuts, or uninstall work.
+
+With Vintage Story closed, record a save baseline before manual regression:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/validate-windows-release.ps1 -Mode Before -SavePath "<path-to-save.vcdbs>"
+```
+
+The baseline is written only to `build/release-validation/save-baseline.json`
+and contains the normalized save path, SHA-256, file length, timestamp, and
+initial `-wal`/`-shm` sidecar state. The helper performs only read-only
+filesystem inspection of the save and does not delete pre-existing sidecars.
+
+After all manual checks, with applications closed, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/validate-windows-release.ps1 -Mode After -SavePath "<path-to-save.vcdbs>"
+```
+
+After mode is a mandatory release gate: the save SHA-256 and size must be
+unchanged, and no new `-wal` or `-shm` sidecar may have appeared. Existing
+sidecars are reported as pre-existing and are left untouched.
+
+### Clean regression build
+
+The user + ChatGPT will run the following later; these commands are not part of
+the validation helper:
+
+```powershell
+.\gradlew.bat clean
+.\gradlew.bat test
+.\gradlew.bat packageWindowsPortable
+.\gradlew.bat packageWindowsInstaller
+```
+
+### Manual CLI regression
+
+The user + ChatGPT will run the existing CLI regression pattern against the
+real save:
+
+```powershell
+.\gradlew.bat run --args='map render <save.vcdbs> --radius 512 --out output\map-final.png --style topographic --layers terrain,surface,environment,geology,markers'
+```
+
+The command must complete successfully, create the output PNG, and report zero
+failed regions and zero failed chunks/mapchunks when those counters are
+reported by the application. The output map requires manual visual inspection.
+
+### Manual portable GUI regression
+
+The user + ChatGPT will extract `VS-Cartographer-1.0.0-win-x64.zip` outside the
+repository and launch `VS Cartographer.exe` from the extracted directory. They
+will verify that there is no unwanted console window, dark JavaFX styling is
+present, and a real `.vcdbs` save opens through the File Chooser. They will
+manually check player position, map interaction, Ores, Surface, Rock,
+Prospecting, expected layers, map controls, and normal application close.
+
+To check bundled-runtime independence, they will launch the extracted EXE
+outside the repository and IntelliJ, optionally set `JAVA_HOME` to an invalid
+location only in the current PowerShell process, launch again, and restore the
+original process-local value. They will not modify machine-wide `JAVA_HOME` or
+permanent `PATH`, and `runtime/bin/java.exe` is not required.
+
+### Manual installer regression
+
+The user + ChatGPT will verify that the unsigned installer starts, presents the
+installation directory chooser, installs per-user, creates the Desktop shortcut
+and `VS Cartographer` Start Menu entry, and launches the installed GUI without
+an unwanted console window. They will open a real save and manually check Ores,
+Surface, Rock, Prospecting, and map interaction. A Windows SmartScreen warning
+is acceptable for this unsigned installer.
+
+### Persistence test
+
+The user + ChatGPT will create or modify safe Cartographer-owned state, such as
+the HOME marker or existing user markers, close the application, relaunch it,
+and verify that the state persists as expected. This validates the existing
+`.vs-cartographer` behavior; it does not migrate storage to `%APPDATA%`.
+
+### Uninstall test
+
+The user + ChatGPT will verify that uninstall completes, installed program files
+are removed as expected, and the Start Menu and Desktop shortcuts are removed.
+They will also verify that the Vintage Story save remains untouched and that
+user-owned Cartographer configuration is not destructively removed unless the
+existing application behavior explicitly provides otherwise. No custom
+uninstall cleanup is added by Stage 5.
+
 ## Packaging non-goals
 
 The Windows packaging stages do not:
