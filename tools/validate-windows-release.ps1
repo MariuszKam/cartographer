@@ -148,9 +148,9 @@ function Invoke-AfterValidation {
     }
 
     if ($script:FailureCount -eq 0) {
-        Write-Output "SUMMARY: PASS — save integrity unchanged"
+        Write-Output "SUMMARY: PASS - save integrity unchanged"
     } else {
-        Write-Output "SUMMARY: FAIL — $($script:FailureCount) save integrity check(s) failed"
+        Write-Output "SUMMARY: FAIL - $($script:FailureCount) save integrity check(s) failed"
     }
 }
 
@@ -270,9 +270,9 @@ function Invoke-ArtifactValidation {
     }
 
     if ($script:FailureCount -eq 0) {
-        Write-Output "SUMMARY: PASS — release artifacts are structurally valid"
+        Write-Output "SUMMARY: PASS - release artifacts are structurally valid"
     } else {
-        Write-Output "SUMMARY: FAIL — $($script:FailureCount) artifact check(s) failed"
+        Write-Output "SUMMARY: FAIL - $($script:FailureCount) artifact check(s) failed"
     }
 }
 
@@ -288,6 +288,6 @@ try {
     exit 0
 } catch {
     Write-Fail $_.Exception.Message
-    Write-Output "SUMMARY: FAIL — validation could not complete"
+    Write-Output "SUMMARY: FAIL - validation could not complete"
     exit 1
 }
