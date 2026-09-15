@@ -12,11 +12,15 @@ plugins {
 }
 
 group = "cartographer"
-version = "1.0-SNAPSHOT"
+version = "1.0.0"
 
 val packagingApplicationName = "VS Cartographer"
 val packagingDesktopMainClass = "cartographer.ui.CartographerDesktopLauncher"
 val packagingVendor = "MariuszKam"
+val packagingVersion = project.version.toString()
+val packagingDescription = "Offline Vintage Story save cartographer and world analysis tool"
+val packagingCopyright = "Copyright © 2026 MariuszKam"
+val packagingIcon = layout.projectDirectory.file("src/main/packaging/vs-cartographer.ico")
 val jpackageInputDirectory = layout.buildDirectory.dir("jpackage/input")
 val jpackageAppImageDirectory = layout.buildDirectory.dir("jpackage/app-image")
 val jpackageJavaLauncher = extensions.getByType<JavaToolchainService>().launcherFor {
@@ -98,17 +102,24 @@ val packageWindowsAppImage = tasks.register<Exec>("packageWindowsAppImage") {
         }
 
         val applicationJar = tasks.named<Jar>("jar").get().archiveFile.get().asFile.name
-        commandLine(
-            jpackage.absolutePath,
+        val jpackageArguments = mutableListOf(
             "--type", "app-image",
             "--name", packagingApplicationName,
+            "--app-version", packagingVersion,
+            "--description", packagingDescription,
+            "--copyright", packagingCopyright,
+            "--vendor", packagingVendor,
             "--input", jpackageInputDirectory.get().asFile.absolutePath,
             "--main-jar", applicationJar,
             "--main-class", packagingDesktopMainClass,
             "--dest", jpackageAppImageDirectory.get().asFile.absolutePath,
-            "--vendor", packagingVendor,
             "--java-options", "--enable-native-access=ALL-UNNAMED"
         )
+        if (packagingIcon.asFile.isFile) {
+            jpackageArguments.add("--icon")
+            jpackageArguments.add(packagingIcon.asFile.absolutePath)
+        }
+        commandLine(listOf(jpackage.absolutePath) + jpackageArguments)
     }
 }
 

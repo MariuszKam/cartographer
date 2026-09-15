@@ -27,6 +27,19 @@ build/jpackage/input/
 
 This is the non-modular classpath input for the future Windows packaging step.
 
+## Release version and metadata
+
+The release version is `1.0.0`, sourced from the Gradle project version. The
+Windows app-image passes the following metadata to `jpackage`:
+
+```text
+Name: VS Cartographer
+Version: 1.0.0
+Vendor: MariuszKam
+Description: Offline Vintage Story save cartographer and world analysis tool
+Copyright: Copyright © 2026 MariuszKam
+```
+
 ## Stage 2: portable Windows app image
 
 Stage 2 adds Windows-specific Gradle tasks using the JDK 25 `jpackage` tool.
@@ -62,7 +75,7 @@ The complete app-image can be distributed as a portable ZIP:
 The expected output is:
 
 ```text
-build/distributions/VS-Cartographer-1.0-SNAPSHOT-win-x64.zip
+build/distributions/VS-Cartographer-1.0.0-win-x64.zip
 ```
 
 The ZIP preserves the top-level `VS Cartographer/` directory and contains the
@@ -95,6 +108,23 @@ The desktop packaging metadata is intended for the application name
 `VS Cartographer`, desktop main class
 `cartographer.ui.CartographerDesktopLauncher`, and vendor `MariuszKam`.
 
+## Stage 3: Windows package polish
+
+Stage 3 adds release metadata and optional custom icon support. A project-owned
+Windows icon may be placed at:
+
+```text
+src/main/packaging/vs-cartographer.ico
+```
+
+When that file exists, `jpackage` uses it automatically. When it is absent,
+packaging continues with the standard `jpackage` icon. Stage 3 does not commit
+a placeholder icon.
+
+The packaged launcher remains GUI-only and does not use `--win-console`. The
+CLI remains available separately through the existing Gradle application
+workflow.
+
 ## Non-goals
 
 Stage 2 does not:
@@ -106,6 +136,6 @@ Stage 2 does not:
 - change application storage;
 - change runtime semantics.
 
-Stage 2 does not create an installer, add file associations, or supply a custom
-runtime image. The executable and native runtime have not been tested or
-verified by this documentation.
+Stage 3 does not create an installer, add file associations, or supply a custom
+runtime image. The executable, metadata, and optional icon behavior have not
+been tested or verified by this documentation.
