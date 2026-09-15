@@ -537,7 +537,6 @@ public final class SearchPanel extends VBox {
     }
     private void updateRenderAvailability() {
         if (globallyBusy) { renderButton.setDisable(true); return; }
-        if (mode == SearchMode.COVERAGE) { renderButton.setDisable(true); return; }
         if (mode != SearchMode.SURFACE) { renderButton.setDisable(false); return; }
         boolean valid = surfaceMode == SurfaceMode.MATERIALS
                 ? surfaceMaterialBox.getValue() != null
