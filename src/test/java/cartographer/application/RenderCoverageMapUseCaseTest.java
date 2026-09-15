@@ -1,0 +1,135 @@
+package cartographer.application;
+
+import cartographer.coverage.RegionCoverageAnalyzer;
+import cartographer.coverage.RegionCoverageRenderer;
+import cartographer.coverage.RegionCoverageSummary;
+import cartographer.model.HomeLocation;
+import cartographer.model.HomeState;
+import cartographer.model.MapRegionCoordinate;
+import cartographer.model.ServerMapRegion;
+import cartographer.model.WorldMetadata;
+import cartographer.model.WorldPosition;
+import cartographer.navigation.HomeStore;
+import cartographer.parser.ChunkParser;
+import cartographer.parser.MapChunkParser;
+import cartographer.parser.PlayerDataParser;
+import cartographer.parser.RegistryParser;
+import cartographer.save.ReadDiagnostics;
+import cartographer.save.VcdbsReader;
+import cartographer.save.WorldMetadataReader;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.awt.image.BufferedImage;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class RenderCoverageMapUseCaseTest {
+    @TempDir
+    Path temporaryDirectory;
+
+    @Test
+    void orchestratesCoverageAndReturnsSummaryAndDiagnostics() {
+        FakeReader reader = new FakeReader(List.of(region(1, 2)));
+        CapturingRenderer renderer = new CapturingRenderer();
+        RenderCoverageMapResult result = useCase(reader, renderer).execute(request());
+
+        assertEquals(1, result.summary().presentCells());
+        assertEquals(1, result.mapRegionDiagnostics().parsed());
+        assertEquals(new WorldPosition(100, 70, 200), renderer.player);
+        assertTrue(result.image().getWidth() > 0);
+    }
+
+    @Test
+    void convertsDisplayHomeToAbsoluteBeforeRendering() {
+        FakeReader reader = new FakeReader(List.of(region(0, 0)));
+        CapturingRenderer renderer = new CapturingRenderer();
+        Path save = temporaryDirectory.resolve("world.vcdbs");
+        HomeStore homeStore = new HomeStore(temporaryDirectory.resolve("home.properties"));
+        homeStore.save(save, new HomeLocation(-10, 20));
+
+        useCase(reader, renderer, homeStore).execute(new RenderCoverageMapRequest(save));
+
+        assertEquals(HomeState.present(new HomeLocation(502, 532)), renderer.home);
+    }
+
+    @Test
+    void emptyMapregionInputProducesEmptySummary() {
+        RenderCoverageMapResult result = useCase(
+                new FakeReader(List.of()), new CapturingRenderer()
+        ).execute(request());
+
+        assertTrue(result.summary().empty());
+        assertEquals(0, result.summary().presentCells());
+    }
+
+    private RenderCoverageMapRequest request() {
+        return new RenderCoverageMapRequest(temporaryDirectory.resolve("world.vcdbs"));
+    }
+
+    private RenderCoverageMapUseCase useCase(FakeReader reader, CapturingRenderer renderer) {
+        return useCase(reader, renderer,
+                new HomeStore(temporaryDirectory.resolve("home.properties")));
+    }
+
+    private RenderCoverageMapUseCase useCase(
+            FakeReader reader,
+            CapturingRenderer renderer,
+            HomeStore homeStore
+    ) {
+        WorldMetadataReader metadataReader = new WorldMetadataReader() {
+            @Override
+            public WorldMetadata read(Path savePath, ProgressReporter progress) {
+                return new WorldMetadata(1024, 256, 1024);
+            }
+        };
+        return new RenderCoverageMapUseCase(reader, metadataReader, homeStore,
+                new RegionCoverageAnalyzer(), renderer);
+    }
+
+    private ServerMapRegion region(int x, int z) {
+        return new ServerMapRegion(new MapRegionCoordinate(x, z),
+                Optional.empty(), Optional.empty(), Optional.empty(),
+                Optional.empty(), Optional.empty());
+    }
+
+    private static final class FakeReader extends VcdbsReader {
+        private final List<ServerMapRegion> regions;
+
+        private FakeReader(List<ServerMapRegion> regions) {
+            super(new PlayerDataParser(), new MapChunkParser(), new ChunkParser(), new RegistryParser());
+            this.regions = regions;
+        }
+
+        @Override
+        public List<ServerMapRegion> readMapRegions(
+                Path savePath, ReadDiagnostics diagnostics, ProgressReporter progress
+        ) {
+            diagnostics.recordParsed();
+            return regions;
+        }
+
+        @Override
+        public WorldPosition readPlayerPosition(Path savePath, ProgressReporter progress) {
+            return new WorldPosition(100, 70, 200);
+        }
+    }
+
+    private static final class CapturingRenderer extends RegionCoverageRenderer {
+        private WorldPosition player;
+        private HomeState home;
+
+        @Override
+        public BufferedImage render(
+                RegionCoverageSummary summary, WorldPosition player, HomeState home
+        ) {
+            this.player = player;
+            this.home = home;
+            return new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        }
+    }
+}

@@ -64,4 +64,9 @@ public final class WorkstationStatusBar extends HBox {
     public void setRadius(int value) {
         radius.setText("Radius " + value);
     }
+
+    public void setRadiusVisible(boolean visible) {
+        radius.setVisible(visible);
+        radius.setManaged(visible);
+    }
 }

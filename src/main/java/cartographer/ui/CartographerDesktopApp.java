@@ -1,6 +1,9 @@
 package cartographer.ui;
 
 import cartographer.application.RenderActualOreMapRequest;
+import cartographer.application.RenderCoverageMapRequest;
+import cartographer.application.RenderCoverageMapResult;
+import cartographer.application.RenderCoverageMapUseCase;
 import cartographer.application.RenderActualOreMapResult;
 import cartographer.application.RenderActualOreMapUseCase;
 import cartographer.application.ActualOreOverlaySpec;
@@ -35,6 +38,8 @@ import cartographer.render.MapRenderer;
 import cartographer.render.RenderStyle;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.render.SurfaceResourceOverlayRenderer;
+import cartographer.coverage.RegionCoverageAnalyzer;
+import cartographer.coverage.RegionCoverageRenderer;
 import cartographer.resource.ResourceAnalyzer;
 import cartographer.resource.SurfaceMaterialAnalyzer;
 import cartographer.resource.ObservedSurfaceResource;
@@ -72,6 +77,7 @@ public class CartographerDesktopApp extends Application {
     private ResultInspectorPane resultInspector;
 
     private RenderActualOreMapUseCase useCase;
+    private RenderCoverageMapUseCase coverageUseCase;
     private RenderSurfaceResourceMapUseCase surfaceUseCase;
     private DiscoverObservedSurfaceResourcesUseCase surfaceDiscoveryUseCase;
     private RenderRockMapUseCase rockUseCase;
@@ -94,6 +100,7 @@ public class CartographerDesktopApp extends Application {
         reader = createReader();
         metadataReader = new WorldMetadataReader();
         useCase = createUseCase(reader, metadataReader);
+        coverageUseCase = createCoverageUseCase(reader, metadataReader);
         surfaceUseCase = createSurfaceUseCase(reader, metadataReader);
         surfaceDiscoveryUseCase = new DiscoverObservedSurfaceResourcesUseCase(
                 reader,
@@ -222,6 +229,10 @@ public class CartographerDesktopApp extends Application {
                 analyzeProspectingArea();
                 return;
             }
+            if (searchPanel.selectedMode() == SearchPanel.SearchMode.COVERAGE) {
+                renderCoverage();
+                return;
+            }
             if (searchPanel.selectedMode() == SearchPanel.SearchMode.ROCK) {
                 renderRockMap();
                 return;
@@ -252,6 +263,29 @@ public class CartographerDesktopApp extends Application {
         } catch (RuntimeException exception) {
             showFailure(exception);
         }
+    }
+
+    private void renderCoverage() {
+        if (worldPanel.savePathText().isBlank()) {
+            throw new IllegalArgumentException("Select a .vcdbs save.");
+        }
+        RenderCoverageMapRequest request = new RenderCoverageMapRequest(
+                Path.of(worldPanel.savePathText())
+        );
+        setBusy(true);
+        workstation.setStatus("Rendering coverage...");
+        ProgressTask<RenderCoverageMapResult> task = new ProgressTask<>() {
+            @Override
+            protected RenderCoverageMapResult call() {
+                return coverageUseCase.execute(request, taskProgress(this));
+            }
+        };
+        wireTaskProgress(task);
+        task.setOnSucceeded(event -> showCoverageResult(task.getValue()));
+        task.setOnFailed(event -> showFailure(task.getException()));
+        Thread worker = new Thread(task, "cartographer-coverage-render");
+        worker.setDaemon(true);
+        worker.start();
     }
 
     private void renderMap() {
@@ -478,6 +512,13 @@ public class CartographerDesktopApp extends Application {
         mapPanel.show(result.image());
         resultInspector.showMapResult(result, request);
         workstation.setStatus("Map rendered.");
+        setBusy(false);
+    }
+
+    private void showCoverageResult(RenderCoverageMapResult result) {
+        mapPanel.show(result.image());
+        resultInspector.showCoverageResult(result);
+        workstation.setStatus("Coverage rendered.");
         setBusy(false);
     }
 
@@ -806,6 +847,20 @@ public class CartographerDesktopApp extends Application {
                 new cartographer.scanner.SurfaceScanner(),
                 new SurfaceMaterialAnalyzer(),
                 new SurfaceResourceOverlayRenderer()
+        );
+    }
+
+    private RenderCoverageMapUseCase createCoverageUseCase(
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader
+    ) {
+        Path config = Path.of(System.getProperty("user.home"), ".vs-cartographer");
+        return new RenderCoverageMapUseCase(
+                reader,
+                metadataReader,
+                new HomeStore(config.resolve("home.properties")),
+                new RegionCoverageAnalyzer(),
+                new RegionCoverageRenderer()
         );
     }
 
