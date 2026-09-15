@@ -69,10 +69,10 @@ class RenderSurfaceResourceMapUseCaseTest {
         assertEquals(List.of(List.of(exactPosition)), reader.exactRequests);
         assertTrue(((cartographer.resource.SurfaceMaterialAnalysis) result.analysis()).matchedBlockCount() > 0);
         assertEquals(64, result.geometry().imageWidth());
-        assertEquals(0.0, result.geometry().worldMinX());
-        assertEquals(0.0, result.geometry().worldMinZ());
-        assertEquals(32.0, result.geometry().worldMaxXExclusive());
-        assertEquals(32.0, result.geometry().worldMaxZExclusive());
+        assertEquals(15.0, result.geometry().worldMinX());
+        assertEquals(15.0, result.geometry().worldMinZ());
+        assertEquals(17.0, result.geometry().worldMaxXExclusive());
+        assertEquals(17.0, result.geometry().worldMaxZExclusive());
     }
 
     @Test
