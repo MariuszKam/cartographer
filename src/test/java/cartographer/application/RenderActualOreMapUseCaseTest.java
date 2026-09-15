@@ -224,7 +224,7 @@ class RenderActualOreMapUseCaseTest {
                 Set.of(RenderLayer.SOIL_FERTILITY),
                 16,
                 16,
-                16
+                1
         );
 
         assertEquals(1, reader.directMapChunkCalls);
@@ -250,7 +250,7 @@ class RenderActualOreMapUseCaseTest {
                 Set.of(RenderLayer.SURFACE, RenderLayer.SOIL_FERTILITY),
                 16,
                 16,
-                16
+                1
         );
 
         assertEquals(1, reader.directMapChunkCalls);
