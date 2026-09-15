@@ -82,30 +82,6 @@ public final class ResultInspectorPane extends VBox {
         diagnostics.show(mapDiagnostics(result, request));
     }
 
-    public void showCoverageResult(RenderCoverageMapResult result) {
-        var summary = result.summary();
-        List<javafx.scene.Node> nodes = new ArrayList<>();
-        nodes.add(sectionTitle("Coverage"));
-        if (summary.empty()) {
-            nodes.add(label("No mapregions were available."));
-        } else {
-            nodes.add(label("Available mapregions: " + summary.presentCells()));
-            nodes.add(label("Region grid: " + summary.gridWidth() + " × " + summary.gridHeight()));
-            nodes.add(label("Bounding cells: " + summary.possibleCells()));
-            nodes.add(label("Missing cells inside observed bounds: " + summary.missingCells()));
-            nodes.add(label(String.format(java.util.Locale.ROOT,
-                    "Coverage inside observed bounds: %.2f%%", summary.coveragePercentage())));
-            nodes.add(label("Region X bounds: " + summary.minRegionX() + ".." + summary.maxRegionX()
-                    + "\nRegion Z bounds: " + summary.minRegionZ() + ".." + summary.maxRegionZ()));
-            nodes.add(label(String.format(java.util.Locale.ROOT,
-                    "DISPLAY X bounds: %.0f..%.0f\nDISPLAY Z bounds: %.0f..%.0f",
-                    summary.displayMinX(), summary.displayMaxXExclusive() - 1.0,
-                    summary.displayMinZ(), summary.displayMaxZExclusive() - 1.0)));
-        }
-        content.getChildren().setAll(nodes);
-        diagnostics.show(diagnostics(result.mapRegionDiagnostics()));
-    }
-
     public void showSurfaceResult(RenderSurfaceResourceMapResult result, RenderSurfaceResourceMapRequest request) {
         if (result.analysis() instanceof SurfaceObjectSelectionAnalysis objectSelection) {
             List<javafx.scene.Node> nodes = new ArrayList<>();
