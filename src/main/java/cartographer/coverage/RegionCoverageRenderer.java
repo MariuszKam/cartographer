@@ -67,15 +67,15 @@ public class RegionCoverageRenderer {
                         cellSize
                 );
 
-        int mapWidth = summary.gridWidth() * cellSize;
-        int mapHeight = summary.gridHeight() * cellSize;
+        int contentWidth = image.getWidth() - PADDING * 2;
+        int contentHeight = image.getHeight() - PADDING * 2 - LEGEND_HEIGHT;
         MapViewportGeometry geometry = new MapViewportGeometry(
                 image.getWidth(),
                 image.getHeight(),
                 PADDING,
                 PADDING,
-                mapWidth,
-                mapHeight,
+                contentWidth,
+                contentHeight,
                 summary.worldMinX(),
                 summary.worldMinZ(),
                 summary.worldMaxXExclusive(),
