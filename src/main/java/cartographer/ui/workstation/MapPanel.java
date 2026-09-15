@@ -33,6 +33,7 @@ public final class MapPanel extends BorderPane {
     private Optional<MapViewportGeometry> geometry = Optional.empty();
     private Optional<WorldPosition> player = Optional.empty();
     private Consumer<Double> zoomListener = ignored -> { };
+    private Consumer<Optional<MapCursorPosition>> cursorListener = ignored -> { };
 
     public MapPanel() {
         getStyleClass().add("map-viewport");
@@ -52,6 +53,20 @@ public final class MapPanel extends BorderPane {
         });
         imageView.setPreserveRatio(true);
         imageView.setSmooth(true);
+        imageView.setPickOnBounds(true);
+        imageView.setOnMouseMoved(event -> {
+            Bounds imageBounds = imageView.getBoundsInLocal();
+            publishCursorPosition(MapCursorMapping.toAbsoluteWorld(
+                    geometry.orElse(null),
+                    event.getX(),
+                    event.getY(),
+                    imageBounds.getMinX(),
+                    imageBounds.getMinY(),
+                    imageBounds.getWidth(),
+                    imageBounds.getHeight()
+            ));
+        });
+        imageView.setOnMouseExited(event -> publishCursorPosition(Optional.empty()));
         setTop(toolbar);
         setCenter(preview);
     }
@@ -76,6 +91,7 @@ public final class MapPanel extends BorderPane {
                 );
             }
         });
+        publishCursorPosition(Optional.empty());
         this.geometry = geometry;
         this.player = player;
         show(SwingFXUtils.toFXImage(image, null), image.getWidth(), image.getHeight());
@@ -84,6 +100,10 @@ public final class MapPanel extends BorderPane {
 
     public double zoomFactor() { return zoomFactor; }
     public void setOnZoomChanged(Consumer<Double> listener) { zoomListener = listener == null ? ignored -> { } : listener; zoomListener.accept(zoomFactor); }
+    public void setOnCursorPositionChanged(Consumer<Optional<MapCursorPosition>> listener) {
+        cursorListener = listener == null ? ignored -> { } : listener;
+        publishCursorPosition(Optional.empty());
+    }
 
     private void show(Image image, int width, int height) {
         imageView.setImage(image);
@@ -131,7 +151,12 @@ public final class MapPanel extends BorderPane {
     public void clearNavigationContext() {
         geometry = Optional.empty();
         player = Optional.empty();
+        publishCursorPosition(Optional.empty());
         updateCenterPlayerAvailability();
+    }
+
+    private void publishCursorPosition(Optional<MapCursorPosition> position) {
+        cursorListener.accept(Objects.requireNonNull(position, "cursor position is required"));
     }
 
     private void setZoom(double requested) {

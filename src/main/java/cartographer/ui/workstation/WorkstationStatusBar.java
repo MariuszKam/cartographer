@@ -5,6 +5,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.layout.HBox;
+import java.util.Locale;
 
 public final class WorkstationStatusBar extends HBox {
     private final Label operation = new Label("Ready");
@@ -12,6 +13,7 @@ public final class WorkstationStatusBar extends HBox {
     private final Label progressText = new Label();
     private final Label zoom = new Label("Zoom 100%");
     private final Label radius = new Label("Radius 256");
+    private final Label cursor = new Label("Cursor —");
 
     public WorkstationStatusBar() {
         super(12);
@@ -25,7 +27,7 @@ public final class WorkstationStatusBar extends HBox {
         progressText.getStyleClass().add("status-progress-text");
         progressText.setVisible(false);
         progressText.setManaged(false);
-        getChildren().addAll(operation, progress, progressText, zoom, radius);
+        getChildren().addAll(operation, progress, progressText, zoom, radius, cursor);
     }
 
     public void setStatus(String text) {
@@ -68,5 +70,13 @@ public final class WorkstationStatusBar extends HBox {
     public void setRadiusVisible(boolean visible) {
         radius.setVisible(visible);
         radius.setManaged(visible);
+    }
+
+    public void setCursorCoordinates(double displayX, double displayZ) {
+        cursor.setText(String.format(Locale.ROOT, "Cursor X %.1f  Z %.1f", displayX, displayZ));
+    }
+
+    public void clearCursorCoordinates() {
+        cursor.setText("Cursor —");
     }
 }

@@ -137,6 +137,10 @@ public final class WorkstationView {
     public void setProgress(double completed, double total) { statusBar.setProgress(completed, total); }
     public void setSavePath(java.nio.file.Path path) { worldBar.setSavePath(path); }
     public void setPlayerLoaded(boolean loaded) { worldBar.setPlayerLoaded(loaded); }
+    public void setCursorCoordinates(double displayX, double displayZ) {
+        statusBar.setCursorCoordinates(displayX, displayZ);
+    }
+    public void clearCursorCoordinates() { statusBar.clearCursorCoordinates(); }
 
     private void toggleLeft() {
         boolean visible = leftScroll.isVisible();
