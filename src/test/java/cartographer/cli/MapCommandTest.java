@@ -25,6 +25,7 @@ import cartographer.render.MapTerrainPreparation;
 import cartographer.render.OverlayRenderReport;
 import cartographer.render.PngWriter;
 import cartographer.render.RenderOptions;
+import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.render.RenderedMap;
 import cartographer.render.UserMarkerRenderer;
@@ -48,6 +49,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -349,6 +351,39 @@ class MapCommandTest {
                 RenderStyle.TOPOGRAPHIC,
                 useCase.request.style()
         );
+    }
+
+    @Test
+    void delegatesSoilFertilityLayerAndPrintsSurfaceDiagnostics() {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        RecordingUseCase useCase = new RecordingUseCase(
+                new FakeReader(),
+                new FakeMetadataReader(),
+                new HomeStore(tempDir.resolve("home.properties")),
+                new MarkerStore(tempDir.resolve("markers.csv")),
+                new MapRenderer(),
+                new UserMarkerRenderer(),
+                new ActualBlockMapScanner(),
+                new ActualOreOverlayPainter()
+        );
+        MapCommand command = new MapCommand(
+                new PrintStream(buffer),
+                new NoopPngWriter(),
+                useCase,
+                "render"
+        );
+
+        command.run(new String[]{
+                "world.vcdbs",
+                "--radius", "64",
+                "--layers", "soil_fertility",
+                "--out", "map.png"
+        });
+
+        assertEquals(Set.of(RenderLayer.SOIL_FERTILITY), useCase.request.layers());
+        String output = buffer.toString();
+        assertTrue(output.contains("Layers: SOIL_FERTILITY"));
+        assertTrue(output.contains("Surface columns:"));
     }
 
     private MapCommand commandForValidation() {
@@ -802,7 +837,7 @@ class MapCommandTest {
                             0,
                             0,
                             request.style(),
-                            "MARKERS,TERRAIN"
+                            useCaseLayers(request)
                     ),
                     new SurfaceScanResult(
                             List.of(),
@@ -820,6 +855,13 @@ class MapCommandTest {
                     new ReadDiagnostics(),
                     0
             );
+        }
+
+        private String useCaseLayers(RenderActualOreMapRequest request) {
+            return request.layers().stream()
+                    .map(Enum::name)
+                    .sorted()
+                    .collect(java.util.stream.Collectors.joining(","));
         }
     }
 

@@ -191,7 +191,9 @@ public class RenderActualOreMapUseCase {
         HomeState home = absoluteHome(request.savePath(), metadata);
         ReadDiagnostics mapChunkDiagnostics = new ReadDiagnostics();
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
-        boolean surfaceEnabled = options.layers().contains(RenderLayer.SURFACE);
+        boolean surfaceDataRequired =
+                options.layers().contains(RenderLayer.SURFACE)
+                        || options.layers().contains(RenderLayer.SOIL_FERTILITY);
         int centerWorldX = (int) Math.round(center.x());
         int centerWorldZ = (int) Math.round(center.z());
         List<MapChunkCoordinate> renderMapChunkCoordinates =
@@ -200,7 +202,7 @@ public class RenderActualOreMapUseCase {
                         center,
                         request.radius()
                 );
-        List<MapChunkCoordinate> surfaceMapChunkCoordinates = surfaceEnabled
+        List<MapChunkCoordinate> surfaceMapChunkCoordinates = surfaceDataRequired
                 ? mapChunkPositionPlanner.plan(
                         metadata,
                         centerWorldX,
@@ -231,7 +233,7 @@ public class RenderActualOreMapUseCase {
                         progress
                 );
         RainHeightSurfacePlanner.StreamingSession rainPlannerSession =
-                surfaceEnabled
+                surfaceDataRequired
                         ? rainHeightSurfacePlanner.begin(
                                 metadata,
                                 centerWorldX,
@@ -247,7 +249,7 @@ public class RenderActualOreMapUseCase {
                     if (renderMapChunkSet.contains(mapChunk.coordinate())) {
                         terrainBuilder.accept(mapChunk);
                     }
-                    if (surfaceEnabled
+                    if (surfaceDataRequired
                             && surfaceSearchSet.contains(mapChunk.coordinate())) {
                         deliveredSurfaceMapChunks.add(mapChunk.coordinate());
                         rainPlannerSession.accept(mapChunk);
@@ -256,7 +258,7 @@ public class RenderActualOreMapUseCase {
                 progress
         );
         MapTerrainPreparation terrain = terrainBuilder.finish();
-        SurfaceScanResult surface = surfaceEnabled
+        SurfaceScanResult surface = surfaceDataRequired
                 ? readSurface(
                         request.savePath(),
                         metadata,

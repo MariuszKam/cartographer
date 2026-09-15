@@ -304,10 +304,10 @@ public class MapCommand implements Command {
                 mapChunkDiagnostics
         );
 
-        if (options.layers()
-                .contains(
-                        RenderLayer.SURFACE
-                )) {
+        boolean surfaceDataRequired = options.layers().contains(RenderLayer.SURFACE)
+                || options.layers().contains(RenderLayer.SOIL_FERTILITY);
+
+        if (surfaceDataRequired) {
 
             out.println(
                     "Parsed chunks: "

@@ -215,6 +215,55 @@ class RenderActualOreMapUseCaseTest {
     }
 
     @Test
+    void soilFertilityOnlyUsesTheExistingSurfacePipeline() {
+        FakeReader reader = fertilityReader();
+
+        RenderActualOreMapResult result = execute(
+                reader,
+                List.of(),
+                Set.of(RenderLayer.SOIL_FERTILITY),
+                16,
+                16,
+                16
+        );
+
+        assertEquals(1, reader.directMapChunkCalls);
+        assertEquals(1, reader.adaptiveExactChunkCalls);
+        assertEquals(1, reader.exactChunkCalls);
+        assertEquals(1, reader.registryCalls);
+        assertEquals(0, reader.legacyMapChunkCalls);
+        assertEquals(0, reader.legacyChunkCalls);
+        assertTrue(result.surface().blocks().stream()
+                .anyMatch(block -> "game:soil-medium-normal".equals(block.blockInfo().code())));
+        assertTrue(result.image().getRGB(32, 32)
+                != new cartographer.render.TerrainPalette()
+                .background(RenderStyle.TOPOGRAPHIC));
+    }
+
+    @Test
+    void surfaceAndSoilFertilityShareOneSurfacePipeline() {
+        FakeReader reader = fertilityReader();
+
+        RenderActualOreMapResult result = execute(
+                reader,
+                List.of(),
+                Set.of(RenderLayer.SURFACE, RenderLayer.SOIL_FERTILITY),
+                16,
+                16,
+                16
+        );
+
+        assertEquals(1, reader.directMapChunkCalls);
+        assertEquals(1, reader.adaptiveExactChunkCalls);
+        assertEquals(1, reader.exactChunkCalls);
+        assertEquals(1, reader.registryCalls);
+        assertEquals(0, reader.legacyMapChunkCalls);
+        assertEquals(0, reader.legacyChunkCalls);
+        assertTrue(result.surface().blocks().stream()
+                .anyMatch(block -> "game:soil-medium-normal".equals(block.blockInfo().code())));
+    }
+
+    @Test
     void surfaceFallbackIsLocalToProblematicMapChunk() {
         FakeReader reader = surfaceReader(true);
         MapChunkCoordinate fallback = new MapChunkCoordinate(1, 0);
@@ -459,6 +508,23 @@ class RenderActualOreMapUseCaseTest {
         reader.chunks.put(
                 new ChunkPosition(0, 0, 0, 0),
                 surfaceChunk(new ChunkCoordinate(0, 0, 0), liquidAvailable)
+        );
+        return reader;
+    }
+
+    private FakeReader fertilityReader() {
+        FakeReader reader = new FakeReader(Map.of(
+                0, new BlockInfo(0, "air"),
+                1, new BlockInfo(1, "game:soil-medium-normal")
+        ));
+        MapChunkCoordinate coordinate = new MapChunkCoordinate(0, 0);
+        reader.mapChunks.put(
+                coordinate,
+                new MapChunk(coordinate, filledHeights(), new int[0])
+        );
+        reader.chunks.put(
+                new ChunkPosition(0, 0, 0, 0),
+                surfaceChunk(new ChunkCoordinate(0, 0, 0), true)
         );
         return reader;
     }
