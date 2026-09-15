@@ -35,12 +35,69 @@ Before planning substantial work, ChatGPT should:
 
 1. inspect repository status and the active branch;
 2. read `AGENTS.md`;
-3. read `docs/CHATGPT_CONTROLLER_WORKFLOW.md` and relevant documents under
-   `docs/`;
-4. inspect `build.gradle.kts` when build, release, or Java-version context
+3. list available project documentation and read
+   `docs/CHATGPT_CONTROLLER_WORKFLOW.md`;
+4. identify and read documentation relevant to the current subsystem or task;
+5. inspect `build.gradle.kts` when build, release, or Java-version context
    matters;
-5. inspect relevant implementation files, tests, and GitHub Actions workflows;
-6. inspect recent history and existing changes before deciding scope.
+6. inspect relevant implementation files, tests, and GitHub Actions workflows;
+7. inspect recent history and existing changes before deciding scope.
+
+Discover relevant documentation; do not assume today's documentation list is
+complete. Known files such as `docs/WINDOWS_RELEASE.md` and
+`docs/WORKSTATION_V1_HANDOFF.md` are examples to read when they are relevant,
+not a permanent exhaustive list.
+
+Never infer local repository state from remote GitHub state. A repository
+connector may show remote refs and commits, but that does not prove which
+branch the user has checked out locally, whether the local working tree is
+clean, whether local files match remote, or whether a local build artifact
+exists. When local state cannot be inspected, say explicitly what is unknown.
+
+When planning, reviewing, or investigating a non-default branch, pull request,
+tag, or commit, read relevant files from that exact ref whenever the tooling
+supports it. Review the code and documentation from the ref being reviewed.
+If context intentionally comes from another ref, make that explicit.
+
+## Instruction precedence
+
+This document is a project operating procedure. It does not override ChatGPT
+system or platform/developer instructions, safety requirements, or explicit
+current user instructions that legitimately change the task scope or workflow.
+Follow the higher-priority instruction and state any material deviation from
+this procedure clearly.
+
+## Documentation and code conflicts
+
+Documentation, code, tests, CI configuration, recent commits, user
+instructions, and `AGENTS.md` can describe different states or intentions. If
+they disagree, ChatGPT must not silently choose whichever is convenient:
+
+1. identify the contradiction;
+2. establish which ref or version each source belongs to;
+3. distinguish documented intent from actual implementation;
+4. use commit/history freshness where useful;
+5. report material conflicts;
+6. resolve them with evidence or user direction before broadening architecture.
+
+Contradictions are evidence to investigate, not permission to guess.
+
+## Evidence attribution and unknown state
+
+Tie factual technical verdicts to the evidence that actually exists. GitHub
+inspection can prove remote commit contents, branch lineage, and an Actions
+result. A user runtime report can support what launched or worked locally. A
+test log can support that specific test execution. Static review alone cannot
+prove runtime execution, performance, installer functionality, or local save
+integrity.
+
+When evidence is unavailable, use `UNKNOWN`, `NOT RUN`, or `PENDING MANUAL
+VALIDATION` as appropriate. Do not guess.
+
+Important review verdicts should identify the target where useful: branch,
+pull request, commit SHA, or workflow run. Casual replies need not always
+include a SHA, but important `PASS` or `FAIL` decisions must be attributable to
+an identifiable repository state.
 
 Do not immediately create a Codex prompt after receiving a feature request.
 First inspect the repository and relevant documentation. Confirm what is
@@ -58,7 +115,8 @@ should:
 - independently inspect the resulting commit and diff;
 - coordinate tests and runtime validation with the user;
 - diagnose failures without weakening the gate;
-- decide whether a stage is accepted, pending, or blocked based on evidence.
+- issue a technical gate verdict and recommend whether a stage is ready,
+  pending, or blocked based on evidence.
 
 ChatGPT should not treat a plausible diff, a successful commit, or an agent's
 self-report as proof that runtime behavior works.
@@ -117,7 +175,10 @@ USER RUNTIME / TEST VALIDATION
      PASS
       |
       v
-STAGE ACCEPTED
+CHATGPT RECOMMENDS TECHNICAL READINESS
+      |
+      v
+USER PRODUCT ACCEPTANCE
 ```
 
 The controller should not collapse these steps into one claim of completion.
@@ -128,10 +189,14 @@ When the user says `jest` after a Codex implementation task, interpret it as:
 
 > The implementation agent has pushed its changes. Review them now.
 
+When the user says this, first resolve the current remote HEAD of the expected
+branch. Identify the exact commit SHA being reviewed, verify its parent and
+lineage where relevant, and then inspect the diff and files from that ref. Do
+not reuse a previously observed branch HEAD if the branch may have changed.
 If GitHub access is available, inspect the branch HEAD, commit SHA, commit
 message, parent commit, changed files, diff, and scope compliance directly.
 Do not ask the user to paste those details when the repository connection can
-provide them.
+provide them. The review verdict should apply to that identifiable ref/SHA.
 
 ## Static review vs runtime validation
 
@@ -170,6 +235,14 @@ GUI, installer, or save.
 
 The owner of a gate must be clear. A skipped gate remains `NOT RUN` or
 `PENDING MANUAL VALIDATION`; it is never silently converted into a pass.
+
+ChatGPT may issue technical gate verdicts such as `PASS`, `FAIL`, `BLOCKED`,
+`NOT RUN`, or `PENDING MANUAL VALIDATION`, and may recommend that a stage is
+technically ready. The user owns product acceptance, merge decisions, release
+decisions, and final milestone acceptance where a product decision is involved.
+ChatGPT remains responsible for enforcing technical evidence and should
+actively recommend whether the work is ready; it should not silently substitute
+its technical verdict for the user's product acceptance.
 
 ## Failure workflow
 
@@ -237,9 +310,10 @@ to say so explicitly.
 ## Branch workflow
 
 Feature work normally happens on a dedicated branch and not directly on
-`master` unless the user explicitly requests a documentation-only change
-there. Before editing, verify status and lineage, fetch remote state, and use a
-fast-forward update where appropriate.
+`master`. Direct work on `master` is forbidden by default unless the user
+explicitly authorizes it for that specific task; a documentation-only change is
+one possible example, not the only exception. Before editing, verify status and
+lineage, fetch remote state, and use a fast-forward update where appropriate.
 
 Do not force-push, rewrite shared history, amend already shared commits, or
 silently rebase shared work. Fixes should normally be new focused commits.
@@ -342,18 +416,16 @@ For VS Cartographer, the initial documentation pass normally includes:
 ```text
 AGENTS.md
 docs/CHATGPT_CONTROLLER_WORKFLOW.md
-docs/WINDOWS_RELEASE.md
-docs/WORKSTATION_V1_HANDOFF.md
-build.gradle.kts
-relevant src/main/java files
-relevant src/test/java files
-relevant .github/workflows files
 ```
 
-Then check the active branch, recent commits, working tree, and any existing
-stage instructions. Preserve the CLI entrypoint, Java 25 toolchain, desktop
-launcher, read-only save behavior, and current release workflow unless the
-task explicitly changes one of those contracts.
+Then discover and read the documentation relevant to the current subsystem or
+task, such as `docs/WINDOWS_RELEASE.md` or a future
+`docs/SURFACE_ARCHITECTURE.md`. Inspect `build.gradle.kts`, relevant
+implementation and test files, and relevant `.github/workflows/` files when
+the task requires them. Finally check the active branch, recent commits,
+working tree, and stage instructions. Preserve the CLI entrypoint, Java 25
+toolchain, desktop launcher, read-only save behavior, and current release
+workflow unless the task explicitly changes one of those contracts.
 
 ## Do not overclaim
 
