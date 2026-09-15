@@ -109,7 +109,7 @@ public class RegionCoverageRenderer {
             drawCells(
                     graphics,
                     summary,
-                    cellSize
+                    geometry
             );
 
             drawMarkers(
@@ -236,22 +236,36 @@ public class RegionCoverageRenderer {
     private void drawCells(
             Graphics2D graphics,
             RegionCoverageSummary summary,
-            int cellSize
+            MapViewportGeometry geometry
     ) {
         for (RegionCoverageCell cell :
                 summary.cells()) {
 
-            int x =
-                    PADDING
-                            + (cell.coordinate().x()
-                            - summary.minRegionX())
-                            * cellSize;
+            int startX = (int) Math.floor(
+                    geometry.absoluteWorldXToImageX(cell.worldMinX())
+            );
+            int startY = (int) Math.floor(
+                    geometry.absoluteWorldZToImageY(cell.worldMinZ())
+            );
+            int endX = (int) Math.ceil(
+                    geometry.absoluteWorldXToImageX(cell.worldMaxXExclusive())
+            );
+            int endY = (int) Math.ceil(
+                    geometry.absoluteWorldZToImageY(cell.worldMaxZExclusive())
+            );
 
-            int y =
-                    PADDING
-                            + (cell.coordinate().z()
-                            - summary.minRegionZ())
-                            * cellSize;
+            int x = Math.max(geometry.contentX(), startX);
+            int y = Math.max(geometry.contentY(), startY);
+            int right = Math.min(
+                    geometry.contentX() + geometry.contentWidth(), endX
+            );
+            int bottom = Math.min(
+                    geometry.contentY() + geometry.contentHeight(), endY
+            );
+
+            if (right <= x || bottom <= y) {
+                continue;
+            }
 
             graphics.setColor(
                     cell.present()
@@ -270,11 +284,11 @@ public class RegionCoverageRenderer {
             graphics.fillRect(
                     x,
                     y,
-                    cellSize,
-                    cellSize
+                    right - x,
+                    bottom - y
             );
 
-            if (cellSize >= 6) {
+            if (right - x >= 6 && bottom - y >= 6) {
                 graphics.setColor(
                         new Color(
                                 15,
@@ -287,8 +301,8 @@ public class RegionCoverageRenderer {
                 graphics.drawRect(
                         x,
                         y,
-                        cellSize,
-                        cellSize
+                        right - x,
+                        bottom - y
                 );
             }
         }

@@ -55,6 +55,54 @@ class RegionCoverageRendererTest {
         assertEquals(160, result.image().getHeight());
     }
 
+    @Test
+    void cappedWideCoverageMapsCellsIntoAvailableContent() {
+        RegionCoverageSummary summary = new RegionCoverageSummary(
+                false,
+                List.of(new RegionCoverageCell(
+                        new MapRegionCoordinate(0, 0),
+                        true,
+                        0, 0, 32, 32,
+                        0, 0, 32, 32
+                )),
+                0, 1014, 0, 0,
+                1015, 1, 1015, 1015, 0, 100.0,
+                0, 0, 1015 * 32, 32,
+                0, 0, 1015 * 32, 32
+        );
+
+        RegionCoverageRenderResult result = new RegionCoverageRenderer().render(
+                summary,
+                null,
+                HomeState.absent()
+        );
+
+        MapViewportGeometry geometry = result.geometry().orElseThrow();
+        assertEquals(2048, result.image().getWidth());
+        assertEquals(result.image().getWidth(), geometry.imageWidth());
+        assertEquals(result.image().getHeight(), geometry.imageHeight());
+        assertTrue(geometry.contentX() + geometry.contentWidth()
+                <= geometry.imageWidth());
+        assertTrue(geometry.contentY() + geometry.contentHeight()
+                <= geometry.imageHeight());
+        assertEquals(2008, geometry.contentWidth());
+        assertEquals(2, geometry.contentHeight());
+        assertEquals(20, geometry.contentX());
+        assertEquals(20, geometry.contentY());
+        assertEquals(20, geometry.absoluteWorldXToImageX(summary.worldMinX()));
+        assertEquals(2028, geometry.absoluteWorldXToImageX(
+                summary.worldMaxXExclusive()
+        ));
+        assertEquals(20, geometry.absoluteWorldZToImageY(summary.worldMinZ()));
+        assertEquals(22, geometry.absoluteWorldZToImageY(
+                summary.worldMaxZExclusive()
+        ));
+        assertEquals(summary.worldMinX(), geometry.worldMinX());
+        assertEquals(summary.worldMinZ(), geometry.worldMinZ());
+        assertEquals(summary.worldMaxXExclusive(), geometry.worldMaxXExclusive());
+        assertEquals(summary.worldMaxZExclusive(), geometry.worldMaxZExclusive());
+    }
+
     private RegionCoverageSummary summary() {
         return new RegionCoverageSummary(
                 false,
