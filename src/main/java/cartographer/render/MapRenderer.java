@@ -205,6 +205,16 @@ public class MapRenderer {
                 )
                         - options.radiusBlocks();
 
+        MapViewportGeometry geometry =
+                MapViewportGeometry.fullImage(
+                        image.getWidth(),
+                        image.getHeight(),
+                        minX,
+                        minZ,
+                        minX + options.radiusBlocks() * 2.0,
+                        minZ + options.radiusBlocks() * 2.0
+                );
+
         boolean terrainEnabled =
                 options.layers()
                         .contains(
@@ -278,9 +288,7 @@ public class MapRenderer {
                         image,
                         player,
                         home,
-                        minX,
-                        minZ,
-                        scale,
+                        geometry,
                         options,
                         progress
                 );
@@ -308,7 +316,8 @@ public class MapRenderer {
                         markerCount,
                         options.style(),
                         layers
-                )
+                ),
+                geometry
         );
     }
 
@@ -561,9 +570,7 @@ public class MapRenderer {
             BufferedImage image,
             WorldPosition player,
             HomeState home,
-            int minX,
-            int minZ,
-            double scale,
+            MapViewportGeometry geometry,
             RenderOptions options,
             ProgressReporter progress
     ) {
@@ -585,16 +592,12 @@ public class MapRenderer {
             try {
                 int playerX =
                         (int) Math.round(
-                                (player.x()
-                                        - minX)
-                                        * scale
+                                geometry.absoluteWorldXToImageX(player.x())
                         );
 
                 int playerY =
                         (int) Math.round(
-                                (player.z()
-                                        - minZ)
-                                        * scale
+                                geometry.absoluteWorldZToImageY(player.z())
                         );
 
                 markers.drawCross(
@@ -610,16 +613,12 @@ public class MapRenderer {
 
                     int homeX =
                             (int) Math.round(
-                                    (location.x()
-                                            - minX)
-                                            * scale
+                                    geometry.absoluteWorldXToImageX(location.x())
                             );
 
                     int homeY =
                             (int) Math.round(
-                                    (location.z()
-                                            - minZ)
-                                            * scale
+                                    geometry.absoluteWorldZToImageY(location.z())
                             );
 
                     markers.drawCross(

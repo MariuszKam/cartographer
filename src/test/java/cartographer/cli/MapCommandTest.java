@@ -27,6 +27,7 @@ import cartographer.render.PngWriter;
 import cartographer.render.RenderOptions;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
+import cartographer.render.MapViewportGeometry;
 import cartographer.render.RenderedMap;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.render.ActualOreOverlayPainter;
@@ -731,7 +732,8 @@ class MapCommandTest {
                                     : 1,
                             RenderStyle.SIMPLE,
                             "MARKERS"
-                    )
+                    ),
+                    MapViewportGeometry.fullImage(32, 32, 0, 0, 1, 1)
             );
         }
 
@@ -761,7 +763,8 @@ class MapCommandTest {
                             home instanceof HomeState.Present ? 2 : 1,
                             RenderStyle.SIMPLE,
                             "MARKERS"
-                    )
+                    ),
+                    MapViewportGeometry.fullImage(32, 32, 0, 0, 1, 1)
             );
         }
 

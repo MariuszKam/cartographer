@@ -22,6 +22,44 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 class MapRendererTest {
 
     @Test
+    void geometryMatchesTheRendererWorldWindow() {
+        RenderedMap rendered = new MapRenderer().render(
+                new WorldPosition(-15.25, 0.0, -20.75),
+                HomeState.absent(),
+                List.of(),
+                new RenderOptions(10, 1, RenderStyle.SIMPLE, Set.of()),
+                ProgressReporter.NONE
+        );
+
+        MapViewportGeometry geometry = rendered.geometry();
+        assertEquals(rendered.image().getWidth(), geometry.imageWidth());
+        assertEquals(rendered.image().getHeight(), geometry.imageHeight());
+        assertEquals(-26.0, geometry.worldMinX());
+        assertEquals(-31.0, geometry.worldMinZ());
+        assertEquals(-6.0, geometry.worldMaxXExclusive());
+        assertEquals(-11.0, geometry.worldMaxZExclusive());
+        assertEquals(32.0, geometry.absoluteWorldXToImageX(-16.0));
+        assertEquals(32.0, geometry.absoluteWorldZToImageY(-21.0));
+    }
+
+    @Test
+    void geometryUsesClampedImageDimensionsAndFractionalCenterWindow() {
+        RenderedMap rendered = new MapRenderer().render(
+                new WorldPosition(100.75, 0.0, 100.25),
+                HomeState.absent(),
+                List.of(),
+                new RenderOptions(1, 1, RenderStyle.SIMPLE, Set.of()),
+                ProgressReporter.NONE
+        );
+
+        assertEquals(64, rendered.image().getWidth());
+        assertEquals(99.0, rendered.geometry().worldMinX());
+        assertEquals(99.0, rendered.geometry().worldMinZ());
+        assertEquals(101.0, rendered.geometry().worldMaxXExclusive());
+        assertEquals(101.0, rendered.geometry().worldMaxZExclusive());
+    }
+
+    @Test
     void fillsContiguousMapChunksWithoutBackgroundSeams() {
         RenderOptions options =
                 new RenderOptions(
@@ -456,6 +494,18 @@ class MapRendererTest {
                                 32,
                                 32
                         )
+        );
+        assertEquals(
+                32,
+                Math.round(
+                        rendered.geometry().absoluteWorldXToImageX(100.0)
+                )
+        );
+        assertEquals(
+                32,
+                Math.round(
+                        rendered.geometry().absoluteWorldZToImageY(100.0)
+                )
         );
     }
 
