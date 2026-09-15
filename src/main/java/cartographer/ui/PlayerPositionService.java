@@ -26,6 +26,10 @@ public class PlayerPositionService {
     }
 
     public PlayerPositionView load(Path savePath) {
+        return loadSnapshot(savePath).display();
+    }
+
+    public PlayerPositionSnapshot loadSnapshot(Path savePath) {
         Objects.requireNonNull(savePath, "savePath is required");
 
         WorldPosition absolute = reader.readPlayerPosition(savePath);
@@ -33,12 +37,15 @@ public class PlayerPositionService {
         DisplayPosition display = metadata.toDisplay(absolute);
         var chunk = absolute.chunkCoordinate();
 
-        return new PlayerPositionView(
-                display.x(),
-                display.y(),
-                display.z(),
-                chunk.x(),
-                chunk.z()
+        return new PlayerPositionSnapshot(
+                absolute,
+                new PlayerPositionView(
+                        display.x(),
+                        display.y(),
+                        display.z(),
+                        chunk.x(),
+                        chunk.z()
+                )
         );
     }
 }

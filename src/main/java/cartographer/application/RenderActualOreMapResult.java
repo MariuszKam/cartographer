@@ -1,6 +1,7 @@
 package cartographer.application;
 
 import cartographer.render.MapRenderReport;
+import cartographer.render.MapViewportGeometry;
 import cartographer.render.OverlayRenderReport;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMatchMode;
@@ -14,6 +15,7 @@ import java.util.List;
 
 public record RenderActualOreMapResult(
         BufferedImage image,
+        MapViewportGeometry geometry,
         MapRenderReport renderReport,
         SurfaceScanResult surface,
         OverlayRenderReport environmentOverlay,
@@ -29,6 +31,7 @@ public record RenderActualOreMapResult(
 
     public RenderActualOreMapResult(
             BufferedImage image,
+            MapViewportGeometry geometry,
             MapRenderReport renderReport,
             SurfaceScanResult surface,
             OverlayRenderReport environmentOverlay,
@@ -42,6 +45,7 @@ public record RenderActualOreMapResult(
     ) {
         this(
                 image,
+                geometry,
                 renderReport,
                 surface,
                 environmentOverlay,
@@ -57,6 +61,9 @@ public record RenderActualOreMapResult(
     }
 
     public RenderActualOreMapResult {
+        Objects.requireNonNull(image, "image is required");
+        Objects.requireNonNull(geometry, "geometry is required");
+        Objects.requireNonNull(renderReport, "renderReport is required");
         Objects.requireNonNull(
                 actualOreMap,
                 "actualOreMap is required; use Optional.empty() when absent"

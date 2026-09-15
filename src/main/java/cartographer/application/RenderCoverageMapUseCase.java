@@ -55,9 +55,11 @@ public final class RenderCoverageMapUseCase {
         WorldPosition player = reader.readPlayerPosition(savePath, progress);
         HomeState home = absoluteHome(savePath, metadata);
         progress.start("Rendering coverage");
-        var image = renderer.render(summary, player, home);
+        var rendered = renderer.render(summary, player, home);
         progress.done("Coverage rendered");
-        return new RenderCoverageMapResult(image, summary, diagnostics);
+        return new RenderCoverageMapResult(
+                rendered.image(), rendered.geometry(), summary, diagnostics
+        );
     }
 
     private HomeState absoluteHome(Path savePath, WorldMetadata metadata) {

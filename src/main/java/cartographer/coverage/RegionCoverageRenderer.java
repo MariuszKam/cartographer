@@ -4,12 +4,14 @@ import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
 import cartographer.model.WorldPosition;
 import cartographer.render.MarkerRenderer;
+import cartographer.render.MapViewportGeometry;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.util.Objects;
+import java.util.Optional;
 
 public class RegionCoverageRenderer {
 
@@ -34,7 +36,7 @@ public class RegionCoverageRenderer {
     private final MarkerRenderer markerRenderer =
             new MarkerRenderer();
 
-    public BufferedImage render(
+    public RegionCoverageRenderResult render(
             RegionCoverageSummary summary,
             WorldPosition player,
             HomeState home
@@ -51,7 +53,7 @@ public class RegionCoverageRenderer {
         );
 
         if (summary.empty()) {
-            return renderEmpty();
+            return new RegionCoverageRenderResult(renderEmpty(), Optional.empty());
         }
 
         int cellSize =
@@ -64,6 +66,21 @@ public class RegionCoverageRenderer {
                         summary,
                         cellSize
                 );
+
+        int contentWidth = image.getWidth() - PADDING * 2;
+        int contentHeight = image.getHeight() - PADDING * 2 - LEGEND_HEIGHT;
+        MapViewportGeometry geometry = new MapViewportGeometry(
+                image.getWidth(),
+                image.getHeight(),
+                PADDING,
+                PADDING,
+                contentWidth,
+                contentHeight,
+                summary.worldMinX(),
+                summary.worldMinZ(),
+                summary.worldMaxXExclusive(),
+                summary.worldMaxZExclusive()
+        );
 
         Graphics2D graphics =
                 image.createGraphics();
@@ -92,13 +109,12 @@ public class RegionCoverageRenderer {
             drawCells(
                     graphics,
                     summary,
-                    cellSize
+                    geometry
             );
 
             drawMarkers(
                     graphics,
-                    summary,
-                    cellSize,
+                    geometry,
                     player,
                     home
             );
@@ -113,7 +129,7 @@ public class RegionCoverageRenderer {
             graphics.dispose();
         }
 
-        return image;
+        return new RegionCoverageRenderResult(image, Optional.of(geometry));
     }
 
     private static BufferedImage getImage(
@@ -220,22 +236,36 @@ public class RegionCoverageRenderer {
     private void drawCells(
             Graphics2D graphics,
             RegionCoverageSummary summary,
-            int cellSize
+            MapViewportGeometry geometry
     ) {
         for (RegionCoverageCell cell :
                 summary.cells()) {
 
-            int x =
-                    PADDING
-                            + (cell.coordinate().x()
-                            - summary.minRegionX())
-                            * cellSize;
+            int startX = (int) Math.floor(
+                    geometry.absoluteWorldXToImageX(cell.worldMinX())
+            );
+            int startY = (int) Math.floor(
+                    geometry.absoluteWorldZToImageY(cell.worldMinZ())
+            );
+            int endX = (int) Math.ceil(
+                    geometry.absoluteWorldXToImageX(cell.worldMaxXExclusive())
+            );
+            int endY = (int) Math.ceil(
+                    geometry.absoluteWorldZToImageY(cell.worldMaxZExclusive())
+            );
 
-            int y =
-                    PADDING
-                            + (cell.coordinate().z()
-                            - summary.minRegionZ())
-                            * cellSize;
+            int x = Math.max(geometry.contentX(), startX);
+            int y = Math.max(geometry.contentY(), startY);
+            int right = Math.min(
+                    geometry.contentX() + geometry.contentWidth(), endX
+            );
+            int bottom = Math.min(
+                    geometry.contentY() + geometry.contentHeight(), endY
+            );
+
+            if (right <= x || bottom <= y) {
+                continue;
+            }
 
             graphics.setColor(
                     cell.present()
@@ -254,11 +284,11 @@ public class RegionCoverageRenderer {
             graphics.fillRect(
                     x,
                     y,
-                    cellSize,
-                    cellSize
+                    right - x,
+                    bottom - y
             );
 
-            if (cellSize >= 6) {
+            if (right - x >= 6 && bottom - y >= 6) {
                 graphics.setColor(
                         new Color(
                                 15,
@@ -271,8 +301,8 @@ public class RegionCoverageRenderer {
                 graphics.drawRect(
                         x,
                         y,
-                        cellSize,
-                        cellSize
+                        right - x,
+                        bottom - y
                 );
             }
         }
@@ -280,30 +310,20 @@ public class RegionCoverageRenderer {
 
     private void drawMarkers(
             Graphics2D graphics,
-            RegionCoverageSummary summary,
-            int cellSize,
+            MapViewportGeometry geometry,
             WorldPosition player,
             HomeState home
     ) {
         if (player != null
-                && insideWorldBounds(
-                summary,
+                && geometry.containsAbsoluteWorldPoint(
                 player.x(),
                 player.z()
         )) {
 
             markerRenderer.drawCross(
                     graphics,
-                    imageX(
-                            summary,
-                            cellSize,
-                            player.x()
-                    ),
-                    imageY(
-                            summary,
-                            cellSize,
-                            player.z()
-                    ),
+                    (int) Math.round(geometry.absoluteWorldXToImageX(player.x())),
+                    (int) Math.round(geometry.absoluteWorldZToImageY(player.z())),
                     Color.RED
             );
         }
@@ -312,8 +332,7 @@ public class RegionCoverageRenderer {
             return;
         }
 
-        if (!insideWorldBounds(
-                summary,
+        if (!geometry.containsAbsoluteWorldPoint(
                 location.x(),
                 location.z()
         )) {
@@ -322,66 +341,9 @@ public class RegionCoverageRenderer {
 
         markerRenderer.drawCross(
                 graphics,
-                imageX(
-                        summary,
-                        cellSize,
-                        location.x()
-                ),
-                imageY(
-                        summary,
-                        cellSize,
-                        location.z()
-                ),
+                (int) Math.round(geometry.absoluteWorldXToImageX(location.x())),
+                (int) Math.round(geometry.absoluteWorldZToImageY(location.z())),
                 Color.CYAN
-        );
-    }
-
-    private boolean insideWorldBounds(
-            RegionCoverageSummary summary,
-            double worldX,
-            double worldZ
-    ) {
-        return worldX >= summary.worldMinX()
-                && worldX < summary.worldMaxXExclusive()
-                && worldZ >= summary.worldMinZ()
-                && worldZ < summary.worldMaxZExclusive();
-    }
-
-    private int imageX(
-            RegionCoverageSummary summary,
-            int cellSize,
-            double worldX
-    ) {
-        double fraction =
-                (worldX
-                        - summary.worldMinX())
-                        / (summary.worldMaxXExclusive()
-                        - (double) summary.worldMinX());
-
-        return PADDING
-                + (int) Math.round(
-                fraction
-                        * summary.gridWidth()
-                        * cellSize
-        );
-    }
-
-    private int imageY(
-            RegionCoverageSummary summary,
-            int cellSize,
-            double worldZ
-    ) {
-        double fraction =
-                (worldZ
-                        - summary.worldMinZ())
-                        / (summary.worldMaxZExclusive()
-                        - (double) summary.worldMinZ());
-
-        return PADDING
-                + (int) Math.round(
-                fraction
-                        * summary.gridHeight()
-                        * cellSize
         );
     }
 

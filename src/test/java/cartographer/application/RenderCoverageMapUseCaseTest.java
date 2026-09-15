@@ -2,6 +2,7 @@ package cartographer.application;
 
 import cartographer.coverage.RegionCoverageAnalyzer;
 import cartographer.coverage.RegionCoverageRenderer;
+import cartographer.coverage.RegionCoverageRenderResult;
 import cartographer.coverage.RegionCoverageSummary;
 import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
@@ -9,6 +10,7 @@ import cartographer.model.MapRegionCoordinate;
 import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
+import cartographer.render.MapViewportGeometry;
 import cartographer.navigation.HomeStore;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
@@ -42,6 +44,10 @@ class RenderCoverageMapUseCaseTest {
         assertEquals(1, result.mapRegionDiagnostics().parsed());
         assertEquals(new WorldPosition(100, 70, 200), renderer.player);
         assertTrue(result.image().getWidth() > 0);
+        assertEquals(
+                new MapViewportGeometry(1, 1, 0, 0, 1, 1, 0, 0, 1, 1),
+                result.geometry().orElseThrow()
+        );
     }
 
     @Test
@@ -65,6 +71,7 @@ class RenderCoverageMapUseCaseTest {
 
         assertTrue(result.summary().empty());
         assertEquals(0, result.summary().presentCells());
+        assertTrue(result.geometry().isEmpty());
     }
 
     private RenderCoverageMapRequest request() {
@@ -124,12 +131,19 @@ class RenderCoverageMapUseCaseTest {
         private HomeState home;
 
         @Override
-        public BufferedImage render(
+        public RegionCoverageRenderResult render(
                 RegionCoverageSummary summary, WorldPosition player, HomeState home
         ) {
             this.player = player;
             this.home = home;
-            return new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+            return new RegionCoverageRenderResult(
+                    new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB),
+                    summary.empty()
+                            ? Optional.empty()
+                            : Optional.of(new MapViewportGeometry(
+                            1, 1, 0, 0, 1, 1, 0, 0, 1, 1
+                    ))
+            );
         }
     }
 }

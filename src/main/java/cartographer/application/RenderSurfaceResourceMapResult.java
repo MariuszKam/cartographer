@@ -1,6 +1,7 @@
 package cartographer.application;
 
 import cartographer.render.MapRenderReport;
+import cartographer.render.MapViewportGeometry;
 import cartographer.resource.SurfaceRenderAnalysis;
 import cartographer.scanner.SurfaceScanResult;
 import cartographer.save.ReadDiagnostics;
@@ -10,6 +11,7 @@ import java.util.Objects;
 
 public record RenderSurfaceResourceMapResult(
         BufferedImage image,
+        MapViewportGeometry geometry,
         SurfaceRenderAnalysis analysis,
         SurfaceScanResult surface,
         MapRenderReport renderReport,
@@ -20,6 +22,7 @@ public record RenderSurfaceResourceMapResult(
 
     public RenderSurfaceResourceMapResult {
         Objects.requireNonNull(image, "image is required");
+        Objects.requireNonNull(geometry, "geometry is required");
         Objects.requireNonNull(analysis, "analysis is required");
         Objects.requireNonNull(surface, "surface is required");
         Objects.requireNonNull(renderReport, "renderReport is required");

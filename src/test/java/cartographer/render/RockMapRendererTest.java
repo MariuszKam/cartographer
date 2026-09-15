@@ -47,6 +47,14 @@ class RockMapRendererTest {
 
         assertEquals(5, result.image().getWidth());
         assertEquals(5, result.image().getHeight());
+        assertEquals(5, result.geometry().imageWidth());
+        assertEquals(8.0, result.geometry().worldMinX());
+        assertEquals(18.0, result.geometry().worldMinZ());
+        assertEquals(13.0, result.geometry().worldMaxXExclusive());
+        assertEquals(23.0, result.geometry().worldMaxZExclusive());
+        assertEquals(0.0, result.geometry().absoluteWorldXToImageX(8));
+        assertEquals(1.0, result.geometry().absoluteWorldXToImageX(9));
+        assertEquals(5.0, result.geometry().absoluteWorldXToImageX(13));
         assertEquals(
                 new RockPalette().colorFor(GRANITE),
                 result.image().getRGB(2, 2)
@@ -96,6 +104,10 @@ class RockMapRendererTest {
                 new RockPalette().colorFor(MODDED),
                 result.image().getRGB(1, 1)
         );
+        assertEquals(-2.0, result.geometry().worldMinX());
+        assertEquals(-2.0, result.geometry().worldMinZ());
+        assertEquals(1.0, result.geometry().worldMaxXExclusive());
+        assertEquals(1.0, result.geometry().worldMaxZExclusive());
     }
 
     @Test

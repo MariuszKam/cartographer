@@ -2,6 +2,7 @@ package cartographer.cli;
 
 import cartographer.coverage.RegionCoverageAnalyzer;
 import cartographer.coverage.RegionCoverageRenderer;
+import cartographer.coverage.RegionCoverageRenderResult;
 import cartographer.coverage.RegionCoverageSummary;
 import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
@@ -15,6 +16,7 @@ import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.render.PngWriter;
+import cartographer.render.MapViewportGeometry;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
@@ -207,7 +209,7 @@ class CoverageCommandTest {
                 HomeState.absent();
 
         @Override
-        public BufferedImage render(
+        public RegionCoverageRenderResult render(
                 RegionCoverageSummary summary,
                 WorldPosition player,
                 HomeState home
@@ -215,10 +217,9 @@ class CoverageCommandTest {
             this.home =
                     home;
 
-            return new BufferedImage(
-                    1,
-                    1,
-                    BufferedImage.TYPE_INT_ARGB
+            return new RegionCoverageRenderResult(
+                    new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB),
+                    Optional.of(MapViewportGeometry.fullImage(1, 1, 0, 0, 1, 1))
             );
         }
 

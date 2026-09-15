@@ -90,7 +90,7 @@ class RenderActualOreMapUseCaseTest {
         assertThrows(
                 NullPointerException.class,
                 () -> new RenderActualOreMapResult(
-                        null, null, null, null, null, null,
+                        null, null, null, null, null, null, null,
                         null, null, null, null, 0
                 )
         );
@@ -109,6 +109,11 @@ class RenderActualOreMapUseCaseTest {
         assertArrayEquals(new int[]{1}, reader.lastWantedBlockIds);
         assertFalse(reader.lastPositions.isEmpty());
         assertEquals(1, result.actualOreOverlays().getFirst().map().matchingBlocks());
+        assertEquals(64, result.geometry().imageWidth());
+        assertEquals(48.0, result.geometry().worldMinX());
+        assertEquals(48.0, result.geometry().worldMinZ());
+        assertEquals(80.0, result.geometry().worldMaxXExclusive());
+        assertEquals(80.0, result.geometry().worldMaxZExclusive());
         assertEquals(
                 ActualBlockMatchMode.ORE_CODE,
                 result.actualOreOverlays().getFirst().spec().matchMode()

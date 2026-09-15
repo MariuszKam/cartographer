@@ -6,6 +6,7 @@ import java.util.Objects;
 
 public record RockMapRenderResult(
         BufferedImage image,
+        MapViewportGeometry geometry,
         List<RockLegendEntry> legend,
         long observedCount,
         long noRockCount,
@@ -13,6 +14,11 @@ public record RockMapRenderResult(
 ) {
     public RockMapRenderResult {
         Objects.requireNonNull(image, "rock map image is required");
+        Objects.requireNonNull(geometry, "rock map geometry is required");
+        if (geometry.imageWidth() != image.getWidth()
+                || geometry.imageHeight() != image.getHeight()) {
+            throw new IllegalArgumentException("rock map geometry dimensions must match image");
+        }
         legend = List.copyOf(
                 Objects.requireNonNull(legend, "rock map legend is required")
         );

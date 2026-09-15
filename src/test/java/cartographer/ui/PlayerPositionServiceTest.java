@@ -32,6 +32,24 @@ class PlayerPositionServiceTest {
         assertEquals(15998, view.chunkZ());
     }
 
+    @Test
+    void snapshotPreservesAbsolutePositionAndDisplayView() {
+        PlayerPositionService service = new PlayerPositionService(
+                new FakeReader(),
+                new FakeMetadataReader()
+        );
+
+        PlayerPositionSnapshot snapshot = service.loadSnapshot(Path.of("world.vcdbs"));
+
+        assertEquals(new WorldPosition(510918.2, 111.0, 511939.9), snapshot.absolute());
+        assertEquals(-1081.8, snapshot.display().x(), 0.0001);
+        assertEquals(111.0, snapshot.display().y(), 0.0001);
+        assertEquals(-60.1, snapshot.display().z(), 0.0001);
+        assertEquals(15966, snapshot.display().chunkX());
+        assertEquals(15998, snapshot.display().chunkZ());
+        assertEquals(snapshot.display(), service.load(Path.of("world.vcdbs")));
+    }
+
     private static class FakeReader extends VcdbsReader {
         FakeReader() {
             super(
