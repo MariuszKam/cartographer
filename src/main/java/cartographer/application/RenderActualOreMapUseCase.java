@@ -315,7 +315,7 @@ public class RenderActualOreMapUseCase {
         }
 
         return new RenderActualOreMapResult(
-                rendered.image(), rendered.report(), surface,
+                rendered.image(), rendered.geometry(), rendered.report(), surface,
                 environmentOverlay, geologyOverlay,
                 actualOreOverlays.isEmpty()
                         ? Optional.empty()

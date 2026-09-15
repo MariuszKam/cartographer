@@ -160,7 +160,7 @@ public class CoverageCommand implements Command {
                         loaded.summary(),
                         player,
                         home
-                );
+                ).image();
 
         progress.done(
                 "Coverage rendered"

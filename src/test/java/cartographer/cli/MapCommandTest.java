@@ -833,6 +833,7 @@ class MapCommandTest {
                             8,
                             BufferedImage.TYPE_INT_ARGB
                     ),
+                    MapViewportGeometry.fullImage(8, 8, 0, 0, 8, 8),
                     new MapRenderReport(
                             8,
                             8,

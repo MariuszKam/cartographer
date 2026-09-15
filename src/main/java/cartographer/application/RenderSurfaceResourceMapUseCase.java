@@ -301,6 +301,7 @@ public class RenderSurfaceResourceMapUseCase {
 
         return new RenderSurfaceResourceMapResult(
                 rendered.image(),
+                rendered.geometry(),
                 analysis,
                 surface,
                 rendered.report(),

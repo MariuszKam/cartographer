@@ -48,6 +48,10 @@ public final class RockMapRenderer {
         int centerZ = floorBlockCoordinate(rockMap.center().z());
         int minX = centerX - radius;
         int minZ = centerZ - radius;
+        MapViewportGeometry geometry = MapViewportGeometry.fullImage(
+                diameter, diameter, minX, minZ,
+                minX + diameter, minZ + diameter
+        );
         long radiusSquared = (long) radius * radius;
         Map<RockIdentity, Long> rockCounts = new HashMap<>();
         long observedCount = 0;
@@ -110,6 +114,7 @@ public final class RockMapRenderer {
 
         return new RockMapRenderResult(
                 image,
+                geometry,
                 legend,
                 observedCount,
                 noRockCount,
