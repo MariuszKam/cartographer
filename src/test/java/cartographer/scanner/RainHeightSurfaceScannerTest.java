@@ -77,6 +77,14 @@ class RainHeightSurfaceScannerTest {
     }
 
     @Test
+    void ignoredCropTargetIsUnresolved() {
+        RainHeightSurfaceScanResult result = scan(chunkWith(TARGET, 10, 0), true, false);
+
+        assertTrue(result.blocks().isEmpty());
+        assertEquals(List.of(TARGET), result.unresolvedTargets());
+    }
+
+    @Test
     void foliageCanBeReturnedWhenIgnoreFoliageFalse() {
         RainHeightSurfaceScanResult result = scan(chunkWith(TARGET, 3, 0), false, false);
 
@@ -239,6 +247,7 @@ class RainHeightSurfaceScannerTest {
         registry.put(0, new BlockInfo(0, "air"));
         registry.put(2, new BlockInfo(2, "water-still"));
         registry.put(3, new BlockInfo(3, "flower-blue"));
+        registry.put(10, new BlockInfo(10, "game:crop-flax-9"));
         registry.put(7, new BlockInfo(7, "rock-granite"));
         registry.put(8, new BlockInfo(8, "rock-basalt"));
         registry.put(9, new BlockInfo(9, "rock-sandstone"));

@@ -66,9 +66,18 @@ Progress is hidden on both success and failure. No fake time-based or weighted p
 
 - Center Player remains disabled because no verified player-pixel metadata contract exists.
 - Radius overlay and cursor X/Z coordinates are not implemented; coordinate geometry must not be guessed.
-- No instant layer compositing, layer cache, zoom persistence or additional map analysis features.
-- No Layers sidebar beyond the real Terrain / Surface / Markers controls.
+- No instant layer recompositing; changing layers requires rendering again.
+- No layer cache or zoom persistence.
 - `.vcdbs` files remain read-only.
+
+## Post-v1 extension — Map / Soil Fertility
+
+- A dedicated Map tool/mode provides base-map rendering without ore overlays.
+- Soil Fertility is a real render layer exposed in `LayerPanel` and is off by default.
+- Soil Fertility can be enabled independently from Surface.
+- `ResultInspectorPane` has a Map-specific result view.
+- Map rendering reuses the existing `RenderActualOreMapUseCase` and render pipeline.
+- No JavaFX dependency was introduced into application, render, scanner or save code.
 
 ## Important boundaries
 

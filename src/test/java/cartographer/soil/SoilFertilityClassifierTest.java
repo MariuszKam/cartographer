@@ -133,6 +133,13 @@ class SoilFertilityClassifierTest {
                         "forestfloor-8",
                         "farmland-wet-high",
                         "farmland-moist-superhigh",
+                        "crop-flax-9",
+                        "deadcrop",
+                        "snowlayer-1",
+                        "snowlayer-7",
+                        "snowblock",
+                        "water-still-7",
+                        "saltwater-still-7",
                         "somemod:soil-high-normal"
                 )
                 .forEach(code -> assertTrue(classifier.classify(code).isEmpty(), code));

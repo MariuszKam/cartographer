@@ -663,8 +663,14 @@ Current main render layers:
 ```text
 TERRAIN
 SURFACE
+SOIL_FERTILITY
 MARKERS
 ```
+
+`SOIL_FERTILITY` is optional and is not part of the default render-layer set.
+It uses conservative nominal soil/farmland block evidence. It does not
+represent current farmland N/P/K state and does not infer fertility through
+snow or water.
 
 WATER is represented through the real liquid/surface layer and is not a separate top-level render layer.
 

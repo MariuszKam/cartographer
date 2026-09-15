@@ -4,6 +4,7 @@ import cartographer.application.*;
 import cartographer.geology.rock.RockMapMode;
 import cartographer.prospecting.ProspectingAssessment;
 import cartographer.render.RockLegendEntry;
+import cartographer.render.RenderLayer;
 import cartographer.resource.SurfaceMaterialAnalysis;
 import cartographer.resource.SurfaceObjectAnalysis;
 import cartographer.resource.SurfaceObjectSelectionAnalysis;
@@ -64,6 +65,21 @@ public final class ResultInspectorPane extends VBox {
         nodes.add(label("Radius: " + request.radius()));
         content.getChildren().setAll(nodes);
         diagnostics.show(oreDiagnostics(result));
+    }
+
+    public void showMapResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
+        List<javafx.scene.Node> nodes = new ArrayList<>();
+        nodes.add(sectionTitle("Map"));
+        nodes.add(label("Radius: " + request.radius()));
+        nodes.add(label("Layers: " + result.renderReport().layers()));
+        nodes.add(label("User markers: " + result.userMarkersDrawn()));
+        if (requiresSurfaceData(request)) {
+            nodes.add(label("Surface columns: " + result.surface().columnsScanned()));
+            nodes.add(label("Water columns: " + result.surface().waterColumns()));
+            nodes.add(label("Unknown surface blocks: " + result.surface().unknownSurfaceBlocks()));
+        }
+        content.getChildren().setAll(nodes);
+        diagnostics.show(mapDiagnostics(result, request));
     }
 
     public void showSurfaceResult(RenderSurfaceResourceMapResult result, RenderSurfaceResourceMapRequest request) {
@@ -193,6 +209,21 @@ public final class ResultInspectorPane extends VBox {
 
     private List<String> oreDiagnostics(RenderActualOreMapResult result) {
         return diagnostics(result.mapChunkDiagnostics(), result.chunkDiagnostics(), result.mapRegionDiagnostics(), result.actualOreDiagnostics());
+    }
+
+    private List<String> mapDiagnostics(
+            RenderActualOreMapResult result,
+            RenderActualOreMapRequest request
+    ) {
+        if (requiresSurfaceData(request)) {
+            return diagnostics(result.mapChunkDiagnostics(), result.chunkDiagnostics());
+        }
+        return diagnostics(result.mapChunkDiagnostics());
+    }
+
+    private boolean requiresSurfaceData(RenderActualOreMapRequest request) {
+        return request.layers().contains(RenderLayer.SURFACE)
+                || request.layers().contains(RenderLayer.SOIL_FERTILITY);
     }
 
     private List<String> surfaceDiagnostics(RenderSurfaceResourceMapResult result) {

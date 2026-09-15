@@ -11,6 +11,7 @@ import java.util.Set;
 public final class LayerPanel extends VBox {
     private final CheckBox terrain = new CheckBox("Terrain");
     private final CheckBox surface = new CheckBox("Surface");
+    private final CheckBox soilFertility = new CheckBox("Soil Fertility");
     private final CheckBox markers = new CheckBox("Markers");
     private boolean modeSupported = true;
 
@@ -19,8 +20,9 @@ public final class LayerPanel extends VBox {
         getStyleClass().add("layer-panel");
         terrain.getStyleClass().add("layer-row");
         surface.getStyleClass().add("layer-row");
+        soilFertility.getStyleClass().add("layer-row");
         markers.getStyleClass().add("layer-row");
-        getChildren().addAll(new Label("LAYERS"), terrain, surface, markers);
+        getChildren().addAll(new Label("LAYERS"), terrain, surface, soilFertility, markers);
         terrain.setSelected(true);
         surface.setSelected(true);
         markers.setSelected(true);
@@ -30,12 +32,14 @@ public final class LayerPanel extends VBox {
         EnumSet<RenderLayer> layers = EnumSet.noneOf(RenderLayer.class);
         if (terrain.isSelected()) layers.add(RenderLayer.TERRAIN);
         if (surface.isSelected()) layers.add(RenderLayer.SURFACE);
+        if (soilFertility.isSelected()) layers.add(RenderLayer.SOIL_FERTILITY);
         if (markers.isSelected()) layers.add(RenderLayer.MARKERS);
         return layers.isEmpty() ? Set.of() : EnumSet.copyOf(layers);
     }
 
     public void setMode(SearchPanel.SearchMode mode) {
-        boolean supported = mode == SearchPanel.SearchMode.ORE
+        boolean supported = mode == SearchPanel.SearchMode.MAP
+                || mode == SearchPanel.SearchMode.ORE
                 || mode == SearchPanel.SearchMode.SURFACE;
         modeSupported = supported;
         applyDisabledState();
@@ -44,12 +48,14 @@ public final class LayerPanel extends VBox {
     public void setBusy(boolean busy) {
         terrain.setDisable(busy || !modeSupported);
         surface.setDisable(busy || !modeSupported);
+        soilFertility.setDisable(busy || !modeSupported);
         markers.setDisable(busy || !modeSupported);
     }
 
     private void applyDisabledState() {
         terrain.setDisable(!modeSupported);
         surface.setDisable(!modeSupported);
+        soilFertility.setDisable(!modeSupported);
         markers.setDisable(!modeSupported);
     }
 }

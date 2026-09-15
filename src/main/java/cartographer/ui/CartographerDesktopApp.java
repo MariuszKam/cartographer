@@ -230,6 +230,10 @@ public class CartographerDesktopApp extends Application {
                 renderSurfaceResource();
                 return;
             }
+            if (searchPanel.selectedMode() == SearchPanel.SearchMode.MAP) {
+                renderMap();
+                return;
+            }
             RenderActualOreMapRequest request = requestFromControls();
             setBusy(true);
             workstation.setStatus("Rendering ore map...");
@@ -248,6 +252,24 @@ public class CartographerDesktopApp extends Application {
         } catch (RuntimeException exception) {
             showFailure(exception);
         }
+    }
+
+    private void renderMap() {
+        RenderActualOreMapRequest request = mapRequestFromControls();
+        setBusy(true);
+        workstation.setStatus("Rendering map...");
+        ProgressTask<RenderActualOreMapResult> task = new ProgressTask<>() {
+            @Override
+            protected RenderActualOreMapResult call() {
+                return useCase.execute(request, taskProgress(this));
+            }
+        };
+        wireTaskProgress(task);
+        task.setOnSucceeded(event -> showMapResult(task.getValue(), request));
+        task.setOnFailed(event -> showFailure(task.getException()));
+        Thread worker = new Thread(task, "cartographer-map-render");
+        worker.setDaemon(true);
+        worker.start();
     }
 
     private void renderRockMap() {
@@ -428,10 +450,34 @@ public class CartographerDesktopApp extends Application {
         );
     }
 
+    private RenderActualOreMapRequest mapRequestFromControls() {
+        if (worldPanel.savePathText().isBlank()) {
+            throw new IllegalArgumentException("Select a .vcdbs save.");
+        }
+        return new RenderActualOreMapRequest(
+                Path.of(worldPanel.savePathText()),
+                searchPanel.selectedRadius(),
+                1,
+                RenderStyle.TOPOGRAPHIC,
+                workstation.selectedRenderLayers(),
+                Optional.empty(),
+                ActualBlockYFilter.unbounded(),
+                Optional.empty(),
+                List.of()
+        );
+    }
+
     private void showResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
         mapPanel.show(result.image());
         resultInspector.showOreResult(result, request);
         workstation.setStatus("Rendered.");
+        setBusy(false);
+    }
+
+    private void showMapResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
+        mapPanel.show(result.image());
+        resultInspector.showMapResult(result, request);
+        workstation.setStatus("Map rendered.");
         setBusy(false);
     }
 
