@@ -190,7 +190,7 @@ class CoverageCommandTest {
         @Override
         public WorldMetadata read(
                 Path savePath,
-                ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             return new WorldMetadata(
                     1024,
