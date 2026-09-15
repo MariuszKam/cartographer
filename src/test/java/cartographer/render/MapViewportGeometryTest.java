@@ -15,7 +15,7 @@ class MapViewportGeometryTest {
     void mapsWorldCoordinatesToImageCoordinates() {
         MapViewportGeometry geometry = fullImage(100, 80, -20, 40, 30, 80);
 
-        assertEquals(40.0, geometry.absoluteWorldXToImageX(5), DELTA);
+        assertEquals(50.0, geometry.absoluteWorldXToImageX(5), DELTA);
         assertEquals(40.0, geometry.absoluteWorldZToImageY(60), DELTA);
     }
 
