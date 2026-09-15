@@ -517,7 +517,7 @@ public class CartographerDesktopApp extends Application {
 
     private void showCoverageResult(RenderCoverageMapResult result) {
         mapPanel.show(result.image());
-        resultInspector.clear();
+        resultInspector.showCoverageResult(result);
         workstation.setStatus("Coverage rendered.");
         setBusy(false);
     }
