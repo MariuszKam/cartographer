@@ -2,7 +2,7 @@
 
 ## Project purpose
 
-VS Cartographer is a Java CLI tool for offline analysis of Vintage Story `.vcdbs` save files.
+VS Cartographer is a Java/JavaFX desktop application with CLI tooling for offline analysis of Vintage Story `.vcdbs` save files.
 
 The project reads Vintage Story saves in SQLite read-only mode and turns stored world data into useful navigation, mapping, terrain, environment, geology, resource and marker information.
 

@@ -7,6 +7,11 @@ plugins {
 group = "cartographer"
 version = "1.0-SNAPSHOT"
 
+val packagingApplicationName = "VS Cartographer"
+val packagingDesktopMainClass = "cartographer.ui.CartographerDesktopLauncher"
+val packagingVendor = "MariuszKam"
+val jpackageInputDirectory = layout.buildDirectory.dir("jpackage/input")
+
 repositories {
     mavenCentral()
 }
@@ -45,6 +50,15 @@ tasks.register<JavaExec>("runGui") {
     group = "application"
     description = "Launches the VS Cartographer desktop UI"
     classpath = sourceSets["main"].runtimeClasspath
-    mainClass.set("cartographer.ui.CartographerDesktopLauncher")
+    mainClass.set(packagingDesktopMainClass)
     jvmArgs("--enable-native-access=ALL-UNNAMED")
+}
+
+tasks.register<Sync>("prepareJpackageInput") {
+    group = "distribution"
+    description = "Stages the application JAR and runtime dependencies for future jpackage use"
+    dependsOn(tasks.jar)
+    into(jpackageInputDirectory)
+    from(tasks.jar)
+    from(configurations.runtimeClasspath)
 }
