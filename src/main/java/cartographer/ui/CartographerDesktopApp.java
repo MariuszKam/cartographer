@@ -91,6 +91,7 @@ public class CartographerDesktopApp extends Application {
     private final SurfaceDiscoveryRequestGate surfaceDiscoveryGate = new SurfaceDiscoveryRequestGate();
     private final SurfaceDiscoveryCache surfaceDiscoveryCache = new SurfaceDiscoveryCache(4);
     private Optional<cartographer.model.WorldPosition> surfaceDiscoveryCenter = Optional.empty();
+    private Optional<cartographer.model.WorldPosition> loadedPlayerAbsolute = Optional.empty();
     private SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey surfaceDiscoveryTaskKey;
     private Task<DiscoverObservedSurfaceResourcesResult> surfaceDiscoveryTask;
     private Set<String> surfaceSelectionKeys = Set.of();
@@ -171,6 +172,8 @@ public class CartographerDesktopApp extends Application {
     }
 
     private void loadSaveData(Path savePath) {
+        loadedPlayerAbsolute = Optional.empty();
+        mapPanel.clearNavigationContext();
         surfaceSelectionKeys = Set.of();
         invalidateSurfaceDiscovery();
         workstation.setDiscoveryBusy(true);
@@ -186,7 +189,7 @@ public class CartographerDesktopApp extends Application {
                 try {
                     return new SaveLoadResult(
                             resources,
-                            Optional.of(playerPositionService.load(savePath)),
+                            Optional.of(playerPositionService.loadSnapshot(savePath)),
                             registry
                     );
                 } catch (RuntimeException exception) {
@@ -198,8 +201,11 @@ public class CartographerDesktopApp extends Application {
             SaveLoadResult loaded = task.getValue();
             List<OreResource> discovered = loaded.resources();
             searchPanel.setResources(discovered, loaded.registry());
+            loadedPlayerAbsolute = loaded.player()
+                    .map(PlayerPositionSnapshot::absolute);
             worldPanel.setPlayerStatus(
-                    loaded.player().map(this::formatPlayer).orElse("Player: unavailable")
+                    loaded.player().map(snapshot -> formatPlayer(snapshot.display()))
+                            .orElse("Player: unavailable")
             );
             workstation.setPlayerLoaded(loaded.player().isPresent());
             workstation.setStatus(
@@ -502,21 +508,21 @@ public class CartographerDesktopApp extends Application {
     }
 
     private void showResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
-        mapPanel.show(result.image());
+        mapPanel.show(result.image(), Optional.of(result.geometry()), loadedPlayerAbsolute);
         resultInspector.showOreResult(result, request);
         workstation.setStatus("Rendered.");
         setBusy(false);
     }
 
     private void showMapResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
-        mapPanel.show(result.image());
+        mapPanel.show(result.image(), Optional.of(result.geometry()), loadedPlayerAbsolute);
         resultInspector.showMapResult(result, request);
         workstation.setStatus("Map rendered.");
         setBusy(false);
     }
 
     private void showCoverageResult(RenderCoverageMapResult result) {
-        mapPanel.show(result.image());
+        mapPanel.show(result.image(), result.geometry(), loadedPlayerAbsolute);
         resultInspector.showCoverageResult(result);
         workstation.setStatus("Coverage rendered.");
         setBusy(false);
@@ -526,7 +532,7 @@ public class CartographerDesktopApp extends Application {
             RenderSurfaceResourceMapResult result,
             RenderSurfaceResourceMapRequest request
     ) {
-        mapPanel.show(result.image());
+        mapPanel.show(result.image(), Optional.of(result.geometry()), loadedPlayerAbsolute);
         resultInspector.showSurfaceResult(result, request);
         workstation.setStatus("Rendered.");
         setBusy(false);
@@ -687,7 +693,11 @@ public class CartographerDesktopApp extends Application {
             RenderRockMapResult result,
             RenderRockMapRequest request
     ) {
-        mapPanel.show(result.rendered().image());
+        mapPanel.show(
+                result.rendered().image(),
+                Optional.of(result.rendered().geometry()),
+                loadedPlayerAbsolute
+        );
         resultInspector.showRockResult(result, request);
         workstation.setStatus("Rock map rendered.");
         setBusy(false);
@@ -866,7 +876,7 @@ public class CartographerDesktopApp extends Application {
 
     private record SaveLoadResult(
             List<OreResource> resources,
-            Optional<PlayerPositionView> player,
+            Optional<PlayerPositionSnapshot> player,
             Map<Integer, BlockInfo> registry
     ) {
     }

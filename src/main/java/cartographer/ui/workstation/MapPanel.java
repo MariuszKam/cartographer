@@ -1,5 +1,9 @@
 package cartographer.ui.workstation;
 
+import cartographer.model.WorldPosition;
+import cartographer.render.MapViewportGeometry;
+import javafx.geometry.Bounds;
+import javafx.geometry.Point2D;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -8,6 +12,8 @@ import javafx.geometry.Pos;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
 import javafx.embed.swing.SwingFXUtils;
+import java.util.Objects;
+import java.util.Optional;
 import java.awt.image.BufferedImage;
 import java.util.function.Consumer;
 
@@ -24,6 +30,8 @@ public final class MapPanel extends BorderPane {
     private double baseWidth;
     private double baseHeight;
     private boolean mapAvailable;
+    private Optional<MapViewportGeometry> geometry = Optional.empty();
+    private Optional<WorldPosition> player = Optional.empty();
     private Consumer<Double> zoomListener = ignored -> { };
 
     public MapPanel() {
@@ -49,7 +57,29 @@ public final class MapPanel extends BorderPane {
     }
 
     public void show(BufferedImage image) {
+        show(image, Optional.empty(), Optional.empty());
+    }
+
+    public void show(
+            BufferedImage image,
+            Optional<MapViewportGeometry> geometry,
+            Optional<WorldPosition> player
+    ) {
+        Objects.requireNonNull(image, "image is required");
+        geometry = Objects.requireNonNull(geometry, "geometry is required");
+        player = Objects.requireNonNull(player, "player is required");
+        geometry.ifPresent(value -> {
+            if (value.imageWidth() != image.getWidth()
+                    || value.imageHeight() != image.getHeight()) {
+                throw new IllegalArgumentException(
+                        "map geometry dimensions must match image"
+                );
+            }
+        });
+        this.geometry = geometry;
+        this.player = player;
         show(SwingFXUtils.toFXImage(image, null), image.getWidth(), image.getHeight());
+        updateCenterPlayerAvailability();
     }
 
     public double zoomFactor() { return zoomFactor; }
@@ -61,6 +91,7 @@ public final class MapPanel extends BorderPane {
         baseHeight = height;
         mapAvailable = true;
         toolbar.setMapAvailable(true);
+        updateCenterPlayerAvailability();
         Platform.runLater(this::fit);
     }
 
@@ -84,7 +115,23 @@ public final class MapPanel extends BorderPane {
     }
 
     public void centerPlayer() {
-        // Player pixel metadata is not currently part of the render result.
+        if (!mapAvailable || geometry.isEmpty() || player.isEmpty()) {
+            return;
+        }
+        MapViewportGeometry currentGeometry = geometry.orElseThrow();
+        WorldPosition currentPlayer = player.orElseThrow();
+        if (!currentGeometry.containsAbsoluteWorldPoint(
+                currentPlayer.x(), currentPlayer.z()
+        )) {
+            return;
+        }
+        Platform.runLater(this::centerPlayerAfterLayout);
+    }
+
+    public void clearNavigationContext() {
+        geometry = Optional.empty();
+        player = Optional.empty();
+        updateCenterPlayerAvailability();
     }
 
     private void setZoom(double requested) {
@@ -98,6 +145,62 @@ public final class MapPanel extends BorderPane {
     private void centerView() {
         preview.setHvalue(0.5);
         preview.setVvalue(0.5);
+    }
+
+    private void updateCenterPlayerAvailability() {
+        boolean available = mapAvailable
+                && geometry.isPresent()
+                && player.isPresent()
+                && geometry.orElseThrow().containsAbsoluteWorldPoint(
+                        player.orElseThrow().x(),
+                        player.orElseThrow().z()
+                );
+        toolbar.setCenterPlayerAvailable(available);
+    }
+
+    private void centerPlayerAfterLayout() {
+        if (!mapAvailable || geometry.isEmpty() || player.isEmpty()) {
+            return;
+        }
+        Bounds imageBounds = imageView.getLayoutBounds();
+        Bounds contentBounds = mapContent.getLayoutBounds();
+        Bounds viewportBounds = preview.getViewportBounds();
+        MapViewportGeometry currentGeometry = geometry.orElseThrow();
+        WorldPosition currentPlayer = player.orElseThrow();
+        if (imageBounds.getWidth() <= 0.0
+                || imageBounds.getHeight() <= 0.0
+                || !currentGeometry.containsAbsoluteWorldPoint(
+                currentPlayer.x(), currentPlayer.z()
+        )) {
+            return;
+        }
+
+        double sourceX = currentGeometry.absoluteWorldXToImageX(currentPlayer.x());
+        double sourceY = currentGeometry.absoluteWorldZToImageY(currentPlayer.z());
+        double imageLocalX = imageBounds.getMinX()
+                + sourceX / currentGeometry.imageWidth() * imageBounds.getWidth();
+        double imageLocalY = imageBounds.getMinY()
+                + sourceY / currentGeometry.imageHeight() * imageBounds.getHeight();
+        Point2D contentPoint = imageView.localToParent(imageLocalX, imageLocalY);
+
+        double horizontalFraction = MapViewportNavigation.centeredScrollFraction(
+                contentBounds.getMinX(),
+                contentBounds.getWidth(),
+                viewportBounds.getWidth(),
+                contentPoint.getX()
+        );
+        double verticalFraction = MapViewportNavigation.centeredScrollFraction(
+                contentBounds.getMinY(),
+                contentBounds.getHeight(),
+                viewportBounds.getHeight(),
+                contentPoint.getY()
+        );
+        preview.setHvalue(MapViewportNavigation.interpolateScrollValue(
+                preview.getHmin(), preview.getHmax(), horizontalFraction
+        ));
+        preview.setVvalue(MapViewportNavigation.interpolateScrollValue(
+                preview.getVmin(), preview.getVmax(), verticalFraction
+        ));
     }
 
 }
