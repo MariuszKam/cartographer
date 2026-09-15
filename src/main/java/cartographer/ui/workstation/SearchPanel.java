@@ -41,7 +41,7 @@ import java.util.EnumMap;
 import java.util.function.Consumer;
 
 public final class SearchPanel extends VBox {
-    public enum SearchMode { MAP, ORE, SURFACE, ROCK, PROSPECTING }
+    public enum SearchMode { MAP, COVERAGE, ORE, SURFACE, ROCK, PROSPECTING }
     public enum SurfaceMode { OBJECTS, MATERIALS }
     private SearchMode mode = SearchMode.ORE;
     private SurfaceMode surfaceMode = SurfaceMode.OBJECTS;
@@ -89,6 +89,7 @@ public final class SearchPanel extends VBox {
     private final Label surfaceResourceStatusLabel = new Label();
     private final VBox modeContent = new VBox(4);
     private final VBox mapContent = new VBox(4);
+    private final VBox coverageContent = new VBox(4);
     private final VBox oreContent = new VBox(4);
     private final VBox surfaceContent = new VBox(4);
     private VBox surfaceObjectsContent;
@@ -241,6 +242,10 @@ public final class SearchPanel extends VBox {
         prospectingResourceField.setPromptText("Resource name, or blank for all");
         prospectingContent.getChildren().setAll(new Label("PROSPECTING"), prospectingResourceField);
         mapContent.getChildren().setAll(new Label("MAP"));
+        coverageContent.getChildren().setAll(
+                new Label("EXPLORED COVERAGE"),
+                new Label("Visualizes saved mapregions and holes inside their observed bounds.")
+        );
         modeContent.getChildren().setAll(oreContent);
 
         FlowPane radiusSelector = new FlowPane(4, 4, radius128Button, radius256Button, radius512Button, radius1024Button);
@@ -259,6 +264,7 @@ public final class SearchPanel extends VBox {
         mode = selected;
         modeContent.getChildren().setAll(switch (selected) {
             case MAP -> mapContent;
+            case COVERAGE -> coverageContent;
             case ORE -> oreContent;
             case SURFACE -> surfaceContent;
             case ROCK -> rockContent;
@@ -266,6 +272,8 @@ public final class SearchPanel extends VBox {
         });
         yFilterContent.setManaged(selected == SearchMode.ORE);
         yFilterContent.setVisible(selected == SearchMode.ORE);
+        radiusContent.setManaged(selected != SearchMode.COVERAGE);
+        radiusContent.setVisible(selected != SearchMode.COVERAGE);
         renderButton.setText(selected == SearchMode.PROSPECTING ? "Analyze" : "Render");
         updateYFields();
         updateRockMode();

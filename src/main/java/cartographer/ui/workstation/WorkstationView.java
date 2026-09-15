@@ -87,6 +87,10 @@ public final class WorkstationView {
         toolNavigationPane.setMode(mode);
         searchPanel.setMode(mode);
         layerPanel.setMode(mode);
+        boolean layersVisible = mode != SearchPanel.SearchMode.COVERAGE;
+        layerPanel.setVisible(layersVisible);
+        layerPanel.setManaged(layersVisible);
+        statusBar.setRadiusVisible(mode != SearchPanel.SearchMode.COVERAGE);
         modeListener.accept(mode);
     }
 

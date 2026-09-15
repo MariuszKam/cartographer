@@ -151,7 +151,7 @@ class RockCommandTest {
 
     private static final class FakeMetadataReader extends WorldMetadataReader {
         @Override
-        public WorldMetadata read(Path savePath, ProgressReporter progress) {
+        public WorldMetadata read(Path savePath, cartographer.application.ProgressReporter progress) {
             return new WorldMetadata(32, 32, 32);
         }
     }

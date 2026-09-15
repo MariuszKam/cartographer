@@ -55,7 +55,7 @@ class PlayerPositionServiceTest {
         @Override
         public WorldMetadata read(
                 Path savePath,
-                cartographer.cli.ProgressReporter progress
+                cartographer.application.ProgressReporter progress
         ) {
             return new WorldMetadata(1024000, 256, 1024000);
         }

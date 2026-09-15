@@ -1,6 +1,7 @@
 package cartographer.ui.workstation;
 
 import cartographer.application.*;
+import cartographer.coverage.RegionCoverageSummary;
 import cartographer.geology.rock.RockMapMode;
 import cartographer.prospecting.ProspectingAssessment;
 import cartographer.render.RockLegendEntry;
@@ -80,6 +81,32 @@ public final class ResultInspectorPane extends VBox {
         }
         content.getChildren().setAll(nodes);
         diagnostics.show(mapDiagnostics(result, request));
+    }
+
+    public void showCoverageResult(RenderCoverageMapResult result) {
+        RegionCoverageSummary summary = result.summary();
+        List<javafx.scene.Node> nodes = new ArrayList<>();
+        nodes.add(sectionTitle("Coverage"));
+        if (summary.empty()) {
+            nodes.add(label("No saved mapregions found."));
+        } else {
+            nodes.add(label("Available mapregions: " + summary.presentCells()));
+            nodes.add(label("Grid: " + summary.gridWidth() + "x" + summary.gridHeight()));
+            nodes.add(label("Bounding cells: " + summary.possibleCells()));
+            nodes.add(label("Missing inside bounds: " + summary.missingCells()));
+            nodes.add(label(String.format(java.util.Locale.ROOT,
+                    "Coverage inside bounds: %.2f%%", summary.coveragePercentage())));
+            nodes.add(label("Region bounds:\nX " + summary.minRegionX() + ".." + summary.maxRegionX()
+                    + "\nZ " + summary.minRegionZ() + ".." + summary.maxRegionZ()));
+            nodes.add(label(String.format(java.util.Locale.ROOT,
+                    "DISPLAY bounds:\nX %.0f..%.0f\nZ %.0f..%.0f",
+                    summary.displayMinX(), summary.displayMaxXExclusive() - 1.0,
+                    summary.displayMinZ(), summary.displayMaxZExclusive() - 1.0)));
+            nodes.add(label("Missing cells mean mapregions absent inside the observed bounding rectangle."
+                    + "\nAreas outside those bounds are not classified as missing."));
+        }
+        content.getChildren().setAll(nodes);
+        diagnostics.show(diagnostics(result.mapRegionDiagnostics()));
     }
 
     public void showSurfaceResult(RenderSurfaceResourceMapResult result, RenderSurfaceResourceMapRequest request) {
