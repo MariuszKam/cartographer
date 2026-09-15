@@ -276,6 +276,39 @@ user-owned Cartographer configuration is not destructively removed unless the
 existing application behavior explicitly provides otherwise. No custom
 uninstall cleanup is added by Stage 5.
 
+## Stage 6: GitHub Actions Windows release automation
+
+Stage 6 provides the manually triggered workflow:
+
+```text
+.github/workflows/windows-release.yml
+```
+
+It runs only through `workflow_dispatch` on `windows-latest` and builds the ref
+selected when the workflow is manually started. It uses Temurin Java 25 and
+installs WiX 5.0.2 through the official .NET global tool:
+
+```text
+WixToolset.Util.wixext 5.0.2
+WixToolset.UI.wixext 5.0.2
+```
+
+The workflow gates are Gradle tests, the existing portable package task, the
+existing Windows installer task, and Stage 5 Artifacts validation. It uploads
+only these release deliverables as the `VS-Cartographer-1.0.0-Windows` Actions
+artifact:
+
+```text
+VS-Cartographer-1.0.0-win-x64.zip
+VS-Cartographer-Setup-1.0.0.exe
+SHA256SUMS.txt
+```
+
+CI does not run against the user's real save, run Stage 5 Before/After modes,
+perform GUI automation, install or uninstall the installer, or publish a
+GitHub Release. Installer runtime validation remains pending and manual, and
+real-save integrity validation remains a local Before/After procedure.
+
 ## Packaging non-goals
 
 The Windows packaging stages do not:
