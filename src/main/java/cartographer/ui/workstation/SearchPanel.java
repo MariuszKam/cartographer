@@ -41,7 +41,7 @@ import java.util.EnumMap;
 import java.util.function.Consumer;
 
 public final class SearchPanel extends VBox {
-    public enum SearchMode { ORE, SURFACE, ROCK, PROSPECTING }
+    public enum SearchMode { MAP, ORE, SURFACE, ROCK, PROSPECTING }
     public enum SurfaceMode { OBJECTS, MATERIALS }
     private SearchMode mode = SearchMode.ORE;
     private SurfaceMode surfaceMode = SurfaceMode.OBJECTS;
@@ -88,6 +88,7 @@ public final class SearchPanel extends VBox {
     private final Label resourceStatusLabel = new Label();
     private final Label surfaceResourceStatusLabel = new Label();
     private final VBox modeContent = new VBox(4);
+    private final VBox mapContent = new VBox(4);
     private final VBox oreContent = new VBox(4);
     private final VBox surfaceContent = new VBox(4);
     private VBox surfaceObjectsContent;
@@ -239,6 +240,7 @@ public final class SearchPanel extends VBox {
         rockContent.getChildren().setAll(new Label("GEOLOGY"), new HBox(8, rockUpperButton, rockAtYButton), rockYField);
         prospectingResourceField.setPromptText("Resource name, or blank for all");
         prospectingContent.getChildren().setAll(new Label("PROSPECTING"), prospectingResourceField);
+        mapContent.getChildren().setAll(new Label("MAP"));
         modeContent.getChildren().setAll(oreContent);
 
         FlowPane radiusSelector = new FlowPane(4, 4, radius128Button, radius256Button, radius512Button, radius1024Button);
@@ -256,6 +258,7 @@ public final class SearchPanel extends VBox {
     public void setMode(SearchMode selected) {
         mode = selected;
         modeContent.getChildren().setAll(switch (selected) {
+            case MAP -> mapContent;
             case ORE -> oreContent;
             case SURFACE -> surfaceContent;
             case ROCK -> rockContent;
