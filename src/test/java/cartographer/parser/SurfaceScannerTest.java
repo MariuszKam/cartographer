@@ -38,6 +38,29 @@ class SurfaceScannerTest {
     }
 
     @Test
+    void resolvesCropAboveFarmlandToFarmlandWhenIgnoringFoliage() {
+        ParsedChunk chunk = new ParsedChunk(
+                new ChunkCoordinate(0, 0),
+                10,
+                1,
+                3,
+                1,
+                new int[]{0, 2, 1}
+        );
+        Map<Integer, BlockInfo> registry = Map.of(
+                0, new BlockInfo(0, "air"),
+                1, new BlockInfo(1, "game:crop-flax-9"),
+                2, new BlockInfo(2, "game:farmland-moist-high")
+        );
+
+        SurfaceScanResult result = new SurfaceScanner().scan(List.of(chunk), registry, true);
+
+        assertEquals(1, result.blocks().size());
+        assertEquals("game:farmland-moist-high", result.blocks().getFirst().blockInfo().code());
+        assertEquals(11, result.blocks().getFirst().y());
+    }
+
+    @Test
     void usesHighestVerticalChunkSectionForSurfaceColumn() {
         ParsedChunk lower =
                 new ParsedChunk(

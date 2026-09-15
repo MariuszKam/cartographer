@@ -2,6 +2,7 @@ package cartographer.render;
 
 import cartographer.application.ProgressReporter;
 import cartographer.model.SurfaceBlock;
+import cartographer.model.SurfaceClass;
 import cartographer.soil.SoilFertilityClassification;
 import cartographer.soil.SoilFertilityClassifier;
 import cartographer.soil.SoilFertilityTier;
@@ -54,9 +55,8 @@ public final class SoilFertilityOverlayRenderer {
 
             for (int index = 0; index < safeBlocks.size(); index++) {
                 SurfaceBlock block = safeBlocks.get(index);
-                SoilFertilityClassification classification = block == null
-                        ? null
-                        : classifier.classify(block.blockInfo()).orElse(null);
+                SoilFertilityClassification classification =
+                        directlyVisibleFertility(block);
 
                 if (classification != null) {
                     int startX = (int) Math.floor(
@@ -135,7 +135,7 @@ public final class SoilFertilityOverlayRenderer {
         graphics.fillRect(x, y, LEGEND_WIDTH, height);
 
         graphics.setColor(Color.WHITE);
-        graphics.drawString("Soil Fertility", x + 6, y + 13);
+        graphics.drawString("Nominal Fertility", x + 6, y + 13);
 
         int line = 0;
         for (SoilFertilityTier tier : SoilFertilityTier.values()) {
@@ -162,5 +162,14 @@ public final class SoilFertilityOverlayRenderer {
             case HIGH -> "High";
             case TERRA_PRETA -> "Terra Preta";
         };
+    }
+
+    private SoilFertilityClassification directlyVisibleFertility(SurfaceBlock block) {
+        if (block == null
+                || block.surfaceClass() == SurfaceClass.WATER
+                || block.surfaceClass() == SurfaceClass.SNOW) {
+            return null;
+        }
+        return classifier.classify(block.blockInfo()).orElse(null);
     }
 }
