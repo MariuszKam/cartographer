@@ -90,11 +90,11 @@ jpackage --type app-image (Stage 2)
         ↓
 portable Windows application
         ↓
-jpackage Windows installer (FUTURE WORK)
+jpackage Windows installer (Stage 4)
 ```
 
-Installer creation remains future work. Icon customization is also future work;
-Stage 2 does not provide an icon.
+Stage 4 provides the Windows EXE installer task. Icon customization remains
+optional; Stage 2 does not provide an icon unless the project icon is added.
 
 ## Runtime
 
@@ -125,12 +125,49 @@ The packaged launcher remains GUI-only and does not use `--win-console`. The
 CLI remains available separately through the existing Gradle application
 workflow.
 
-## Non-goals
+## Stage 4: Windows EXE installer
 
-Stage 2 does not:
+Stage 4 adds a Windows EXE installer that packages the previously generated
+`build/jpackage/app-image/VS Cartographer/` app-image. It does not reconstruct
+the application JAR, classpath, launcher, or bundled runtime.
+
+Installer creation is run later on Windows with:
+
+```powershell
+.\gradlew.bat packageWindowsInstaller
+```
+
+The packaging machine requires a JDK 25 toolchain and WiX Toolset 3.0 or later.
+WiX must be installed and available to `jpackage` by the packaging machine; the
+project does not download, install, or bundle WiX.
+
+The expected installer artifact is:
+
+```text
+build/distributions/VS-Cartographer-Setup-1.0.0.exe
+```
+
+The installer requests per-user installation, a `VS Cartographer` Start Menu
+group and shortcut, a Desktop shortcut, and an installation directory chooser.
+Its stable Windows upgrade UUID is:
+
+```text
+d9458212-ecd8-4882-8d90-ffba8ade0c4f
+```
+
+This UUID is part of the product identity and must remain unchanged for
+compatible future releases unless VS Cartographer intentionally becomes a
+different Windows product.
+
+The installer remains GUI-only and does not use `--win-console`. It is currently
+unsigned, so Windows SmartScreen may warn during manual validation. It does not
+provide `.vcdbs` file associations or automatic updates.
+
+## Packaging non-goals
+
+The Windows packaging stages do not:
 
 - create an MSI;
-- create an installer;
 - change CLI behavior;
 - change save handling;
 - change application storage;
