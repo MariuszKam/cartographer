@@ -8,6 +8,10 @@ The project reads Vintage Story saves in SQLite read-only mode and turns stored 
 
 The tool must never modify the Vintage Story save.
 
+Before substantial work, read the relevant project documentation under `docs/`.
+When ChatGPT is acting as the controlling/orchestrating agent, it must read
+`docs/CHATGPT_CONTROLLER_WORKFLOW.md` before planning implementation.
+
 ---
 
 ## Core rules
