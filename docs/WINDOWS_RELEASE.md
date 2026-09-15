@@ -309,6 +309,50 @@ perform GUI automation, install or uninstall the installer, or publish a
 GitHub Release. Installer runtime validation remains pending and manual, and
 real-save integrity validation remains a local Before/After procedure.
 
+## Pull request CI
+
+The lightweight pull request workflow is:
+
+```text
+.github/workflows/pr-ci.yml
+```
+
+It runs automatically only for pull requests targeting `master`, on a
+`windows-latest` runner. It uses Temurin Java 25 with Gradle dependency caching
+and its current gate is:
+
+```powershell
+.\gradlew.bat test
+```
+
+The workflow has `contents: read` permissions. It allows one active run per PR;
+when a newer commit is pushed to the same PR, the superseded run is cancelled.
+
+PR CI is deliberately lightweight. It validates application tests before merge
+but does not install WiX, run jpackage, build the portable ZIP, build the
+installer EXE, run Windows release artifact validation, publish artifacts,
+launch the GUI, or access a real Vintage Story save.
+
+The heavier release pipeline remains:
+
+```text
+.github/workflows/windows-release.yml
+```
+
+It is intentionally triggered manually through `workflow_dispatch`. Keeping
+the workflows separate provides fast feedback for normal pull requests,
+avoids unnecessary Windows packaging work for every code change, preserves an
+explicit release gate, and separates code validation from release production.
+
+```text
+Pull request -> PR CI -> Java 25 -> Gradle tests -> merge eligibility
+
+master -> manual Windows Release Build -> tests -> portable ZIP -> installer EXE -> artifact validation -> uploaded release artifacts
+```
+
+This documentation does not claim that PR CI has executed successfully or that
+branch protection currently requires its check.
+
 ## Packaging non-goals
 
 The Windows packaging stages do not:
