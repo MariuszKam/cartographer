@@ -26,19 +26,4 @@ public record SurfaceObjectScanResult(
     public int observedObjects() {
         return blocks.size();
     }
-
-    public SurfaceObjectScanResult(
-            List<SurfaceBlock> blocks,
-            int positionsInspected,
-            int unavailablePositions
-    ) {
-        this(
-                blocks,
-                positionsInspected,
-                unavailablePositions,
-                blocks == null ? 0 : blocks.size(),
-                Math.max(0, positionsInspected - unavailablePositions
-                        - (blocks == null ? 0 : blocks.size()))
-        );
-    }
 }

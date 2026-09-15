@@ -3,7 +3,8 @@ package cartographer.cli;
 import cartographer.application.InspectSurfaceObjectsRequest;
 import cartographer.application.InspectSurfaceObjectsResult;
 import cartographer.application.InspectSurfaceObjectsUseCase;
-import cartographer.application.SurfaceResourceMatch;
+import cartographer.application.SurfaceMaterialMatch;
+import cartographer.application.SurfaceMaterialPreset;
 import cartographer.model.BlockInfo;
 import cartographer.model.DisplayPosition;
 import cartographer.model.HomeLocation;
@@ -27,9 +28,9 @@ import cartographer.resource.ResourceCandidate;
 import cartographer.resource.ResourceHotspot;
 import cartographer.resource.ResourceOverlayCell;
 import cartographer.resource.ResourceSummary;
-import cartographer.resource.SurfaceResourceAnalysis;
-import cartographer.resource.SurfaceResourceAnalyzer;
-import cartographer.resource.SurfaceResourceDeposit;
+import cartographer.resource.SurfaceMaterialAnalysis;
+import cartographer.resource.SurfaceMaterialAnalyzer;
+import cartographer.resource.SurfaceMaterialDeposit;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
@@ -77,8 +78,8 @@ public class ResourceCommand implements Command {
     private final SurfaceScanner surfaceScanner =
             new SurfaceScanner();
 
-    private final SurfaceResourceAnalyzer surfaceResourceAnalyzer =
-            new SurfaceResourceAnalyzer();
+    private final SurfaceMaterialAnalyzer surfaceResourceAnalyzer =
+            new SurfaceMaterialAnalyzer();
 
     private final SurfaceResourceOverlayRenderer surfaceResourceOverlayRenderer =
             new SurfaceResourceOverlayRenderer();
@@ -671,7 +672,7 @@ public class ResourceCommand implements Command {
     ) {
         if (args.length < 2) {
             throw new CommandException(
-                    "Usage: resource surface-search <save.vcdbs> <match> "
+                    "Usage: resource surface-search <save.vcdbs> <material> "
                             + "[--radius <blocks>] "
                             + "[--top <n>] "
                             + "[--center-x <x> --center-z <z>]"
@@ -723,7 +724,7 @@ public class ResourceCommand implements Command {
         out.println(
                 "Match: "
                         + loaded.analysis()
-                        .query()
+                        .materialName()
         );
 
         out.println(
@@ -757,7 +758,7 @@ public class ResourceCommand implements Command {
         out.println(
                 "Matching surface blocks: "
                         + loaded.analysis()
-                        .matchingBlockCount()
+                        .matchedBlockCount()
         );
 
         out.println(
@@ -766,7 +767,7 @@ public class ResourceCommand implements Command {
                         .depositCount()
         );
 
-        List<SurfaceResourceDeposit> deposits =
+        List<SurfaceMaterialDeposit> deposits =
                 loaded.analysis()
                         .deposits();
 
@@ -792,7 +793,7 @@ public class ResourceCommand implements Command {
              index < count;
              index++) {
 
-            SurfaceResourceDeposit deposit =
+            SurfaceMaterialDeposit deposit =
                     deposits.get(
                             index
                     );
@@ -852,25 +853,25 @@ public class ResourceCommand implements Command {
     ) {
         if (args.length < 2) {
             throw new CommandException(
-                    "Usage: resource surface-inspect <save.vcdbs> <match> "
+                    "Usage: resource surface-inspect <save.vcdbs> <resource-key> "
                             + "[--radius <blocks>] [--center-x <x> --center-z <z>]"
             );
         }
 
         Path savePath = Path.of(args[0]);
-        SurfaceResourceMatch match = surfaceMatch(args[1]);
+        String resourceKey = args[1];
         int radius = intOption(args, "--radius", DEFAULT_SURFACE_RADIUS, 8192);
         InspectSurfaceObjectsResult result = surfaceObjectInspectionUseCase.execute(
                 new InspectSurfaceObjectsRequest(
                         savePath,
-                        match,
+                        resourceKey,
                         radius,
                         center(args)
                 )
         );
 
         out.println("SURFACE OBJECT INSPECT");
-        out.println("Resource: " + match.displayName());
+        out.println("Resource: " + resourceKey);
         out.println("Center: " + result.center().x() + "," + result.center().z());
         out.println("Radius: " + radius);
         out.println("Registry matches: " + result.registryMatches().size());
@@ -903,7 +904,7 @@ public class ResourceCommand implements Command {
     ) {
         if (args.length < 2) {
             throw new CommandException(
-                    "Usage: resource surface-render <save.vcdbs> <match> "
+                    "Usage: resource surface-render <save.vcdbs> <material> "
                             + "[--radius <blocks>] "
                             + "[--out <map.png>] "
                             + "[--scale <n>] "
@@ -1015,7 +1016,7 @@ public class ResourceCommand implements Command {
         );
 
         int blocksDrawn =
-                surfaceResourceOverlayRenderer.draw(
+                surfaceResourceOverlayRenderer.drawMaterial(
                         rendered.image(),
                         loaded.center(),
                         radius,
@@ -1048,7 +1049,7 @@ public class ResourceCommand implements Command {
         out.println(
                 "Match: "
                         + loaded.analysis()
-                        .query()
+                        .materialName()
         );
 
         out.println(
@@ -1072,7 +1073,7 @@ public class ResourceCommand implements Command {
         out.println(
                 "Matching blocks: "
                         + loaded.analysis()
-                        .matchingBlockCount()
+                        .matchedBlockCount()
         );
 
         out.println(
@@ -1160,8 +1161,8 @@ public class ResourceCommand implements Command {
                         progress
                 );
 
-        SurfaceResourceMatch surfaceMatch = surfaceMatch(match);
-        SurfaceResourceAnalysis analysis = surfaceResourceAnalyzer.analyzeMatched(
+        SurfaceMaterialMatch surfaceMatch = surfaceMatch(match);
+        SurfaceMaterialAnalysis analysis = surfaceResourceAnalyzer.analyzeMatched(
                 surfaceMatch.displayName(),
                 surfaceMatch.matchingBlocks(surface.blocks()),
                 surface.columnsScanned()
@@ -1176,12 +1177,14 @@ public class ResourceCommand implements Command {
         );
     }
 
-    private SurfaceResourceMatch surfaceMatch(String value) {
-        if (value.equalsIgnoreCase("obsidian")
-                || value.equalsIgnoreCase("obsidian surface")) {
-            return SurfaceResourceMatch.looseObsidian();
-        }
-        return new SurfaceResourceMatch(value, List.of(value));
+    private SurfaceMaterialMatch surfaceMatch(String value) {
+        SurfaceMaterialPreset preset = SurfaceMaterialPreset.resolve(value).orElseThrow(
+                () -> new CommandException(
+                        "Unsupported surface material \"" + value + "\". Supported materials: "
+                                + "Fire Clay, Clay, Peat"
+                )
+        );
+        return new SurfaceMaterialMatch(preset.label(), preset.requiredTokens());
     }
 
     private RenderOptions terrainRenderOptions(
@@ -1671,7 +1674,7 @@ public class ResourceCommand implements Command {
             WorldPosition center,
             ReadDiagnostics chunkDiagnostics,
             SurfaceScanResult surface,
-            SurfaceResourceAnalysis analysis
+            SurfaceMaterialAnalysis analysis
     ) {
     }
 }

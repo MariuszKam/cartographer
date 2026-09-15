@@ -19,8 +19,11 @@ import cartographer.render.RenderOptions;
 import cartographer.render.RenderedMap;
 import cartographer.render.SurfaceResourceOverlayRenderer;
 import cartographer.render.UserMarkerRenderer;
-import cartographer.resource.SurfaceResourceAnalysis;
-import cartographer.resource.SurfaceResourceAnalyzer;
+import cartographer.resource.SurfaceMaterialAnalysis;
+import cartographer.resource.SurfaceMaterialAnalyzer;
+import cartographer.resource.SurfaceObjectSelectionAnalysis;
+import cartographer.resource.SurfaceObjectAnalyzer;
+import cartographer.resource.SurfaceRenderAnalysis;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.VcdbsReader;
@@ -34,18 +37,11 @@ import cartographer.scanner.SurfaceFallbackMapChunks;
 import cartographer.scanner.SurfaceFastPathMerger;
 import cartographer.scanner.SurfaceScanResult;
 import cartographer.scanner.SurfaceScanner;
-import cartographer.scanner.SurfaceObjectScanResult;
-import cartographer.scanner.SurfaceObjectPlan;
-import cartographer.scanner.SurfaceObjectPlanner;
-import cartographer.scanner.SurfaceObjectScanner;
-import cartographer.save.SelectiveChunkVisitStatus;
-import cartographer.save.SelectiveChunkStreamStats;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -61,7 +57,8 @@ public class RenderSurfaceResourceMapUseCase {
     private final MapRenderer renderer;
     private final UserMarkerRenderer userMarkerRenderer;
     private final SurfaceScanner surfaceScanner;
-    private final SurfaceResourceAnalyzer surfaceResourceAnalyzer;
+    private final SurfaceMaterialAnalyzer surfaceMaterialAnalyzer;
+    private final SurfaceObjectAnalyzer surfaceObjectAnalyzer;
     private final SurfaceResourceOverlayRenderer overlayRenderer;
     private final MapChunkRenderWindowPlanner mapChunkRenderWindowPlanner =
             new MapChunkRenderWindowPlanner();
@@ -77,10 +74,6 @@ public class RenderSurfaceResourceMapUseCase {
             new SurfaceFallbackChunkPlanner();
     private final SurfaceFastPathMerger surfaceFastPathMerger =
             new SurfaceFastPathMerger();
-    private final SurfaceObjectScanner surfaceObjectScanner =
-            new SurfaceObjectScanner();
-    private final SurfaceObjectPlanner surfaceObjectPlanner =
-            new SurfaceObjectPlanner();
 
     public RenderSurfaceResourceMapUseCase(
             VcdbsReader reader,
@@ -90,7 +83,7 @@ public class RenderSurfaceResourceMapUseCase {
             MapRenderer renderer,
             UserMarkerRenderer userMarkerRenderer,
             SurfaceScanner surfaceScanner,
-            SurfaceResourceAnalyzer surfaceResourceAnalyzer,
+            SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
             SurfaceResourceOverlayRenderer overlayRenderer
     ) {
         this.reader = Objects.requireNonNull(reader, "reader is required");
@@ -100,10 +93,11 @@ public class RenderSurfaceResourceMapUseCase {
         this.renderer = Objects.requireNonNull(renderer, "renderer is required");
         this.userMarkerRenderer = Objects.requireNonNull(userMarkerRenderer, "userMarkerRenderer is required");
         this.surfaceScanner = Objects.requireNonNull(surfaceScanner, "surfaceScanner is required");
-        this.surfaceResourceAnalyzer = Objects.requireNonNull(
-                surfaceResourceAnalyzer,
-                "surfaceResourceAnalyzer is required"
+        this.surfaceMaterialAnalyzer = Objects.requireNonNull(
+                surfaceMaterialAnalyzer,
+                "surfaceMaterialAnalyzer is required"
         );
+        this.surfaceObjectAnalyzer = new SurfaceObjectAnalyzer();
         this.overlayRenderer = Objects.requireNonNull(overlayRenderer, "overlayRenderer is required");
     }
 
@@ -174,13 +168,6 @@ public class RenderSurfaceResourceMapUseCase {
                         centerWorldZ,
                         request.radius()
                 );
-        SurfaceObjectPlanner.StreamingSession surfaceObjectPlannerSession =
-                surfaceObjectPlanner.begin(
-                        metadata,
-                        centerWorldX,
-                        centerWorldZ,
-                        request.radius()
-                );
         reader.forEachMapChunkByCoordinate(
                 request.savePath(),
                 directReadCoordinates,
@@ -192,7 +179,6 @@ public class RenderSurfaceResourceMapUseCase {
                     if (surfaceSearchSet.contains(mapChunk.coordinate())) {
                         deliveredSurfaceMapChunks.add(mapChunk.coordinate());
                         rainPlannerSession.accept(mapChunk);
-                        surfaceObjectPlannerSession.accept(mapChunk);
                     }
                 },
                 progress
@@ -201,7 +187,6 @@ public class RenderSurfaceResourceMapUseCase {
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
         Map<Integer, BlockInfo> registry = reader.readBlockRegistry(request.savePath());
         RainHeightSurfacePlan rainPlan = rainPlannerSession.finish();
-        SurfaceObjectPlan surfaceObjectPlan = surfaceObjectPlannerSession.finish();
         RainHeightSurfaceScanner.StreamingSession fastSession =
                 rainHeightSurfaceScanner.begin(
                         rainPlan,
@@ -272,72 +257,18 @@ public class RenderSurfaceResourceMapUseCase {
                 fallbackSurface.emptyColumns(),
                 fallbackSurface.liquidUnavailableColumns()
         );
-        List<SurfaceBlock> matchingBlocks = request.match().matchingBlocks(surface.blocks());
-        int exposedObsidianCount = 0;
-        int looseObsidianCount = 0;
-        int surfaceObjectRegistryVariants = 0;
-        int surfaceObjectPositionsInspected = 0;
-        int surfaceObjectUnavailablePositions = 0;
-        int surfaceObjectObservedTargets = 0;
-        int surfaceObjectNotObservedTargets = 0;
-        SelectiveChunkStreamStats surfaceObjectChunkStats =
-                new SelectiveChunkStreamStats(0, 0, 0, 0, 0, 0, 0, 0);
-        if (request.match().usesSurfaceObjectScan()) {
-            int[] wantedBlockIds = request.match().matchingBlockIds(registry);
-            surfaceObjectRegistryVariants = wantedBlockIds.length;
-            List<ChunkPosition> objectPositions = surfaceObjectPlan.chunkPositions();
-            List<ParsedChunk> objectChunks = new ArrayList<>();
-            Set<ChunkPosition> availableObjectPositions = new HashSet<>();
-            if (wantedBlockIds.length > 0 && !objectPositions.isEmpty()) {
-                surfaceObjectChunkStats = reader.forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                        request.savePath(),
-                        objectPositions,
-                        wantedBlockIds,
-                        chunkDiagnostics,
-                        visit -> {
-                            if (visit.status() == SelectiveChunkVisitStatus.DECODED) {
-                                objectChunks.add(visit.chunk());
-                                availableObjectPositions.add(visit.position());
-                            } else if (visit.status()
-                                    == SelectiveChunkVisitStatus.PALETTE_REJECTED) {
-                                availableObjectPositions.add(visit.position());
-                            }
-                        },
-                        progress
-                );
-            }
-            progress.start("Analyzing surface resources");
-            SurfaceObjectScanResult objectResult = surfaceObjectScanner.scan(
-                    surfaceObjectPlan,
-                    registry,
-                    java.util.Arrays.stream(wantedBlockIds)
-                            .boxed()
-                            .collect(java.util.stream.Collectors.toSet()),
-                    objectChunks,
-                    availableObjectPositions
-            );
-            surfaceObjectPositionsInspected = objectResult.positionsInspected();
-            surfaceObjectUnavailablePositions = objectResult.unavailablePositions();
-            surfaceObjectObservedTargets = objectResult.observedTargets();
-            surfaceObjectNotObservedTargets = objectResult.notObservedTargets();
-            List<SurfaceBlock> exposedObsidian = surface.blocks().stream()
-                    .filter(request.match()::matchesExposedSurfaceObsidian)
-                    .toList();
-            List<SurfaceBlock> looseObsidian = new ArrayList<>(
-                    request.match().matchingBlocks(fallbackSurface.blocks())
-            );
-            looseObsidian.addAll(objectResult.blocks());
-            matchingBlocks = distinctSurfaceBlocks(exposedObsidian, looseObsidian);
-            exposedObsidianCount = (int) matchingBlocks.stream()
-                    .filter(request.match()::matchesExposedSurfaceObsidian)
-                    .count();
-            looseObsidianCount = matchingBlocks.size() - exposedObsidianCount;
+        SurfaceRenderAnalysis analysis;
+        if (request.material().isPresent()) {
+            List<SurfaceBlock> matchingBlocks = request.material().orElseThrow()
+                    .matchingBlocks(surface.blocks());
+            analysis = surfaceMaterialAnalyzer.analyzeMatched(
+                    request.resourceDisplayName(), matchingBlocks, surface.columnsScanned());
+        } else {
+            analysis = new SurfaceObjectSelectionAnalysis(
+                    request.observedResources().stream()
+                            .map(resource -> surfaceObjectAnalyzer.analyze(resource, registry))
+                            .toList());
         }
-        SurfaceResourceAnalysis analysis = surfaceResourceAnalyzer.analyzeMatched(
-                request.match().displayName(),
-                matchingBlocks,
-                surface.columnsScanned()
-        );
 
         RenderedMap rendered = renderer.render(
                 center,
@@ -350,14 +281,13 @@ public class RenderSurfaceResourceMapUseCase {
         );
 
         progress.start("Painting surface resource overlay");
-        overlayRenderer.draw(
-                rendered.image(),
-                center,
-                request.radius(),
-                analysis,
-                player,
-                home
-        );
+        if (analysis instanceof SurfaceMaterialAnalysis materialAnalysis) {
+            overlayRenderer.drawMaterial(rendered.image(), center, request.radius(),
+                    materialAnalysis, player, home);
+        } else if (analysis instanceof SurfaceObjectSelectionAnalysis objectAnalysis) {
+            overlayRenderer.drawObjects(rendered.image(), center, request.radius(),
+                    objectAnalysis, player, home);
+        }
 
         int userMarkersDrawn = 0;
         if (options.layers().contains(RenderLayer.MARKERS)) {
@@ -376,38 +306,8 @@ public class RenderSurfaceResourceMapUseCase {
                 rendered.report(),
                 mapChunkDiagnostics,
                 chunkDiagnostics,
-                userMarkersDrawn,
-                exposedObsidianCount,
-                looseObsidianCount,
-                surfaceObjectRegistryVariants,
-                surfaceObjectPositionsInspected,
-                surfaceObjectUnavailablePositions,
-                surfaceObjectObservedTargets,
-                surfaceObjectNotObservedTargets,
-                surfaceObjectChunkStats,
-                request.match().usesSurfaceObjectScan()
+                userMarkersDrawn
         );
-    }
-
-    private List<SurfaceBlock> distinctSurfaceBlocks(
-            List<SurfaceBlock> exposedObsidian,
-            List<SurfaceBlock> looseObsidian
-    ) {
-        Map<String, SurfaceBlock> distinct = new LinkedHashMap<>();
-        for (SurfaceBlock block : exposedObsidian) {
-            distinct.put(surfaceBlockKey(block), block);
-        }
-        for (SurfaceBlock block : looseObsidian) {
-            distinct.putIfAbsent(surfaceBlockKey(block), block);
-        }
-        return List.copyOf(distinct.values());
-    }
-
-    private String surfaceBlockKey(SurfaceBlock block) {
-        return block.worldX() + ":"
-                + block.y() + ":"
-                + block.worldZ() + ":"
-                + block.blockInfo().code().toLowerCase(java.util.Locale.ROOT);
     }
 
     private HomeState absoluteHome(

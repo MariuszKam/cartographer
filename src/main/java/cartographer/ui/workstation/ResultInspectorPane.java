@@ -4,6 +4,11 @@ import cartographer.application.*;
 import cartographer.geology.rock.RockMapMode;
 import cartographer.prospecting.ProspectingAssessment;
 import cartographer.render.RockLegendEntry;
+import cartographer.resource.SurfaceMaterialAnalysis;
+import cartographer.resource.SurfaceObjectAnalysis;
+import cartographer.resource.SurfaceObjectSelectionAnalysis;
+import cartographer.resource.SurfaceObjectPresentation;
+import cartographer.resource.SurfaceRenderAnalysis;
 import cartographer.save.ReadDiagnostics;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
@@ -62,12 +67,31 @@ public final class ResultInspectorPane extends VBox {
     }
 
     public void showSurfaceResult(RenderSurfaceResourceMapResult result, RenderSurfaceResourceMapRequest request) {
-        content.getChildren().setAll(sectionTitle("Surface Resource"),
-                card(request.match().displayName(), "Matches", Integer.toString(result.analysis().matchingBlockCount()),
-                        "Deposits", Integer.toString(result.analysis().depositCount()),
-                        "Radius", Integer.toString(request.radius())),
-                label(result.surfaceObjectScanUsed() ? "Exposed obsidian: " + result.exposedObsidianCount()
-                        + "\nLoose obsidian: " + result.looseObsidianCount() : "Surface scan complete."));
+        if (result.analysis() instanceof SurfaceObjectSelectionAnalysis objectSelection) {
+            List<javafx.scene.Node> nodes = new ArrayList<>();
+            nodes.add(sectionTitle("Surface Objects"));
+            nodes.add(label("Resources: " + objectSelection.resourceCount()));
+            nodes.add(label("Total occurrences: " + objectSelection.occurrenceCount()));
+            nodes.add(label("Radius: " + request.radius()));
+            nodes.add(label("Source: discovery result"));
+            for (SurfaceObjectAnalysis objectAnalysis : objectSelection.resources()) {
+                nodes.add(card(objectAnalysis.displayName(), "Occurrences",
+                        Integer.toString(objectAnalysis.occurrenceCount()),
+                        SurfaceObjectPresentation.familyMetricLabel(objectAnalysis.families()),
+                        SurfaceObjectPresentation.analysisFamilyText(objectAnalysis),
+                        "Registry variants", Integer.toString(objectAnalysis.registryVariantCount())));
+            }
+            content.getChildren().setAll(nodes);
+        } else if (result.analysis() instanceof SurfaceMaterialAnalysis materialAnalysis) {
+            content.getChildren().setAll(sectionTitle("Surface Material"),
+                    card(materialAnalysis.materialName(), "Matched blocks",
+                            Integer.toString(materialAnalysis.matchedBlockCount()),
+                            "Areas/deposits", Integer.toString(materialAnalysis.depositCount()),
+                            "Radius", Integer.toString(request.radius())),
+                    label("Surface material scan complete."));
+        } else {
+            throw new IllegalStateException("Unsupported surface analysis type");
+        }
         diagnostics.show(surfaceDiagnostics(result));
     }
 
@@ -115,9 +139,28 @@ public final class ResultInspectorPane extends VBox {
     }
 
     private VBox card(String title, String key1, String value1, String key2, String value2, String key3, String value3) {
+        return card(title, List.of(
+                key1 + ": " + value1,
+                key2 + ": " + value2,
+                key3 + ": " + value3));
+    }
+
+    private VBox card(String title, String key1, String value1, String key2, String value2,
+                      String key3, String value3, String key4, String value4) {
+        return card(title, List.of(
+                key1 + ": " + value1,
+                key2 + ": " + value2,
+                key3 + ": " + value3,
+                key4 + ": " + value4));
+    }
+
+    private VBox card(String title, List<String> rows) {
         Label cardTitle = label(title);
         cardTitle.getStyleClass().add("result-card-title");
-        VBox card = new VBox(2, cardTitle, label(key1 + ": " + value1), label(key2 + ": " + value2), label(key3 + ": " + value3));
+        List<javafx.scene.Node> children = new ArrayList<>();
+        children.add(cardTitle);
+        rows.stream().map(this::label).forEach(children::add);
+        VBox card = new VBox(2, children.toArray(javafx.scene.Node[]::new));
         card.setMaxWidth(Double.MAX_VALUE);
         card.getStyleClass().add("result-card");
         return card;
@@ -153,38 +196,12 @@ public final class ResultInspectorPane extends VBox {
     }
 
     private List<String> surfaceDiagnostics(RenderSurfaceResourceMapResult result) {
-        List<String> lines = new ArrayList<>(diagnostics(result.mapChunkDiagnostics(), result.chunkDiagnostics()));
-        var stats = result.surfaceObjectChunkStats();
-        lines.add("Registry variants: " + result.surfaceObjectRegistryVariants());
-        lines.add("Positions inspected: " + result.surfaceObjectPositionsInspected());
-        lines.add("Unavailable positions: " + result.surfaceObjectUnavailablePositions());
-        lines.add("Observed surface objects: " + result.surfaceObjectObservedTargets());
-        lines.add("Not observed surface objects: " + result.surfaceObjectNotObservedTargets());
-        lines.add("Decoded chunks: " + stats.fullyDecodedChunks());
-        lines.add("Palette rejected: " + stats.paletteRejectedChunks());
-        lines.add("Missing/requested-but-not-found chunks: "
-                + (stats.uniquePositionsRequested() - stats.rowsFound()));
-        lines.add("Failed chunks: " + stats.failedChunks());
-        if (result.surfaceObjectRegistryVariants() == 0) {
-            lines.add("No block registry codes matched the surface resource families.");
-        }
-        int observationLimit = Math.min(20, result.analysis().matchingBlocks().size());
-        if (observationLimit > 0) {
-            lines.add("Observations:");
-            for (int index = 0; index < observationLimit; index++) {
-                var point = result.analysis().matchingBlocks().get(index);
-                lines.add("  " + point.blockCode() + " @ " + point.worldX() + ", "
-                        + point.y() + ", " + point.worldZ());
-            }
-        }
-        int depositLimit = Math.min(5, result.analysis().deposits().size());
-        if (depositLimit > 0) {
-            lines.add("Largest deposits:");
-            for (int index = 0; index < depositLimit; index++) {
-                var deposit = result.analysis().deposits().get(index);
-                lines.add("  " + (index + 1) + ". blocks=" + deposit.blockCount()
-                        + " Y=" + deposit.minY() + ".." + deposit.maxY());
-            }
+        SurfaceRenderAnalysis analysis = result.analysis();
+        List<String> lines = new ArrayList<>(diagnostics(
+                result.mapChunkDiagnostics(), result.chunkDiagnostics()));
+        if (analysis instanceof SurfaceObjectSelectionAnalysis objectSelection) {
+            lines.add("Source: discovery result");
+            lines.add("Observed occurrences: " + objectSelection.occurrenceCount());
         }
         return lines;
     }

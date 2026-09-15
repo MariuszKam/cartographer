@@ -1,31 +1,21 @@
 package cartographer.application;
 
 import cartographer.render.MapRenderReport;
-import cartographer.resource.SurfaceResourceAnalysis;
+import cartographer.resource.SurfaceRenderAnalysis;
 import cartographer.scanner.SurfaceScanResult;
 import cartographer.save.ReadDiagnostics;
-import cartographer.save.SelectiveChunkStreamStats;
 
 import java.awt.image.BufferedImage;
 import java.util.Objects;
 
 public record RenderSurfaceResourceMapResult(
         BufferedImage image,
-        SurfaceResourceAnalysis analysis,
+        SurfaceRenderAnalysis analysis,
         SurfaceScanResult surface,
         MapRenderReport renderReport,
         ReadDiagnostics mapChunkDiagnostics,
         ReadDiagnostics chunkDiagnostics,
-        int userMarkersDrawn,
-        int exposedObsidianCount,
-        int looseObsidianCount,
-        int surfaceObjectRegistryVariants,
-        int surfaceObjectPositionsInspected,
-        int surfaceObjectUnavailablePositions,
-        int surfaceObjectObservedTargets,
-        int surfaceObjectNotObservedTargets,
-        SelectiveChunkStreamStats surfaceObjectChunkStats,
-        boolean surfaceObjectScanUsed
+        int userMarkersDrawn
 ) {
 
     public RenderSurfaceResourceMapResult {
@@ -35,15 +25,8 @@ public record RenderSurfaceResourceMapResult(
         Objects.requireNonNull(renderReport, "renderReport is required");
         Objects.requireNonNull(mapChunkDiagnostics, "mapChunkDiagnostics is required");
         Objects.requireNonNull(chunkDiagnostics, "chunkDiagnostics is required");
-        if (exposedObsidianCount < 0
-                || looseObsidianCount < 0
-                || surfaceObjectRegistryVariants < 0
-                || surfaceObjectPositionsInspected < 0
-                || surfaceObjectUnavailablePositions < 0
-                || surfaceObjectObservedTargets < 0
-                || surfaceObjectNotObservedTargets < 0) {
-            throw new IllegalArgumentException("surface object diagnostics cannot be negative");
+        if (userMarkersDrawn < 0) {
+            throw new IllegalArgumentException("user markers drawn cannot be negative");
         }
-        Objects.requireNonNull(surfaceObjectChunkStats, "surfaceObjectChunkStats is required");
     }
 }

@@ -101,6 +101,38 @@ class SurfaceObjectScannerTest {
     }
 
     @Test
+    void recordsAllMatchingCandidateYValuesForOneTarget() {
+        SurfaceObjectPlan plan = new SurfaceObjectPlan(
+                List.of(new SurfaceObjectTarget(10, 10, List.of(100, 101))),
+                List.of(new cartographer.model.ChunkPosition(0, 3, 0, 0))
+        );
+        ParsedChunk chunk = chunkWithObjects(
+                10,
+                100,
+                7,
+                101,
+                8
+        );
+        Map<Integer, BlockInfo> registry = new HashMap<>(registry());
+        registry.put(8, new BlockInfo(8, "game:looseflints-obsidian-free"));
+
+        SurfaceObjectScanResult result = SCANNER.scan(
+                plan,
+                registry,
+                Set.of(7, 8),
+                List.of(chunk),
+                Set.of(position(chunk))
+        );
+
+        assertEquals(2, result.observedObjects());
+        assertEquals(List.of(100, 101), result.blocks().stream()
+                .map(block -> block.y())
+                .toList());
+        assertEquals(1, result.observedTargets());
+        assertEquals(0, result.notObservedTargets());
+    }
+
+    @Test
     void rejectsRockAndOreCodesWhenTheyAreNotWantedIds() {
         RainHeightSurfaceTarget target = new RainHeightSurfaceTarget(10, 10, 10);
         BlockInfo rock = new BlockInfo(8, "game:rock-obsidian");
@@ -172,6 +204,25 @@ class SurfaceObjectScannerTest {
         int localZ = Math.floorMod(target.worldZ(), 32);
         blocks[(localY * 32 + localZ) * 32 + localX] = blockId;
         return new ParsedChunk(coordinate, chunkY * 32, 32, 32, 32, blocks);
+    }
+
+    private ParsedChunk chunkWithObjects(
+            int worldX,
+            int firstY,
+            int firstBlockId,
+            int secondY,
+            int secondBlockId
+    ) {
+        int chunkY = Math.floorDiv(firstY, ChunkCoordinate.SIZE_BLOCKS);
+        ChunkCoordinate coordinate = new ChunkCoordinate(0, chunkY, 0);
+        int[] blocks = new int[32 * 32 * 32];
+        blocks[(localY(firstY, chunkY) * 32 + 10) * 32 + worldX] = firstBlockId;
+        blocks[(localY(secondY, chunkY) * 32 + 10) * 32 + worldX] = secondBlockId;
+        return new ParsedChunk(coordinate, chunkY * 32, 32, 32, 32, blocks);
+    }
+
+    private int localY(int worldY, int chunkY) {
+        return worldY - chunkY * 32;
     }
 
     private cartographer.model.ChunkPosition position(ParsedChunk chunk) {

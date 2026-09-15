@@ -10,7 +10,9 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 import cartographer.render.RenderLayer;
+import cartographer.resource.ObservedSurfaceResourceCatalog;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public final class WorkstationView {
     private final BorderPane root = new BorderPane();
@@ -28,6 +30,8 @@ public final class WorkstationView {
     private final VBox rightContent;
     private final Button leftToggle = new Button("Hide tools");
     private final Button rightToggle = new Button("Hide inspector");
+    private Consumer<SearchPanel.SearchMode> modeListener = ignored -> { };
+    private Consumer<Integer> radiusListener = ignored -> { };
 
     public WorkstationView(Runnable onBrowse, Runnable onRender) {
         root.getStyleClass().add("workstation-root");
@@ -37,7 +41,7 @@ public final class WorkstationView {
         layerPanel = new LayerPanel();
         resultInspectorPane = new ResultInspectorPane();
         setMode(SearchPanel.SearchMode.ORE);
-        searchPanel.setOnRadiusChanged(statusBar::setRadius);
+        searchPanel.setOnRadiusChanged(this::handleRadiusChanged);
         mapPanel.setOnZoomChanged(statusBar::setZoomFactor);
 
         leftContent = new VBox(8, worldPanel, toolNavigationPane, searchPanel, layerPanel);
@@ -83,6 +87,25 @@ public final class WorkstationView {
         toolNavigationPane.setMode(mode);
         searchPanel.setMode(mode);
         layerPanel.setMode(mode);
+        modeListener.accept(mode);
+    }
+
+    public void setOnModeChanged(Consumer<SearchPanel.SearchMode> listener) {
+        modeListener = listener == null ? ignored -> { } : listener;
+    }
+
+    public void setOnRadiusChanged(Consumer<Integer> listener) {
+        radiusListener = listener == null ? ignored -> { } : listener;
+        radiusListener.accept(searchPanel.selectedRadius());
+    }
+
+    public void setOnSurfaceModeChanged(Consumer<SearchPanel.SurfaceMode> listener) {
+        searchPanel.setOnSurfaceModeChanged(listener);
+    }
+
+    private void handleRadiusChanged(int radius) {
+        statusBar.setRadius(radius);
+        radiusListener.accept(radius);
     }
 
     public void setBusy(boolean busy) {
@@ -99,6 +122,10 @@ public final class WorkstationView {
         searchPanel.setDiscoveryBusy(busy);
         layerPanel.setBusy(busy);
         statusBar.setBusy(busy);
+    }
+
+    public void setSurfaceObjectDiscoveryState(SurfaceObjectDiscoveryState state) {
+        searchPanel.setSurfaceObjectDiscoveryState(state);
     }
 
     public void setStatus(String text) { statusBar.setStatus(text); }
@@ -134,5 +161,37 @@ public final class WorkstationView {
 
     public ResultInspectorPane resultInspectorPane() {
         return resultInspectorPane;
+    }
+
+    public void setObservedSurfaceResources(ObservedSurfaceResourceCatalog catalog) {
+        searchPanel.setObservedSurfaceResources(catalog);
+    }
+
+    public void setObservedSurfaceResources(
+            ObservedSurfaceResourceCatalog catalog,
+            java.util.Set<String> previousKeys
+    ) {
+        searchPanel.setObservedSurfaceResources(catalog, previousKeys);
+    }
+
+    public void setObservedSurfaceResources(
+            ObservedSurfaceResourceCatalog catalog,
+            String previousKey
+    ) {
+        searchPanel.setObservedSurfaceResources(catalog, previousKey);
+    }
+
+    public void clearObservedSurfaceResources() {
+        searchPanel.clearObservedSurfaceResources();
+    }
+
+    public java.util.Optional<cartographer.resource.ObservedSurfaceResource>
+    selectedObservedSurfaceResource() {
+        return searchPanel.selectedObservedSurfaceResource();
+    }
+
+    public java.util.List<cartographer.resource.ObservedSurfaceResource>
+    selectedObservedSurfaceResources() {
+        return searchPanel.selectedObservedSurfaceResources();
     }
 }

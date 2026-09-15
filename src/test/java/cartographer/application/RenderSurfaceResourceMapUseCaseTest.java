@@ -19,7 +19,11 @@ import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.render.SurfaceResourceOverlayRenderer;
 import cartographer.render.UserMarkerRenderer;
-import cartographer.resource.SurfaceResourceAnalyzer;
+import cartographer.resource.SurfaceMaterialAnalyzer;
+import cartographer.resource.ObservedSurfaceResource;
+import cartographer.resource.SurfaceObjectCandidate;
+import cartographer.resource.SurfaceObjectCandidateCatalogBuilder;
+import cartographer.resource.SurfaceObjectObservation;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.MapChunkStreamStats;
 import cartographer.save.ReadDiagnostics;
@@ -40,6 +44,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RenderSurfaceResourceMapUseCaseTest {
@@ -62,76 +67,86 @@ class RenderSurfaceResourceMapUseCaseTest {
         assertEquals(1, reader.adaptiveExactChunkCalls);
         assertEquals(1, reader.exactChunkCalls);
         assertEquals(List.of(List.of(exactPosition)), reader.exactRequests);
-        assertTrue(result.analysis().matchingBlockCount() > 0);
+        assertTrue(((cartographer.resource.SurfaceMaterialAnalysis) result.analysis()).matchedBlockCount() > 0);
     }
 
     @Test
-    void looseObsidianUsesSurfaceObjectScanAboveTerrain() {
+    void observedSurfaceObjectRenderReusesDiscoveryWithoutSelectiveScan() {
         MapChunkCoordinate mapChunkCoordinate = new MapChunkCoordinate(0, 0);
         ChunkPosition exactPosition = new ChunkPosition(0, 0, 0, 0);
+        Map<Integer, BlockInfo> registry = Map.of(
+                0, new BlockInfo(0, "air"),
+                1, new BlockInfo(1, "game:soil-grass"),
+                7, new BlockInfo(7, "game:loosestones-obsidian-free"),
+                8, new BlockInfo(8, "game:looseores-nativecopper-granite-free")
+        );
         FakeReader reader = new FakeReader(
                 List.of(mapChunkCoordinate),
                 Map.of(exactPosition, surfaceChunkWithObsidian()),
-                Map.of(
-                        0, new BlockInfo(0, "air"),
-                        1, new BlockInfo(1, "game:soil-grass"),
-                        7, new BlockInfo(7, "game:loosestones-obsidian-free")
-                )
+                registry
         );
-
-        RenderSurfaceResourceMapResult result = useCase(reader).execute(
-                new RenderSurfaceResourceMapRequest(
+        SurfaceObjectCandidate candidate = new SurfaceObjectCandidateCatalogBuilder()
+                .build(registry)
+                .findByBlockId(7)
+                .orElseThrow();
+        ObservedSurfaceResource observed = new ObservedSurfaceResource(
+                candidate,
+                List.of(new SurfaceObjectObservation(candidate, 16, 6, 16, 7))
+        );
+        SurfaceObjectCandidate copperCandidate = new SurfaceObjectCandidateCatalogBuilder()
+                .build(registry).findByBlockId(8).orElseThrow();
+        ObservedSurfaceResource copper = new ObservedSurfaceResource(
+                copperCandidate,
+                List.of(new SurfaceObjectObservation(copperCandidate, 16, 7, 16, 8))
+        );
+        RenderSurfaceResourceMapRequest request =
+                RenderSurfaceResourceMapRequest.forObservedResources(
                         Path.of("save.vcdbs"),
                         1,
                         1,
                         RenderStyle.TOPOGRAPHIC,
                         EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
-                        SurfaceResourceMatch.looseObsidian(),
-                        Optional.of(new WorldPosition(16, 100, 16))
-                )
+                        List.of(observed, copper),
+                        new WorldPosition(16, 100, 16)
+                );
+
+        RenderSurfaceResourceMapResult result = useCase(reader).execute(
+                request,
+                cartographer.application.ProgressReporter.NONE
         );
 
-        assertTrue(result.analysis().matchingBlocks().stream()
-                .anyMatch(point -> point.y() == 6));
-        assertEquals(1, result.surfaceObjectRegistryVariants());
-        assertTrue(reader.coverageCalls > 0);
+        assertEquals(0, reader.coverageCalls);
+        assertEquals(2, ((cartographer.resource.SurfaceObjectSelectionAnalysis) result.analysis()).occurrenceCount());
     }
 
     @Test
-    void exposedObsidianTerrainBlockIsIncludedSeparatelyFromLooseObjects() {
-        MapChunkCoordinate mapChunkCoordinate = new MapChunkCoordinate(0, 0);
+    void observedRenderFailsWhenObservationBlockIsMissingFromRegistry() {
         ChunkPosition exactPosition = new ChunkPosition(0, 0, 0, 0);
+        Map<Integer, BlockInfo> registry = Map.of(
+                0, new BlockInfo(0, "air"),
+                1, new BlockInfo(1, "game:soil-grass")
+        );
         FakeReader reader = new FakeReader(
-                List.of(mapChunkCoordinate),
-                Map.of(exactPosition, surfaceChunkWithExposedObsidian()),
-                Map.of(
-                        0, new BlockInfo(0, "air"),
-                        1, new BlockInfo(1, "game:soil-grass"),
-                        7, new BlockInfo(7, "game:rock-obsidian")
-                )
+                List.of(new MapChunkCoordinate(0, 0)),
+                Map.of(exactPosition, surfaceChunkWithObsidian()),
+                registry
         );
+        SurfaceObjectCandidate candidate = new SurfaceObjectCandidateCatalogBuilder()
+                .build(Map.of(7, new BlockInfo(7, "game:loosestones-obsidian-free")))
+                .findByBlockId(7)
+                .orElseThrow();
+        ObservedSurfaceResource observed = new ObservedSurfaceResource(candidate, List.of(
+                new SurfaceObjectObservation(candidate, 16, 6, 16, 7)));
+        RenderSurfaceResourceMapRequest request =
+                RenderSurfaceResourceMapRequest.forObservedResource(
+                        Path.of("save.vcdbs"), 1, 1, RenderStyle.TOPOGRAPHIC,
+                        EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE), observed,
+                        new WorldPosition(16, 100, 16));
 
-        RenderSurfaceResourceMapResult result = useCase(reader).execute(
-                new RenderSurfaceResourceMapRequest(
-                        Path.of("save.vcdbs"),
-                        1,
-                        1,
-                        RenderStyle.TOPOGRAPHIC,
-                        EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
-                        SurfaceResourceMatch.looseObsidian(),
-                        Optional.of(new WorldPosition(16, 100, 16))
-                )
-        );
-
-        assertEquals(1, result.exposedObsidianCount());
-        assertEquals(0, result.looseObsidianCount());
-        assertEquals(1, result.analysis().matchingBlockCount());
-        assertEquals(
-                new cartographer.resource.SurfaceResourcePoint(
-                        16, 5, 16, "game:rock-obsidian"
-                ),
-                result.analysis().matchingBlocks().getFirst()
-        );
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> useCase(reader).execute(request,
+                        cartographer.application.ProgressReporter.NONE));
+        assertTrue(failure.getMessage().contains("missing block ID: 7"));
     }
 
     @Test
@@ -176,7 +191,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         assertTrue(reader.exactRequests.get(1).stream().allMatch(
                 position -> position.x() == second.x() && position.z() == second.z()
         ));
-        assertTrue(result.analysis().matchingBlockCount() > 0);
+        assertTrue(((cartographer.resource.SurfaceMaterialAnalysis) result.analysis()).matchedBlockCount() > 0);
     }
 
     @Test
@@ -193,7 +208,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         assertEquals(1, reader.directMapChunkCalls);
         assertEquals(1, reader.exactChunkCalls);
         assertEquals(8, reader.exactRequests.getFirst().size());
-        assertTrue(result.analysis().matchingBlockCount() > 0);
+        assertTrue(((cartographer.resource.SurfaceMaterialAnalysis) result.analysis()).matchedBlockCount() > 0);
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
     }
@@ -273,7 +288,7 @@ class RenderSurfaceResourceMapUseCaseTest {
             expectedFallback.add(new ChunkPosition(0, y, 0, 0));
         }
         assertEquals(expectedFallback, Set.copyOf(reader.exactRequests.get(1)));
-        assertTrue(result.analysis().matchingBlockCount() > 0);
+        assertTrue(((cartographer.resource.SurfaceMaterialAnalysis) result.analysis()).matchedBlockCount() > 0);
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
     }
@@ -325,14 +340,15 @@ class RenderSurfaceResourceMapUseCaseTest {
 
         RenderSurfaceResourceMapResult result = useCase(reader).execute(request(16, 16, 1));
 
-        assertEquals(1, result.analysis().matchingBlockCount());
+        assertEquals(1, ((cartographer.resource.SurfaceMaterialAnalysis) result.analysis()).matchedBlockCount());
+        assertEquals(0, reader.coverageCalls);
     }
 
     private RenderSurfaceResourceMapRequest request(double x, double z, int radius) {
         return new RenderSurfaceResourceMapRequest(
                 Path.of("save.vcdbs"), radius, 1, RenderStyle.TOPOGRAPHIC,
                 EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
-                new SurfaceResourceMatch("Fire Clay", List.of("fire", "clay")),
+                new SurfaceMaterialMatch("Fire Clay", List.of("fire", "clay")),
                 Optional.of(new WorldPosition(x, 100, z))
         );
     }
@@ -356,7 +372,7 @@ class RenderSurfaceResourceMapUseCaseTest {
                 new HomeStore(Path.of("build", "surface-test-home.properties")),
                 new MarkerStore(Path.of("build", "surface-test-markers.csv")),
                 new MapRenderer(), new UserMarkerRenderer(), new SurfaceScanner(),
-                new SurfaceResourceAnalyzer(), new SurfaceResourceOverlayRenderer()
+                new SurfaceMaterialAnalyzer(), new SurfaceResourceOverlayRenderer()
         );
     }
 
@@ -375,16 +391,6 @@ class RenderSurfaceResourceMapUseCaseTest {
         ParsedChunk base = surfaceChunk(new ChunkCoordinate(0, 0, 0));
         int[] blocks = base.blockIds();
         blocks[(6 * 32 + 16) * 32 + 16] = 7;
-        return new ParsedChunk(
-                base.coordinate(), base.minY(), base.sizeX(), base.sizeY(), base.sizeZ(),
-                blocks, base.liquidIds(), 0, true, ""
-        );
-    }
-
-    private ParsedChunk surfaceChunkWithExposedObsidian() {
-        ParsedChunk base = surfaceChunk(new ChunkCoordinate(0, 0, 0));
-        int[] blocks = base.blockIds();
-        blocks[(5 * 32 + 16) * 32 + 16] = 7;
         return new ParsedChunk(
                 base.coordinate(), base.minY(), base.sizeX(), base.sizeY(), base.sizeZ(),
                 blocks, base.liquidIds(), 0, true, ""

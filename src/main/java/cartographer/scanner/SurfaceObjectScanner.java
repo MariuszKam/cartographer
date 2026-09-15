@@ -68,8 +68,10 @@ public final class SurfaceObjectScanner {
         }
 
         List<SurfaceBlock> blocks = new ArrayList<>();
+        Set<String> observedCoordinates = new java.util.HashSet<>();
         int unavailable = 0;
         int notObserved = 0;
+        int observedTargets = 0;
         for (SurfaceObjectTarget target : plan.targets()) {
             boolean targetUnavailable = false;
             boolean observed = false;
@@ -94,34 +96,40 @@ public final class SurfaceObjectScanner {
                         Math.floorMod(target.worldZ(), chunk.sizeZ())
                 );
                 if (wantedBlockIds.contains(blockId)) {
-                    blocks.add(new SurfaceBlock(
-                            target.worldX(),
-                            worldY,
-                            target.worldZ(),
-                            registry.getOrDefault(blockId, BlockInfo.unknown(blockId)),
-                            0,
-                            BlockInfo.unknown(0),
-                            SurfaceClass.UNKNOWN
-                    ));
+                    String coordinateKey = target.worldX() + ":"
+                            + worldY + ":" + target.worldZ();
+                    if (observedCoordinates.add(coordinateKey)) {
+                        blocks.add(new SurfaceBlock(
+                                target.worldX(),
+                                worldY,
+                                target.worldZ(),
+                                registry.getOrDefault(blockId, BlockInfo.unknown(blockId)),
+                                0,
+                                BlockInfo.unknown(0),
+                                SurfaceClass.UNKNOWN
+                        ));
+                    }
                     observed = true;
-                    break;
                 }
             }
-            if (!observed && targetUnavailable) {
+            if (observed) {
+                observedTargets++;
+            } else if (targetUnavailable) {
                 unavailable++;
-            } else if (!observed) {
+            } else {
                 notObserved++;
             }
         }
 
         blocks.sort(Comparator.comparingInt(SurfaceBlock::worldZ)
                 .thenComparingInt(SurfaceBlock::worldX)
-                .thenComparingInt(SurfaceBlock::y));
+                .thenComparingInt(SurfaceBlock::y)
+                .thenComparingInt(block -> block.blockInfo().id()));
         return new SurfaceObjectScanResult(
                 blocks,
                 plan.targets().size(),
                 unavailable,
-                blocks.size(),
+                observedTargets,
                 notObserved
         );
     }

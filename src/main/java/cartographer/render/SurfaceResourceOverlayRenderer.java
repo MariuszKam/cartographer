@@ -3,8 +3,11 @@ package cartographer.render;
 import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
 import cartographer.model.WorldPosition;
-import cartographer.resource.SurfaceResourceAnalysis;
-import cartographer.resource.SurfaceResourceDeposit;
+import cartographer.resource.SurfaceMaterialAnalysis;
+import cartographer.resource.SurfaceMaterialDeposit;
+import cartographer.resource.SurfaceObjectAnalysis;
+import cartographer.resource.SurfaceObjectPresentation;
+import cartographer.resource.SurfaceObjectSelectionAnalysis;
 import cartographer.resource.SurfaceResourcePoint;
 
 import java.awt.BasicStroke;
@@ -25,12 +28,14 @@ public class SurfaceResourceOverlayRenderer {
 
     private final MarkerRenderer markerRenderer =
             new MarkerRenderer();
+    private final SurfaceObjectMarkerStylePolicy objectMarkerStyles =
+            new SurfaceObjectMarkerStylePolicy();
 
-    public int draw(
+    public int drawMaterial(
             BufferedImage image,
             WorldPosition center,
             int radiusBlocks,
-            SurfaceResourceAnalysis analysis,
+            SurfaceMaterialAnalysis analysis,
             WorldPosition player,
             HomeState home
     ) {
@@ -48,7 +53,7 @@ public class SurfaceResourceOverlayRenderer {
 
         if (analysis == null) {
             throw new IllegalArgumentException(
-                    "Surface resource analysis is required"
+                    "Surface material analysis is required"
             );
         }
 
@@ -224,10 +229,134 @@ public class SurfaceResourceOverlayRenderer {
         return drawnBlocks;
     }
 
+    public int drawObject(
+            BufferedImage image,
+            WorldPosition center,
+            int radiusBlocks,
+            SurfaceObjectAnalysis analysis,
+            WorldPosition player,
+            HomeState home
+    ) {
+        return drawObjects(image, center, radiusBlocks,
+                new SurfaceObjectSelectionAnalysis(List.of(analysis)), player, home);
+    }
+
+    public int drawObjects(
+            BufferedImage image,
+            WorldPosition center,
+            int radiusBlocks,
+            SurfaceObjectSelectionAnalysis analysis,
+            WorldPosition player,
+            HomeState home
+    ) {
+        Objects.requireNonNull(analysis, "Surface object selection analysis is required");
+        Objects.requireNonNull(image, "Image is required");
+        Objects.requireNonNull(center, "Map center is required");
+        Objects.requireNonNull(home, "Home state is required");
+        double scaleX = image.getWidth() / (double) (radiusBlocks * 2);
+        double scaleZ = image.getHeight() / (double) (radiusBlocks * 2);
+        int minWorldX = (int) Math.floor(center.x()) - radiusBlocks;
+        int minWorldZ = (int) Math.floor(center.z()) - radiusBlocks;
+        Graphics2D graphics = image.createGraphics();
+        int drawn = 0;
+        try {
+            graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                    RenderingHints.VALUE_ANTIALIAS_ON);
+            graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                    RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            for (SurfaceObjectAnalysis resource : analysis.resources()) {
+                SurfaceObjectMarkerStyle style = objectMarkerStyles.forFamilies(resource.families());
+                graphics.setColor(SurfaceObjectColorPolicy.colorFor(resource.qualifiedResourceKey()));
+                for (SurfaceResourcePoint point : resource.occurrences()) {
+                    int startX = (int) Math.floor((point.worldX() - minWorldX) * scaleX);
+                    int endX = (int) Math.ceil((point.worldX() + 1 - minWorldX) * scaleX);
+                    int startY = (int) Math.floor((point.worldZ() - minWorldZ) * scaleZ);
+                    int endY = (int) Math.ceil((point.worldZ() + 1 - minWorldZ) * scaleZ);
+                    if (endX <= 0 || endY <= 0 || startX >= image.getWidth()
+                            || startY >= image.getHeight()) continue;
+                    int markerX = (int) Math.round((point.worldX() + 0.5 - minWorldX) * scaleX);
+                    int markerY = (int) Math.round((point.worldZ() + 0.5 - minWorldZ) * scaleZ);
+                    drawObjectMarker(graphics, markerX, markerY, style);
+                    drawn++;
+                }
+            }
+            drawObjectLegend(graphics, image, analysis);
+            drawMarkers(graphics, image, player, home, minWorldX, minWorldZ, scaleX, scaleZ);
+        } finally {
+            graphics.dispose();
+        }
+        return drawn;
+    }
+
+    private void drawObjectLegend(
+            Graphics2D graphics,
+            BufferedImage image,
+            SurfaceObjectSelectionAnalysis analysis
+    ) {
+        if (image.getWidth() < MIN_LEGEND_WIDTH || image.getHeight() < MIN_LEGEND_HEIGHT) return;
+        int x = 8;
+        int y = 8;
+        int entryHeight = 32;
+        int availableHeight = image.getHeight() - y - 8;
+        int maxEntries = Math.max(1, (availableHeight - 24) / entryHeight);
+        boolean overflow = analysis.resources().size() > maxEntries;
+        if (overflow) {
+            maxEntries = Math.max(1, (availableHeight - 24 - 16) / entryHeight);
+        }
+        int visibleEntries = Math.min(analysis.resources().size(), maxEntries);
+        int height = 24 + visibleEntries * entryHeight + (overflow ? 16 : 0);
+        graphics.setColor(new Color(0, 0, 0, 150));
+        graphics.fillRect(x, y, 225, height);
+        graphics.setColor(Color.WHITE);
+        graphics.drawString("Surface objects: " + analysis.resourceCount(), x + 8, y + 16);
+        for (int index = 0; index < visibleEntries; index++) {
+            SurfaceObjectAnalysis resource = analysis.resources().get(index);
+            int rowY = y + 32 + index * entryHeight;
+            SurfaceObjectMarkerStyle style = objectMarkerStyles.forFamilies(resource.families());
+            graphics.setColor(SurfaceObjectColorPolicy.colorFor(resource.qualifiedResourceKey()));
+            drawObjectMarker(graphics, x + 14, rowY - 4, style);
+            graphics.setColor(Color.WHITE);
+            graphics.drawString(resource.displayName(), x + 26, rowY);
+            graphics.drawString(SurfaceObjectPresentation.familyMetricLabel(resource.families()) + ": "
+                    + SurfaceObjectPresentation.analysisFamilyText(resource), x + 8, rowY + 12);
+            graphics.drawString(resource.occurrenceCount() + " occurrences • "
+                    + resource.registryVariantCount() + " variants", x + 8, rowY + 24);
+        }
+        if (visibleEntries < analysis.resources().size()) {
+            graphics.drawString("+" + (analysis.resources().size() - visibleEntries) + " more selected resources",
+                    x + 8, y + height - 4);
+        }
+    }
+
+    private void drawObjectMarker(
+            Graphics2D graphics,
+            int centerX,
+            int centerY,
+            SurfaceObjectMarkerStyle style
+    ) {
+        int radius = style.radius();
+        switch (style.shape()) {
+            case DIAMOND -> graphics.fillPolygon(
+                    new int[]{centerX, centerX + radius, centerX, centerX - radius},
+                    new int[]{centerY - radius, centerY, centerY + radius, centerY}, 4);
+            case TRIANGLE -> graphics.fillPolygon(
+                    new int[]{centerX, centerX + radius, centerX - radius},
+                    new int[]{centerY - radius, centerY + radius, centerY + radius}, 3);
+            case CIRCLE -> graphics.fillOval(
+                    centerX - radius, centerY - radius, radius * 2 + 1, radius * 2 + 1);
+            case SQUARE -> graphics.fillRect(
+                    centerX - radius, centerY - radius, radius * 2 + 1, radius * 2 + 1);
+            case MIXED -> {
+                graphics.fillRect(centerX - radius, centerY - 1, radius * 2 + 1, 3);
+                graphics.fillRect(centerX - 1, centerY - radius, 3, radius * 2 + 1);
+            }
+        }
+    }
+
     private void drawDepositCenters(
             Graphics2D graphics,
             BufferedImage image,
-            List<SurfaceResourceDeposit> deposits,
+            List<SurfaceMaterialDeposit> deposits,
             int minWorldX,
             int minWorldZ,
             double scaleX,
@@ -249,7 +378,7 @@ public class SurfaceResourceOverlayRenderer {
              index < limit;
              index++) {
 
-            SurfaceResourceDeposit deposit =
+            SurfaceMaterialDeposit deposit =
                     deposits.get(
                             index
                     );
@@ -299,7 +428,7 @@ public class SurfaceResourceOverlayRenderer {
     private void drawLegend(
             Graphics2D graphics,
             BufferedImage image,
-            SurfaceResourceAnalysis analysis
+            SurfaceMaterialAnalysis analysis
     ) {
         if (image.getWidth() < MIN_LEGEND_WIDTH
                 || image.getHeight() < MIN_LEGEND_HEIGHT) {
@@ -339,26 +468,10 @@ public class SurfaceResourceOverlayRenderer {
                 Color.WHITE
         );
 
-        graphics.drawString(
-                "Surface resource: "
-                        + analysis.query(),
-                x + 8,
-                y + 16
-        );
-
-        graphics.drawString(
-                "Blocks: "
-                        + analysis.matchingBlockCount(),
-                x + 8,
-                y + 32
-        );
-
-        graphics.drawString(
-                "Deposits: "
-                        + analysis.depositCount(),
-                x + 8,
-                y + 48
-        );
+        SurfaceOverlayLegend legend = SurfaceOverlayLegend.forAnalysis(analysis);
+        graphics.drawString(legend.title(), x + 8, y + 16);
+        graphics.drawString(legend.metrics().get(0), x + 8, y + 32);
+        graphics.drawString(legend.metrics().get(1), x + 8, y + 48);
 
         graphics.setColor(
                 new Color(

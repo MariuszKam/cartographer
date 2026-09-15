@@ -2,7 +2,8 @@ package cartographer.resource;
 
 import java.util.Set;
 
-public record SurfaceResourceDeposit(
+/** Internal adapter value for the legacy material clustering implementation. */
+record SurfaceResourceDeposit(
         String query,
         int blockCount,
         Set<String> blockCodes,
