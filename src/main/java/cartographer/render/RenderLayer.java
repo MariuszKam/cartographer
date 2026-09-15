@@ -7,6 +7,7 @@ import java.util.Set;
 public enum RenderLayer {
     TERRAIN,
     SURFACE,
+    SOIL_FERTILITY,
     ENVIRONMENT,
     GEOLOGY,
     MARKERS;

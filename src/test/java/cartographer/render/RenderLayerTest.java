@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RenderLayerTest {
@@ -22,6 +23,8 @@ class RenderLayerTest {
                 ),
                 layers
         );
+
+        assertFalse(layers.contains(RenderLayer.SOIL_FERTILITY));
     }
 
     @Test
@@ -87,6 +90,22 @@ class RenderLayerTest {
                         RenderLayer.GEOLOGY
                 ),
                 layers
+        );
+    }
+
+    @Test
+    void parsesSoilFertilityLayerCaseInsensitively() {
+        assertEquals(
+                Set.of(RenderLayer.SOIL_FERTILITY),
+                RenderLayer.parse("soil_fertility")
+        );
+        assertEquals(
+                Set.of(RenderLayer.SOIL_FERTILITY),
+                RenderLayer.parse("SOIL_FERTILITY")
+        );
+        assertEquals(
+                Set.of(RenderLayer.SOIL_FERTILITY),
+                RenderLayer.parse("Soil_Fertility")
         );
     }
 }

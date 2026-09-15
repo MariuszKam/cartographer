@@ -162,6 +162,156 @@ class MapRendererTest {
     }
 
     @Test
+    void soilFertilityUsesExactScaledRectangleWithoutSurfaceLayer() {
+        RenderOptions options = new RenderOptions(
+                16, 2, RenderStyle.SIMPLE, Set.of(RenderLayer.SOIL_FERTILITY)
+        );
+        int background = new TerrainPalette().background(RenderStyle.SIMPLE);
+        RenderedMap rendered = new MapRenderer().render(
+                new WorldPosition(16.0, 0.0, 16.0),
+                HomeState.absent(),
+                List.of(),
+                List.of(new SurfaceBlock(
+                        16, 80, 16,
+                        new BlockInfo(1, "game:soil-medium-normal")
+                )),
+                options,
+                ProgressReporter.NONE
+        );
+
+        assertNotEquals(background, rendered.image().getRGB(32, 32));
+        assertEquals(rendered.image().getRGB(32, 32), rendered.image().getRGB(33, 33));
+        assertEquals(background, rendered.image().getRGB(35, 32));
+    }
+
+    @Test
+    void unknownAndNonSoilBlocksRemainUnpainted() {
+        RenderOptions options = new RenderOptions(
+                16, 1, RenderStyle.SIMPLE, Set.of(RenderLayer.SOIL_FERTILITY)
+        );
+        int background = new TerrainPalette().background(RenderStyle.SIMPLE);
+        RenderedMap rendered = new MapRenderer().render(
+                new WorldPosition(16.0, 0.0, 16.0),
+                HomeState.absent(),
+                List.of(),
+                List.of(
+                        new SurfaceBlock(16, 80, 16,
+                                new BlockInfo(1, "game:rock-granite")),
+                        new SurfaceBlock(17, 80, 16,
+                                new BlockInfo(2, "creativegrass-medium-normal"))
+                ),
+                options,
+                ProgressReporter.NONE
+        );
+
+        assertEquals(background, rendered.image().getRGB(32, 32));
+        assertEquals(background, rendered.image().getRGB(33, 32));
+    }
+
+    @Test
+    void differentFertilityTiersRenderDifferently() {
+        RenderOptions options = new RenderOptions(
+                16, 1, RenderStyle.SIMPLE, Set.of(RenderLayer.SOIL_FERTILITY)
+        );
+        MapRenderer renderer = new MapRenderer();
+        int low = renderer.render(
+                new WorldPosition(16.0, 0.0, 16.0),
+                HomeState.absent(),
+                List.of(),
+                List.of(new SurfaceBlock(16, 80, 16,
+                        new BlockInfo(1, "game:soil-low-normal"))),
+                options,
+                ProgressReporter.NONE
+        ).image().getRGB(32, 32);
+        int high = renderer.render(
+                new WorldPosition(16.0, 0.0, 16.0),
+                HomeState.absent(),
+                List.of(),
+                List.of(new SurfaceBlock(16, 80, 16,
+                        new BlockInfo(1, "game:soil-high-normal"))),
+                options,
+                ProgressReporter.NONE
+        ).image().getRGB(32, 32);
+
+        assertNotEquals(low, high);
+    }
+
+    @Test
+    void soilFertilityRendersAboveSurface() {
+        RenderOptions options = new RenderOptions(
+                16, 1, RenderStyle.SIMPLE,
+                Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE, RenderLayer.SOIL_FERTILITY)
+        );
+        SurfaceBlock block = new SurfaceBlock(
+                16, 80, 16,
+                new BlockInfo(1, "game:soil-medium-normal"),
+                0,
+                BlockInfo.unknown(0),
+                SurfaceClass.SOIL
+        );
+        int surfaceColor = new SemanticTerrainPalette().color(SurfaceClass.SOIL, 0.0);
+        int actual = new MapRenderer().render(
+                new WorldPosition(16.0, 0.0, 16.0),
+                HomeState.absent(),
+                List.of(),
+                List.of(block),
+                options,
+                ProgressReporter.NONE
+        ).image().getRGB(32, 32);
+
+        assertNotEquals(surfaceColor, actual);
+    }
+
+    @Test
+    void markersRemainAboveSoilFertility() {
+        RenderOptions options = new RenderOptions(
+                16, 1, RenderStyle.SIMPLE,
+                Set.of(RenderLayer.SOIL_FERTILITY, RenderLayer.MARKERS)
+        );
+        RenderedMap rendered = new MapRenderer().render(
+                new WorldPosition(16.0, 0.0, 16.0),
+                HomeState.absent(),
+                List.of(),
+                List.of(new SurfaceBlock(16, 80, 16,
+                        new BlockInfo(1, "game:soil-medium-normal"))),
+                options,
+                ProgressReporter.NONE
+        );
+
+        assertEquals(Color.RED.getRGB(), rendered.image().getRGB(32, 32));
+    }
+
+    @Test
+    void soilFertilityLegendUsesUpperRightAndCoexistsWithSurfaceLegend() {
+        RenderOptions options = new RenderOptions(
+                128, 1, RenderStyle.SIMPLE,
+                Set.of(RenderLayer.SURFACE, RenderLayer.SOIL_FERTILITY)
+        );
+        int background = new TerrainPalette().background(RenderStyle.SIMPLE);
+        RenderedMap rendered = new MapRenderer().render(
+                new WorldPosition(128.0, 0.0, 128.0),
+                HomeState.absent(),
+                List.of(),
+                List.of(new SurfaceBlock(
+                        128, 80, 128,
+                        new BlockInfo(1, "game:soil-medium-normal"),
+                        0,
+                        BlockInfo.unknown(0),
+                        SurfaceClass.SOIL
+                )),
+                options,
+                ProgressReporter.NONE
+        );
+
+        assertNotEquals(background, rendered.image().getRGB(
+                rendered.image().getWidth() - 135, 12
+        ));
+        assertNotEquals(background, rendered.image().getRGB(
+                12, rendered.image().getHeight() - 20
+        ));
+    }
+
+    @Test
     void preparedTerrainRenderingMatchesListBasedRendering() {
         WorldPosition center = new WorldPosition(32.0, 0.0, 32.0);
         RenderOptions options = new RenderOptions(

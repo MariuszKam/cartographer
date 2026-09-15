@@ -35,6 +35,9 @@ public class MapRenderer {
     private final SemanticTerrainPalette semanticPalette =
             new SemanticTerrainPalette();
 
+    private final SoilFertilityOverlayRenderer soilFertilityRenderer =
+            new SoilFertilityOverlayRenderer();
+
     private final MarkerRenderer markers =
             new MarkerRenderer();
 
@@ -242,6 +245,23 @@ public class MapRenderer {
                     minZ,
                     scale,
                     diameter,
+                    progress
+            );
+        }
+
+        boolean soilFertilityEnabled =
+                options.layers()
+                        .contains(
+                                RenderLayer.SOIL_FERTILITY
+                        );
+
+        if (soilFertilityEnabled) {
+            soilFertilityRenderer.draw(
+                    image,
+                    surfaceBlocks,
+                    minX,
+                    minZ,
+                    scale,
                     progress
             );
         }
