@@ -245,6 +245,22 @@ The task hashes the main save and SQLite sidecars before and after a small produ
 
 Direct `.vcdbs` analysis uses immutable SQLite read-only access and assumes an offline, quiescent save. Do not use Cartographer to read a save while Vintage Story or another process is actively modifying it.
 
+## ROCK performance scaling ladder
+
+The global `RadiusProfile` vocabulary is `R128`, `R256`, `R512`, `R1024`, `R2048`, and `R4096`. The standard workload catalog applies all six profiles to each existing workload family. Defining an identifier does not prove that the operation currently completes; a failed or OOM run is still valid scalability evidence.
+
+For ROCK performance work, the profiles have these roles:
+
+- **R256 — sanity workload:** fast development feedback; insufficient by itself for serious ROCK performance acceptance.
+- **R512 — medium workload:** intermediate scaling evidence.
+- **R1024 — mandatory reference workload (“Trabant”):** the canonical BEFORE/AFTER workload. A serious ROCK performance PASS must not rely solely on R256/R512 evidence.
+- **R2048 — primary scalability target (“Ferrari”):** the main target for the PF-1.1–PF-1.3 architecture work.
+- **R4096 — stretch scalability workload:** observes headroom and how far the architecture scales; it is available before comfortable completion is expected.
+
+Large-radius failures must be reported honestly and must not be hidden by weakening runtime gates. For example, `R1024 -> SUCCESS`, `R2048 -> OOM`, and `R4096 -> OOM` can be a legitimate BEFORE state; later evidence may show R1024 faster, R2048 successful, and R4096 still failing, followed eventually by R4096 success. R2048/R4096 are targets, not claims of current performance, bounded memory, safety, or runtime validation. R2048/R4096 success is not required to begin PF-1.1.
+
+For changes materially affecting ROCK, R256/R512 are development evidence, R1024 is mandatory canonical evidence, R2048 is the primary target, and R4096 is the stretch target. Correctness fingerprint mismatch is FAIL regardless of speed, and save safety remains a separate mandatory gate when applicable.
+
 ## Local macro baseline tooling
 
 Reviewers can run the first real-save ROCK macro baseline with either supported workload:
@@ -256,4 +272,4 @@ Reviewers can run the first real-save ROCK macro baseline with either supported 
   -PgitSha="<40-char SHA>"
 ```
 
-Use `ROCK_UPPER_R512` for the larger supported radius. The command uses the production ROCK pipeline with two JVM-warm warmups and five measured iterations. The OS filesystem cache state is uncontrolled; this is not cold-disk evidence. The save SHA-256 is calculated only after successful measured iterations, and save safety must be checked separately with `realSaveValidation`. Keep Vintage Story closed and the save quiescent. This is opt-in reviewer tooling, not JMH or JFR, and is not wired into build, test, check, or CI. It does not introduce PF-1.0.12.
+The supported macro workloads are `ROCK_UPPER_R256`, `ROCK_UPPER_R512`, `ROCK_UPPER_R1024`, `ROCK_UPPER_R2048`, and `ROCK_UPPER_R4096`. Replace the workload argument in the command above with any of those IDs. The command uses the production ROCK pipeline with two JVM-warm warmups and five measured iterations. The OS filesystem cache state is uncontrolled; this is not cold-disk evidence. The save SHA-256 is calculated only after successful measured iterations, and save safety must be checked separately with `realSaveValidation`. Keep Vintage Story closed and the save quiescent. This is opt-in reviewer tooling, not JMH or JFR, and is not wired into build, test, check, or CI. It does not introduce PF-1.0.12.

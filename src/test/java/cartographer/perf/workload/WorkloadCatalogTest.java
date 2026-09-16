@@ -25,11 +25,21 @@ class WorkloadCatalogTest {
 
         assertEquals(first, second);
         assertEquals("MAP_R128", first.get(0).id());
-        assertEquals("ORE_SINGLE_native_copper_R256", first.get(5).id());
-        assertEquals("ROCK_AT_Y_Y96_R1024", first.get(15).id());
-        assertEquals("PROSPECTING_FULL_R512", first.get(26).id());
-        assertEquals(List.of(128, 256, 512, 1024),
-                first.stream().limit(4).map(workload -> workload.radius().blocks()).toList());
+        assertEquals("ORE_SINGLE_native_copper_R256", first.stream()
+                .filter(workload -> workload.family() == WorkloadFamily.ORE_SINGLE
+                        && workload.radius() == RadiusProfile.R256)
+                .findFirst().orElseThrow().id());
+        assertEquals("ROCK_AT_Y_Y96_R1024", first.stream()
+                .filter(workload -> workload.family() == WorkloadFamily.ROCK_AT_Y
+                        && workload.radius() == RadiusProfile.R1024)
+                .findFirst().orElseThrow().id());
+        assertEquals("PROSPECTING_FULL_R512", first.stream()
+                .filter(workload -> workload.family() == WorkloadFamily.PROSPECTING_FULL
+                        && workload.radius() == RadiusProfile.R512)
+                .findFirst().orElseThrow().id());
+        assertEquals(List.of(128, 256, 512, 1024, 2048, 4096),
+                first.stream().filter(workload -> workload.family() == WorkloadFamily.MAP)
+                        .map(workload -> workload.radius().blocks()).toList());
     }
 
     @Test
@@ -57,7 +67,7 @@ class WorkloadCatalogTest {
                 80
         );
 
-        assertEquals(28, catalog.size());
+        assertEquals(42, catalog.size());
         assertThrows(UnsupportedOperationException.class, () ->
                 catalog.add(new MapWorkload(RadiusProfile.R128)));
         List<WorkloadFamily> expectedFamilies = List.of(
@@ -73,6 +83,12 @@ class WorkloadCatalogTest {
                 catalog.stream()
                         .map(WorkloadSpec::family)
                         .distinct()
+                        .toList());
+        assertEquals(List.of("ROCK_UPPER_R2048", "ROCK_UPPER_R4096"),
+                catalog.stream()
+                        .filter(workload -> workload.family() == WorkloadFamily.ROCK_UPPER
+                                && workload.radius().blocks() >= 2048)
+                        .map(WorkloadSpec::id)
                         .toList());
     }
 

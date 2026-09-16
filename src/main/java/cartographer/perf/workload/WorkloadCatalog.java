@@ -10,7 +10,9 @@ public final class WorkloadCatalog {
             RadiusProfile.R128,
             RadiusProfile.R256,
             RadiusProfile.R512,
-            RadiusProfile.R1024
+            RadiusProfile.R1024,
+            RadiusProfile.R2048,
+            RadiusProfile.R4096
     );
 
     private WorkloadCatalog() {
