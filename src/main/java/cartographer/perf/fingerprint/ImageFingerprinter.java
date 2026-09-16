@@ -12,15 +12,18 @@ public final class ImageFingerprinter {
         Objects.requireNonNull(image, "image is required");
         int width = image.getWidth();
         int height = image.getHeight();
-        int[] argb = image.getRGB(0, 0, width, height, null, 0, width);
+        int[] row = new int[width];
 
-        CanonicalWriter writer = new CanonicalWriter()
-                .writeInt(width)
-                .writeInt(height)
-                .writeSequenceStart(argb.length);
-        for (int pixel : argb) {
-            writer.writeInt(pixel);
-        }
-        return SemanticFingerprinter.fingerprint(writer);
+        return SemanticFingerprinter.fingerprint(writer -> {
+            writer.writeInt(width)
+                    .writeInt(height)
+                    .writeSequenceStart(Math.multiplyExact(width, height));
+            for (int y = 0; y < height; y++) {
+                image.getRGB(0, y, width, 1, row, 0, width);
+                for (int pixel : row) {
+                    writer.writeInt(pixel);
+                }
+            }
+        });
     }
 }

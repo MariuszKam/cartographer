@@ -11,20 +11,13 @@ public final class SemanticFingerprinter {
 
     public static ResultFingerprint fingerprint(SemanticFingerprintable value) {
         Objects.requireNonNull(value, "value is required");
-        CanonicalWriter writer = new CanonicalWriter();
-        value.writeCanonical(writer);
-        return fingerprint(writer.toByteArray());
-    }
-
-    public static ResultFingerprint fingerprint(CanonicalWriter writer) {
-        Objects.requireNonNull(writer, "writer is required");
-        return fingerprint(writer.toByteArray());
-    }
-
-    private static ResultFingerprint fingerprint(byte[] canonicalBytes) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return new ResultFingerprint(toHex(digest.digest(canonicalBytes)));
+            CanonicalWriter writer = new CanonicalWriter(
+                    valueByte -> digest.update((byte) valueByte)
+            );
+            value.writeCanonical(writer);
+            return new ResultFingerprint(toHex(digest.digest()));
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is unavailable", exception);
         }

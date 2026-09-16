@@ -57,7 +57,7 @@ class FingerprintTest {
 
     @Test
     void imagesUseDimensionsAndLogicalArgbRatherThanStorageLayout() {
-        BufferedImage argb = new BufferedImage(2, 1, BufferedImage.TYPE_INT_ARGB);
+        TrackingImage argb = new TrackingImage(2, 1, BufferedImage.TYPE_INT_ARGB);
         BufferedImage bgr = new BufferedImage(2, 1, BufferedImage.TYPE_4BYTE_ABGR);
         int firstPixel = new Color(10, 20, 30, 255).getRGB();
         int secondPixel = new Color(40, 50, 60, 128).getRGB();
@@ -74,6 +74,8 @@ class FingerprintTest {
         changedPixel.setRGB(1, 0, Color.BLACK.getRGB());
 
         assertEquals(ImageFingerprinter.fingerprint(argb), ImageFingerprinter.fingerprint(bgr));
+        assertEquals(1, argb.maxRequestedHeight);
+        assertEquals(1, argb.calls);
         assertNotEquals(ImageFingerprinter.fingerprint(argb),
                 ImageFingerprinter.fingerprint(changedDimension));
         assertNotEquals(ImageFingerprinter.fingerprint(argb),
@@ -103,5 +105,37 @@ class FingerprintTest {
 
     private enum TestKind {
         ALPHA
+    }
+
+    private static final class TrackingImage extends BufferedImage {
+        private int maxRequestedHeight;
+        private int calls;
+
+        private TrackingImage(int width, int height, int imageType) {
+            super(width, height, imageType);
+        }
+
+        @Override
+        public int[] getRGB(
+                int startX,
+                int startY,
+                int width,
+                int height,
+                int[] rgbArray,
+                int offset,
+                int scansize
+        ) {
+            calls++;
+            maxRequestedHeight = Math.max(maxRequestedHeight, height);
+            return super.getRGB(
+                    startX,
+                    startY,
+                    width,
+                    height,
+                    rgbArray,
+                    offset,
+                    scansize
+            );
+        }
     }
 }
