@@ -58,7 +58,7 @@ public final class BaselineReportRenderer {
         return output.toString();
     }
 
-    private static void section(String output, String title, String underline) {
+    private static void section(StringBuilder output, String title, String underline) {
         line(output, title);
         line(output, underline);
     }
