@@ -25,7 +25,7 @@ public class SqliteSaveConnection {
 
             Connection connection =
                     DriverManager.getConnection(
-                            "jdbc:sqlite:" + uri + "?mode=ro"
+                            "jdbc:sqlite:" + uri + "?mode=ro&immutable=1"
                     );
 
             try (Statement statement =
