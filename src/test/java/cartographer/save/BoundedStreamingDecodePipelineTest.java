@@ -415,39 +415,50 @@ class BoundedStreamingDecodePipelineTest {
     @Test
     void nonCooperativeWorkerDoesNotDelayPrimaryFailure() throws Exception {
         CountDownLatch firstStarted = new CountDownLatch(1);
+        CountDownLatch interruptObserved = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
         CountDownLatch firstStopped = new CountDownLatch(1);
+        CountDownLatch controllerFinished = new CountDownLatch(1);
         IllegalStateException cause = new IllegalStateException("later failure");
+        AtomicReference<Throwable> failure = new AtomicReference<>();
 
         BoundedStreamingDecodePipeline<Integer> pipeline =
                 new BoundedStreamingDecodePipeline<>(2, 3, value -> { });
-        pipeline.submit(() -> {
-            firstStarted.countDown();
+        Thread controller = Thread.ofPlatform().start(() -> {
             try {
-                releaseFirst.await();
-            } catch (InterruptedException interruption) {
-                // Deliberately remain blocked after cancellation until released.
-                awaitUninterruptibly(releaseFirst);
+                pipeline.submit(() -> {
+                    firstStarted.countDown();
+                    try {
+                        releaseFirst.await();
+                    } catch (InterruptedException interruption) {
+                        interruptObserved.countDown();
+                        // Deliberately remain blocked after cancellation until released.
+                        awaitUninterruptibly(releaseFirst);
+                    } finally {
+                        firstStopped.countDown();
+                    }
+                    return 1;
+                });
+                pipeline.submit(() -> {
+                    throw cause;
+                });
+                pipeline.finish();
+            } catch (Throwable thrown) {
+                failure.set(thrown);
             } finally {
-                firstStopped.countDown();
+                controllerFinished.countDown();
             }
-            return 1;
-        });
-        pipeline.submit(() -> {
-            throw cause;
         });
         assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
-
-        IllegalStateException failure = assertThrows(
-                IllegalStateException.class,
-                pipeline::finish
-        );
-        assertSame(cause, failure.getCause());
-        assertEquals(1, firstStopped.getCount());
+        assertTrue(interruptObserved.await(1, TimeUnit.SECONDS));
+        assertEquals(1, controllerFinished.getCount());
 
         releaseFirst.countDown();
+        assertTrue(controllerFinished.await(1, TimeUnit.SECONDS));
+        assertSame(cause, failure.get().getCause());
         pipeline.close();
         assertTrue(firstStopped.await(1, TimeUnit.SECONDS));
+        controller.join();
     }
 
     @Test

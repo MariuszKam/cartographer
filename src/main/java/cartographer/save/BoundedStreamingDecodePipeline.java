@@ -23,9 +23,6 @@ import java.util.function.Consumer;
  * than {@code maxInFlight}.</p>
  */
 final class BoundedStreamingDecodePipeline<T> implements AutoCloseable {
-    private static final long ABORT_TERMINATION_WAIT_NANOS =
-            TimeUnit.MILLISECONDS.toNanos(100);
-
     private enum State {
         OPEN,
         FINISHED,
@@ -136,7 +133,7 @@ final class BoundedStreamingDecodePipeline<T> implements AutoCloseable {
      */
     @Override
     public void close() {
-        if (state == State.FINISHED) {
+        if (state == State.FINISHED || state == State.ABORTED) {
             return;
         }
         abort();
@@ -225,34 +222,7 @@ final class BoundedStreamingDecodePipeline<T> implements AutoCloseable {
         outstanding.clear();
         inFlight = 0;
         executor.shutdownNow();
-        awaitTerminationBestEffort();
-    }
-
-    /**
-     * Fatal cleanup must not hide the original failure behind an uncooperative
-     * task. The short bound is a lifecycle safety limit, not a performance
-     * tuning parameter; close may be called again after the task is released.
-     */
-    private void awaitTerminationBestEffort() {
-        long deadline = System.nanoTime() + ABORT_TERMINATION_WAIT_NANOS;
-        boolean interrupted = false;
-        while (!executor.isTerminated()) {
-            long remaining = deadline - System.nanoTime();
-            if (remaining <= 0) {
-                break;
-            }
-            try {
-                if (executor.awaitTermination(remaining, TimeUnit.NANOSECONDS)) {
-                    break;
-                }
-            } catch (InterruptedException interruption) {
-                interrupted = true;
-                break;
-            }
-        }
-        if (interrupted) {
-            Thread.currentThread().interrupt();
-        }
+        awaitTermination();
     }
 
     /**
