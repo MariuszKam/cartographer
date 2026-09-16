@@ -4,6 +4,7 @@ import jdk.jfr.Configuration;
 import jdk.jfr.Recording;
 
 import java.io.IOException;
+import java.text.ParseException;
 
 /** Creates recordings using only the JDK's built-in JFR configuration. */
 public final class JdkJfrRecordingFactory implements JfrRecordingFactory {
@@ -16,7 +17,7 @@ public final class JdkJfrRecordingFactory implements JfrRecordingFactory {
                     )),
                     plan
             );
-        } catch (IOException exception) {
+        } catch (IOException | ParseException exception) {
             throw new JfrProfilingException(
                     "Cannot load JFR configuration " + plan.configuration(),
                     exception
