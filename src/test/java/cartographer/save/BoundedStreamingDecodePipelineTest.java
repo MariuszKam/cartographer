@@ -55,11 +55,11 @@ class BoundedStreamingDecodePipelineTest {
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
         CountDownLatch secondDone = new CountDownLatch(1);
-        CountDownLatch thirdSubmitted = new CountDownLatch(1);
+        CountDownLatch thirdStarted = new CountDownLatch(1);
         List<Integer> values = new ArrayList<>();
 
         try (BoundedStreamingDecodePipeline<Integer> pipeline =
-                     new BoundedStreamingDecodePipeline<>(2, 2, values::add)) {
+                     new BoundedStreamingDecodePipeline<>(2, 3, values::add)) {
             pipeline.submit(() -> {
                 firstStarted.countDown();
                 releaseFirst.await();
@@ -69,20 +69,21 @@ class BoundedStreamingDecodePipelineTest {
                 secondDone.countDown();
                 return 2;
             });
+            pipeline.submit(() -> {
+                thirdStarted.countDown();
+                releaseFirst.await();
+                return 3;
+            });
             assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
             assertTrue(secondDone.await(1, TimeUnit.SECONDS));
+            assertTrue(thirdStarted.await(1, TimeUnit.SECONDS));
 
-            Thread submitter = Thread.ofPlatform().start(() -> {
-                pipeline.submit(() -> 3);
-                thirdSubmitted.countDown();
-            });
-            assertTrue(thirdSubmitted.await(1, TimeUnit.SECONDS));
+            pipeline.submit(() -> 4);
             assertTrue(values.contains(2));
             assertFalse(values.contains(1));
 
             releaseFirst.countDown();
             pipeline.finish();
-            submitter.join();
         }
     }
 
@@ -179,40 +180,53 @@ class BoundedStreamingDecodePipelineTest {
         CountDownLatch submitReturned = new CountDownLatch(1);
         AtomicReference<Throwable> submitFailure = new AtomicReference<>();
 
-        try (BoundedStreamingDecodePipeline<Integer> pipeline =
-                     new BoundedStreamingDecodePipeline<>(2, 2, value -> {
+        BoundedStreamingDecodePipeline<Integer> pipeline =
+                new BoundedStreamingDecodePipeline<>(2, 3, value -> {
                          if (value == 2) {
                              consumerEntered.countDown();
                              awaitUninterruptibly(releaseConsumer);
                          }
-                     })) {
-            pipeline.submit(() -> {
-                firstStarted.countDown();
-                releaseFirst.await();
-                return 1;
-            });
-            pipeline.submit(() -> 2);
-            assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
-
-            Thread control = Thread.ofPlatform().start(() -> {
+                     });
+        Thread control = Thread.ofPlatform().start(() -> {
+            try {
+                pipeline.submit(() -> {
+                    firstStarted.countDown();
+                    releaseFirst.await();
+                    return 1;
+                });
+                pipeline.submit(() -> 2);
+                pipeline.submit(() -> {
+                    releaseFirst.await();
+                    return 3;
+                });
                 try {
-                    pipeline.submit(() -> 3);
+                    pipeline.submit(() -> 4);
                 } catch (Throwable failure) {
                     submitFailure.set(failure);
                 } finally {
                     submitReturned.countDown();
                 }
-            });
+                pipeline.finish();
+            } catch (Throwable failure) {
+                submitFailure.compareAndSet(null, failure);
+                submitReturned.countDown();
+            }
+        });
+        try {
+            assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
             assertTrue(consumerEntered.await(1, TimeUnit.SECONDS));
-            assertEquals(2, pipeline.inFlightCount());
-            assertFalse(submitReturned.await(100, TimeUnit.MILLISECONDS));
+            assertEquals(3, pipeline.inFlightCount());
 
             releaseConsumer.countDown();
             assertTrue(submitReturned.await(1, TimeUnit.SECONDS));
             assertEquals(null, submitFailure.get());
             releaseFirst.countDown();
-            pipeline.finish();
             control.join();
+        } finally {
+            releaseConsumer.countDown();
+            releaseFirst.countDown();
+            control.join(1000);
+            pipeline.close();
         }
     }
 
@@ -222,8 +236,11 @@ class BoundedStreamingDecodePipelineTest {
         CountDownLatch releaseSecond = new CountDownLatch(1);
         CountDownLatch submitReturned = new CountDownLatch(1);
 
-        try (BoundedStreamingDecodePipeline<Integer> pipeline =
-                     new BoundedStreamingDecodePipeline<>(2, 2, value -> { })) {
+        BoundedStreamingDecodePipeline<Integer> pipeline =
+                new BoundedStreamingDecodePipeline<>(2, 3, value -> { });
+        CountDownLatch ready = new CountDownLatch(1);
+        CountDownLatch submitAttempted = new CountDownLatch(1);
+        Thread control = Thread.ofPlatform().start(() -> {
             pipeline.submit(() -> {
                 releaseFirst.await();
                 return 1;
@@ -232,17 +249,29 @@ class BoundedStreamingDecodePipelineTest {
                 releaseSecond.await();
                 return 2;
             });
-
-            Thread submitter = Thread.ofPlatform().start(() -> {
-                pipeline.submit(() -> 3);
-                submitReturned.countDown();
+            pipeline.submit(() -> {
+                releaseFirst.await();
+                return 3;
             });
-            assertFalse(submitReturned.await(100, TimeUnit.MILLISECONDS));
+            ready.countDown();
+            submitAttempted.countDown();
+            pipeline.submit(() -> 4);
+            submitReturned.countDown();
+            pipeline.finish();
+        });
+        try {
+            assertTrue(ready.await(1, TimeUnit.SECONDS));
+            assertTrue(submitAttempted.await(1, TimeUnit.SECONDS));
+            assertEquals(3, pipeline.inFlightCount());
             releaseSecond.countDown();
             assertTrue(submitReturned.await(1, TimeUnit.SECONDS));
             releaseFirst.countDown();
-            pipeline.finish();
-            submitter.join();
+            control.join();
+        } finally {
+            releaseFirst.countDown();
+            releaseSecond.countDown();
+            control.join(1000);
+            pipeline.close();
         }
     }
 
@@ -254,8 +283,11 @@ class BoundedStreamingDecodePipelineTest {
         CountDownLatch submitReturned = new CountDownLatch(1);
         List<Integer> values = new ArrayList<>();
 
-        try (BoundedStreamingDecodePipeline<Integer> pipeline =
-                     new BoundedStreamingDecodePipeline<>(2, 3, values::add)) {
+        BoundedStreamingDecodePipeline<Integer> pipeline =
+                new BoundedStreamingDecodePipeline<>(2, 3, values::add);
+        CountDownLatch ready = new CountDownLatch(1);
+        CountDownLatch submitAttempted = new CountDownLatch(1);
+        Thread control = Thread.ofPlatform().start(() -> {
             pipeline.submit(() -> {
                 releaseFirst.await();
                 return 1;
@@ -268,20 +300,29 @@ class BoundedStreamingDecodePipelineTest {
                 releaseThird.await();
                 return 3;
             });
-
-            Thread submitter = Thread.ofPlatform().start(() -> {
-                pipeline.submit(() -> 4);
-                submitReturned.countDown();
-            });
-            assertFalse(submitReturned.await(100, TimeUnit.MILLISECONDS));
+            ready.countDown();
+            submitAttempted.countDown();
+            pipeline.submit(() -> 4);
+            submitReturned.countDown();
+            pipeline.finish();
+        });
+        try {
+            assertTrue(ready.await(1, TimeUnit.SECONDS));
+            assertTrue(submitAttempted.await(1, TimeUnit.SECONDS));
+            assertEquals(3, pipeline.inFlightCount());
             releaseSecond.countDown();
             assertTrue(submitReturned.await(1, TimeUnit.SECONDS));
             assertTrue(values.contains(2));
             assertFalse(values.contains(1));
             releaseFirst.countDown();
             releaseThird.countDown();
-            pipeline.finish();
-            submitter.join();
+            control.join();
+        } finally {
+            releaseFirst.countDown();
+            releaseSecond.countDown();
+            releaseThird.countDown();
+            control.join(1000);
+            pipeline.close();
         }
     }
 
@@ -349,34 +390,64 @@ class BoundedStreamingDecodePipelineTest {
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
         IllegalStateException cause = new IllegalStateException("later failure");
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        CountDownLatch finished = new CountDownLatch(1);
+
+        try (BoundedStreamingDecodePipeline<Integer> pipeline =
+                     new BoundedStreamingDecodePipeline<>(2, 3, value -> { })) {
+            pipeline.submit(() -> {
+                firstStarted.countDown();
+                releaseFirst.await();
+                return 1;
+            });
+            pipeline.submit(() -> {
+                throw cause;
+            });
+            assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
+
+            IllegalStateException failure = assertThrows(
+                    IllegalStateException.class,
+                    pipeline::finish
+            );
+            assertSame(cause, failure.getCause());
+            releaseFirst.countDown();
+        }
+    }
+
+    @Test
+    void nonCooperativeWorkerDoesNotDelayPrimaryFailure() throws Exception {
+        CountDownLatch firstStarted = new CountDownLatch(1);
+        CountDownLatch releaseFirst = new CountDownLatch(1);
+        CountDownLatch firstStopped = new CountDownLatch(1);
+        IllegalStateException cause = new IllegalStateException("later failure");
 
         BoundedStreamingDecodePipeline<Integer> pipeline =
                 new BoundedStreamingDecodePipeline<>(2, 3, value -> { });
         pipeline.submit(() -> {
             firstStarted.countDown();
-            releaseFirst.await();
+            try {
+                releaseFirst.await();
+            } catch (InterruptedException interruption) {
+                // Deliberately remain blocked after cancellation until released.
+                awaitUninterruptibly(releaseFirst);
+            } finally {
+                firstStopped.countDown();
+            }
             return 1;
         });
         pipeline.submit(() -> {
             throw cause;
         });
         assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
-        Thread controller = Thread.ofPlatform().start(() -> {
-            try {
-                pipeline.finish();
-            } catch (Throwable thrown) {
-                failure.set(thrown);
-            } finally {
-                finished.countDown();
-            }
-        });
-        assertTrue(finished.await(1, TimeUnit.SECONDS));
-        assertSame(cause, failure.get().getCause());
+
+        IllegalStateException failure = assertThrows(
+                IllegalStateException.class,
+                pipeline::finish
+        );
+        assertSame(cause, failure.getCause());
+        assertEquals(1, firstStopped.getCount());
+
         releaseFirst.countDown();
         pipeline.close();
-        controller.join();
+        assertTrue(firstStopped.await(1, TimeUnit.SECONDS));
     }
 
     @Test
@@ -437,24 +508,24 @@ class BoundedStreamingDecodePipelineTest {
 
         BoundedStreamingDecodePipeline<Integer> pipeline =
                 new BoundedStreamingDecodePipeline<>(1, 2, value -> { });
-        pipeline.submit(() -> {
-            started.countDown();
-            try {
-                new CountDownLatch(1).await();
-            } catch (InterruptedException interruption) {
-                workerInterrupted.countDown();
-            }
-            return 1;
-        });
-        assertTrue(started.await(1, TimeUnit.SECONDS));
         Thread controller = Thread.ofPlatform().start(() -> {
             try {
+                pipeline.submit(() -> {
+                    started.countDown();
+                    try {
+                        new CountDownLatch(1).await();
+                    } catch (InterruptedException interruption) {
+                        workerInterrupted.countDown();
+                    }
+                    return 1;
+                });
                 pipeline.finish();
             } catch (Throwable thrown) {
                 failure.set(thrown);
                 interrupted.set(Thread.currentThread().isInterrupted());
             }
         });
+        assertTrue(started.await(1, TimeUnit.SECONDS));
         controller.interrupt();
         controller.join(1000);
         assertTrue(failure.get() instanceof IllegalStateException);

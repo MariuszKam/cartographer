@@ -23,6 +23,9 @@ import java.util.function.Consumer;
  * than {@code maxInFlight}.</p>
  */
 final class BoundedStreamingDecodePipeline<T> implements AutoCloseable {
+    private static final long ABORT_TERMINATION_WAIT_NANOS =
+            TimeUnit.MILLISECONDS.toNanos(100);
+
     private enum State {
         OPEN,
         FINISHED,
@@ -128,12 +131,12 @@ final class BoundedStreamingDecodePipeline<T> implements AutoCloseable {
     }
 
     /**
-     * Cancels outstanding work and waits for owned workers to terminate.
-     * Cleanup is best effort and never replaces an already-propagating failure.
+     * Cancels outstanding work and performs bounded best-effort worker
+     * cleanup. Cleanup never replaces an already-propagating failure.
      */
     @Override
     public void close() {
-        if (state == State.FINISHED || state == State.ABORTED) {
+        if (state == State.FINISHED) {
             return;
         }
         abort();
@@ -222,7 +225,34 @@ final class BoundedStreamingDecodePipeline<T> implements AutoCloseable {
         outstanding.clear();
         inFlight = 0;
         executor.shutdownNow();
-        awaitTermination();
+        awaitTerminationBestEffort();
+    }
+
+    /**
+     * Fatal cleanup must not hide the original failure behind an uncooperative
+     * task. The short bound is a lifecycle safety limit, not a performance
+     * tuning parameter; close may be called again after the task is released.
+     */
+    private void awaitTerminationBestEffort() {
+        long deadline = System.nanoTime() + ABORT_TERMINATION_WAIT_NANOS;
+        boolean interrupted = false;
+        while (!executor.isTerminated()) {
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0) {
+                break;
+            }
+            try {
+                if (executor.awaitTermination(remaining, TimeUnit.NANOSECONDS)) {
+                    break;
+                }
+            } catch (InterruptedException interruption) {
+                interrupted = true;
+                break;
+            }
+        }
+        if (interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /**
