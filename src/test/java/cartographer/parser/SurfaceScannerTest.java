@@ -213,7 +213,7 @@ class SurfaceScannerTest {
                         1,
                         1,
                         new int[]{1},
-                        new int[]{0},
+                        null,
                         2,
                         false,
                         "liquidsCompressed: corrupt"

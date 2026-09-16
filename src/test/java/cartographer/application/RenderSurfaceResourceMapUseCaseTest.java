@@ -408,13 +408,27 @@ class RenderSurfaceResourceMapUseCaseTest {
     ) {
         int size = ChunkCoordinate.SIZE_BLOCKS;
         int[] blocks = new int[size * size * size];
-        int[] liquids = new int[blocks.length];
+        int[] liquids = liquidAvailable ? new int[blocks.length] : null;
+        String liquidDecodeError = liquidAvailable
+                ? ""
+                : "liquid layer unavailable for test";
         for (int z = 0; z < size; z++) {
             for (int x = 0; x < size; x++) {
                 blocks[(5 * size + z) * size + x] = 1;
             }
         }
-        return new ParsedChunk(coordinate, 0, size, size, size, blocks, liquids, 0, liquidAvailable, "");
+        return new ParsedChunk(
+                coordinate,
+                0,
+                size,
+                size,
+                size,
+                blocks,
+                liquids,
+                0,
+                liquidAvailable,
+                liquidDecodeError
+        );
     }
 
     private ParsedChunk surfaceChunkWithSpecial(
