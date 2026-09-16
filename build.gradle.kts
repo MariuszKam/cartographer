@@ -2,6 +2,7 @@ import java.util.Locale
 import java.io.File
 import org.gradle.api.GradleException
 import org.gradle.api.tasks.Delete
+import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.jvm.tasks.Jar
 import org.gradle.jvm.toolchain.JavaToolchainService
@@ -32,6 +33,9 @@ val canonicalInstallerFile = layout.buildDirectory.file("distributions/$canonica
 val jpackageJavaLauncher = extensions.getByType<JavaToolchainService>().launcherFor {
     languageVersion.set(JavaLanguageVersion.of(25))
 }
+val jmhJavaLauncher = extensions.getByType<JavaToolchainService>().launcherFor {
+    languageVersion.set(JavaLanguageVersion.of(25))
+}
 
 fun resolveJpackageExecutable(): File {
     val operatingSystem = System.getProperty("os.name").lowercase(Locale.ROOT)
@@ -52,6 +56,14 @@ repositories {
     mavenCentral()
 }
 
+val jmhSourceSet = sourceSets.create("jmh") {
+    java.srcDir("src/jmh/java")
+    compileClasspath += sourceSets["main"].output
+    compileClasspath += configurations["runtimeClasspath"]
+    runtimeClasspath += sourceSets["main"].output
+    runtimeClasspath += configurations["runtimeClasspath"]
+}
+
 dependencies {
     implementation("org.xerial:sqlite-jdbc:3.46.1.0")
     implementation("com.github.luben:zstd-jni:1.5.6-9")
@@ -60,6 +72,9 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:6.0.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    add("jmhImplementation", "org.openjdk.jmh:jmh-core:1.37")
+    add("jmhAnnotationProcessor", "org.openjdk.jmh:jmh-generator-annprocess:1.37")
 }
 
 application {
@@ -80,6 +95,20 @@ java {
 javafx {
     version = "25"
     modules("javafx.controls", "javafx.swing")
+}
+
+tasks.named<JavaCompile>("compileJmhJava") {
+    options.annotationProcessorPath = configurations["jmhAnnotationProcessor"]
+}
+
+tasks.register<JavaExec>("jmh") {
+    group = "verification"
+    description = "Runs opt-in JMH microbenchmarks; output is not macro benchmark evidence"
+    dependsOn("jmhClasses")
+    classpath = jmhSourceSet.runtimeClasspath
+    mainClass.set("org.openjdk.jmh.Main")
+    javaLauncher.set(jmhJavaLauncher)
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
 
 tasks.register<JavaExec>("runGui") {
