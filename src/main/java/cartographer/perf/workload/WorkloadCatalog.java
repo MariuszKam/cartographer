@@ -23,9 +23,14 @@ public final class WorkloadCatalog {
      */
     public static List<WorkloadSpec> standard(
             ResourceIdentity resource,
+            List<ResourceIdentity> selectedProspectingResources,
             int absoluteWorldY
     ) {
         Objects.requireNonNull(resource, "resource is required");
+        Objects.requireNonNull(
+                selectedProspectingResources,
+                "selectedProspectingResources is required"
+        );
         List<WorkloadSpec> workloads = new ArrayList<>();
         for (RadiusProfile radius : RADII) {
             workloads.add(new MapWorkload(radius));
@@ -45,13 +50,15 @@ public final class WorkloadCatalog {
         for (RadiusProfile radius : RADII) {
             workloads.add(new ProspectingWorkload(
                     radius,
-                    ProspectingStrategy.SELECTED_RESOURCE_SET
+                    ProspectingStrategy.SELECTED_RESOURCE_SET,
+                    selectedProspectingResources
             ));
         }
         for (RadiusProfile radius : RADII) {
             workloads.add(new ProspectingWorkload(
                     radius,
-                    ProspectingStrategy.ALL_DISCOVERED_SUPPORTED_RESOURCES
+                    ProspectingStrategy.ALL_DISCOVERED_SUPPORTED_RESOURCES,
+                    List.of()
             ));
         }
         return List.copyOf(workloads);

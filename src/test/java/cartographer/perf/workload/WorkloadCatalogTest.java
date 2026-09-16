@@ -2,9 +2,11 @@ package cartographer.perf.workload;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class WorkloadCatalogTest {
@@ -12,10 +14,12 @@ class WorkloadCatalogTest {
     void standardRadiiAndIdsAreDeterministic() {
         List<WorkloadSpec> first = WorkloadCatalog.standard(
                 ResourceIdentity.of("Native Copper"),
+                List.of(ResourceIdentity.of("native copper")),
                 96
         );
         List<WorkloadSpec> second = WorkloadCatalog.standard(
                 ResourceIdentity.of("native copper"),
+                List.of(ResourceIdentity.of("native copper")),
                 96
         );
 
@@ -49,6 +53,7 @@ class WorkloadCatalogTest {
     void catalogIsImmutableAndHasStableOrdering() {
         List<WorkloadSpec> catalog = WorkloadCatalog.standard(
                 ResourceIdentity.of("clay"),
+                List.of(ResourceIdentity.of("clay")),
                 80
         );
 
@@ -69,6 +74,90 @@ class WorkloadCatalogTest {
                         .map(WorkloadSpec::family)
                         .distinct()
                         .toList());
+    }
+
+    @Test
+    void selectedResourceSetDefinesAStableDistinctIdentity() {
+        ProspectingWorkload copper = new ProspectingWorkload(
+                RadiusProfile.R512,
+                ProspectingStrategy.SELECTED_RESOURCE_SET,
+                List.of(ResourceIdentity.of("copper"))
+        );
+        ProspectingWorkload tin = new ProspectingWorkload(
+                RadiusProfile.R512,
+                ProspectingStrategy.SELECTED_RESOURCE_SET,
+                List.of(ResourceIdentity.of("tin"))
+        );
+        ProspectingWorkload reordered = new ProspectingWorkload(
+                RadiusProfile.R512,
+                ProspectingStrategy.SELECTED_RESOURCE_SET,
+                List.of(ResourceIdentity.of("tin"), ResourceIdentity.of("copper"))
+        );
+        ProspectingWorkload sameSetDifferentOrder = new ProspectingWorkload(
+                RadiusProfile.R512,
+                ProspectingStrategy.SELECTED_RESOURCE_SET,
+                List.of(ResourceIdentity.of("copper"), ResourceIdentity.of("tin"))
+        );
+
+        assertEquals(ProspectingStrategy.SELECTED_RESOURCE_SET, copper.strategy());
+        assertEquals(List.of(ResourceIdentity.of("copper"), ResourceIdentity.of("tin")),
+                reordered.selectedResources());
+        assertEquals(reordered, sameSetDifferentOrder);
+        assertEquals(reordered.id(), sameSetDifferentOrder.id());
+        assertNotEquals(copper.id(), tin.id());
+    }
+
+    @Test
+    void selectedResourceSetRejectsEmptyNullAndDuplicateEntries() {
+        assertThrows(IllegalArgumentException.class, () -> new ProspectingWorkload(
+                RadiusProfile.R128,
+                ProspectingStrategy.SELECTED_RESOURCE_SET,
+                List.of()
+        ));
+        assertThrows(NullPointerException.class, () -> new ProspectingWorkload(
+                RadiusProfile.R128,
+                ProspectingStrategy.SELECTED_RESOURCE_SET,
+                null
+        ));
+        assertThrows(NullPointerException.class, () -> new ProspectingWorkload(
+                RadiusProfile.R128,
+                ProspectingStrategy.SELECTED_RESOURCE_SET,
+                java.util.Arrays.asList(ResourceIdentity.of("copper"), null)
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new ProspectingWorkload(
+                RadiusProfile.R128,
+                ProspectingStrategy.SELECTED_RESOURCE_SET,
+                List.of(ResourceIdentity.of("copper"), ResourceIdentity.of("COPPER"))
+        ));
+    }
+
+    @Test
+    void selectedResourceSetDefensivelyCopiesCallerCollection() {
+        ArrayList<ResourceIdentity> resources = new ArrayList<>(
+                List.of(ResourceIdentity.of("copper"))
+        );
+        ProspectingWorkload workload = new ProspectingWorkload(
+                RadiusProfile.R128,
+                ProspectingStrategy.SELECTED_RESOURCE_SET,
+                resources
+        );
+        resources.add(ResourceIdentity.of("tin"));
+
+        assertEquals(List.of(ResourceIdentity.of("copper")), workload.selectedResources());
+        assertThrows(UnsupportedOperationException.class, () ->
+                workload.selectedResources().add(ResourceIdentity.of("tin")));
+    }
+
+    @Test
+    void fullProspectingUsesStrategyWithoutSelectedResources() {
+        ProspectingWorkload full = new ProspectingWorkload(
+                RadiusProfile.R1024,
+                ProspectingStrategy.ALL_DISCOVERED_SUPPORTED_RESOURCES,
+                List.of()
+        );
+
+        assertEquals(WorkloadFamily.PROSPECTING_FULL, full.family());
+        assertEquals("PROSPECTING_FULL_R1024", full.id());
     }
 
     @Test
