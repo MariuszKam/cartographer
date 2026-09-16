@@ -190,7 +190,7 @@ class SaveSafetyGateTest {
     void snapshotsAndViolationsAreImmutableAndAbsentSidecarsHaveNoFakeMetadata() throws Exception {
         Path save = createSave("abc");
         SaveSafetySnapshot snapshot = snapshotter().capture(save);
-        SaveSafetyResult result = compare(snapshot, snapshotter().capture(save));
+        SaveSafetyResult result = compare(snapshot, save);
 
         assertTrue(snapshot.wal().sizeBytes().isEmpty());
         assertTrue(snapshot.wal().lastModified().isEmpty());

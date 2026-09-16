@@ -36,8 +36,8 @@ class RegressionComparatorTest {
     @Test
     void identicalComparableEvidencePassesAndExposesAllDeltas() {
         RegressionComparison comparison = new RegressionComparator().compare(
-                baseline(List.of(100, 200, 300, 400, 500), FINGERPRINT),
-                candidate(List.of(100, 200, 300, 400, 500), FINGERPRINT)
+                baseline(List.of(100L, 200L, 300L, 400L, 500L), FINGERPRINT),
+                candidate(List.of(100L, 200L, 300L, 400L, 500L), FINGERPRINT)
         );
 
         assertEquals(RegressionComparisonStatus.PASS, comparison.status());
@@ -53,12 +53,12 @@ class RegressionComparatorTest {
     @Test
     void fasterAndSlowerCandidatesUseCandidateMinusBaselineSign() {
         RegressionComparison faster = new RegressionComparator().compare(
-                baseline(List.of(100, 200, 300), FINGERPRINT),
-                candidate(List.of(80, 160, 240), FINGERPRINT)
+                baseline(List.of(100L, 200L, 300L), FINGERPRINT),
+                candidate(List.of(80L, 160L, 240L), FINGERPRINT)
         );
         RegressionComparison slower = new RegressionComparator().compare(
-                baseline(List.of(100, 200, 300), FINGERPRINT),
-                candidate(List.of(120, 240, 360), FINGERPRINT)
+                baseline(List.of(100L, 200L, 300L), FINGERPRINT),
+                candidate(List.of(120L, 240L, 360L), FINGERPRINT)
         );
 
         assertEquals(-20L, faster.min().orElseThrow().signedDeltaNanoseconds().longValueExact());
@@ -72,8 +72,8 @@ class RegressionComparatorTest {
     @Test
     void eachSummaryMetricDeltaUsesItsOwnValues() {
         RegressionComparison comparison = new RegressionComparator().compare(
-                baseline(List.of(100, 200, 300, 400, 500), FINGERPRINT),
-                candidate(List.of(80, 180, 280, 380, 480), FINGERPRINT)
+                baseline(List.of(100L, 200L, 300L, 400L, 500L), FINGERPRINT),
+                candidate(List.of(80L, 180L, 280L, 380L, 480L), FINGERPRINT)
         );
 
         assertEquals(-20L, comparison.min().orElseThrow().signedDeltaNanoseconds().longValueExact());
@@ -85,8 +85,8 @@ class RegressionComparatorTest {
     @Test
     void zeroBaselineHasNoRelativePercentage() {
         RegressionComparison comparison = new RegressionComparator().compare(
-                baseline(List.of(0, 0), FINGERPRINT),
-                candidate(List.of(1, 2), FINGERPRINT)
+                baseline(List.of(0L, 0L), FINGERPRINT),
+                candidate(List.of(1L, 2L), FINGERPRINT)
         );
 
         assertEquals(1L, comparison.min().orElseThrow().candidateNanoseconds());
@@ -97,8 +97,8 @@ class RegressionComparatorTest {
     @Test
     void fingerprintMismatchFailsWithoutPerformanceDeltas() {
         RegressionComparison comparison = new RegressionComparator().compare(
-                baseline(List.of(100), FINGERPRINT),
-                candidate(List.of(1), OTHER_FINGERPRINT)
+                baseline(List.of(100L), FINGERPRINT),
+                candidate(List.of(1L), OTHER_FINGERPRINT)
         );
 
         assertEquals(RegressionComparisonStatus.FAIL, comparison.status());
@@ -109,9 +109,9 @@ class RegressionComparatorTest {
 
     @Test
     void semanticAndMethodologyMismatchesAreInconclusiveInFixedOrder() {
-        ReferenceBaseline baseline = baseline(List.of(100), FINGERPRINT);
+        ReferenceBaseline baseline = baseline(List.of(100L), FINGERPRINT);
         CandidateMeasurement candidate = candidate(
-                List.of(100), FINGERPRINT, new MapWorkload(RadiusProfile.R256),
+                List.of(100L), FINGERPRINT, new MapWorkload(RadiusProfile.R256),
                 environment("26", "Other", "Linux", "1", "arm64", 8, 9_000),
                 ExecutionMode.CACHE_WARM, 2
         );
@@ -145,8 +145,8 @@ class RegressionComparatorTest {
         );
         for (PerformanceEnvironment variant : variants) {
             RegressionComparison comparison = new RegressionComparator().compare(
-                    baseline(List.of(1), FINGERPRINT),
-                    candidate(List.of(1), FINGERPRINT, new MapWorkload(RadiusProfile.R128),
+                    baseline(List.of(1L), FINGERPRINT),
+                    candidate(List.of(1L), FINGERPRINT, new MapWorkload(RadiusProfile.R128),
                             variant, ExecutionMode.JVM_WARM, 1)
             );
             assertEquals(RegressionComparisonStatus.INCONCLUSIVE, comparison.status());
@@ -158,8 +158,8 @@ class RegressionComparatorTest {
     @Test
     void measuredCountMismatchIsInconclusive() {
         RegressionComparison comparison = new RegressionComparator().compare(
-                baseline(List.of(1, 2), FINGERPRINT),
-                candidate(List.of(1), FINGERPRINT)
+                baseline(List.of(1L, 2L), FINGERPRINT),
+                candidate(List.of(1L), FINGERPRINT)
         );
 
         assertEquals(RegressionComparisonStatus.INCONCLUSIVE, comparison.status());
@@ -169,7 +169,7 @@ class RegressionComparatorTest {
 
     @Test
     void candidateFactoryValidatesStatusFingerprintsIndexesAndRetainsRawOrder() {
-        CandidateMeasurement valid = candidate(List.of(5, 1, 4, 2, 3), FINGERPRINT);
+        CandidateMeasurement valid = candidate(List.of(5L, 1L, 4L, 2L, 3L), FINGERPRINT);
         assertEquals(List.of(5L, 1L, 4L, 2L, 3L), valid.samples().stream()
                 .map(CandidateMeasurementSample::wallClockNanoseconds).toList());
         assertEquals(3L, valid.summary().p50WallClockNanoseconds());
@@ -182,7 +182,7 @@ class RegressionComparatorTest {
         assertThrows(IllegalArgumentException.class, () -> candidateWithIndex(1));
         assertThrows(IllegalArgumentException.class, () ->
                 CandidateMeasurementFactory.from("latest", "save", ENVIRONMENT,
-                        successfulRun(List.of(sample(0, 1, FINGERPRINT)), 1)));
+                        successfulRunWithSamples(List.of(sample(0, 1, FINGERPRINT)), 1)));
     }
 
     @Test
@@ -201,34 +201,34 @@ class RegressionComparatorTest {
     @Test
     void relativeScaleAndLongOverflowBehaviorAreDeterministic() {
         RegressionComparison rounded = new RegressionComparator().compare(
-                baseline(List.of(3), FINGERPRINT),
-                candidate(List.of(4), FINGERPRINT)
+                baseline(List.of(3L), FINGERPRINT),
+                candidate(List.of(4L), FINGERPRINT)
         );
         assertEquals("33.3333", rounded.min().orElseThrow()
                 .relativeChangePercent().orElseThrow().toPlainString());
 
         RegressionComparison overflowSafe = new RegressionComparator().compare(
                 baseline(List.of(Long.MAX_VALUE), FINGERPRINT),
-                candidate(List.of(0), FINGERPRINT)
+                candidate(List.of(0L), FINGERPRINT)
         );
         assertEquals(BigInteger.valueOf(Long.MAX_VALUE).negate(),
                 overflowSafe.min().orElseThrow().signedDeltaNanoseconds());
     }
 
-    private static ReferenceBaseline baseline(List<Integer> durations, ResultFingerprint fingerprint) {
+    private static ReferenceBaseline baseline(List<Long> durations, ResultFingerprint fingerprint) {
         return ReferenceBaselineFactory.from(
                 BASELINE_SHA, "save-1", ENVIRONMENT,
-                successfulRun(durations.stream().map(Integer::longValue).toList(), 1, fingerprint)
+                successfulRun(durations, 1, fingerprint)
         );
     }
 
-    private static CandidateMeasurement candidate(List<Integer> durations, ResultFingerprint fingerprint) {
+    private static CandidateMeasurement candidate(List<Long> durations, ResultFingerprint fingerprint) {
         return candidate(durations, fingerprint, new MapWorkload(RadiusProfile.R128),
                 ENVIRONMENT, ExecutionMode.JVM_WARM, 1);
     }
 
     private static CandidateMeasurement candidate(
-            List<Integer> durations,
+            List<Long> durations,
             ResultFingerprint fingerprint,
             MapWorkload workload,
             PerformanceEnvironment environment,
@@ -262,7 +262,7 @@ class RegressionComparatorTest {
     private static CandidateMeasurement candidateWithFingerprintMismatch() {
         return CandidateMeasurementFactory.from(
                 CANDIDATE_SHA, "save-1", ENVIRONMENT,
-                successfulRun(List.of(
+                successfulRunWithSamples(List.of(
                         sample(0, 1, FINGERPRINT), sample(1, 2, OTHER_FINGERPRINT)
                 ), 2)
         );
@@ -271,7 +271,7 @@ class RegressionComparatorTest {
     private static CandidateMeasurement candidateWithIndex(int index) {
         return CandidateMeasurementFactory.from(
                 CANDIDATE_SHA, "save-1", ENVIRONMENT,
-                successfulRun(List.of(sample(index, 1, FINGERPRINT)), 1)
+                successfulRunWithSamples(List.of(sample(index, 1, FINGERPRINT)), 1)
         );
     }
 
@@ -291,8 +291,20 @@ class RegressionComparatorTest {
         );
     }
 
+    private static BenchmarkRunResult successfulRunWithSamples(
+            List<BenchmarkIterationResult> measured, int warmupCount
+    ) {
+        return new BenchmarkRunResult(
+                new BenchmarkPlan(new MapWorkload(RadiusProfile.R128),
+                        ExecutionMode.JVM_WARM, warmupCount, measured.size()),
+                warmups(warmupCount, FINGERPRINT),
+                measured,
+                BenchmarkExecutionStatus.SUCCESS
+        );
+    }
+
     private static List<BenchmarkIterationResult> samples(
-            List<Integer> durations, ResultFingerprint fingerprint
+            List<Long> durations, ResultFingerprint fingerprint
     ) {
         List<BenchmarkIterationResult> samples = new ArrayList<>();
         for (int index = 0; index < durations.size(); index++) {
