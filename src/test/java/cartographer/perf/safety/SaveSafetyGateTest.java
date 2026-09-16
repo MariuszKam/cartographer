@@ -172,7 +172,9 @@ class SaveSafetyGateTest {
     void multipleViolationsUseMainThenWalThenShmOrder() throws Exception {
         Path save = createSave("abc");
         SaveSafetySnapshot before = snapshotter().capture(save);
+        FileTime originalLastModified = before.mainSave().lastModified().orElseThrow();
         Files.writeString(save, "xyz", StandardCharsets.UTF_8);
+        Files.setLastModifiedTime(save, originalLastModified);
         Files.writeString(sidecar(save, "-wal"), "wal", StandardCharsets.UTF_8);
         Files.writeString(sidecar(save, "-shm"), "shm", StandardCharsets.UTF_8);
 
