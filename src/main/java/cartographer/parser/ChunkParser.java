@@ -61,11 +61,14 @@ public class ChunkParser {
             );
         }
 
-        return parse(
-                coordinate,
-                parsedPayload.value().orElseThrow(),
-                profile
-        );
+        try (ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace()) {
+            return parse(
+                    coordinate,
+                    parsedPayload.value().orElseThrow(),
+                    profile,
+                    workspace
+            );
+        }
     }
 
     public ParseResult<ParsedChunk> parse(
@@ -82,11 +85,39 @@ public class ChunkParser {
                 "profile is required"
         );
 
+        try (ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace()) {
+            return parse(coordinate, serverChunk, profile, workspace);
+        }
+    }
+
+    public ParseResult<ParsedChunk> parse(
+            ChunkCoordinate coordinate,
+            byte[] payload,
+            ChunkDecodeProfile profile,
+            ChunkDecodeWorkspace workspace
+    ) {
+        Objects.requireNonNull(profile, "profile is required");
+        Objects.requireNonNull(workspace, "workspace is required");
+        ParseResult<ServerChunkPayload> parsedPayload = parsePayload(payload);
+        if (!parsedPayload.isSuccess()) {
+            return ParseResult.failure(parsedPayload.error().orElse("unable to parse ServerChunk"));
+        }
+        return parse(coordinate, parsedPayload.value().orElseThrow(), profile, workspace);
+    }
+
+    public ParseResult<ParsedChunk> parse(
+            ChunkCoordinate coordinate,
+            ServerChunkPayload serverChunk,
+            ChunkDecodeProfile profile,
+            ChunkDecodeWorkspace workspace
+    ) {
+        Objects.requireNonNull(workspace, "workspace is required");
         try {
             DecodedChunkLayer blockLayer =
                     layerDecoder.decodeOwned(
                             serverChunk.blocksCompressed(),
-                            serverChunk.savedCompressionVersion()
+                            serverChunk.savedCompressionVersion(),
+                            workspace
                     );
 
             DecodedLiquids liquids =
@@ -94,9 +125,7 @@ public class ChunkParser {
                             ? DecodedLiquids.unavailable(
                             "liquid layer not decoded"
                     )
-                            : decodeLiquidsOrEmpty(
-                            serverChunk
-                    );
+                            : decodeLiquidsOrEmpty(serverChunk, workspace);
 
             return ParseResult.success(
                     ParsedChunk.fromDecodedLayers(
@@ -130,11 +159,22 @@ public class ChunkParser {
                 "serverChunk is required"
         );
 
+        try (ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace()) {
+            return probeBlockPalette(serverChunk, workspace);
+        }
+    }
+
+    public ParseResult<ChunkPaletteProbe> probeBlockPalette(
+            ServerChunkPayload serverChunk,
+            ChunkDecodeWorkspace workspace
+    ) {
+        Objects.requireNonNull(workspace, "workspace is required");
         try {
             return ParseResult.success(
                     layerDecoder.probePalette(
                             serverChunk.blocksCompressed(),
-                            serverChunk.savedCompressionVersion()
+                            serverChunk.savedCompressionVersion(),
+                            workspace
                     )
             );
         } catch (IllegalArgumentException exception) {
@@ -146,7 +186,8 @@ public class ChunkParser {
     }
 
     private DecodedLiquids decodeLiquidsOrEmpty(
-            ServerChunkPayload serverChunk
+            ServerChunkPayload serverChunk,
+            ChunkDecodeWorkspace workspace
     ) {
         if (serverChunk.liquidsCompressed().length == 0) {
             return DecodedLiquids.available(
@@ -160,7 +201,8 @@ public class ChunkParser {
             return DecodedLiquids.available(
                     layerDecoder.decodeOwned(
                             serverChunk.liquidsCompressed(),
-                            serverChunk.savedCompressionVersion()
+                            serverChunk.savedCompressionVersion(),
+                            workspace
                     )
             );
 

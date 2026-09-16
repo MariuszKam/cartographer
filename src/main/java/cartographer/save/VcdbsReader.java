@@ -14,6 +14,7 @@ import cartographer.model.ParsedChunk;
 import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldPosition;
 import cartographer.parser.ChunkParser;
+import cartographer.parser.ChunkDecodeWorkspace;
 import cartographer.parser.ChunkDecodeProfile;
 import cartographer.parser.ChunkPaletteProbe;
 import cartographer.parser.MapChunkParser;
@@ -516,7 +517,8 @@ public class VcdbsReader {
             }
 
             List<Long> requested = new ArrayList<>(packedPositions);
-            try (BoundedOrderedDecodePipeline<SelectiveDecodeOutcome> pipeline =
+            try (ChunkDecodeWorkspacePool workspaces = new ChunkDecodeWorkspacePool(chunkDecodeWorkerCount);
+                 BoundedOrderedDecodePipeline<SelectiveDecodeOutcome> pipeline =
                          new BoundedOrderedDecodePipeline<>(
                                  chunkDecodeWorkerCount,
                                  chunkDecodeMaxInFlight,
@@ -539,7 +541,8 @@ public class VcdbsReader {
                             requested.subList(start, end),
                             uniqueWantedBlockIds,
                             diagnostics,
-                            pipeline
+                            pipeline,
+                            workspaces
                     );
                     batchesExecuted++;
                     rowsFound += batch.rowsFound();
@@ -607,7 +610,8 @@ public class VcdbsReader {
                 );
             }
 
-            try (BoundedOrderedDecodePipeline<ChunkDecodeOutcome> pipeline =
+            try (ChunkDecodeWorkspacePool workspaces = new ChunkDecodeWorkspacePool(chunkDecodeWorkerCount);
+                 BoundedOrderedDecodePipeline<ChunkDecodeOutcome> pipeline =
                          new BoundedOrderedDecodePipeline<>(
                                  chunkDecodeWorkerCount,
                                  chunkDecodeMaxInFlight,
@@ -640,7 +644,7 @@ public class VcdbsReader {
                     ChunkCoordinate coordinate = new ChunkCoordinate(
                             position.x(), position.y(), position.z()
                     );
-                    pipeline.submit(() -> decodeChunk(coordinate, payload));
+                    pipeline.submit(() -> decodeChunk(coordinate, payload, workspaces));
                 }
                 pipeline.finish();
             }
@@ -702,7 +706,8 @@ public class VcdbsReader {
                 );
             }
 
-            try (BoundedOrderedDecodePipeline<SelectiveDecodeOutcome> pipeline =
+            try (ChunkDecodeWorkspacePool workspaces = new ChunkDecodeWorkspacePool(chunkDecodeWorkerCount);
+                 BoundedOrderedDecodePipeline<SelectiveDecodeOutcome> pipeline =
                          new BoundedOrderedDecodePipeline<>(
                                  chunkDecodeWorkerCount,
                                  chunkDecodeMaxInFlight,
@@ -738,7 +743,8 @@ public class VcdbsReader {
                     pipeline.submit(() -> decodeSelectiveChunk(
                             coordinate,
                             payload,
-                            uniqueWantedBlockIds
+                            uniqueWantedBlockIds,
+                            workspaces
                     ));
                 }
                 pipeline.finish();
@@ -822,7 +828,8 @@ public class VcdbsReader {
             }
 
             List<Long> requested = new ArrayList<>(packedPositions);
-            try (BoundedOrderedDecodePipeline<ChunkDecodeOutcome> pipeline =
+            try (ChunkDecodeWorkspacePool workspaces = new ChunkDecodeWorkspacePool(chunkDecodeWorkerCount);
+                 BoundedOrderedDecodePipeline<ChunkDecodeOutcome> pipeline =
                          new BoundedOrderedDecodePipeline<>(
                                  chunkDecodeWorkerCount,
                                  chunkDecodeMaxInFlight,
@@ -848,7 +855,8 @@ public class VcdbsReader {
                                     connection,
                                     requested.subList(start, end),
                                     diagnostics,
-                                    pipeline
+                                    pipeline,
+                                    workspaces
                             );
 
                     batchesExecuted++;
@@ -977,7 +985,8 @@ public class VcdbsReader {
             Connection connection,
             List<Long> packedPositions,
             ReadDiagnostics diagnostics,
-            BoundedOrderedDecodePipeline<ChunkDecodeOutcome> pipeline
+            BoundedOrderedDecodePipeline<ChunkDecodeOutcome> pipeline,
+            ChunkDecodeWorkspacePool workspaces
     ) throws SQLException {
         String sql =
                 "SELECT position, data FROM \""
@@ -1030,7 +1039,7 @@ public class VcdbsReader {
 
                     payloadBytes += payload.length;
 
-                    pipeline.submit(() -> decodeChunk(coordinate, payload));
+                    pipeline.submit(() -> decodeChunk(coordinate, payload, workspaces));
                 }
             }
         }
@@ -1120,7 +1129,8 @@ public class VcdbsReader {
             List<Long> packedPositions,
             int[] wantedBlockIds,
             ReadDiagnostics diagnostics,
-            BoundedOrderedDecodePipeline<SelectiveDecodeOutcome> pipeline
+            BoundedOrderedDecodePipeline<SelectiveDecodeOutcome> pipeline,
+            ChunkDecodeWorkspacePool workspaces
     ) throws SQLException {
         String sql =
                 "SELECT position, data FROM \""
@@ -1172,7 +1182,8 @@ public class VcdbsReader {
                     pipeline.submit(() -> decodeSelectiveChunk(
                             coordinate,
                             payload,
-                            wantedBlockIds
+                            wantedBlockIds,
+                            workspaces
                     ));
                 }
             }
@@ -1212,7 +1223,8 @@ public class VcdbsReader {
                 );
             }
 
-            try (BoundedOrderedDecodePipeline<CoverageDecodeOutcome> pipeline =
+            try (ChunkDecodeWorkspacePool workspaces = new ChunkDecodeWorkspacePool(chunkDecodeWorkerCount);
+                 BoundedOrderedDecodePipeline<CoverageDecodeOutcome> pipeline =
                          new BoundedOrderedDecodePipeline<>(
                                  chunkDecodeWorkerCount,
                                  chunkDecodeMaxInFlight,
@@ -1235,6 +1247,7 @@ public class VcdbsReader {
                             wantedBlockIds,
                             diagnostics,
                             pipeline,
+                            workspaces,
                             consumer,
                             rowsFound,
                             counters
@@ -1262,6 +1275,7 @@ public class VcdbsReader {
                                 wantedBlockIds,
                                 diagnostics,
                                 pipeline,
+                                workspaces,
                                 consumer,
                                 rowsFound,
                                 counters
@@ -1319,6 +1333,7 @@ public class VcdbsReader {
             int[] wantedBlockIds,
             ReadDiagnostics diagnostics,
             BoundedOrderedDecodePipeline<CoverageDecodeOutcome> pipeline,
+            ChunkDecodeWorkspacePool workspaces,
             Consumer<SelectiveChunkVisit> consumer,
             int[] rowsFound,
             SelectiveDecodeCounters counters
@@ -1360,7 +1375,8 @@ public class VcdbsReader {
                             decodeSelectiveChunk(
                                     coordinate,
                                     payload,
-                                    wantedBlockIds
+                                    wantedBlockIds,
+                                    workspaces
                             ),
                             false
                     ));
@@ -1431,9 +1447,25 @@ public class VcdbsReader {
 
     private ChunkDecodeOutcome decodeChunk(
             ChunkCoordinate coordinate,
-            byte[] payload
+            byte[] payload,
+            ChunkDecodeWorkspacePool workspaces
     ) {
-        ParseResult<ParsedChunk> parsed = chunkParser.parse(coordinate, payload);
+        ChunkDecodeWorkspace workspace = workspaces.borrow();
+        try {
+            return decodeChunk(coordinate, payload, workspace);
+        } finally {
+            workspaces.release(workspace);
+        }
+    }
+
+    private ChunkDecodeOutcome decodeChunk(
+            ChunkCoordinate coordinate,
+            byte[] payload,
+            ChunkDecodeWorkspace workspace
+    ) {
+        ParseResult<ParsedChunk> parsed = chunkParser.parse(
+                coordinate, payload, ChunkDecodeProfile.BLOCKS_AND_LIQUIDS, workspace
+        );
         if (parsed.isSuccess()) {
             return ChunkDecodeOutcome.success(parsed.value().orElseThrow());
         }
@@ -1445,7 +1477,22 @@ public class VcdbsReader {
     private SelectiveDecodeOutcome decodeSelectiveChunk(
             ChunkCoordinate coordinate,
             byte[] payload,
-            int[] wantedBlockIds
+            int[] wantedBlockIds,
+            ChunkDecodeWorkspacePool workspaces
+    ) {
+        ChunkDecodeWorkspace workspace = workspaces.borrow();
+        try {
+            return decodeSelectiveChunk(coordinate, payload, wantedBlockIds, workspace);
+        } finally {
+            workspaces.release(workspace);
+        }
+    }
+
+    private SelectiveDecodeOutcome decodeSelectiveChunk(
+            ChunkCoordinate coordinate,
+            byte[] payload,
+            int[] wantedBlockIds,
+            ChunkDecodeWorkspace workspace
     ) {
         ParseResult<ServerChunkPayload> parsedPayload = chunkParser.parsePayload(payload);
         if (!parsedPayload.isSuccess()) {
@@ -1456,7 +1503,7 @@ public class VcdbsReader {
         }
 
         ServerChunkPayload serverChunk = parsedPayload.value().orElseThrow();
-        ParseResult<ChunkPaletteProbe> palette = chunkParser.probeBlockPalette(serverChunk);
+        ParseResult<ChunkPaletteProbe> palette = chunkParser.probeBlockPalette(serverChunk, workspace);
         if (!palette.isSuccess()) {
             return SelectiveDecodeOutcome.failure(
                     true,
@@ -1471,7 +1518,8 @@ public class VcdbsReader {
         ParseResult<ParsedChunk> parsedChunk = chunkParser.parse(
                 coordinate,
                 serverChunk,
-                ChunkDecodeProfile.BLOCKS_ONLY
+                ChunkDecodeProfile.BLOCKS_ONLY,
+                workspace
         );
         if (parsedChunk.isSuccess()) {
             return SelectiveDecodeOutcome.success(parsedChunk.value().orElseThrow());
@@ -2305,6 +2353,21 @@ public class VcdbsReader {
             ReadDiagnostics diagnostics,
             ProgressReporter progress
     ) throws SQLException {
+        try (ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace()) {
+            return readChunksAroundFromResultSet(
+                    connection, center, radiusBlocks, diagnostics, progress, workspace
+            );
+        }
+    }
+
+    private List<ParsedChunk> readChunksAroundFromResultSet(
+            Connection connection,
+            WorldPosition center,
+            int radiusBlocks,
+            ReadDiagnostics diagnostics,
+            ProgressReporter progress,
+            ChunkDecodeWorkspace workspace
+    ) throws SQLException {
         List<ParsedChunk> chunks =
                 new ArrayList<>();
 
@@ -2381,7 +2444,9 @@ public class VcdbsReader {
                 ParseResult<ParsedChunk> parsed =
                         chunkParser.parse(
                                 chunkCoordinate,
-                                payload
+                                payload,
+                                ChunkDecodeProfile.BLOCKS_AND_LIQUIDS,
+                                workspace
                         );
 
                 if (parsed.isSuccess()) {

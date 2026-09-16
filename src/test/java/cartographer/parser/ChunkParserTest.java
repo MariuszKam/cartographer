@@ -155,6 +155,98 @@ class ChunkParserTest {
     }
 
     @Test
+    void reusingWorkspaceCannotMutatePublishedLayers() {
+        ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace();
+        try {
+            ParsedChunk first = new ChunkParser().parse(
+                    new ChunkCoordinate(0, 0, 0),
+                    serverChunk(
+                            encodedLayer(new int[]{0, 11}, index -> index == 0 ? 1 : 0),
+                            encodedLayer(new int[]{0, 21}, index -> index == 0 ? 1 : 0),
+                            2
+                    ),
+                    ChunkDecodeProfile.BLOCKS_AND_LIQUIDS,
+                    workspace
+            ).value().orElseThrow();
+
+            ParsedChunk second = new ChunkParser().parse(
+                    new ChunkCoordinate(1, 0, 0),
+                    serverChunk(
+                            encodedLayer(new int[]{0, 31}, index -> index == 0 ? 1 : 0),
+                            encodedLayer(new int[]{0, 41}, index -> index == 0 ? 1 : 0),
+                            2
+                    ),
+                    ChunkDecodeProfile.BLOCKS_AND_LIQUIDS,
+                    workspace
+            ).value().orElseThrow();
+
+            assertEquals(11, first.blockIdAt(0, 0, 0));
+            assertEquals(21, first.liquidIdAt(0, 0, 0));
+            assertEquals(31, second.blockIdAt(0, 0, 0));
+            assertEquals(41, second.liquidIdAt(0, 0, 0));
+        } finally {
+            workspace.close();
+        }
+    }
+
+    @Test
+    void closedWorkspaceRejectsDecodeAndCloseIsIdempotent() {
+        ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace();
+        workspace.close();
+        workspace.close();
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> new ChunkParser().parse(
+                        new ChunkCoordinate(0, 0, 0),
+                        serverChunk(
+                                encodedLayer(new int[]{0, 11}, index -> index == 0 ? 1 : 0),
+                                emptyLayer(),
+                                2
+                        ),
+                        ChunkDecodeProfile.BLOCKS_ONLY,
+                        workspace
+                )
+        );
+    }
+
+    @Test
+    void rejectsInvalidAndOversizedPaletteMarkers() {
+        ChunkParser parser = new ChunkParser();
+        ChunkCoordinate coordinate = new ChunkCoordinate(0, 0, 0);
+
+        byte[] minimum = ByteBuffer.allocate(Integer.BYTES)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .putInt(Integer.MIN_VALUE)
+                .array();
+        assertFalse(parser.parse(
+                coordinate,
+                new ServerChunkPayload(minimum, emptyLayer(), 2),
+                ChunkDecodeProfile.BLOCKS_ONLY
+        ).isSuccess());
+
+        byte[] oversizedRaw = ByteBuffer.allocate(Integer.BYTES)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .putInt(-1_048_580)
+                .array();
+        assertFalse(parser.parse(
+                coordinate,
+                new ServerChunkPayload(oversizedRaw, emptyLayer(), 2),
+                ChunkDecodeProfile.BLOCKS_ONLY
+        ).isSuccess());
+
+        byte[] oversizedCompressed = ByteBuffer.allocate(Integer.BYTES)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .putInt(1_048_577)
+                .array();
+        assertFalse(parser.parse(
+                coordinate,
+                new ServerChunkPayload(oversizedCompressed, emptyLayer(), 2),
+                ChunkDecodeProfile.BLOCKS_ONLY
+        ).isSuccess());
+    }
+
+    @Test
     void nullProfileRejected() {
         assertThrows(
                 NullPointerException.class,
@@ -215,6 +307,20 @@ class ChunkParserTest {
             return super.decodeOwned(
                     payload,
                     savedCompressionVersion
+            );
+        }
+
+        @Override
+        DecodedChunkLayer decodeOwned(
+                byte[] payload,
+                int savedCompressionVersion,
+                ChunkDecodeWorkspace workspace
+        ) {
+            ownedDecodeCalls++;
+            return super.decodeOwned(
+                    payload,
+                    savedCompressionVersion,
+                    workspace
             );
         }
     }
