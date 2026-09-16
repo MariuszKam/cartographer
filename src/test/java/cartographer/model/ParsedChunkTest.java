@@ -71,6 +71,67 @@ class ParsedChunkTest {
         assertArrayEquals(new int[]{3}, chunk.liquidIds());
     }
 
+    @Test
+    void decodedLayerConstructionPreservesValuesAndValidatesLengths() {
+        DecodedChunkLayer blocks =
+                DecodedChunkLayer.builder(1)
+                        .set(0, 7)
+                        .build();
+        DecodedChunkLayer liquids =
+                DecodedChunkLayer.builder(1)
+                        .set(0, 3)
+                        .build();
+
+        ParsedChunk chunk = ParsedChunk.fromDecodedLayers(
+                new ChunkCoordinate(0, 0, 0),
+                0,
+                1,
+                1,
+                1,
+                blocks,
+                liquids,
+                2,
+                true,
+                ""
+        );
+
+        assertEquals(7, chunk.blockIdAt(0, 0, 0));
+        assertEquals(3, chunk.liquidIdAt(0, 0, 0));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ParsedChunk.fromDecodedLayers(
+                        new ChunkCoordinate(0, 0, 0),
+                        0,
+                        2,
+                        1,
+                        1,
+                        blocks,
+                        liquids,
+                        2,
+                        true,
+                        ""
+                )
+        );
+
+        DecodedChunkLayer validBlocks =
+                DecodedChunkLayer.builder(2).build();
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ParsedChunk.fromDecodedLayers(
+                        new ChunkCoordinate(0, 0, 0),
+                        0,
+                        2,
+                        1,
+                        1,
+                        validBlocks,
+                        liquids,
+                        2,
+                        true,
+                        ""
+                )
+        );
+    }
+
     private ParsedChunk chunk(
             int[] blocks,
             int[] liquids,

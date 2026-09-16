@@ -1,6 +1,7 @@
 package cartographer.parser;
 
 import cartographer.model.ChunkCoordinate;
+import cartographer.model.DecodedChunkLayer;
 import cartographer.model.ParseResult;
 import cartographer.model.ParsedChunk;
 import cartographer.model.ServerChunkPayload;
@@ -82,8 +83,8 @@ public class ChunkParser {
         );
 
         try {
-            int[] blockIds =
-                    layerDecoder.decode(
+            DecodedChunkLayer blockLayer =
+                    layerDecoder.decodeOwned(
                             serverChunk.blocksCompressed(),
                             serverChunk.savedCompressionVersion()
                     );
@@ -98,15 +99,15 @@ public class ChunkParser {
                     );
 
             return ParseResult.success(
-                    new ParsedChunk(
+                    ParsedChunk.fromDecodedLayers(
                             coordinate,
                             coordinate.y()
                                     * ChunkDataLayerDecoder.SIZE,
                             ChunkDataLayerDecoder.SIZE,
                             ChunkDataLayerDecoder.SIZE,
                             ChunkDataLayerDecoder.SIZE,
-                            blockIds,
-                            liquids.ids(),
+                            blockLayer,
+                            liquids.layer(),
                             serverChunk.savedCompressionVersion(),
                             liquids.available(),
                             liquids.error()
@@ -149,13 +150,15 @@ public class ChunkParser {
     ) {
         if (serverChunk.liquidsCompressed().length == 0) {
             return DecodedLiquids.available(
-                    new int[ChunkDataLayerDecoder.VALUE_COUNT]
+                    DecodedChunkLayer.empty(
+                            ChunkDataLayerDecoder.VALUE_COUNT
+                    )
             );
         }
 
         try {
             return DecodedLiquids.available(
-                    layerDecoder.decode(
+                    layerDecoder.decodeOwned(
                             serverChunk.liquidsCompressed(),
                             serverChunk.savedCompressionVersion()
                     )
@@ -222,15 +225,15 @@ public class ChunkParser {
     }
 
     private record DecodedLiquids(
-            int[] ids,
+            DecodedChunkLayer layer,
             boolean available,
             String error
     ) {
         static DecodedLiquids available(
-                int[] ids
+                DecodedChunkLayer layer
         ) {
             return new DecodedLiquids(
-                    ids,
+                    layer,
                     true,
                     ""
             );

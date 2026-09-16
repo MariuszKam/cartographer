@@ -2,6 +2,7 @@ package cartographer.parser;
 
 import com.github.luben.zstd.Zstd;
 import cartographer.model.ChunkCoordinate;
+import cartographer.model.DecodedChunkLayer;
 import cartographer.model.ParsedChunk;
 import cartographer.model.ParseResult;
 import cartographer.model.ServerChunkPayload;
@@ -32,8 +33,9 @@ class ChunkParserTest {
                         index -> index == 0 ? 1 : 0
                 );
 
+        RecordingLayerDecoder decoder = new RecordingLayerDecoder();
         ParseResult<ParsedChunk> result =
-                new ChunkParser()
+                new ChunkParser(decoder)
                         .parse(
                                 new ChunkCoordinate(0, 0, 0),
                                 serverChunk(blocks, liquids, 2)
@@ -42,6 +44,7 @@ class ChunkParserTest {
         assertTrue(result.isSuccess());
         assertEquals(200, result.value().orElseThrow().liquidIdAt(0, 0, 0));
         assertTrue(result.value().orElseThrow().liquidLayerAvailable());
+        assertEquals(2, decoder.ownedDecodeCalls);
     }
 
     @Test
@@ -102,7 +105,22 @@ class ChunkParserTest {
                         );
 
         assertTrue(result.isSuccess());
-        assertEquals(1, decoder.decodeCalls);
+        assertEquals(1, decoder.ownedDecodeCalls);
+    }
+
+    @Test
+    void publicDecoderStillReturnsIndependentArrays() {
+        byte[] payload = encodedLayer(
+                new int[]{0, 11},
+                index -> index == 0 ? 1 : 0
+        );
+        ChunkDataLayerDecoder decoder = new ChunkDataLayerDecoder();
+
+        int[] first = decoder.decode(payload, 2);
+        first[0] = 99;
+        int[] second = decoder.decode(payload, 2);
+
+        assertEquals(11, second[0]);
     }
 
     @Test
@@ -176,15 +194,25 @@ class ChunkParserTest {
 
     private static final class RecordingLayerDecoder
             extends ChunkDataLayerDecoder {
-        private int decodeCalls;
+        private int ownedDecodeCalls;
 
         @Override
         public int[] decode(
                 byte[] payload,
                 int savedCompressionVersion
         ) {
-            decodeCalls++;
-            return super.decode(
+            throw new AssertionError(
+                    "ChunkParser must use decodeOwned"
+            );
+        }
+
+        @Override
+        DecodedChunkLayer decodeOwned(
+                byte[] payload,
+                int savedCompressionVersion
+        ) {
+            ownedDecodeCalls++;
+            return super.decodeOwned(
                     payload,
                     savedCompressionVersion
             );

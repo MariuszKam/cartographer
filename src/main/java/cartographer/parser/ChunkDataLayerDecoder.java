@@ -1,6 +1,7 @@
 package cartographer.parser;
 
 import com.github.luben.zstd.Zstd;
+import cartographer.model.DecodedChunkLayer;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -16,6 +17,16 @@ public class ChunkDataLayerDecoder {
             byte[] payload,
             int savedCompressionVersion
     ) {
+        return decodeOwned(
+                payload,
+                savedCompressionVersion
+        ).toArray();
+    }
+
+    DecodedChunkLayer decodeOwned(
+            byte[] payload,
+            int savedCompressionVersion
+    ) {
         DecodedPalette decodedPalette =
                 readPalette(
                         payload,
@@ -23,7 +34,7 @@ public class ChunkDataLayerDecoder {
                 );
 
         if (decodedPalette.values().length == 0) {
-            return new int[VALUE_COUNT];
+            return DecodedChunkLayer.empty(VALUE_COUNT);
         }
 
         int[] palette =
@@ -277,18 +288,16 @@ public class ChunkDataLayerDecoder {
         return decompressed;
     }
 
-    private int[] decodePaletteBits(
+    private DecodedChunkLayer decodePaletteBits(
             int[] palette,
             byte[] dataBitsBytes,
             int bitSize
     ) {
-        int[] values =
-                new int[VALUE_COUNT];
+        DecodedChunkLayer.Builder values =
+                DecodedChunkLayer.builder(VALUE_COUNT);
 
         if (bitSize == 0) {
-            Arrays.fill(values, palette[0]);
-
-            return values;
+            return values.fill(palette[0]).build();
         }
 
         ByteBuffer bits =
@@ -333,13 +342,15 @@ public class ChunkDataLayerDecoder {
                         );
                     }
 
-                    values[(y * SIZE + z) * SIZE + x] =
-                            palette[paletteIndex];
+                    values.set(
+                            (y * SIZE + z) * SIZE + x,
+                            palette[paletteIndex]
+                    );
                 }
             }
         }
 
-        return values;
+        return values.build();
     }
 
     private int bitSize(
