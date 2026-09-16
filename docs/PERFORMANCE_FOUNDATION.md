@@ -263,12 +263,12 @@ For changes materially affecting ROCK, R256/R512 are development evidence, R1024
 
 ## Local macro baseline tooling
 
-Reviewers can run the first real-save ROCK macro baseline with either supported workload:
+Reviewers can run a selected workload from the supported real-save ROCK macro scaling ladder:
 
 ```powershell
 .\gradlew.bat perfBaseline `
   -Psave="C:\path\world.vcdbs" `
-  -Pworkload="ROCK_UPPER_R256" `
+  -Pworkload="ROCK_UPPER_R1024" `
   -PgitSha="<40-char SHA>"
 ```
 
