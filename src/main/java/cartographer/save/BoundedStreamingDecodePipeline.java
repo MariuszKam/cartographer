@@ -128,15 +128,23 @@ final class BoundedStreamingDecodePipeline<T> implements AutoCloseable {
     }
 
     /**
-     * Cancels outstanding work and performs bounded best-effort worker
-     * cleanup. Cleanup never replaces an already-propagating failure.
+     * Cancels outstanding work and waits for all owned workers to terminate.
+     * If cleanup is interrupted, termination still completes and the
+     * interruption is reported. Cleanup never replaces an already-propagating
+     * failure.
      */
     @Override
     public void close() {
         if (state == State.FINISHED || state == State.ABORTED) {
             return;
         }
-        abort();
+        InterruptedException interruption = abort();
+        if (interruption != null) {
+            throw new IllegalStateException(
+                    "interrupted while closing decode pipeline",
+                    interruption
+            );
+        }
     }
 
     /** Package-private observation for invariant tests. */
@@ -211,9 +219,9 @@ final class BoundedStreamingDecodePipeline<T> implements AutoCloseable {
         }
     }
 
-    private void abort() {
+    private InterruptedException abort() {
         if (state == State.FINISHED) {
-            return;
+            return null;
         }
         state = State.ABORTED;
         for (Future<T> future : outstanding) {
@@ -222,7 +230,7 @@ final class BoundedStreamingDecodePipeline<T> implements AutoCloseable {
         outstanding.clear();
         inFlight = 0;
         executor.shutdownNow();
-        awaitTermination();
+        return awaitTermination();
     }
 
     /**
