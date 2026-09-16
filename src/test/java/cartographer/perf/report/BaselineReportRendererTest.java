@@ -150,7 +150,7 @@ class BaselineReportRendererTest {
         assertThrows(UnsupportedOperationException.class,
                 () -> report.saveSafetyViolations().clear());
         assertThrows(NullPointerException.class,
-                () -> BaselineReportFactory.from(null, SaveSafetyResult.PASS));
+                () -> BaselineReportFactory.from(null, SAFETY_PASS));
         assertThrows(NullPointerException.class,
                 () -> BaselineReportFactory.from(baseline(), null));
         assertThrows(NullPointerException.class,
