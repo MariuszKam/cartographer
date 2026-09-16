@@ -240,7 +240,7 @@ public class ChunkParser {
                 String error
         ) {
             return new DecodedLiquids(
-                    new int[ChunkDataLayerDecoder.VALUE_COUNT],
+                    null,
                     false,
                     error
             );

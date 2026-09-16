@@ -126,6 +126,14 @@ class ChunkParserTest {
         assertEquals(11, chunk.blockIdAt(0, 0, 0));
         assertFalse(chunk.liquidLayerAvailable());
         assertEquals("liquid layer not decoded", chunk.liquidDecodeError());
+        assertThrows(
+                IllegalStateException.class,
+                () -> chunk.liquidIdAt(0, 0, 0)
+        );
+        assertThrows(
+                IllegalStateException.class,
+                chunk::liquidIds
+        );
     }
 
     @Test
@@ -433,6 +441,11 @@ class ChunkParserTest {
                                 0
                         )
         );
+
+        ParsedChunk chunk = result.value().orElseThrow();
+        assertTrue(chunk.liquidLayerAvailable());
+        assertEquals(0, chunk.liquidIdAt(7, 0, 0));
+        assertEquals(ChunkDataLayerDecoder.VALUE_COUNT, chunk.liquidIds().length);
     }
 
     @Test
@@ -595,17 +608,6 @@ class ChunkParserTest {
                         )
         );
 
-        assertEquals(
-                0,
-                result.value()
-                        .orElseThrow()
-                        .liquidIdAt(
-                                0,
-                                0,
-                                0
-                        )
-        );
-
         assertFalse(
                 result.value()
                         .orElseThrow()
@@ -619,6 +621,16 @@ class ChunkParserTest {
                         .contains(
                                 "liquidsCompressed"
                         )
+        );
+
+        ParsedChunk chunk = result.value().orElseThrow();
+        assertThrows(
+                IllegalStateException.class,
+                () -> chunk.liquidIdAt(0, 0, 0)
+        );
+        assertThrows(
+                IllegalStateException.class,
+                chunk::liquidIds
         );
     }
 

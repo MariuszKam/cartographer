@@ -75,18 +75,34 @@ public record ParsedChunk(
                 );
 
         liquidIds =
-                copyAndValidateLayer(
-                        liquidIds,
-                        sizeX,
-                        sizeY,
-                        sizeZ,
-                        "liquid"
-                );
+                liquidLayerAvailable
+                        ? copyAndValidateLayer(
+                                liquidIds,
+                                sizeX,
+                                sizeY,
+                                sizeZ,
+                                "liquid"
+                        )
+                        : null;
 
         liquidDecodeError =
                 liquidDecodeError == null
                         ? ""
                         : liquidDecodeError;
+
+        if (liquidLayerAvailable
+                && !liquidDecodeError.isBlank()) {
+            throw new IllegalArgumentException(
+                    "available liquid layer cannot have a decode error"
+            );
+        }
+
+        if (!liquidLayerAvailable
+                && liquidDecodeError.isBlank()) {
+            throw new IllegalArgumentException(
+                    "unavailable liquid layer must have a decode error"
+            );
+        }
     }
 
     public int blockIdAt(
@@ -130,6 +146,8 @@ public record ParsedChunk(
             );
         }
 
+        requireLiquidLayerAvailable();
+
         return liquidIds[
                 (y * sizeZ + z)
                         * sizeX
@@ -168,10 +186,21 @@ public record ParsedChunk(
     }
 
     public int[] liquidIds() {
+        requireLiquidLayerAvailable();
+
         return Arrays.copyOf(
                 liquidIds,
                 liquidIds.length
         );
+    }
+
+    private void requireLiquidLayerAvailable() {
+        if (!liquidLayerAvailable) {
+            throw new IllegalStateException(
+                    "liquid layer is unavailable: "
+                            + liquidDecodeError
+            );
+        }
     }
 
     private static int[] copyAndValidateLayer(
