@@ -132,6 +132,40 @@ tasks.register<JavaExec>("realSaveValidation") {
     }
 }
 
+tasks.register<JavaExec>("perfBaseline") {
+    group = "verification"
+    description = "Runs opt-in real-save ROCK macro baseline evidence"
+    dependsOn("classes")
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("cartographer.perf.macro.MacroBaselineMain")
+    javaLauncher.set(jpackageJavaLauncher)
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    doFirst {
+        val save = providers.gradleProperty("save").orNull?.trim()
+        val workload = providers.gradleProperty("workload").orNull?.trim()
+        val gitSha = providers.gradleProperty("gitSha").orNull?.trim()
+        if (save.isNullOrEmpty()) {
+            throw GradleException("Missing required -Psave=<path-to-world.vcdbs>")
+        }
+        if (workload.isNullOrEmpty()) {
+            throw GradleException("Missing required -Pworkload=<workload-id>")
+        }
+        if (gitSha.isNullOrEmpty()) {
+            throw GradleException("Missing required -PgitSha=<40-character-sha>")
+        }
+        val saveFile = File(save)
+        if (!saveFile.isFile) {
+            throw GradleException("-Psave must name an existing regular file: $save")
+        }
+        args(
+                saveFile.absolutePath,
+                workload,
+                gitSha,
+                layout.buildDirectory.dir("perf/baselines").get().asFile.absolutePath
+        )
+    }
+}
+
 tasks.register<JavaExec>("runGui") {
     group = "application"
     description = "Launches the VS Cartographer desktop UI"

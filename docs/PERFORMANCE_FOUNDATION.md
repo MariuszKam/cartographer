@@ -244,3 +244,16 @@ Reviewers can run the opt-in save-integrity gate with:
 The task hashes the main save and SQLite sidecars before and after a small production read-only SQLite smoke access. `PASS` requires the existing `SaveSafetyGate` to report `PASS`; creation of a new WAL or SHM sidecar is a failure. This is reviewer-only tooling, is not a benchmark, and provides no performance evidence. It is not wired into `build`, `check`, `test`, or CI. It does not run JMH or JFR.
 
 Direct `.vcdbs` analysis uses immutable SQLite read-only access and assumes an offline, quiescent save. Do not use Cartographer to read a save while Vintage Story or another process is actively modifying it.
+
+## Local macro baseline tooling
+
+Reviewers can run the first real-save ROCK macro baseline with either supported workload:
+
+```powershell
+.\gradlew.bat perfBaseline `
+  -Psave="C:\path\world.vcdbs" `
+  -Pworkload="ROCK_UPPER_R256" `
+  -PgitSha="<40-char SHA>"
+```
+
+Use `ROCK_UPPER_R512` for the larger supported radius. The command uses the production ROCK pipeline with two JVM-warm warmups and five measured iterations. The OS filesystem cache state is uncontrolled; this is not cold-disk evidence. The save SHA-256 is calculated only after successful measured iterations, and save safety must be checked separately with `realSaveValidation`. Keep Vintage Story closed and the save quiescent. This is opt-in reviewer tooling, not JMH or JFR, and is not wired into build, test, check, or CI. It does not introduce PF-1.0.12.
