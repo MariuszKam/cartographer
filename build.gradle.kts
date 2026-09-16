@@ -111,6 +111,27 @@ tasks.register<JavaExec>("jmh") {
     jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
 
+tasks.register<JavaExec>("realSaveValidation") {
+    group = "verification"
+    description = "Runs opt-in read-only safety validation against a real .vcdbs save"
+    dependsOn("classes")
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("cartographer.perf.safety.RealSaveValidationMain")
+    javaLauncher.set(jpackageJavaLauncher)
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    doFirst {
+        val save = providers.gradleProperty("save").orNull?.trim()
+        if (save.isNullOrEmpty()) {
+            throw GradleException("Missing required -Psave=<path-to-world.vcdbs>")
+        }
+        val saveFile = File(save)
+        if (!saveFile.isFile) {
+            throw GradleException("-Psave must name an existing regular file: $save")
+        }
+        args(saveFile.absolutePath)
+    }
+}
+
 tasks.register<JavaExec>("runGui") {
     group = "application"
     description = "Launches the VS Cartographer desktop UI"

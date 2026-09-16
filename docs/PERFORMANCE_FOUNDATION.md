@@ -232,3 +232,13 @@ PF-1.0.0 is documentation and contract only. It must not:
 - record invented benchmark numbers.
 
 Acceptance remains subject to independent review and the required validation gates. This document does not declare PF-1.0.0 accepted or `DONE`.
+
+## Local real-save safety validation
+
+Reviewers can run the opt-in save-integrity gate with:
+
+```powershell
+.\gradlew.bat realSaveValidation -Psave="C:\path\world.vcdbs"
+```
+
+The task hashes the main save and SQLite sidecars before and after a small production read-only SQLite smoke access. `PASS` requires the existing `SaveSafetyGate` to report `PASS`; creation of a new WAL or SHM sidecar is a failure. This is reviewer-only tooling, is not a benchmark, and provides no performance evidence. It is not wired into `build`, `check`, `test`, or CI. It does not run JMH or JFR.
