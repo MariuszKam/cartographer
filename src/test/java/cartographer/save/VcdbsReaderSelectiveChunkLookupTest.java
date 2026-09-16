@@ -7,6 +7,7 @@ import cartographer.model.ParseResult;
 import cartographer.model.ParsedChunk;
 import cartographer.model.ServerChunkPayload;
 import cartographer.parser.ChunkDecodeProfile;
+import cartographer.parser.ChunkDecodeWorkspace;
 import cartographer.parser.ChunkPaletteProbe;
 import cartographer.parser.ChunkParser;
 import org.junit.jupiter.api.Test;
@@ -475,6 +476,18 @@ class VcdbsReaderSelectiveChunkLookupTest {
         public ParseResult<ChunkPaletteProbe> probeBlockPalette(
                 ServerChunkPayload serverChunk
         ) {
+            return probePaletteStub();
+        }
+
+        @Override
+        public ParseResult<ChunkPaletteProbe> probeBlockPalette(
+                ServerChunkPayload serverChunk,
+                ChunkDecodeWorkspace workspace
+        ) {
+            return probePaletteStub();
+        }
+
+        private ParseResult<ChunkPaletteProbe> probePaletteStub() {
             paletteProbeCalls.incrementAndGet();
             return paletteResult;
         }
@@ -483,6 +496,22 @@ class VcdbsReaderSelectiveChunkLookupTest {
         public ParseResult<ParsedChunk> parse(
                 ChunkCoordinate coordinate,
                 ServerChunkPayload serverChunk,
+                ChunkDecodeProfile profile
+        ) {
+            return parseServerChunkStub(profile);
+        }
+
+        @Override
+        public ParseResult<ParsedChunk> parse(
+                ChunkCoordinate coordinate,
+                ServerChunkPayload serverChunk,
+                ChunkDecodeProfile profile,
+                ChunkDecodeWorkspace workspace
+        ) {
+            return parseServerChunkStub(profile);
+        }
+
+        private ParseResult<ParsedChunk> parseServerChunkStub(
                 ChunkDecodeProfile profile
         ) {
             parseServerChunkCalls.incrementAndGet();
@@ -520,10 +549,34 @@ class VcdbsReaderSelectiveChunkLookupTest {
         }
 
         @Override
+        public ParseResult<ChunkPaletteProbe> probeBlockPalette(
+                ServerChunkPayload serverChunk,
+                ChunkDecodeWorkspace workspace
+        ) {
+            return ParseResult.success(new ChunkPaletteProbe(new int[]{99}));
+        }
+
+        @Override
         public ParseResult<ParsedChunk> parse(
                 ChunkCoordinate coordinate,
                 ServerChunkPayload serverChunk,
                 ChunkDecodeProfile profile
+        ) {
+            return parseServerChunkStub(coordinate);
+        }
+
+        @Override
+        public ParseResult<ParsedChunk> parse(
+                ChunkCoordinate coordinate,
+                ServerChunkPayload serverChunk,
+                ChunkDecodeProfile profile,
+                ChunkDecodeWorkspace workspace
+        ) {
+            return parseServerChunkStub(coordinate);
+        }
+
+        private ParseResult<ParsedChunk> parseServerChunkStub(
+                ChunkCoordinate coordinate
         ) {
             return ParseResult.success(new ParsedChunk(
                     coordinate, coordinate.y(), 1, 1, 1, new int[]{1}

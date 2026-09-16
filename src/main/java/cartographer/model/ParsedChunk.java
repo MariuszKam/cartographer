@@ -1,19 +1,19 @@
 package cartographer.model;
 
-import java.util.Arrays;
+import java.util.Objects;
 
-public record ParsedChunk(
-        ChunkCoordinate coordinate,
-        int minY,
-        int sizeX,
-        int sizeY,
-        int sizeZ,
-        int[] blockIds,
-        int[] liquidIds,
-        int savedCompressionVersion,
-        boolean liquidLayerAvailable,
-        String liquidDecodeError
-) {
+public final class ParsedChunk {
+    private final ChunkCoordinate coordinate;
+    private final int minY;
+    private final int sizeX;
+    private final int sizeY;
+    private final int sizeZ;
+    private final DecodedChunkLayer blockLayer;
+    private final DecodedChunkLayer liquidLayer;
+    private final int savedCompressionVersion;
+    private final boolean liquidLayerAvailable;
+    private final String liquidDecodeError;
+
     public ParsedChunk(
             ChunkCoordinate coordinate,
             int minY,
@@ -29,11 +29,7 @@ public record ParsedChunk(
                 sizeY,
                 sizeZ,
                 blockIds,
-                new int[
-                        sizeX
-                                * sizeY
-                                * sizeZ
-                        ],
+                new int[sizeX * sizeY * sizeZ],
                 0,
                 true,
                 ""
@@ -64,143 +60,267 @@ public record ParsedChunk(
         );
     }
 
-    public ParsedChunk {
-        blockIds =
-                copyAndValidateLayer(
-                        blockIds,
-                        sizeX,
-                        sizeY,
-                        sizeZ,
-                        "block"
-                );
-
-        liquidIds =
-                copyAndValidateLayer(
-                        liquidIds,
-                        sizeX,
-                        sizeY,
-                        sizeZ,
-                        "liquid"
-                );
-
-        liquidDecodeError =
-                liquidDecodeError == null
-                        ? ""
-                        : liquidDecodeError;
-    }
-
-    public int blockIdAt(
-            int x,
-            int y,
-            int z
-    ) {
-        if (x < 0
-                || x >= sizeX
-                || y < 0
-                || y >= sizeY
-                || z < 0
-                || z >= sizeZ) {
-
-            throw new IndexOutOfBoundsException(
-                    "Chunk coordinate out of bounds"
-            );
-        }
-
-        return blockIds[
-                (y * sizeZ + z)
-                        * sizeX
-                        + x
-                ];
-    }
-
-    public int liquidIdAt(
-            int x,
-            int y,
-            int z
-    ) {
-        if (x < 0
-                || x >= sizeX
-                || y < 0
-                || y >= sizeY
-                || z < 0
-                || z >= sizeZ) {
-
-            throw new IndexOutOfBoundsException(
-                    "Chunk coordinate out of bounds"
-            );
-        }
-
-        return liquidIds[
-                (y * sizeZ + z)
-                        * sizeX
-                        + x
-                ];
-    }
-
-    public int worldX(
-            int localX
-    ) {
-        return coordinate.x()
-                * ChunkCoordinate.SIZE_BLOCKS
-                + localX;
-    }
-
-    public int worldZ(
-            int localZ
-    ) {
-        return coordinate.z()
-                * ChunkCoordinate.SIZE_BLOCKS
-                + localZ;
-    }
-
-    public int worldY(
-            int localY
-    ) {
-        return minY
-                + localY;
-    }
-
-    public int[] blockIds() {
-        return Arrays.copyOf(
-                blockIds,
-                blockIds.length
-        );
-    }
-
-    public int[] liquidIds() {
-        return Arrays.copyOf(
-                liquidIds,
-                liquidIds.length
-        );
-    }
-
-    private static int[] copyAndValidateLayer(
-            int[] values,
+    public ParsedChunk(
+            ChunkCoordinate coordinate,
+            int minY,
             int sizeX,
             int sizeY,
             int sizeZ,
-            String name
+            int[] blockIds,
+            int[] liquidIds,
+            int savedCompressionVersion,
+            boolean liquidLayerAvailable,
+            String liquidDecodeError
     ) {
-        int expected =
-                sizeX
-                        * sizeY
-                        * sizeZ;
+        this(
+                coordinate,
+                minY,
+                sizeX,
+                sizeY,
+                sizeZ,
+                DecodedChunkLayer.copyOf(blockIds),
+                layerFromArray(liquidIds, liquidLayerAvailable),
+                savedCompressionVersion,
+                liquidLayerAvailable,
+                liquidDecodeError
+        );
+    }
 
-        if (values == null
-                || values.length
-                != expected) {
-
+    private ParsedChunk(
+            ChunkCoordinate coordinate,
+            int minY,
+            int sizeX,
+            int sizeY,
+            int sizeZ,
+            DecodedChunkLayer blockLayer,
+            DecodedChunkLayer liquidLayer,
+            int savedCompressionVersion,
+            boolean liquidLayerAvailable,
+            String liquidDecodeError
+    ) {
+        int expectedLength = expectedLayerLength(sizeX, sizeY, sizeZ);
+        if (blockLayer == null
+                || blockLayer.length() != expectedLength) {
             throw new IllegalArgumentException(
-                    name
-                            + " layer must contain "
-                            + expected
-                            + " values"
+                    "block layer must contain " + expectedLength + " values"
             );
         }
 
-        return Arrays.copyOf(
-                values,
-                values.length
+        String normalizedLiquidDecodeError =
+                liquidDecodeError == null ? "" : liquidDecodeError;
+
+        if (liquidLayerAvailable) {
+            if (liquidLayer == null
+                    || liquidLayer.length() != expectedLength) {
+                throw new IllegalArgumentException(
+                        "liquid layer must contain " + expectedLength + " values"
+                );
+            }
+            if (!normalizedLiquidDecodeError.isBlank()) {
+                throw new IllegalArgumentException(
+                        "available liquid layer cannot have a decode error"
+                );
+            }
+        } else {
+            if (liquidLayer != null) {
+                throw new IllegalArgumentException(
+                        "unavailable liquid layer must not contain liquid values"
+                );
+            }
+            if (normalizedLiquidDecodeError.isBlank()) {
+                throw new IllegalArgumentException(
+                        "unavailable liquid layer must have a decode error"
+                );
+            }
+        }
+
+        this.coordinate = coordinate;
+        this.minY = minY;
+        this.sizeX = sizeX;
+        this.sizeY = sizeY;
+        this.sizeZ = sizeZ;
+        this.blockLayer = blockLayer;
+        this.liquidLayer = liquidLayer;
+        this.savedCompressionVersion = savedCompressionVersion;
+        this.liquidLayerAvailable = liquidLayerAvailable;
+        this.liquidDecodeError = normalizedLiquidDecodeError;
+    }
+
+    public static ParsedChunk fromDecodedLayers(
+            ChunkCoordinate coordinate,
+            int minY,
+            int sizeX,
+            int sizeY,
+            int sizeZ,
+            DecodedChunkLayer blockLayer,
+            DecodedChunkLayer liquidLayer,
+            int savedCompressionVersion,
+            boolean liquidLayerAvailable,
+            String liquidDecodeError
+    ) {
+        return new ParsedChunk(
+                coordinate,
+                minY,
+                sizeX,
+                sizeY,
+                sizeZ,
+                blockLayer,
+                liquidLayer,
+                savedCompressionVersion,
+                liquidLayerAvailable,
+                liquidDecodeError
         );
+    }
+
+    public ChunkCoordinate coordinate() {
+        return coordinate;
+    }
+
+    public int minY() {
+        return minY;
+    }
+
+    public int sizeX() {
+        return sizeX;
+    }
+
+    public int sizeY() {
+        return sizeY;
+    }
+
+    public int sizeZ() {
+        return sizeZ;
+    }
+
+    public int savedCompressionVersion() {
+        return savedCompressionVersion;
+    }
+
+    public boolean liquidLayerAvailable() {
+        return liquidLayerAvailable;
+    }
+
+    public String liquidDecodeError() {
+        return liquidDecodeError;
+    }
+
+    public int blockIdAt(int x, int y, int z) {
+        return blockLayer.valueAt(indexAt(x, y, z));
+    }
+
+    public int liquidIdAt(int x, int y, int z) {
+        int index = indexAt(x, y, z);
+        requireLiquidLayerAvailable();
+        return liquidLayer.valueAt(index);
+    }
+
+    public int worldX(int localX) {
+        return coordinate.x() * ChunkCoordinate.SIZE_BLOCKS + localX;
+    }
+
+    public int worldZ(int localZ) {
+        return coordinate.z() * ChunkCoordinate.SIZE_BLOCKS + localZ;
+    }
+
+    public int worldY(int localY) {
+        return minY + localY;
+    }
+
+    public int[] blockIds() {
+        return blockLayer.toArray();
+    }
+
+    public int[] liquidIds() {
+        requireLiquidLayerAvailable();
+        return liquidLayer.toArray();
+    }
+
+    private int indexAt(int x, int y, int z) {
+        if (x < 0
+                || x >= sizeX
+                || y < 0
+                || y >= sizeY
+                || z < 0
+                || z >= sizeZ) {
+            throw new IndexOutOfBoundsException(
+                    "Chunk coordinate out of bounds"
+            );
+        }
+        return (y * sizeZ + z) * sizeX + x;
+    }
+
+    private void requireLiquidLayerAvailable() {
+        if (!liquidLayerAvailable) {
+            throw new IllegalStateException(
+                    "liquid layer is unavailable: " + liquidDecodeError
+            );
+        }
+    }
+
+    private static int expectedLayerLength(int sizeX, int sizeY, int sizeZ) {
+        return sizeX * sizeY * sizeZ;
+    }
+
+    private static DecodedChunkLayer layerFromArray(
+            int[] values,
+            boolean available
+    ) {
+        if (!available && values != null) {
+            throw new IllegalArgumentException(
+                    "unavailable liquid layer must not contain liquid values"
+            );
+        }
+        return available ? DecodedChunkLayer.copyOf(values) : null;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (!(other instanceof ParsedChunk chunk)) {
+            return false;
+        }
+        return minY == chunk.minY
+                && sizeX == chunk.sizeX
+                && sizeY == chunk.sizeY
+                && sizeZ == chunk.sizeZ
+                && savedCompressionVersion == chunk.savedCompressionVersion
+                && liquidLayerAvailable == chunk.liquidLayerAvailable
+                && Objects.equals(coordinate, chunk.coordinate)
+                && Objects.equals(blockLayer, chunk.blockLayer)
+                && Objects.equals(liquidLayer, chunk.liquidLayer)
+                && Objects.equals(liquidDecodeError, chunk.liquidDecodeError);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Objects.hashCode(coordinate);
+        result = 31 * result + Integer.hashCode(minY);
+        result = 31 * result + Integer.hashCode(sizeX);
+        result = 31 * result + Integer.hashCode(sizeY);
+        result = 31 * result + Integer.hashCode(sizeZ);
+        result = 31 * result + System.identityHashCode(blockLayer);
+        result = 31 * result + System.identityHashCode(liquidLayer);
+        result = 31 * result + Integer.hashCode(savedCompressionVersion);
+        result = 31 * result + Boolean.hashCode(liquidLayerAvailable);
+        result = 31 * result + Objects.hashCode(liquidDecodeError);
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        return "ParsedChunk[coordinate=" + coordinate
+                + ", minY=" + minY
+                + ", sizeX=" + sizeX
+                + ", sizeY=" + sizeY
+                + ", sizeZ=" + sizeZ
+                + ", blockLayerLength=" + blockLayer.length()
+                + ", liquidLayerLength="
+                + (liquidLayer == null ? "null" : liquidLayer.length())
+                + ", savedCompressionVersion=" + savedCompressionVersion
+                + ", liquidLayerAvailable=" + liquidLayerAvailable
+                + ", liquidDecodeError=" + liquidDecodeError
+                + "]";
     }
 }

@@ -237,7 +237,7 @@ class RainHeightSurfaceScannerTest {
         ParsedChunk chunk = chunkWith(TARGET, 7, 0);
         return new ParsedChunk(
                 chunk.coordinate(), chunk.minY(), chunk.sizeX(), chunk.sizeY(),
-                chunk.sizeZ(), chunk.blockIds(), chunk.liquidIds(), 0, false,
+                chunk.sizeZ(), chunk.blockIds(), null, 0, false,
                 "liquid layer not decoded"
         );
     }

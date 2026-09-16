@@ -1,9 +1,8 @@
 package cartographer.parser;
 
 import com.github.luben.zstd.Zstd;
+import cartographer.model.DecodedChunkLayer;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.Arrays;
 
 public class ChunkDataLayerDecoder {
@@ -16,40 +15,56 @@ public class ChunkDataLayerDecoder {
             byte[] payload,
             int savedCompressionVersion
     ) {
-        DecodedPalette decodedPalette =
-                readPalette(
-                        payload,
-                        savedCompressionVersion
-                );
+        try (ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace()) {
+            return decodeOwned(payload, savedCompressionVersion, workspace).toArray();
+        }
+    }
 
-        if (decodedPalette.values().length == 0) {
-            return new int[VALUE_COUNT];
+    DecodedChunkLayer decodeOwned(
+            byte[] payload,
+            int savedCompressionVersion
+    ) {
+        try (ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace()) {
+            return decodeOwned(payload, savedCompressionVersion, workspace);
+        }
+    }
+
+    DecodedChunkLayer decodeOwned(
+            byte[] payload,
+            int savedCompressionVersion,
+            ChunkDecodeWorkspace workspace
+    ) {
+        DecodedPalette decodedPalette = readPalette(payload, savedCompressionVersion, workspace);
+
+        if (decodedPalette.length() == 0) {
+            return DecodedChunkLayer.empty(VALUE_COUNT);
         }
 
-        int[] palette =
-                decodedPalette.values();
-
-        int[] roundedPalette =
-                roundedPalette(
-                        palette
-                );
+        int[] palette = workspace.paletteBuffer();
+        int roundedPaletteLength = roundedPalette(palette, decodedPalette.length(), workspace);
 
         int bitSize =
                 bitSize(
-                        roundedPalette.length
+                        roundedPaletteLength
                 );
+
+        if (bitSize == 0) {
+            return decodePaletteBits(
+                    palette, null, 0, roundedPaletteLength, workspace
+            );
+        }
 
         byte[] dataBitsBytes =
                 readCompressedDataBits(
-                        payload,
-                        decodedPalette.nextOffset(),
-                        bitSize
+                        payload, decodedPalette.nextOffset(), bitSize, workspace
                 );
 
         return decodePaletteBits(
-                roundedPalette,
+                palette,
                 dataBitsBytes,
-                bitSize
+                bitSize,
+                roundedPaletteLength,
+                workspace
         );
     }
 
@@ -57,17 +72,26 @@ public class ChunkDataLayerDecoder {
             byte[] payload,
             int savedCompressionVersion
     ) {
+        try (ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace()) {
+            return probePalette(payload, savedCompressionVersion, workspace);
+        }
+    }
+
+    ChunkPaletteProbe probePalette(
+            byte[] payload,
+            int savedCompressionVersion,
+            ChunkDecodeWorkspace workspace
+    ) {
+        DecodedPalette palette = readPalette(payload, savedCompressionVersion, workspace);
         return new ChunkPaletteProbe(
-                readPalette(
-                        payload,
-                        savedCompressionVersion
-                ).values()
+                Arrays.copyOf(workspace.paletteBuffer(), palette.length())
         );
     }
 
     private DecodedPalette readPalette(
             byte[] payload,
-            int savedCompressionVersion
+            int savedCompressionVersion,
+            ChunkDecodeWorkspace workspace
     ) {
         if (savedCompressionVersion != SUPPORTED_COMPRESSION_VERSION) {
             throw new IllegalArgumentException(
@@ -88,40 +112,45 @@ public class ChunkDataLayerDecoder {
             );
         }
 
-        ByteBuffer buffer =
-                ByteBuffer.wrap(payload)
-                        .order(ByteOrder.LITTLE_ENDIAN);
-
         int paletteByteLengthMarker =
-                buffer.getInt();
+                readLittleEndianInt(payload, 0);
 
         if (paletteByteLengthMarker == 0) {
             return new DecodedPalette(
-                    new int[0],
-                    buffer.position()
+                    0,
+                    Integer.BYTES
             );
         }
 
-        int[] palette =
-                paletteByteLengthMarker < 0
-                        ? readRawPalette(
-                        buffer,
-                        -paletteByteLengthMarker
-                )
-                        : readCompressedPalette(
-                        buffer,
-                        paletteByteLengthMarker
-                );
+        if (paletteByteLengthMarker == Integer.MIN_VALUE) {
+            throw new IllegalArgumentException("chunk palette length marker is invalid");
+        }
 
-        return new DecodedPalette(
-                palette,
-                buffer.position()
+        if (paletteByteLengthMarker < 0) {
+            int paletteByteLength = -paletteByteLengthMarker;
+            validatePaletteByteLength(paletteByteLength);
+            int paletteLength = paletteByteLength / Integer.BYTES;
+            int[] palette = workspace.ensurePaletteCapacity(paletteLength);
+            return new DecodedPalette(
+                    paletteLength,
+                    readRawPalette(payload, Integer.BYTES, paletteLength,
+                            paletteByteLength, palette)
+            );
+        }
+
+        int compressedPaletteLength = paletteByteLengthMarker;
+        validateCompressedPaletteLength(compressedPaletteLength, payload.length - Integer.BYTES);
+        return readCompressedPalette(
+                payload, Integer.BYTES, compressedPaletteLength, workspace
         );
     }
 
-    private int[] readRawPalette(
-            ByteBuffer buffer,
-            int paletteByteLength
+    private int readRawPalette(
+            byte[] payload,
+            int sourceOffset,
+            int paletteLength,
+            int paletteByteLength,
+            int[] palette
     ) {
         if (paletteByteLength % Integer.BYTES != 0) {
             throw new IllegalArgumentException(
@@ -130,59 +159,66 @@ public class ChunkDataLayerDecoder {
             );
         }
 
-        if (paletteByteLength > buffer.remaining()) {
+        if (paletteByteLength > payload.length - sourceOffset) {
             throw new IllegalArgumentException(
                     "chunk palette exceeds payload length"
             );
         }
 
-        int[] palette =
-                new int[paletteByteLength / Integer.BYTES];
-
-        for (int index = 0; index < palette.length; index++) {
+        for (int index = 0; index < paletteLength; index++) {
             palette[index] =
-                    buffer.getInt();
+                    readLittleEndianInt(payload, sourceOffset + index * Integer.BYTES);
         }
 
-        return palette;
+        return sourceOffset + paletteByteLength;
     }
 
-    private int[] readCompressedPalette(
-            ByteBuffer buffer,
-            int compressedPaletteLength
+    private DecodedPalette readCompressedPalette(
+            byte[] payload,
+            int sourceOffset,
+            int compressedPaletteLength,
+            ChunkDecodeWorkspace workspace
     ) {
-        if (compressedPaletteLength > buffer.remaining()) {
+        if (compressedPaletteLength > payload.length - sourceOffset) {
             throw new IllegalArgumentException(
                     "compressed chunk palette exceeds payload length"
             );
         }
 
-        byte[] compressedPalette =
-                new byte[compressedPaletteLength];
-
-        buffer.get(
-                compressedPalette
-        );
-
         long decompressedSize =
                 Zstd.getFrameContentSize(
-                        compressedPalette
+                        payload,
+                        sourceOffset,
+                        compressedPaletteLength
                 );
 
-        if (decompressedSize <= 0 || decompressedSize > Integer.MAX_VALUE) {
+        if (Zstd.isError(decompressedSize)
+                || decompressedSize <= 0
+                || decompressedSize > ChunkDecodeWorkspace.MAX_PALETTE_BYTES) {
             throw new IllegalArgumentException(
                     "compressed chunk palette has invalid decompressed size: "
                             + decompressedSize
             );
         }
 
-        byte[] paletteBytes;
+        if (decompressedSize % Integer.BYTES != 0) {
+            throw new IllegalArgumentException(
+                    "decompressed chunk palette byte length is not int aligned: "
+                            + decompressedSize
+            );
+        }
+
+        int paletteLength = (int) decompressedSize / Integer.BYTES;
+        int[] palette = workspace.ensurePaletteCapacity(paletteLength);
+        byte[] paletteBytes = workspace.ensureDecompressionCapacity((int) decompressedSize);
+
+        long decompressedLength;
 
         try {
-            paletteBytes =
-                    Zstd.decompress(
-                            compressedPalette,
-                            (int) decompressedSize
+            decompressedLength =
+                    workspace.decompress(
+                            paletteBytes, (int) decompressedSize,
+                            payload, sourceOffset, compressedPaletteLength
                     );
 
         } catch (RuntimeException exception) {
@@ -193,68 +229,61 @@ public class ChunkDataLayerDecoder {
             );
         }
 
-        if (paletteBytes.length % Integer.BYTES != 0) {
+        if (Zstd.isError(decompressedLength)) {
             throw new IllegalArgumentException(
-                    "decompressed chunk palette byte length is not int aligned: "
-                            + paletteBytes.length
+                    "zstd palette decompression failed: "
+                            + Zstd.getErrorName(decompressedLength)
             );
         }
 
-        ByteBuffer paletteBuffer =
-                ByteBuffer.wrap(
-                                paletteBytes
-                        )
-                        .order(
-                                ByteOrder.LITTLE_ENDIAN
-                        );
-
-        int[] palette =
-                new int[paletteBytes.length / Integer.BYTES];
-
-        for (int index = 0; index < palette.length; index++) {
-            palette[index] =
-                    paletteBuffer.getInt();
+        if (decompressedLength != decompressedSize) {
+            throw new IllegalArgumentException(
+                    "decoded palette length mismatch: expected "
+                            + decompressedSize
+                            + ", got "
+                            + decompressedLength
+            );
         }
 
-        return palette;
+        for (int index = 0; index < paletteLength; index++) {
+            palette[index] =
+                    readLittleEndianInt(paletteBytes, index * Integer.BYTES);
+        }
+
+        return new DecodedPalette(
+                paletteLength,
+                sourceOffset + compressedPaletteLength
+        );
     }
 
     private byte[] readCompressedDataBits(
             byte[] payload,
             int offset,
-            int bitSize
+            int bitSize,
+            ChunkDecodeWorkspace workspace
     ) {
         int expectedLength =
                 bitSize * SLICE_COUNT * Integer.BYTES;
 
         if (expectedLength == 0) {
-            return new byte[0];
+            return workspace.ensureDecompressionCapacity(0);
         }
 
-        if (offset >= payload.length) {
+        if (offset < 0 || offset >= payload.length) {
             throw new IllegalArgumentException(
                     "chunk data layer is missing compressed bit planes"
             );
         }
 
-        byte[] compressed =
-                new byte[payload.length - offset];
+        byte[] decompressed = workspace.ensureDecompressionCapacity(expectedLength);
 
-        System.arraycopy(
-                payload,
-                offset,
-                compressed,
-                0,
-                compressed.length
-        );
-
-        byte[] decompressed;
+        long decompressedLength;
 
         try {
-            decompressed =
-                    Zstd.decompress(
-                            compressed,
-                            expectedLength
+            decompressedLength =
+                    workspace.decompress(
+                            decompressed, expectedLength,
+                            payload, offset, payload.length - offset
                     );
 
         } catch (RuntimeException exception) {
@@ -265,81 +294,77 @@ public class ChunkDataLayerDecoder {
             );
         }
 
-        if (decompressed.length != expectedLength) {
+        if (Zstd.isError(decompressedLength)) {
+            throw new IllegalArgumentException(
+                    "zstd bit-plane decompression failed: "
+                            + Zstd.getErrorName(decompressedLength)
+            );
+        }
+
+        if (decompressedLength != expectedLength) {
             throw new IllegalArgumentException(
                     "decoded bit planes length mismatch: expected "
                             + expectedLength
                             + ", got "
-                            + decompressed.length
+                            + decompressedLength
             );
         }
 
         return decompressed;
     }
 
-    private int[] decodePaletteBits(
+    private DecodedChunkLayer decodePaletteBits(
             int[] palette,
             byte[] dataBitsBytes,
-            int bitSize
+            int bitSize,
+            int paletteLength,
+            ChunkDecodeWorkspace workspace
     ) {
-        int[] values =
-                new int[VALUE_COUNT];
+        DecodedChunkLayer.Builder values =
+                DecodedChunkLayer.builder(VALUE_COUNT);
 
         if (bitSize == 0) {
-            Arrays.fill(values, palette[0]);
-
-            return values;
+            return values.fill(palette[0]).build();
         }
 
-        ByteBuffer bits =
-                ByteBuffer.wrap(dataBitsBytes)
-                        .order(ByteOrder.LITTLE_ENDIAN);
+        int[] paletteIndexes = workspace.paletteIndexes();
 
-        int[][] dataBits =
-                new int[bitSize][SLICE_COUNT];
+        for (int slice = 0; slice < SLICE_COUNT; slice++) {
+            Arrays.fill(paletteIndexes, 0);
 
-        for (int bit = 0; bit < bitSize; bit++) {
-            for (int slice = 0; slice < SLICE_COUNT; slice++) {
-                dataBits[bit][slice] =
-                        bits.getInt();
-            }
-        }
-
-        for (int y = 0; y < SIZE; y++) {
-            for (int z = 0; z < SIZE; z++) {
-                int slice =
-                        y * SIZE
-                                + z;
+            for (int bit = 0; bit < bitSize; bit++) {
+                int dataBits = readLittleEndianInt(
+                        dataBitsBytes,
+                        (bit * SLICE_COUNT + slice) * Integer.BYTES
+                );
+                int value =
+                        1 << bit;
 
                 for (int x = 0; x < SIZE; x++) {
-                    int paletteIndex =
-                            0;
-
-                    int value =
-                            1;
-
-                    for (int bit = 0; bit < bitSize; bit++) {
-                        paletteIndex +=
-                                ((dataBits[bit][slice] >>> x) & 1)
-                                        * value;
-
-                        value <<= 1;
-                    }
-
-                    if (paletteIndex >= palette.length) {
-                        throw new IllegalArgumentException(
-                                "palette index out of range: "
-                                        + paletteIndex
-                        );
-                    }
-
-                    values[(y * SIZE + z) * SIZE + x] =
-                            palette[paletteIndex];
+                    paletteIndexes[x] +=
+                            ((dataBits >>> x) & 1)
+                                    * value;
                 }
+            }
+
+            for (int x = 0; x < SIZE; x++) {
+                int paletteIndex = paletteIndexes[x];
+
+                if (paletteIndex >= paletteLength) {
+                    throw new IllegalArgumentException(
+                            "palette index out of range: "
+                                    + paletteIndex
+                    );
+                }
+
+                values.set(
+                        slice * SIZE + x,
+                        palette[paletteIndex]
+                );
             }
         }
 
-        return values;
+        return values.build();
     }
 
     private int bitSize(
@@ -362,26 +387,46 @@ public class ChunkDataLayerDecoder {
         return bitSize;
     }
 
-    private int[] roundedPalette(
-            int[] palette
+    private int roundedPalette(
+            int[] palette,
+            int paletteLength,
+            ChunkDecodeWorkspace workspace
     ) {
         int roundedSize =
                 roundedUpPowerOfTwo(
-                        palette.length
+                        paletteLength
                 );
+        workspace.ensurePaletteCapacity(roundedSize);
+        if (roundedSize > paletteLength) {
+            Arrays.fill(palette, paletteLength, roundedSize, 0);
+        }
+        return roundedSize;
+    }
 
-        int[] rounded =
-                new int[roundedSize];
+    private void validatePaletteByteLength(int length) {
+        if (length <= 0 || length > ChunkDecodeWorkspace.MAX_PALETTE_BYTES
+                || length % Integer.BYTES != 0) {
+            throw new IllegalArgumentException("chunk palette byte length is invalid: " + length);
+        }
+    }
 
-        System.arraycopy(
-                palette,
-                0,
-                rounded,
-                0,
-                palette.length
-        );
+    private void validateCompressedPaletteLength(int length, int remaining) {
+        if (length <= 0 || length > ChunkDecodeWorkspace.MAX_PALETTE_BYTES) {
+            throw new IllegalArgumentException("compressed chunk palette length is invalid: " + length);
+        }
+        if (length > remaining) {
+            throw new IllegalArgumentException("compressed chunk palette exceeds payload length");
+        }
+    }
 
-        return rounded;
+    private int readLittleEndianInt(byte[] bytes, int offset) {
+        if (offset < 0 || offset > bytes.length - Integer.BYTES) {
+            throw new IllegalArgumentException("chunk layer integer is truncated");
+        }
+        return (bytes[offset] & 0xff)
+                | ((bytes[offset + 1] & 0xff) << 8)
+                | ((bytes[offset + 2] & 0xff) << 16)
+                | ((bytes[offset + 3] & 0xff) << 24);
     }
 
     private int roundedUpPowerOfTwo(
@@ -402,7 +447,7 @@ public class ChunkDataLayerDecoder {
     }
 
     private record DecodedPalette(
-            int[] values,
+            int length,
             int nextOffset
     ) {
     }
