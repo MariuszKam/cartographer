@@ -242,3 +242,5 @@ Reviewers can run the opt-in save-integrity gate with:
 ```
 
 The task hashes the main save and SQLite sidecars before and after a small production read-only SQLite smoke access. `PASS` requires the existing `SaveSafetyGate` to report `PASS`; creation of a new WAL or SHM sidecar is a failure. This is reviewer-only tooling, is not a benchmark, and provides no performance evidence. It is not wired into `build`, `check`, `test`, or CI. It does not run JMH or JFR.
+
+Direct `.vcdbs` analysis uses immutable SQLite read-only access and assumes an offline, quiescent save. Do not use Cartographer to read a save while Vintage Story or another process is actively modifying it.
