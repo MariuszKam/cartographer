@@ -39,17 +39,6 @@ public final class DecodedChunkLayer {
         return Arrays.copyOf(values, values.length);
     }
 
-    @Override
-    public boolean equals(Object other) {
-        return other instanceof DecodedChunkLayer layer
-                && Arrays.equals(values, layer.values);
-    }
-
-    @Override
-    public int hashCode() {
-        return Arrays.hashCode(values);
-    }
-
     public static final class Builder {
         private int[] values;
 

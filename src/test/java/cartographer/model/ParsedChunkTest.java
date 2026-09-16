@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -130,6 +132,29 @@ class ParsedChunkTest {
                         ""
                 )
         );
+    }
+
+    @Test
+    void independentlyConstructedEqualContentsAreNotEqual() {
+        ParsedChunk first = chunk(new int[]{7}, new int[]{3}, true, "");
+        ParsedChunk second = chunk(new int[]{7}, new int[]{3}, true, "");
+
+        assertNotEquals(first, second);
+    }
+
+    @Test
+    void toStringContainsMetadataWithoutVoxelContents() {
+        ParsedChunk chunk = chunk(new int[]{7}, new int[]{3}, true, "");
+
+        String text = chunk.toString();
+
+        assertTrue(text.contains("coordinate="));
+        assertTrue(text.contains("blockLayerLength=1"));
+        assertTrue(text.contains("liquidLayerAvailable=true"));
+        assertFalse(text.contains("blockIds="));
+        assertFalse(text.contains("liquidIds="));
+        assertFalse(text.contains("7"));
+        assertFalse(text.contains("3"));
     }
 
     private ParsedChunk chunk(

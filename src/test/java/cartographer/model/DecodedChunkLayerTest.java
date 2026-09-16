@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class DecodedChunkLayerTest {
@@ -45,5 +46,19 @@ class DecodedChunkLayerTest {
         source[0] = 9;
 
         assertArrayEquals(new int[]{7, 3}, layer.toArray());
+    }
+
+    @Test
+    void equalContentsDoNotProvideValueEquality() {
+        DecodedChunkLayer first =
+                DecodedChunkLayer.builder(1)
+                        .set(0, 7)
+                        .build();
+        DecodedChunkLayer second =
+                DecodedChunkLayer.builder(1)
+                        .set(0, 7)
+                        .build();
+
+        assertNotEquals(first, second);
     }
 }

@@ -316,11 +316,9 @@ public final class ParsedChunk {
                 + ", sizeX=" + sizeX
                 + ", sizeY=" + sizeY
                 + ", sizeZ=" + sizeZ
-                + ", blockIds=" + java.util.Arrays.toString(blockIds())
-                + ", liquidIds="
-                + (liquidLayerAvailable
-                ? java.util.Arrays.toString(liquidIds())
-                : "null")
+                + ", blockLayerLength=" + blockLayer.length()
+                + ", liquidLayerLength="
+                + (liquidLayer == null ? "null" : liquidLayer.length())
                 + ", savedCompressionVersion=" + savedCompressionVersion
                 + ", liquidLayerAvailable=" + liquidLayerAvailable
                 + ", liquidDecodeError=" + liquidDecodeError
