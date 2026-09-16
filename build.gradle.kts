@@ -86,6 +86,55 @@ tasks.test {
     useJUnitPlatform()
 }
 
+val perfFullReportSave = providers.gradleProperty("save")
+val validatePerfFullReportSave = tasks.register("validatePerfFullReportSave") {
+    group = "verification"
+    description = "Validates the explicit save path for the local performance report task"
+    doLast {
+        val saveValue = perfFullReportSave.orNull?.trim()
+        if (saveValue.isNullOrEmpty()) {
+            throw GradleException("Missing required -Psave=<path-to-world.vcdbs>")
+        }
+        val saveFile = File(saveValue)
+        if (!saveFile.isFile) {
+            throw GradleException("-Psave must name an existing regular file: $saveValue")
+        }
+    }
+}
+
+validatePerfFullReportSave.configure {
+    mustRunBefore(tasks.test)
+}
+
+tasks.register<JavaExec>("perfFullReport") {
+    group = "verification"
+    description = "Runs the local real-save macro benchmark and generates a baseline report"
+    dependsOn(validatePerfFullReportSave, tasks.test)
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("cartographer.perf.lab.PerformanceLabMain")
+    javaLauncher.set(jmhJavaLauncher)
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    doFirst {
+        val saveValue = perfFullReportSave.orNull?.trim()
+            ?: throw GradleException("Missing required -Psave=<path-to-world.vcdbs>")
+        val gitSha = providers.exec {
+            commandLine("git", "rev-parse", "HEAD")
+        }.standardOutput.asText.get().trim()
+        if (!Regex("[0-9a-fA-F]{40}").matches(gitSha)) {
+            throw GradleException("git rev-parse HEAD did not return a full 40-character SHA")
+        }
+        val reportPath = layout.buildDirectory
+            .file("perf/reports/perf-full-report.txt")
+            .get()
+            .asFile
+        args(
+            "--save", saveValue,
+            "--git-sha", gitSha,
+            "--report", reportPath.absolutePath
+        )
+    }
+}
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)

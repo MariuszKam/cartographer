@@ -232,3 +232,13 @@ PF-1.0.0 is documentation and contract only. It must not:
 - record invented benchmark numbers.
 
 Acceptance remains subject to independent review and the required validation gates. This document does not declare PF-1.0.0 accepted or `DONE`.
+
+## PF-1.0.12 Local `perfFullReport`
+
+The local, opt-in `perfFullReport` task runs the initial `MAP_R128` macro workload against an explicitly supplied real save:
+
+```powershell
+.\gradlew.bat perfFullReport -Psave="C:\path\to\world.vcdbs"
+```
+
+The task depends on unit tests, uses the real backend with read-only save access, captures correctness fingerprints, takes save-safety snapshots before and after the workload, and writes the deterministic report to `build/perf/reports/perf-full-report.txt`. It is reviewer/user-operated tooling and is not part of PR CI, `build`, `check`, or `test`. It does not run JMH or automatically enable JFR. The command creates no trustworthy runtime or performance evidence until a reviewer actually runs and inspects it.
