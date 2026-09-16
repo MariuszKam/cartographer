@@ -36,8 +36,20 @@ class ParsedChunkTest {
         );
         assertThrows(
                 IllegalArgumentException.class,
-                () -> chunk(new int[]{7}, new int[]{0}, false, " ")
+                () -> chunk(new int[]{7}, new int[]{0}, false, "not decoded")
         );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> chunk(new int[]{7}, null, false, " ")
+        );
+
+        ParsedChunk unavailable =
+                chunk(new int[]{7}, null, false, "not decoded");
+        assertEquals("not decoded", unavailable.liquidDecodeError());
+
+        ParsedChunk available =
+                chunk(new int[]{7}, new int[]{3}, true, "");
+        assertTrue(available.liquidLayerAvailable());
     }
 
     @Test

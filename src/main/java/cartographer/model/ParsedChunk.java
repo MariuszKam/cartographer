@@ -74,6 +74,18 @@ public record ParsedChunk(
                         "block"
                 );
 
+        liquidDecodeError =
+                liquidDecodeError == null
+                        ? ""
+                        : liquidDecodeError;
+
+        if (!liquidLayerAvailable
+                && liquidIds != null) {
+            throw new IllegalArgumentException(
+                    "unavailable liquid layer must not contain liquid values"
+            );
+        }
+
         liquidIds =
                 liquidLayerAvailable
                         ? copyAndValidateLayer(
@@ -84,11 +96,6 @@ public record ParsedChunk(
                                 "liquid"
                         )
                         : null;
-
-        liquidDecodeError =
-                liquidDecodeError == null
-                        ? ""
-                        : liquidDecodeError;
 
         if (liquidLayerAvailable
                 && !liquidDecodeError.isBlank()) {
