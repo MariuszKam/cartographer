@@ -376,6 +376,60 @@ class ChunkParserTest {
     }
 
     @Test
+    void decodesMultipleBitPlanesAcrossSlicesAndXPositions() {
+        int[] palette =
+                new int[]{
+                        100,
+                        101,
+                        102,
+                        103,
+                        104,
+                        105,
+                        106,
+                        107
+                };
+        byte[] blocks = encodedLayer(
+                palette,
+                index -> {
+                    int x = index & 31;
+                    int slice = index >>> 5;
+                    if (slice == 0 && x == 0) {
+                        return 1;
+                    }
+                    if (slice == 0 && x == 16) {
+                        return 6;
+                    }
+                    if (slice == 0 && x == 31) {
+                        return 7;
+                    }
+                    if (slice == 1 && x == 0) {
+                        return 3;
+                    }
+                    if (slice == 2 && x == 31) {
+                        return 5;
+                    }
+                    return 0;
+                }
+        );
+
+        ParsedChunk chunk =
+                new ChunkParser()
+                        .parse(
+                                new ChunkCoordinate(0, 0, 0),
+                                serverChunk(blocks, emptyLayer(), 2),
+                                ChunkDecodeProfile.BLOCKS_ONLY
+                        )
+                        .value()
+                        .orElseThrow();
+
+        assertEquals(101, chunk.blockIdAt(0, 0, 0));
+        assertEquals(106, chunk.blockIdAt(16, 0, 0));
+        assertEquals(107, chunk.blockIdAt(31, 0, 0));
+        assertEquals(103, chunk.blockIdAt(0, 0, 1));
+        assertEquals(105, chunk.blockIdAt(31, 0, 2));
+    }
+
+    @Test
     void decodesLiquidsWithSameLayerFormat() {
         byte[] liquids =
                 encodedLayer(

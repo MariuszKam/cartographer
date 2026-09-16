@@ -120,6 +120,7 @@ public class ChunkDataLayerDecoder {
                         -paletteByteLengthMarker
                 )
                         : readCompressedPalette(
+                        payload,
                         buffer,
                         paletteByteLengthMarker
                 );
@@ -159,6 +160,7 @@ public class ChunkDataLayerDecoder {
     }
 
     private int[] readCompressedPalette(
+            byte[] payload,
             ByteBuffer buffer,
             int compressedPaletteLength
     ) {
@@ -168,32 +170,38 @@ public class ChunkDataLayerDecoder {
             );
         }
 
-        byte[] compressedPalette =
-                new byte[compressedPaletteLength];
-
-        buffer.get(
-                compressedPalette
-        );
+        int sourceOffset = buffer.position();
 
         long decompressedSize =
                 Zstd.getFrameContentSize(
-                        compressedPalette
+                        payload,
+                        sourceOffset,
+                        compressedPaletteLength
                 );
 
-        if (decompressedSize <= 0 || decompressedSize > Integer.MAX_VALUE) {
+        if (Zstd.isError(decompressedSize)
+                || decompressedSize <= 0
+                || decompressedSize > Integer.MAX_VALUE) {
             throw new IllegalArgumentException(
                     "compressed chunk palette has invalid decompressed size: "
                             + decompressedSize
             );
         }
 
-        byte[] paletteBytes;
+        byte[] paletteBytes =
+                new byte[(int) decompressedSize];
+
+        long decompressedLength;
 
         try {
-            paletteBytes =
-                    Zstd.decompress(
-                            compressedPalette,
-                            (int) decompressedSize
+            decompressedLength =
+                    Zstd.decompressByteArray(
+                            paletteBytes,
+                            0,
+                            paletteBytes.length,
+                            payload,
+                            sourceOffset,
+                            compressedPaletteLength
                     );
 
         } catch (RuntimeException exception) {
@@ -201,6 +209,22 @@ public class ChunkDataLayerDecoder {
                     "zstd palette decompression failed: "
                             + exception.getMessage(),
                     exception
+            );
+        }
+
+        if (Zstd.isError(decompressedLength)) {
+            throw new IllegalArgumentException(
+                    "zstd palette decompression failed: "
+                            + Zstd.getErrorName(decompressedLength)
+            );
+        }
+
+        if (decompressedLength != decompressedSize) {
+            throw new IllegalArgumentException(
+                    "decoded palette length mismatch: expected "
+                            + decompressedSize
+                            + ", got "
+                            + decompressedLength
             );
         }
 
@@ -227,6 +251,11 @@ public class ChunkDataLayerDecoder {
                     paletteBuffer.getInt();
         }
 
+        buffer.position(
+                sourceOffset
+                        + compressedPaletteLength
+        );
+
         return palette;
     }
 
@@ -242,30 +271,26 @@ public class ChunkDataLayerDecoder {
             return new byte[0];
         }
 
-        if (offset >= payload.length) {
+        if (offset < 0 || offset >= payload.length) {
             throw new IllegalArgumentException(
                     "chunk data layer is missing compressed bit planes"
             );
         }
 
-        byte[] compressed =
-                new byte[payload.length - offset];
+        byte[] decompressed =
+                new byte[expectedLength];
 
-        System.arraycopy(
-                payload,
-                offset,
-                compressed,
-                0,
-                compressed.length
-        );
-
-        byte[] decompressed;
+        long decompressedLength;
 
         try {
-            decompressed =
-                    Zstd.decompress(
-                            compressed,
-                            expectedLength
+            decompressedLength =
+                    Zstd.decompressByteArray(
+                            decompressed,
+                            0,
+                            expectedLength,
+                            payload,
+                            offset,
+                            payload.length - offset
                     );
 
         } catch (RuntimeException exception) {
@@ -276,12 +301,19 @@ public class ChunkDataLayerDecoder {
             );
         }
 
-        if (decompressed.length != expectedLength) {
+        if (Zstd.isError(decompressedLength)) {
+            throw new IllegalArgumentException(
+                    "zstd bit-plane decompression failed: "
+                            + Zstd.getErrorName(decompressedLength)
+            );
+        }
+
+        if (decompressedLength != expectedLength) {
             throw new IllegalArgumentException(
                     "decoded bit planes length mismatch: expected "
                             + expectedLength
                             + ", got "
-                            + decompressed.length
+                            + decompressedLength
             );
         }
 
@@ -304,49 +336,42 @@ public class ChunkDataLayerDecoder {
                 ByteBuffer.wrap(dataBitsBytes)
                         .order(ByteOrder.LITTLE_ENDIAN);
 
-        int[][] dataBits =
-                new int[bitSize][SLICE_COUNT];
+        int[] paletteIndexes =
+                new int[SIZE];
 
-        for (int bit = 0; bit < bitSize; bit++) {
-            for (int slice = 0; slice < SLICE_COUNT; slice++) {
-                dataBits[bit][slice] =
-                        bits.getInt();
-            }
-        }
+        for (int slice = 0; slice < SLICE_COUNT; slice++) {
+            Arrays.fill(paletteIndexes, 0);
 
-        for (int y = 0; y < SIZE; y++) {
-            for (int z = 0; z < SIZE; z++) {
-                int slice =
-                        y * SIZE
-                                + z;
+            for (int bit = 0; bit < bitSize; bit++) {
+                int dataBits =
+                        bits.getInt(
+                                (bit * SLICE_COUNT + slice)
+                                        * Integer.BYTES
+                        );
+                int value =
+                        1 << bit;
 
                 for (int x = 0; x < SIZE; x++) {
-                    int paletteIndex =
-                            0;
+                    paletteIndexes[x] +=
+                            ((dataBits >>> x) & 1)
+                                    * value;
+                }
+            }
 
-                    int value =
-                            1;
+            for (int x = 0; x < SIZE; x++) {
+                int paletteIndex = paletteIndexes[x];
 
-                    for (int bit = 0; bit < bitSize; bit++) {
-                        paletteIndex +=
-                                ((dataBits[bit][slice] >>> x) & 1)
-                                        * value;
-
-                        value <<= 1;
-                    }
-
-                    if (paletteIndex >= palette.length) {
-                        throw new IllegalArgumentException(
-                                "palette index out of range: "
-                                        + paletteIndex
-                        );
-                    }
-
-                    values.set(
-                            (y * SIZE + z) * SIZE + x,
-                            palette[paletteIndex]
+                if (paletteIndex >= palette.length) {
+                    throw new IllegalArgumentException(
+                            "palette index out of range: "
+                                    + paletteIndex
                     );
                 }
+
+                values.set(
+                        slice * SIZE + x,
+                        palette[paletteIndex]
+                );
             }
         }
 
