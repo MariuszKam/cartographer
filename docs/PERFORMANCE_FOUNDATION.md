@@ -201,7 +201,7 @@ The sequence below is planned work. No stage after PF-1.0.0 is implemented or ac
 ### Subsequent stages
 
 - **PF-1.1 Decode Memory Model** — [`VALIDATED`](PF_1_1_DECODE_MEMORY_MODEL.md) on the `perf/p1.1-decode-memory-model` branch; implementation and reviewer runtime evidence are recorded separately.
-- **PF-1.2 Streaming Processing Engine** — `PLANNED`.
+- **PF-1.2 Streaming Processing Engine** — [`PLANNED`](PF_1_2_STREAMING_PROCESSING_ENGINE.md); design contract only.
 - **PF-1.3 Streaming ROCK Engine** — `PLANNED`.
 - **PF-1.4 Surface Tile Engine** — `PLANNED`.
 - **PF-1.5 Fused Prospecting Engine** — `PLANNED`.
