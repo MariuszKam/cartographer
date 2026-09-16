@@ -194,10 +194,16 @@ public class ChunkDataLayerDecoder {
 
         if (Zstd.isError(decompressedSize)
                 || decompressedSize <= 0
-                || decompressedSize > ChunkDecodeWorkspace.MAX_PALETTE_BYTES
-                || decompressedSize % Integer.BYTES != 0) {
+                || decompressedSize > ChunkDecodeWorkspace.MAX_PALETTE_BYTES) {
             throw new IllegalArgumentException(
                     "compressed chunk palette has invalid decompressed size: "
+                            + decompressedSize
+            );
+        }
+
+        if (decompressedSize % Integer.BYTES != 0) {
+            throw new IllegalArgumentException(
+                    "decompressed chunk palette byte length is not int aligned: "
                             + decompressedSize
             );
         }
@@ -402,9 +408,11 @@ public class ChunkDataLayerDecoder {
     }
 
     private void validateCompressedPaletteLength(int length, int remaining) {
-        if (length <= 0 || length > ChunkDecodeWorkspace.MAX_PALETTE_BYTES
-                || length > remaining) {
+        if (length <= 0 || length > ChunkDecodeWorkspace.MAX_PALETTE_BYTES) {
             throw new IllegalArgumentException("compressed chunk palette length is invalid: " + length);
+        }
+        if (length > remaining) {
+            throw new IllegalArgumentException("compressed chunk palette exceeds payload length");
         }
     }
 

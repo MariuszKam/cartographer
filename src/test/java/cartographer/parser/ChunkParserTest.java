@@ -247,6 +247,26 @@ class ChunkParserTest {
     }
 
     @Test
+    void rejectsCompressedPaletteWithOversizedDecodedFrame() {
+        byte[] paletteBytes = new byte[ChunkDecodeWorkspace.MAX_PALETTE_BYTES + Integer.BYTES];
+        byte[] compressed = Zstd.compress(paletteBytes);
+        byte[] payload = ByteBuffer.allocate(Integer.BYTES + compressed.length)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .putInt(compressed.length)
+                .put(compressed)
+                .array();
+
+        ParseResult<ParsedChunk> result = new ChunkParser().parse(
+                new ChunkCoordinate(0, 0, 0),
+                new ServerChunkPayload(payload, emptyLayer(), 2),
+                ChunkDecodeProfile.BLOCKS_ONLY
+        );
+
+        assertFalse(result.isSuccess());
+        assertTrue(result.error().orElseThrow().contains("invalid decompressed size"));
+    }
+
+    @Test
     void nullProfileRejected() {
         assertThrows(
                 NullPointerException.class,
