@@ -295,18 +295,17 @@ public final class ParsedChunk {
 
     @Override
     public int hashCode() {
-        return Objects.hash(
-                coordinate,
-                minY,
-                sizeX,
-                sizeY,
-                sizeZ,
-                blockLayer,
-                liquidLayer,
-                savedCompressionVersion,
-                liquidLayerAvailable,
-                liquidDecodeError
-        );
+        int result = Objects.hashCode(coordinate);
+        result = 31 * result + Integer.hashCode(minY);
+        result = 31 * result + Integer.hashCode(sizeX);
+        result = 31 * result + Integer.hashCode(sizeY);
+        result = 31 * result + Integer.hashCode(sizeZ);
+        result = 31 * result + System.identityHashCode(blockLayer);
+        result = 31 * result + System.identityHashCode(liquidLayer);
+        result = 31 * result + Integer.hashCode(savedCompressionVersion);
+        result = 31 * result + Boolean.hashCode(liquidLayerAvailable);
+        result = 31 * result + Objects.hashCode(liquidDecodeError);
+        return result;
     }
 
     @Override
