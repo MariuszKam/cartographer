@@ -74,6 +74,28 @@ class BenchmarkRunnerTest {
     }
 
     @Test
+    void thrownRuntimeExceptionIsRetainedAndLaterMeasuredIterationsContinue() {
+        ManualTime time = new ManualTime(0, 1, 2, 4, 5, 8);
+        int[] calls = {0};
+        BenchmarkRunResult result = new BenchmarkRunner(time).run(
+                new BenchmarkPlan(WORKLOAD, ExecutionMode.JVM_WARM, 0, 3),
+                workload -> {
+                    int call = calls[0]++;
+                    if (call == 1) {
+                        throw new IllegalStateException("operation failed");
+                    }
+                    return BenchmarkOperationResult.success(FIRST);
+                }
+        );
+
+        assertEquals(3, calls[0]);
+        assertEquals(BenchmarkExecutionStatus.MEASURED_FAILURES, result.status());
+        assertEquals(IllegalStateException.class.getName(),
+                result.measuredIterations().get(1).failure().orElseThrow().exceptionType());
+        assertTrue(result.measuredIterations().get(2).successful());
+    }
+
+    @Test
     void differingSuccessfulFingerprintsAreDetected() {
         ManualTime time = new ManualTime(0, 1, 2, 3, 4, 5);
         int[] call = {0};
@@ -105,6 +127,41 @@ class BenchmarkRunnerTest {
         assertEquals(BenchmarkExecutionStatus.WARMUP_FAILED, result.status());
         assertEquals(1, result.warmups().size());
         assertTrue(result.measuredIterations().isEmpty());
+    }
+
+    @Test
+    void thrownRuntimeExceptionDuringWarmupAbortsBeforeMeasuredIterations() {
+        ManualTime time = new ManualTime(0, 4);
+        int[] calls = {0};
+        BenchmarkRunResult result = new BenchmarkRunner(time).run(
+                new BenchmarkPlan(WORKLOAD, ExecutionMode.JVM_WARM, 2, 3),
+                workload -> {
+                    calls[0]++;
+                    throw new IllegalArgumentException("warmup failed");
+                }
+        );
+
+        assertEquals(1, calls[0]);
+        assertEquals(BenchmarkExecutionStatus.WARMUP_FAILED, result.status());
+        assertEquals(1, result.warmups().size());
+        assertTrue(result.measuredIterations().isEmpty());
+    }
+
+    @Test
+    void errorsPropagateImmediatelyWithoutExecutingLaterIterations() {
+        int[] calls = {0};
+        BenchmarkRunner runner = new BenchmarkRunner(new ManualTime(0));
+
+        AssertionError error = assertThrows(AssertionError.class, () -> runner.run(
+                new BenchmarkPlan(WORKLOAD, ExecutionMode.JVM_WARM, 0, 3),
+                workload -> {
+                    calls[0]++;
+                    throw new AssertionError("catastrophic test error");
+                }
+        ));
+
+        assertEquals("catastrophic test error", error.getMessage());
+        assertEquals(1, calls[0]);
     }
 
     @Test

@@ -80,7 +80,7 @@ public final class BenchmarkRunner {
                     operation.execute(workload),
                     "benchmark operation returned null"
             );
-        } catch (RuntimeException | Error failure) {
+        } catch (RuntimeException failure) {
             operationResult = BenchmarkOperationResult.failure(
                     BenchmarkFailure.from(failure, "benchmark operation"),
                     java.util.Optional.empty()
