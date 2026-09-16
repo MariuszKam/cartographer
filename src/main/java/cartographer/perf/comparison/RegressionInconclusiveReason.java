@@ -1,0 +1,10 @@
+package cartographer.perf.comparison;
+
+public enum RegressionInconclusiveReason {
+    WORKLOAD_MISMATCH,
+    SAVE_FINGERPRINT_MISMATCH,
+    EXECUTION_MODE_MISMATCH,
+    ENVIRONMENT_MISMATCH,
+    WARMUP_COUNT_MISMATCH,
+    MEASURED_ITERATION_COUNT_MISMATCH
+}
