@@ -6,6 +6,8 @@ import cartographer.model.ParseResult;
 import cartographer.model.ParsedChunk;
 import cartographer.cli.ProgressReporter;
 import cartographer.parser.ChunkParser;
+import cartographer.parser.ChunkDecodeProfile;
+import cartographer.parser.ChunkDecodeWorkspace;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -552,6 +554,23 @@ class VcdbsReaderDirectChunkLookupTest {
                 ChunkCoordinate coordinate,
                 byte[] payload
         ) {
+            return parseStub(coordinate, payload);
+        }
+
+        @Override
+        public ParseResult<ParsedChunk> parse(
+                ChunkCoordinate coordinate,
+                byte[] payload,
+                ChunkDecodeProfile profile,
+                ChunkDecodeWorkspace workspace
+        ) {
+            return parseStub(coordinate, payload);
+        }
+
+        private ParseResult<ParsedChunk> parseStub(
+                ChunkCoordinate coordinate,
+                byte[] payload
+        ) {
             coordinates.add(coordinate);
             if (failurePayload != null
                     && java.util.Arrays.equals(failurePayload, payload)) {
@@ -606,6 +625,22 @@ class VcdbsReaderDirectChunkLookupTest {
         public ParseResult<ParsedChunk> parse(
                 ChunkCoordinate coordinate,
                 byte[] payload
+        ) {
+            return parseBlocking(coordinate);
+        }
+
+        @Override
+        public ParseResult<ParsedChunk> parse(
+                ChunkCoordinate coordinate,
+                byte[] payload,
+                ChunkDecodeProfile profile,
+                ChunkDecodeWorkspace workspace
+        ) {
+            return parseBlocking(coordinate);
+        }
+
+        private ParseResult<ParsedChunk> parseBlocking(
+                ChunkCoordinate coordinate
         ) {
             workerThreads.add(Thread.currentThread());
             bothStarted.countDown();
