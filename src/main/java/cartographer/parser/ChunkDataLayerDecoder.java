@@ -173,7 +173,7 @@ public class ChunkDataLayerDecoder {
         return sourceOffset + paletteByteLength;
     }
 
-    private int readCompressedPalette(
+    private DecodedPalette readCompressedPalette(
             byte[] payload,
             int sourceOffset,
             int compressedPaletteLength,
@@ -250,7 +250,10 @@ public class ChunkDataLayerDecoder {
                     readLittleEndianInt(paletteBytes, index * Integer.BYTES);
         }
 
-        return sourceOffset + compressedPaletteLength;
+        return new DecodedPalette(
+                paletteLength,
+                sourceOffset + compressedPaletteLength
+        );
     }
 
     private byte[] readCompressedDataBits(
