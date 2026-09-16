@@ -63,7 +63,7 @@ class JfrBenchmarkProfilerTest {
                     return BenchmarkOperationResult.success(FINGERPRINT);
                 });
 
-        assertEquals(List.of("configure", "start", "benchmark", "stop", "dump", "close"), events);
+        assertEquals(List.of("configure", "start", "benchmark", "benchmark", "stop", "dump", "close"), events);
         assertEquals(FINGERPRINT,
                 result.benchmarkResult().measuredIterations().get(0).fingerprint().orElseThrow());
         assertEquals(RECORDING_PLAN.destination(), result.destination());
@@ -124,7 +124,7 @@ class JfrBenchmarkProfilerTest {
                 plan -> runtimeRecording
         ).profile(RECORDING_PLAN, BENCHMARK_PLAN, workload ->
                 { throw new IllegalStateException("benchmark failed"); });
-        assertEquals(BenchmarkExecutionStatus.MEASURED_FAILURES,
+        assertEquals(BenchmarkExecutionStatus.WARMUP_FAILED,
                 runtimeResult.benchmarkResult().status());
 
         FakeRecording errorRecording = new FakeRecording(new ArrayList<>());

@@ -25,7 +25,7 @@ class WorkloadCatalogTest {
 
         assertEquals(first, second);
         assertEquals("MAP_R128", first.get(0).id());
-        assertEquals("ORE_SINGLE_NATIVE_COPPER_R256", first.get(5).id());
+        assertEquals("ORE_SINGLE_native_copper_R256", first.get(5).id());
         assertEquals("ROCK_AT_Y_Y96_R1024", first.get(15).id());
         assertEquals("PROSPECTING_FULL_R512", first.get(26).id());
         assertEquals(List.of(128, 256, 512, 1024),

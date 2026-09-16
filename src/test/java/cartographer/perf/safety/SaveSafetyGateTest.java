@@ -146,7 +146,7 @@ class SaveSafetyGateTest {
         assertEquals(new SaveContentHash(ABC_SHA256), first.mainSave().sha256().orElseThrow());
         assertEquals(first.mainSave().sha256(), second.mainSave().sha256());
         assertEquals(64, first.mainSave().sha256().orElseThrow().sha256Hex().length());
-        assertEquals("0123456789abcdef",
+        assertEquals("0123456789abcdef".repeat(4),
                 new SaveContentHash("0123456789abcdef".repeat(4)).sha256Hex());
 
         byte[] multiBuffer = new byte[32 * 1024 + 7];

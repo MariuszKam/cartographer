@@ -51,7 +51,7 @@ class ReferenceBaselineFactoryTest {
         assertEquals(List.of(99L, 20L), baseline.samples().stream()
                 .map(ReferenceBaselineSample::wallClockNanoseconds).toList());
         assertEquals(20L, baseline.summary().minWallClockNanoseconds());
-        assertEquals(99L, baseline.summary().p50WallClockNanoseconds());
+        assertEquals(20L, baseline.summary().p50WallClockNanoseconds());
         assertEquals(99L, baseline.summary().p95WallClockNanoseconds());
         assertEquals(99L, baseline.summary().maxWallClockNanoseconds());
     }

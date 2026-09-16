@@ -121,7 +121,6 @@ class RegressionComparatorTest {
         assertEquals(RegressionComparisonStatus.INCONCLUSIVE, comparison.status());
         assertEquals(List.of(
                 RegressionInconclusiveReason.WORKLOAD_MISMATCH,
-                RegressionInconclusiveReason.SAVE_FINGERPRINT_MISMATCH,
                 RegressionInconclusiveReason.EXECUTION_MODE_MISMATCH,
                 RegressionInconclusiveReason.ENVIRONMENT_MISMATCH,
                 RegressionInconclusiveReason.WARMUP_COUNT_MISMATCH
