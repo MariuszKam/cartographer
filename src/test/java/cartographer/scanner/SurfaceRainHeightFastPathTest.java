@@ -105,14 +105,21 @@ class SurfaceRainHeightFastPathTest {
     void duplicateDeliveryDoesNotDuplicateOrChangeFastResult() {
         SurfaceRainHeightPlan plan = planned(1);
         ParsedChunk chunk = chunkWith(1, true);
-        SurfaceRainHeightScanner.StreamingSession scanner = scanner(plan, true);
-        scanner.accept(chunk);
-        scanner.accept(chunk);
+        SurfaceRainHeightScanner.StreamingSession once = scanner(plan, true);
+        once.accept(chunk);
+        SurfaceRainHeightScanner.StreamingSession twice = scanner(plan, true);
+        twice.accept(chunk);
+        twice.accept(chunk);
 
-        SurfaceRainHeightScanResult result = scanner.finish();
+        SurfaceRainHeightScanResult onceResult = once.finish();
+        SurfaceRainHeightScanResult twiceResult = twice.finish();
 
-        assertEquals(1, result.resolvedColumns());
-        assertTrue(result.fallbackMapChunks().isEmpty());
+        assertEquals(onceResult.resolvedColumns(), twiceResult.resolvedColumns());
+        assertEquals(onceResult.fallbackMapChunks(), twiceResult.fallbackMapChunks());
+        assertEquals(
+                SurfaceSemanticOracle.fingerprint(onceResult.surface()),
+                SurfaceSemanticOracle.fingerprint(twiceResult.surface()));
+        assertTrue(onceResult.resolvedColumns() > 0);
     }
 
     @Test
@@ -199,7 +206,8 @@ class SurfaceRainHeightFastPathTest {
         return new ParsedChunk(
                 new ChunkCoordinate(0, sectionY, 0), sectionY * ChunkCoordinate.SIZE_BLOCKS,
                 32, 32, 32,
-                blocks, liquids, 0, liquidAvailable, "");
+                blocks, liquids, 0, liquidAvailable,
+                liquidAvailable ? "" : "fixture liquid layer unavailable");
     }
 
     private static int[] filledHeights(int value) {

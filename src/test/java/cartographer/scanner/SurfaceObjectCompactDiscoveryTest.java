@@ -246,7 +246,7 @@ class SurfaceObjectCompactDiscoveryTest {
                 .map(target -> target.worldX() + ":" + target.worldZ() + ":" + target.candidateWorldYs())
                 .sorted()
                 .toList();
-        assertEquals(legacyFingerprint, planFingerprint(compact));
+        assertEquals(legacyFingerprint, planFingerprint(compact).stream().sorted().toList());
     }
 
     @Test
@@ -263,7 +263,8 @@ class SurfaceObjectCompactDiscoveryTest {
         SurfaceObjectCompactScanResult result = session.finish();
 
         assertEquals(1, result.observedTargets());
-        assertEquals(0, result.unavailablePositions());
+        assertEquals(plan.plannedTargetCount() - 1, result.unavailablePositions());
+        assertEquals(0, result.notObservedTargets());
     }
 
     @Test

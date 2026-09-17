@@ -33,6 +33,7 @@ import cartographer.render.UserMarkerRenderer;
 import cartographer.render.ActualOreOverlayPainter;
 import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.SurfaceMapScanResult;
+import cartographer.scanner.SurfaceMap;
 import cartographer.scanner.SurfaceTileAccumulator;
 import cartographer.scanner.SurfaceTileLayout;
 import cartographer.save.ReadDiagnostics;
@@ -768,6 +769,28 @@ class MapCommandTest {
                     ),
                     MapViewportGeometry.fullImage(32, 32, 0, 0, 1, 1)
             );
+        }
+
+        @Override
+        public RenderedMap render(
+                WorldPosition center,
+                WorldPosition player,
+                HomeState home,
+                MapTerrainPreparation terrain,
+                SurfaceMap surfaceMap,
+                Map<Integer, BlockInfo> registry,
+                RenderOptions options,
+                cartographer.application.ProgressReporter progress
+        ) {
+            this.player = player;
+            this.home = home;
+            return new RenderedMap(
+                    new BufferedImage(32, 32, BufferedImage.TYPE_INT_ARGB),
+                    new MapRenderReport(
+                            32, 32, terrain.mapChunkCount(), 0,
+                            home instanceof HomeState.Present ? 2 : 1,
+                            RenderStyle.SIMPLE, "MARKERS"),
+                    MapViewportGeometry.fullImage(32, 32, 0, 0, 1, 1));
         }
 
         HomeLocation homeLocation() {

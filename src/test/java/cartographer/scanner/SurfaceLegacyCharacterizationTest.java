@@ -44,7 +44,7 @@ class SurfaceLegacyCharacterizationTest {
         int[] invalid = heights(1);
         invalid[0] = 256;
         RainHeightSurfacePlanner.StreamingSession session = new RainHeightSurfacePlanner()
-                .begin(new WorldMetadata(64, 256, 64), 1, 1, 8);
+                .begin(new WorldMetadata(64, 256, 64), 31, 1, 8);
         session.accept(new MapChunk(new MapChunkCoordinate(0, 0), new int[0], heights(1)));
         session.accept(new MapChunk(new MapChunkCoordinate(1, 0), invalid, new int[0]));
 

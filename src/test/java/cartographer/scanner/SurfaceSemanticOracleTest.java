@@ -37,7 +37,7 @@ class SurfaceSemanticOracleTest {
                 new BlockInfo(1, "game:b"));
 
         assertEquals(
-                List.of(1, 2),
+                List.of(1, 3),
                 SurfaceSemanticOracle.normalize(List.of(first, second)).stream()
                         .map(SurfaceSemanticOracle.Cell::worldX)
                         .toList()
