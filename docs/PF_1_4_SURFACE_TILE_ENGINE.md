@@ -3,18 +3,22 @@
 ## 1. Status, authority, and scope
 
 This document is the normative architecture contract for PF-1.4 Surface Tile
-Engine. It is Checkpoint A: architecture, semantic inventory, caller
-inventory, test plan, and review gates only. It does not implement the engine
-and contains no runtime evidence.
+Engine. Checkpoint A defined the architecture, semantic inventory, caller
+inventory, test plan, and review gates. Checkpoint B is now implemented as the
+test-only characterization/oracle layer and compact tile/layout/result model;
+production Surface reading/scanning remains on the legacy pipeline. This
+document contains no runtime evidence.
 
 PF-1.2 remains authoritative for bounded decode, completion-driven
 consumption, worker lifecycle, serialized consumer mutation, and backpressure.
 PF-1.3 is implemented through its implementation checkpoints, but its runtime
 validation is still pending. PF-1.4 must preserve both contracts.
 
-The only intended Checkpoint-A changes are this document and the PF roadmap
-status in `docs/PERFORMANCE_FOUNDATION.md`. No Java production or test source
-is changed by Checkpoint A. No Gradle command, test, application run,
+Checkpoint A changed only this document and the PF roadmap status. B adds the
+model and test-only characterization files listed in the implementation
+commit. No production use case, reader, scanner, renderer, material path,
+soil path, or cache is wired to the new model. No Gradle command, test,
+application run,
 benchmark, JFR capture, real-save validation, or PNG inspection is performed
 in this checkpoint.
 
@@ -43,6 +47,24 @@ work in the foundation. A boxed collection entry adds node/table/reference
 overhead and destroys locality. This is unacceptable for R1024/R2048 even
 before decoded chunk working memory and the output raster are considered.
 These are architectural reasons, not measured heap findings.
+
+### Checkpoint-B model established
+
+`SurfaceTileLayout` uses `MapChunk.SIZE` for tile/local geometry and keeps
+server-chunk arithmetic as a separate caller concern. It rounds fractional
+centers with `Math.round`, uses checked `long` arithmetic for geometry and
+allocation products, and orders tiles Z/X and cells local-Z/local-X.
+`SurfaceTileAccumulator` owns primitive byte/int arrays per tile, with
+explicit state bits for active, considered, resolved, and liquid-unavailable
+cells. `SurfaceTile` and `SurfaceMap` are immutable primitive-backed views.
+Finalization transfers array ownership and rejects later accumulator mutation;
+the new model has no bulk `List<SurfaceBlock>` adapter. Surface classes use an
+explicit stable byte mapping, not enum ordinal storage.
+
+The model's equal-Y tie rule is a deterministic primitive tuple tie-breaker
+(block ID, liquid ID, then explicit surface-class code). It is not wired into
+legacy production behavior; C/D must compare any equal-Y legacy cases before
+using it for production accumulation.
 
 ## 3. Current retention inventory
 
