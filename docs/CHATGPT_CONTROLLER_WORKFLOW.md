@@ -92,7 +92,10 @@ prove runtime execution, performance, installer functionality, or local save
 integrity.
 
 When evidence is unavailable, use `UNKNOWN`, `NOT RUN`, or `PENDING MANUAL
-VALIDATION` as appropriate. Do not guess.
+VALIDATION` as appropriate. Use `INCONCLUSIVE` when the available evidence
+cannot support a conclusion, for example when the environment materially
+changed, profiling could not run, or a measurement method became invalid. Do
+not guess or reinterpret missing evidence as `PASS`.
 
 Important review verdicts should identify the target where useful: branch,
 pull request, commit SHA, or workflow run. Casual replies need not always
@@ -156,32 +159,128 @@ CODEX SELF-REVIEWS
       |
       v
 CODEX COMMITS + PUSHES
-      |
-      v
+       |
+       v
 USER: "jest"
-      |
-      v
+       |
+       v
 CHATGPT INDEPENDENT GITHUB REVIEW
-      |
-      +---- FAIL ----> NARROW FIX PROMPT
-      |
-     PASS
-      |
-      v
-USER RUNTIME / TEST VALIDATION
-      |
-      +---- FAIL ----> DIAGNOSIS -> NARROW FIX
-      |
-     PASS
-      |
-      v
+       |
+       +---- FAIL ----> NARROW FIX PROMPT
+       |
+      PASS
+       |
+       v
+NEXT CHECKPOINT or FINAL STAGE HEAD
+       |
+       v
+INTEGRATED RUNTIME VALIDATION
+       |
+       +---- FAIL ----> DIAGNOSIS -> NARROW FIX
+       |
+      PASS
+       |
+       v
 CHATGPT RECOMMENDS TECHNICAL READINESS
-      |
-      v
+       |
+       v
 USER PRODUCT ACCEPTANCE
 ```
 
 The controller should not collapse these steps into one claim of completion.
+
+## Checkpoint review and stage validation cadence
+
+Larger implementation stages may be divided into multiple small checkpoints.
+Each checkpoint receives an independent static/controller review after its
+commit, while expensive integrated runtime validation normally runs once after
+the final integrated stage HEAD exists. This preserves reviewability at every
+checkpoint without repeatedly running the same expensive suite while the
+architecture is still being assembled.
+
+The normal cadence is:
+
+```text
+LARGER STAGE
+
+Checkpoint A -> implement -> commit/push -> "jest" -> independent static review
+Checkpoint B -> implement -> commit/push -> "jest" -> independent static review
+Checkpoint C -> implement -> commit/push -> "jest" -> independent static review
+...
+
+Final stage HEAD -> integrated runtime validation -> final stage verdict
+```
+
+### Checkpoint static review
+
+The existing `jest` behavior applies to every checkpoint. ChatGPT must still:
+
+1. resolve the expected remote branch HEAD fresh;
+2. identify the exact SHA and verify parent/lineage where relevant;
+3. inspect the actual changed files and diff;
+4. read relevant files from that exact ref;
+5. independently review architecture, scope, correctness, safety, and contract
+   compliance; and
+6. issue an explicit static verdict.
+
+A checkpoint may therefore be reported as:
+
+```text
+Static review: PASS
+Runtime validation: NOT RUN
+```
+
+That static `PASS` does not mean that tests, the application, benchmarks, save
+integrity, or JFR have passed, and it does not mean that the larger stage is
+validated. A checkpoint can pass static review and proceed to the next
+checkpoint before final stage runtime validation.
+
+### Final stage runtime validation
+
+Unless there is a concrete technical reason to run earlier, defer expensive or
+integrated validation until the implementation checkpoints are complete and
+the final stage HEAD exists. Depending on the stage, this can include:
+
+- `clean test` or the full Gradle test suite;
+- integration tests;
+- JMH compilation or execution;
+- macro benchmarks and large scalability workloads;
+- real-save and save-integrity validation;
+- JFR or other profiling;
+- application execution;
+- installer/package validation; and
+- Docker or other environment-dependent validation.
+
+The controller should not rerun the complete suite after every small
+checkpoint merely as a precaution. The final stage must not be marked
+technically validated merely because all checkpoint reviews passed, local tests
+passed once, the implementation was merged, or Codex reported success. Final
+acceptance is based on the required integrated evidence for that stage. If a
+required gate cannot be completed, record the limitation explicitly rather
+than weakening the contract.
+
+### Narrow early-runtime exception
+
+Targeted runtime validation may occur before the final stage HEAD when static
+evidence is insufficient to continue safely. Examples include unresolved
+compile uncertainty, concurrency or lifecycle behavior that blocks the next
+design step, generated-code or tooling integration that cannot be reviewed
+meaningfully without execution, or a suspected regression that materially
+affects subsequent checkpoint architecture.
+
+This is a narrow, evidence-driven exception, not a rule to run tests after
+every checkpoint. The controller should record why early execution was
+necessary and keep the result scoped to the question it answered.
+
+### CI is runtime evidence
+
+CI results are runtime evidence for the exact workflow, ref, and environment
+that ran. A green GitHub Actions run supports the gates it actually executed;
+it does not prove unrelated local or manual behavior. A red CI run is a failed
+runtime gate that must be diagnosed, even when local tests pass. Inspect the
+exact failing job, test, and log. Flaky or environment-sensitive failures are
+real evidence until reproduced, explained, or otherwise resolved; they must not
+be dismissed solely because a workstation run was green.
 
 ## Meaning of "jest"
 
@@ -221,9 +320,19 @@ PASS
 FAIL
 NOT RUN
 PENDING MANUAL VALIDATION
+INCONCLUSIVE
 ```
 
 Keep evidence, inference, and pending work distinct.
+
+For baseline-versus-candidate performance comparisons, the input used for the
+comparison must be treated as immutable for the duration of that comparison.
+If the save, workload input, or other comparison input changes, the old and
+new fingerprints are not directly comparable and timing deltas are not valid
+apples-to-apples evidence. Mark the comparison `INCONCLUSIVE` and establish a
+new baseline on the same immutable input if validation must continue. The
+measurement contract in `docs/PERFORMANCE_FOUNDATION.md` remains authoritative
+for the complete methodology.
 
 ## Validation ownership
 
@@ -523,8 +632,8 @@ For each substantial request:
 5. inspect Codex's commit and diff after it is pushed;
 6. classify and fix any review failure with a narrow new commit;
 7. coordinate the permitted tests and manual runtime checks;
-8. record `PASS`, `FAIL`, `NOT RUN`, or `PENDING MANUAL VALIDATION` for each
-   gate;
+8. record `PASS`, `FAIL`, `NOT RUN`, `PENDING MANUAL VALIDATION`, or
+   `INCONCLUSIVE` for each gate;
 9. accept a stage only when its required evidence exists and the user agrees.
 
 ## Golden rule
