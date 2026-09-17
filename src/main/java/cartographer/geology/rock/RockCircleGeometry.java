@@ -155,6 +155,9 @@ public final class RockCircleGeometry {
     }
 
     private static long floorSqrt(long value) {
+        if (value == 0) {
+            return 0;
+        }
         long result = (long) Math.sqrt(value);
         while (result < value / (result + 1)) {
             result++;

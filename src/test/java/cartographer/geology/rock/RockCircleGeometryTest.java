@@ -11,10 +11,17 @@ class RockCircleGeometryTest {
     void radiusOneContainsFiveCellsInRowMajorOrder() {
         RockCircleGeometry geometry = new RockCircleGeometry(0, 0, 1);
         assertEquals(5, geometry.cellCount());
+        assertEquals(-1, geometry.worldZForRow(0));
+        assertEquals(0, geometry.worldZForRow(1));
+        assertEquals(1, geometry.worldZForRow(2));
+        assertEquals(0, geometry.rowStartX(0));
+        assertEquals(-1, geometry.rowStartX(1));
+        assertEquals(0, geometry.rowStartX(2));
         assertEquals(0, geometry.rowOffset(0));
         assertEquals(1, geometry.rowLength(0));
-        assertEquals(1, geometry.rowLength(1));
-        assertEquals(3, geometry.rowLength(2));
+        assertEquals(3, geometry.rowLength(1));
+        assertEquals(1, geometry.rowOffset(1));
+        assertEquals(1, geometry.rowLength(2));
         assertEquals(4, geometry.rowOffset(2));
         assertEquals(0, geometry.cellIndex(0, -1));
         assertEquals(1, geometry.cellIndex(-1, 0));

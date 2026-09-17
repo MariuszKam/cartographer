@@ -96,8 +96,10 @@ public final class RockMap {
 
     static List<RockIdentity> buildOrdinalTable(RockCatalog catalog) {
         Objects.requireNonNull(catalog, "catalog is required");
+        List<Integer> blockIds = new ArrayList<>(catalog.rockBlockIds());
+        blockIds.sort(Integer::compareTo);
         List<RockIdentity> result = new ArrayList<>();
-        for (Integer blockId : catalog.rockBlockIds()) {
+        for (Integer blockId : blockIds) {
             RockIdentity identity = catalog.findByBlockId(blockId).orElseThrow();
             if (result.stream().noneMatch(existing -> existing.code().equals(identity.code()))) result.add(identity);
         }
