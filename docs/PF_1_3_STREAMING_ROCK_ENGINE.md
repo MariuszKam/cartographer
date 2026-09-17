@@ -5,9 +5,10 @@ validated. This checkpoint intentionally changes documentation only.
 
 ## 1. Status and scope
 
-PF-1.3 removes the ROCK operation's two input-sized retention points: the
-`List<ParsedChunk>` assembled by `RenderRockMapUseCase` and the
-`List<RockColumnSample>` retained by `RockMap`. It defines the contracts for a
+PF-1.3 removes the ROCK operation's two retention points: input retention in
+the `List<ParsedChunk>` assembled by `RenderRockMapUseCase`, and
+output/object retention in the `List<RockColumnSample>` retained by `RockMap`.
+It defines the contracts for a
 future implementation; it does not change Java production code, tests, Gradle,
 SQLite access, decoding, parser behavior, save access, or PF-1.2 lifecycle
 behavior.
@@ -114,11 +115,14 @@ top-to-bottom delivery. The packed geometry is finalized in a deterministic
 row-major order (`z` ascending, then `x` ascending), and catalog ordinals are
 deterministic.
 
-Duplicate visits are not part of the current reader contract: the reader
-deduplicates requested positions and emits one terminal visit per unique
-position. The future session should reject a duplicate position explicitly,
-unless a separately reviewed idempotent-join contract is added; silently
-counting duplicates is prohibited.
+Duplicate visits are not part of the normal table-present reader contract: the
+reader deduplicates requested positions and each unique requested position
+reaches one terminal visit. This is not universal: when the chunk table is
+missing, `VcdbsReader.readSelectiveChunkCoverage(...)` completes after
+recording the missing table and emits no per-position visits. The future
+session must therefore track terminal visitation independently of whether the
+visit established availability. It must reject a duplicate position
+explicitly; silently counting duplicates is prohibited.
 
 ## 7. Streaming ROCK session lifecycle
 
@@ -138,10 +142,13 @@ and diagnostics-equivalent counters. `finish` closes the session exactly once,
 derives final cell states/counts, freezes primitive arrays and the ordinal
 table, and returns an immutable `RockMap`.
 
-Malformed use is explicit: `accept` after `finish`, `finish` before the reader
-operation has completed, null visits, invalid coordinates, duplicate visits,
-and packed-capacity overflow fail fast. A failed reader operation must preserve
-the existing failure/diagnostic semantics and must not manufacture `NO_ROCK`.
+Malformed use is explicit: `accept` after `finish`, null visits, invalid
+coordinates, duplicate visits, and packed-capacity overflow fail fast. The
+use case owns sequencing and must invoke `finish()` only after the synchronous
+`VcdbsReader` operation has returned successfully. The session does not infer
+reader completion from visit count; this matters when a missing chunk table
+produces zero visits. A failed reader operation must preserve the existing
+failure/diagnostic semantics and must not manufacture `NO_ROCK`.
 
 ## 8. UPPER aggregation algorithm
 
@@ -174,8 +181,8 @@ chunk row (`floorDiv(worldY, S)`) for each horizontal chunk column, where
 `S = ChunkCoordinate.SIZE_BLOCKS`. A decoded
 visit reads exactly the target local Y and updates the cell to observed when
 the block resolves to a catalog rock, otherwise to the no-rock candidate.
-The operation is deterministic even if duplicate decoded observations are
-encountered; the preferred contract is still to reject duplicate positions.
+For valid unique visits, the operation is deterministic regardless of visit
+order; a duplicate terminal visit is rejected by the shared session contract.
 
 At finish, an available palette-rejected chunk proves `NO_ROCK` for its cells.
 A missing or failed required chunk produces `UNAVAILABLE`, even when no decoded
@@ -194,11 +201,24 @@ reader and tests:
 | `MISSING` | requested position had no row | unavailable |
 | `FAILED` | row/palette/full decode failed | unavailable; retain diagnostics |
 
-The future state is a primitive vertical bitset per horizontal chunk column,
-where a set bit means trusted available coverage (`DECODED` or
-`PALETTE_REJECTED`). Missing and failed are absent bits, with separate bounded
-counters/diagnostics preserving their distinction. A missing chunk table is
-not converted into available coverage.
+The future state has two primitive vertical bitsets per horizontal chunk
+column:
+
+```text
+terminalSeenWords: whether any terminal visit has been accepted
+availableWords:    whether the accepted visit was DECODED or PALETTE_REJECTED
+```
+
+`accept` computes the primitive position index and checks `terminalSeenWords`
+before mutating either candidate or coverage state. If the bit is already set,
+it fails explicitly for a duplicate, including `DECODED` -> `DECODED`,
+`PALETTE_REJECTED` -> `MISSING`, and every other cross-status pair. For the
+first terminal visit, it sets `terminalSeenWords`; it sets the corresponding
+`availableWords` bit only for `DECODED` or `PALETTE_REJECTED`. `MISSING` and
+`FAILED` therefore remain seen-but-unavailable. Separate bounded counters and
+existing diagnostics preserve their status distinction. A missing chunk table
+is not converted into available coverage, and its zero-visit result leaves all
+requested positions unseen.
 
 The requested horizontal chunk bounds are:
 
@@ -230,10 +250,16 @@ production. The architecture must not duplicate a numeric server-chunk size
 literal or conflate server chunks with mapchunks. For the current 256-block
 world and `S=32`, the full vertical range spans at most 8 server-chunk rows.
 
-Coverage's trusted bitset is compact, negative-coordinate safe, and does not
-need `HashSet<ChunkCoordinate>` or `Map<ColumnCoordinate,List<ChunkSpan>>` in
-the hot path. Contiguous trusted coverage is derived by checking the required
-vertical bit interval, not by assuming adjacent callback visits.
+These two primitive planes are compact, negative-coordinate safe, and do not
+need `HashSet<ChunkCoordinate>`, `HashSet<Long>`, or
+`Map<ColumnCoordinate,List<ChunkSpan>>` in the hot path. Contiguous trusted
+coverage is derived by checking the required vertical availability interval
+and terminal-seen interval, not by assuming adjacent callback visits.
+
+For a normal table-present successful operation, every requested position is
+seen exactly once. For a missing-table completion or any otherwise incomplete
+input, an unseen requested position is unknown and finalizes as
+`UNAVAILABLE`, never `NO_ROCK`.
 
 ## 11. Vertical-gap correctness rules
 
@@ -383,7 +409,8 @@ max-in-flight. The target memory is approximately:
 ```text
 packed cells:       N * 4 or N * 8 bytes
 row geometry:       O(radius) primitive rows/offsets
-coverage:           H * W * 8 bytes, plus bounded status counters
+coverage:           H * W * 16 bytes for terminal-seen and available planes,
+                    plus bounded status counters
 catalog/counts:     O(K)
 working set:        O(workerCount * reusable workspace + F * bounded outcome)
 ```
@@ -401,9 +428,10 @@ These are arithmetic estimates, not measurements and exclude JVM array/object
 headers, geometry, coverage, decoder working set, and the output image. With
 the current 256-block world height and `S=32`, `V` is up to 8 server chunks
 and `W=1`; for a horizontal circle the R1024/R2048/R4096 server-chunk boxes
-are approximately 65x65, 129x129, and 257x257 columns. One-long coverage is
-therefore about 0.032, 0.127, and 0.503 MiB respectively. Wider or modded
-vertical ranges use additional words linearly in `W`. These are server-chunk
+are approximately 65x65, 129x129, and 257x257 columns. The two coverage
+planes therefore cost approximately 0.064, 0.254, and 1.006 MiB
+respectively (`H * W * 16` bytes). Wider or modded vertical ranges use
+additional words linearly in `W`. These are server-chunk
 figures; mapchunk geometry is a separate format and is not substituted here.
 
 The full square ARGB raster is a separate cost: approximately 16.02 MiB,
@@ -438,8 +466,12 @@ ordering; and AT_Y semantics.
 
 Concurrency tests must use explicit lifecycle handshakes/latches, not sleeps or
 thread-state polling. Session tests must also cover malformed lifecycle use,
-duplicate visits according to the chosen contract, null/invalid visits, and
-diagnostic preservation.
+duplicate `DECODED`, duplicate `PALETTE_REJECTED`, duplicate `MISSING`,
+duplicate `FAILED`, cross-status duplicates such as `FAILED -> DECODED`, null/
+invalid visits, and diagnostic preservation. Reader/fixture tests must cover a
+missing chunk table with zero-visit completion producing `UNAVAILABLE`, and an
+unseen requested position at finalization producing `UNAVAILABLE` rather than
+`NO_ROCK`. `accept` after `finish` must be rejected.
 
 ## 20. Differential/characterization oracle
 
@@ -468,9 +500,11 @@ failure, not a performance variance.
 
 Require tests for radius square/row geometry overflow; center/radius world
 bounds; row-offset and cell-index limits; `int`/`long` packing boundaries;
-catalog ordinal capacity; Y-range capacity; multiword coverage; partial top
-and bottom chunks; negative floor division; duplicate visits; invalid reserved
-packed values; and finish/accept lifecycle violations.
+catalog ordinal capacity; Y-range capacity; multiword two-plane coverage;
+partial top and bottom chunks; negative floor division; duplicate visits for
+all four statuses plus cross-status duplicates; missing-table zero-visit
+completion; unseen-position finalization; invalid reserved packed values; and
+finish/accept lifecycle violations.
 
 ## 23. Legacy cleanup plan
 
@@ -555,8 +589,8 @@ The exact packed layout needs implementation-time validation against the largest
 real registry and supported Y ranges. If the 64-bit layout limit is reached, a
 multiword representation needs a separate review. The cost of exact integer
 square roots, direct `DataBufferInt` access, and any renderer pass should be
-profiled rather than assumed. The session's duplicate-visit policy must be
-made explicit in its public contract. The current reader's missing-table path
+profiled rather than assumed. The session must enforce its explicit duplicate
+terminal-visit rejection using the terminal-seen plane. The current reader's missing-table path
 and diagnostics integration need differential tests to ensure an unavailable
 coverage result cannot be mistaken for all-empty coverage. Finally, the
 full-raster R4096 output may remain a separate memory bottleneck even after
