@@ -21,7 +21,7 @@ import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockYFilter;
-import cartographer.scanner.SurfaceScanResult;
+import cartographer.scanner.SurfaceMapScanResult;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
@@ -238,7 +238,7 @@ public class MapCommand implements Command {
             ReadDiagnostics mapChunkDiagnostics,
             ReadDiagnostics chunkDiagnostics,
             ReadDiagnostics mapRegionDiagnostics,
-            SurfaceScanResult surface,
+            SurfaceMapScanResult surface,
             OverlayRenderReport environmentOverlay,
             OverlayRenderReport geologyOverlay,
             ActualBlockMap actualOreMap
@@ -515,7 +515,7 @@ public class MapCommand implements Command {
     }
 
     private void printTopUnknownSurfaceBlockCodes(
-            SurfaceScanResult result
+            SurfaceMapScanResult result
     ) {
         if (result.unknownSurfaceBlocks()
                 <= 0) {

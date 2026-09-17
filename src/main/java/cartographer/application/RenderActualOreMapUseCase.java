@@ -9,8 +9,6 @@ import cartographer.model.BlockInfo;
 import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
 import cartographer.model.MapChunkCoordinate;
-import cartographer.model.ParsedChunk;
-import cartographer.model.SurfaceBlock;
 import cartographer.model.ChunkPosition;
 import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldMetadata;
@@ -35,15 +33,15 @@ import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockMatchSpec;
 import cartographer.scanner.MultiActualBlockMapScanner;
-import cartographer.scanner.RainHeightSurfacePlan;
-import cartographer.scanner.RainHeightSurfacePlanner;
-import cartographer.scanner.RainHeightSurfaceScanResult;
-import cartographer.scanner.RainHeightSurfaceScanner;
+import cartographer.scanner.SurfaceRainHeightPlan;
+import cartographer.scanner.SurfaceRainHeightScanResult;
+import cartographer.scanner.SurfaceRainHeightDiagnosticCounters;
 import cartographer.scanner.SurfaceFallbackChunkPlanner;
-import cartographer.scanner.SurfaceFallbackMapChunks;
-import cartographer.scanner.SurfaceFastPathMerger;
-import cartographer.scanner.SurfaceScanResult;
-import cartographer.scanner.SurfaceScanner;
+import cartographer.scanner.SurfaceMap;
+import cartographer.scanner.SurfaceMapScanResult;
+import cartographer.scanner.SurfaceStreamingSession;
+import cartographer.scanner.SurfaceTileAccumulator;
+import cartographer.scanner.SurfaceTileLayout;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -76,17 +74,8 @@ public class RenderActualOreMapUseCase {
             new MapChunkRenderWindowPlanner();
     private final MapChunkPositionPlanner mapChunkPositionPlanner =
             new MapChunkPositionPlanner();
-    private final RainHeightSurfacePlanner rainHeightSurfacePlanner =
-            new RainHeightSurfacePlanner();
-    private final RainHeightSurfaceScanner rainHeightSurfaceScanner =
-            new RainHeightSurfaceScanner();
-    private final SurfaceFallbackMapChunks surfaceFallbackMapChunks =
-            new SurfaceFallbackMapChunks();
     private final SurfaceFallbackChunkPlanner surfaceFallbackChunkPlanner =
             new SurfaceFallbackChunkPlanner();
-    private final SurfaceFastPathMerger surfaceFastPathMerger =
-            new SurfaceFastPathMerger();
-    private final SurfaceScanner surfaceScanner = new SurfaceScanner();
 
     public RenderActualOreMapUseCase(
             VcdbsReader reader,
@@ -214,8 +203,6 @@ public class RenderActualOreMapUseCase {
                 new HashSet<>(renderMapChunkCoordinates);
         Set<MapChunkCoordinate> surfaceSearchSet =
                 new HashSet<>(surfaceMapChunkCoordinates);
-        Set<MapChunkCoordinate> deliveredSurfaceMapChunks =
-                new HashSet<>();
         Set<MapChunkCoordinate> directReadSet =
                 new LinkedHashSet<>(renderMapChunkCoordinates);
         directReadSet.addAll(surfaceMapChunkCoordinates);
@@ -232,13 +219,20 @@ public class RenderActualOreMapUseCase {
                         renderMapChunkCoordinates.size(),
                         progress
                 );
-        RainHeightSurfacePlanner.StreamingSession rainPlannerSession =
+        Map<Integer, BlockInfo> surfaceRegistry = surfaceDataRequired
+                ? reader.readBlockRegistry(request.savePath())
+                : Map.of();
+        SurfaceStreamingSession surfaceSession =
                 surfaceDataRequired
-                        ? rainHeightSurfacePlanner.begin(
+                        ? SurfaceStreamingSession.begin(
                                 metadata,
                                 centerWorldX,
                                 centerWorldZ,
-                                request.radius()
+                                request.radius(),
+                                surfaceMapChunkCoordinates,
+                                surfaceRegistry,
+                                true,
+                                true
                         )
                         : null;
         reader.forEachMapChunkByCoordinate(
@@ -251,29 +245,25 @@ public class RenderActualOreMapUseCase {
                     }
                     if (surfaceDataRequired
                             && surfaceSearchSet.contains(mapChunk.coordinate())) {
-                        deliveredSurfaceMapChunks.add(mapChunk.coordinate());
-                        rainPlannerSession.accept(mapChunk);
+                        surfaceSession.acceptMapChunk(mapChunk);
                     }
                 },
                 progress
         );
         MapTerrainPreparation terrain = terrainBuilder.finish();
-        SurfaceScanResult surface = surfaceDataRequired
-                ? readSurface(
+        SurfaceMapScanResult compactSurface = surfaceDataRequired
+                ? readCompactSurface(
                         request.savePath(),
                         metadata,
-                        centerWorldX,
-                        centerWorldZ,
-                        request.radius(),
-                        surfaceMapChunkCoordinates,
-                        deliveredSurfaceMapChunks,
-                        rainPlannerSession,
+                        surfaceSession,
+                        surfaceRegistry,
                         chunkDiagnostics,
                         progress
                 )
-                : new SurfaceScanResult(List.of(), 0, 0, 0, 0);
+                : emptySurface(metadata, center, request.radius());
         RenderedMap rendered = renderer.render(
-                center, player, home, terrain, surface.blocks(), options, progress
+                center, player, home, terrain, compactSurface.map(),
+                compactSurface.registry(), options, progress
         );
 
         ReadDiagnostics mapRegionDiagnostics = new ReadDiagnostics();
@@ -315,7 +305,8 @@ public class RenderActualOreMapUseCase {
         }
 
         return new RenderActualOreMapResult(
-                rendered.image(), rendered.geometry(), rendered.report(), surface,
+                rendered.image(), rendered.geometry(), rendered.report(),
+                compactSurface,
                 environmentOverlay, geologyOverlay,
                 actualOreOverlays.isEmpty()
                         ? Optional.empty()
@@ -400,83 +391,68 @@ public class RenderActualOreMapUseCase {
         return immutable;
     }
 
-    private SurfaceScanResult readSurface(
+    private SurfaceMapScanResult readCompactSurface(
             java.nio.file.Path savePath,
             WorldMetadata metadata,
-            int centerWorldX,
-            int centerWorldZ,
-            int radius,
-            List<MapChunkCoordinate> surfaceMapChunkCoordinates,
-            Set<MapChunkCoordinate> deliveredSurfaceMapChunks,
-            RainHeightSurfacePlanner.StreamingSession rainPlannerSession,
+            SurfaceStreamingSession surfaceSession,
+            Map<Integer, BlockInfo> registry,
             ReadDiagnostics chunkDiagnostics,
             ProgressReporter progress
     ) {
-        Map<Integer, BlockInfo> registry = reader.readBlockRegistry(savePath);
-        RainHeightSurfacePlan rainPlan = rainPlannerSession.finish();
-        RainHeightSurfaceScanner.StreamingSession fastSession =
-                rainHeightSurfaceScanner.begin(rainPlan, registry, true, true);
+        SurfaceRainHeightPlan rainPlan = surfaceSession.finishPlanning();
         ChunkStreamStats fastChunkStats = new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         if (!rainPlan.chunkPositions().isEmpty()) {
             fastChunkStats = reader.forEachChunkByPositionAdaptive(
                     savePath,
                     rainPlan.chunkPositions(),
                     chunkDiagnostics,
-                    fastSession::accept,
+                    surfaceSession::acceptFastChunk,
                     progress
             );
         }
-        RainHeightSurfaceScanResult fastResult = fastSession.finish();
-        List<MapChunkCoordinate> fallbackMapChunks = surfaceFallbackMapChunks.collect(
-                surfaceMapChunkCoordinates,
-                deliveredSurfaceMapChunks,
-                rainPlan,
-                fastResult
-        );
+        List<MapChunkCoordinate> fallbackMapChunks = surfaceSession.fallbackMapChunks();
         List<ChunkPosition> fallbackPositions = surfaceFallbackChunkPlanner.plan(
                 metadata,
                 fallbackMapChunks
         );
-        List<ParsedChunk> fallbackChunks = new ArrayList<>();
         ChunkStreamStats fallbackChunkStats = new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         if (!fallbackPositions.isEmpty()) {
             fallbackChunkStats = reader.forEachChunkByPositionAdaptive(
                     savePath,
                     fallbackPositions,
                     chunkDiagnostics,
-                    fallbackChunks::add,
+                    surfaceSession::acceptFallbackChunk,
                     progress
             );
         }
-        SurfaceScanResult fallbackSurface = fallbackMapChunks.isEmpty()
-                ? new SurfaceScanResult(List.of(), 0, 0, 0, 0)
-                : surfaceScanner.scan(fallbackChunks, registry, true, progress);
-        int healthyFastColumns = (int) rainPlan.targets().stream()
-                .filter(target -> !fallbackMapChunks.contains(target.mapChunkCoordinate()))
-                .count();
+        SurfaceRainHeightScanResult result = surfaceSession.finish();
         int chunksScanned = Math.addExact(
                 fastChunkStats.parsedChunks(),
                 fallbackChunkStats.parsedChunks()
         );
-        int columnsScanned = Math.addExact(
-                healthyFastColumns,
-                fallbackSurface.columnsScanned()
-        );
-        List<SurfaceBlock> blocks = surfaceFastPathMerger.merge(
-                fastResult.blocks(),
-                fallbackSurface.blocks(),
-                fallbackMapChunks,
-                metadata,
-                centerWorldX,
-                centerWorldZ,
-                radius
-        );
-        return new SurfaceScanResult(
-                blocks,
+        SurfaceMap map = result.surface();
+        SurfaceRainHeightDiagnosticCounters diagnostics = result.diagnostics();
+        return new SurfaceMapScanResult(
+                map,
+                registry,
                 chunksScanned,
-                columnsScanned,
-                fallbackSurface.emptyColumns(),
-                fallbackSurface.liquidUnavailableColumns()
+                diagnostics.columnsScanned(),
+                diagnostics.emptyColumns(),
+                diagnostics.liquidUnavailableColumns()
+        );
+    }
+
+    private SurfaceMapScanResult emptySurface(
+            WorldMetadata metadata,
+            WorldPosition center,
+            int radius
+    ) {
+        SurfaceTileLayout layout = SurfaceTileLayout.forSurface(
+                center.x(), center.z(), radius, metadata
+        );
+        SurfaceTileAccumulator accumulator = new SurfaceTileAccumulator(layout);
+        return new SurfaceMapScanResult(
+                accumulator.finish(), Map.of(), 0, 0, 0, 0
         );
     }
 

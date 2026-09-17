@@ -5,7 +5,9 @@ import cartographer.analysis.BlockScanResult;
 import cartographer.analysis.BlockScanner;
 import cartographer.model.BlockInfo;
 import cartographer.model.ParsedChunk;
-import cartographer.model.SurfaceBlock;
+import cartographer.application.ReadSurfaceMapRequest;
+import cartographer.application.ReadSurfaceMapResult;
+import cartographer.application.ReadSurfaceMapUseCase;
 import cartographer.model.WorldPosition;
 import cartographer.render.ActualBlockMapRenderer;
 import cartographer.render.PngWriter;
@@ -14,8 +16,7 @@ import cartographer.save.VcdbsReader;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockYFilter;
-import cartographer.scanner.SurfaceScanResult;
-import cartographer.scanner.SurfaceScanner;
+import cartographer.scanner.SurfaceMapScanResult;
 
 import java.awt.image.BufferedImage;
 import java.io.PrintStream;
@@ -52,7 +53,7 @@ public class ScanCommand implements Command {
 
     private final PrintStream out;
     private final VcdbsReader reader;
-    private final SurfaceScanner scanner;
+    private final ReadSurfaceMapUseCase surfaceReader;
     private final BlockScanner blockScanner;
     private final ActualBlockMapScanner actualBlockMapScanner;
     private final ActualBlockMapRenderer actualBlockMapRenderer;
@@ -62,14 +63,12 @@ public class ScanCommand implements Command {
     public ScanCommand(
             PrintStream out,
             VcdbsReader reader,
-            SurfaceScanner scanner,
             BlockScanner blockScanner,
             String subcommand
     ) {
         this(
                 out,
                 reader,
-                scanner,
                 blockScanner,
                 new ActualBlockMapScanner(),
                 new ActualBlockMapRenderer(),
@@ -81,7 +80,6 @@ public class ScanCommand implements Command {
     public ScanCommand(
             PrintStream out,
             VcdbsReader reader,
-            SurfaceScanner scanner,
             BlockScanner blockScanner,
             ActualBlockMapScanner actualBlockMapScanner,
             ActualBlockMapRenderer actualBlockMapRenderer,
@@ -90,7 +88,7 @@ public class ScanCommand implements Command {
     ) {
         this.out = out;
         this.reader = reader;
-        this.scanner = scanner;
+        this.surfaceReader = new ReadSurfaceMapUseCase(reader, new cartographer.save.WorldMetadataReader());
         this.blockScanner = blockScanner;
         this.actualBlockMapScanner = actualBlockMapScanner;
         this.actualBlockMapRenderer = actualBlockMapRenderer;
@@ -156,39 +154,13 @@ public class ScanCommand implements Command {
                         out
                 );
 
-        WorldPosition player =
-                reader.readPlayerPosition(
-                        savePath,
-                        progress
-                );
-
-        ReadDiagnostics diagnostics =
-                new ReadDiagnostics();
-
-        List<ParsedChunk> chunks =
-                reader.readChunksAround(
-                        savePath,
-                        player,
-                        radius,
-                        diagnostics,
-                        progress
-                );
-
-        Map<Integer, BlockInfo> registry =
-                reader.readBlockRegistry(
-                        savePath,
-                        progress
-                );
-
-        SurfaceScanResult result =
-                scanner.scan(
-                        chunks,
-                        registry,
-                        !includeFoliage(
-                                args
-                        ),
-                        progress
-                );
+        WorldPosition player = reader.readPlayerPosition(savePath, progress);
+        ReadSurfaceMapResult loaded = surfaceReader.execute(
+                new ReadSurfaceMapRequest(savePath, player, radius,
+                        !includeFoliage(args), true), progress);
+        SurfaceMapScanResult result = loaded.surface();
+        ReadDiagnostics diagnostics = loaded.chunkDiagnostics();
+        Map<Integer, BlockInfo> registry = result.registry();
 
         out.println(
                 "SURFACE"
@@ -239,7 +211,7 @@ public class ScanCommand implements Command {
 
         out.println(
                 "Surface blocks: "
-                        + result.blocks().size()
+                        + resolvedCellCount(result)
         );
 
         out.println(
@@ -263,14 +235,10 @@ public class ScanCommand implements Command {
                 )
         );
 
-        result.blocks()
-                .stream()
-                .limit(
-                        20
-                )
-                .forEach(
-                        this::printSurfaceBlock
-                );
+        int[] samples = {0};
+        result.map().forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
+            if (samples[0]++ < 20) printSurfaceCell(x, y, z, blockId, registry);
+        });
 
         diagnostics.notes()
                 .forEach(
@@ -1048,17 +1016,20 @@ public class ScanCommand implements Command {
                 );
     }
 
-    private void printSurfaceBlock(
-            SurfaceBlock block
-    ) {
+    private void printSurfaceCell(int worldX, int y, int worldZ, int blockId,
+                                  Map<Integer, BlockInfo> registry) {
+        BlockInfo block = registry.get(blockId);
+        if (block == null) block = BlockInfo.unknown(blockId);
         out.printf(
                 "%d,%d,%d %s %s%n",
-                block.worldX(),
-                block.y(),
-                block.worldZ(),
-                block.blockInfo().code(),
-                block.blockInfo().materialType()
+                worldX, y, worldZ, block.code(), block.materialType()
         );
+    }
+
+    private int resolvedCellCount(SurfaceMapScanResult result) {
+        int[] count = {0};
+        result.map().forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> count[0]++);
+        return count[0];
     }
 
     private void printBlockMatch(
@@ -1075,7 +1046,7 @@ public class ScanCommand implements Command {
     }
 
     private void printTopUnknownSurfaceBlockCodes(
-            SurfaceScanResult result
+            SurfaceMapScanResult result
     ) {
         if (result.unknownSurfaceBlocks() <= 0) {
             return;

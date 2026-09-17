@@ -527,7 +527,6 @@ class ScanCommandBlocksMapTest {
         return new ScanCommand(
                 out,
                 reader,
-                new SurfaceScanner(),
                 new BlockScanner(),
                 new ActualBlockMapScanner(),
                 new ActualBlockMapRenderer(),

@@ -3,7 +3,7 @@ package cartographer.application;
 import cartographer.render.MapRenderReport;
 import cartographer.render.MapViewportGeometry;
 import cartographer.resource.SurfaceRenderAnalysis;
-import cartographer.scanner.SurfaceScanResult;
+import cartographer.scanner.SurfaceMapScanResult;
 import cartographer.save.ReadDiagnostics;
 
 import java.awt.image.BufferedImage;
@@ -13,7 +13,7 @@ public record RenderSurfaceResourceMapResult(
         BufferedImage image,
         MapViewportGeometry geometry,
         SurfaceRenderAnalysis analysis,
-        SurfaceScanResult surface,
+        SurfaceMapScanResult surface,
         MapRenderReport renderReport,
         ReadDiagnostics mapChunkDiagnostics,
         ReadDiagnostics chunkDiagnostics,

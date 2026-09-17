@@ -11,8 +11,7 @@ import cartographer.resource.ObservedSurfaceResourceCatalogBuilder;
 import cartographer.resource.SurfaceObjectCandidateCatalogBuilder;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SelectiveChunkStreamStats;
-import cartographer.scanner.SurfaceObjectPlan;
-import cartographer.scanner.SurfaceObjectScanResult;
+import cartographer.scanner.SurfaceObjectCompactScanResult;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -110,9 +109,10 @@ class SurfaceDiscoveryCacheTest {
         return new DiscoverObservedSurfaceResourcesResult(
                 new WorldPosition(x, 0, z),
                 candidates,
-                new SurfaceObjectPlan(List.of(), List.of()),
+                0,
+                0,
                 new SelectiveChunkStreamStats(0, 0, 0, 0, 0, 0, 0, 0),
-                new SurfaceObjectScanResult(List.of(), 0, 0, 0, 0),
+                SurfaceObjectCompactScanResult.empty(),
                 new ObservedSurfaceResourceCatalogBuilder().build(candidates, List.of()),
                 new ReadDiagnostics(),
                 new ReadDiagnostics()

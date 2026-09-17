@@ -1,6 +1,8 @@
 package cartographer.resource;
 
 import cartographer.model.SurfaceBlock;
+import cartographer.application.SurfaceMaterialMatch;
+import cartographer.scanner.SurfaceMapScanResult;
 
 import java.util.List;
 
@@ -18,6 +20,22 @@ public final class SurfaceMaterialAnalyzer {
             int totalSurfaceColumns
     ) {
         return convert(delegate.analyzeMatched(displayName, matchingBlocks, totalSurfaceColumns));
+    }
+
+    /** Compact SurfaceMap path; matching IDs are resolved once from the registry. */
+    public SurfaceMaterialAnalysis analyze(
+            SurfaceMapScanResult surface,
+            SurfaceMaterialMatch match,
+            String displayName
+    ) {
+        if (surface == null || match == null) {
+            throw new IllegalArgumentException("Surface result and material match are required");
+        }
+        return convert(delegate.analyze(
+                surface,
+                match.requiredTokens(),
+                displayName
+        ));
     }
 
     private SurfaceMaterialAnalysis convert(SurfaceResourceAnalysis analysis) {

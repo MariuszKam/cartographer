@@ -5,8 +5,6 @@ import cartographer.model.DisplayPosition;
 import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
 import cartographer.model.MapChunkCoordinate;
-import cartographer.model.ParsedChunk;
-import cartographer.model.SurfaceBlock;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.model.ChunkPosition;
@@ -28,17 +26,13 @@ import cartographer.save.ReadDiagnostics;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
-import cartographer.scanner.RainHeightSurfacePlan;
-import cartographer.scanner.RainHeightSurfacePlanner;
-import cartographer.scanner.RainHeightSurfaceScanResult;
-import cartographer.scanner.RainHeightSurfaceScanner;
-import cartographer.scanner.SurfaceFallbackChunkPlanner;
-import cartographer.scanner.SurfaceFallbackMapChunks;
-import cartographer.scanner.SurfaceFastPathMerger;
-import cartographer.scanner.SurfaceScanResult;
-import cartographer.scanner.SurfaceScanner;
+import cartographer.scanner.SurfaceMap;
+import cartographer.scanner.SurfaceMapScanResult;
+import cartographer.scanner.SurfaceRainHeightPlan;
+import cartographer.scanner.SurfaceRainHeightScanResult;
+import cartographer.scanner.SurfaceRainHeightDiagnosticCounters;
+import cartographer.scanner.SurfaceStreamingSession;
 
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -56,24 +50,12 @@ public class RenderSurfaceResourceMapUseCase {
     private final MarkerStore markerStore;
     private final MapRenderer renderer;
     private final UserMarkerRenderer userMarkerRenderer;
-    private final SurfaceScanner surfaceScanner;
     private final SurfaceMaterialAnalyzer surfaceMaterialAnalyzer;
     private final SurfaceObjectAnalyzer surfaceObjectAnalyzer;
     private final SurfaceResourceOverlayRenderer overlayRenderer;
     private final MapChunkRenderWindowPlanner mapChunkRenderWindowPlanner =
             new MapChunkRenderWindowPlanner();
-    private final MapChunkPositionPlanner mapChunkPositionPlanner =
-            new MapChunkPositionPlanner();
-    private final RainHeightSurfacePlanner rainHeightSurfacePlanner =
-            new RainHeightSurfacePlanner();
-    private final RainHeightSurfaceScanner rainHeightSurfaceScanner =
-            new RainHeightSurfaceScanner();
-    private final SurfaceFallbackMapChunks surfaceFallbackMapChunks =
-            new SurfaceFallbackMapChunks();
-    private final SurfaceFallbackChunkPlanner surfaceFallbackChunkPlanner =
-            new SurfaceFallbackChunkPlanner();
-    private final SurfaceFastPathMerger surfaceFastPathMerger =
-            new SurfaceFastPathMerger();
+    private final MapChunkPositionPlanner mapChunkPositionPlanner = new MapChunkPositionPlanner();
 
     public RenderSurfaceResourceMapUseCase(
             VcdbsReader reader,
@@ -82,7 +64,6 @@ public class RenderSurfaceResourceMapUseCase {
             MarkerStore markerStore,
             MapRenderer renderer,
             UserMarkerRenderer userMarkerRenderer,
-            SurfaceScanner surfaceScanner,
             SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
             SurfaceResourceOverlayRenderer overlayRenderer
     ) {
@@ -92,7 +73,6 @@ public class RenderSurfaceResourceMapUseCase {
         this.markerStore = Objects.requireNonNull(markerStore, "markerStore is required");
         this.renderer = Objects.requireNonNull(renderer, "renderer is required");
         this.userMarkerRenderer = Objects.requireNonNull(userMarkerRenderer, "userMarkerRenderer is required");
-        this.surfaceScanner = Objects.requireNonNull(surfaceScanner, "surfaceScanner is required");
         this.surfaceMaterialAnalyzer = Objects.requireNonNull(
                 surfaceMaterialAnalyzer,
                 "surfaceMaterialAnalyzer is required"
@@ -152,6 +132,17 @@ public class RenderSurfaceResourceMapUseCase {
                                 .thenComparingInt(MapChunkCoordinate::x)
                 )
                 .toList();
+        Map<Integer, BlockInfo> registry = reader.readBlockRegistry(request.savePath());
+        SurfaceStreamingSession surfaceSession = SurfaceStreamingSession.begin(
+                metadata,
+                centerWorldX,
+                centerWorldZ,
+                request.radius(),
+                surfaceMapChunkCoordinates,
+                registry,
+                true,
+                true
+        );
         Set<MapChunkCoordinate> deliveredSurfaceMapChunks =
                 new HashSet<>();
         MapTerrainPreparation.Builder terrainBuilder =
@@ -160,13 +151,6 @@ public class RenderSurfaceResourceMapUseCase {
                         options,
                         renderMapChunkCoordinates.size(),
                         progress
-                );
-        RainHeightSurfacePlanner.StreamingSession rainPlannerSession =
-                rainHeightSurfacePlanner.begin(
-                        metadata,
-                        centerWorldX,
-                        centerWorldZ,
-                        request.radius()
                 );
         reader.forEachMapChunkByCoordinate(
                 request.savePath(),
@@ -178,91 +162,60 @@ public class RenderSurfaceResourceMapUseCase {
                     }
                     if (surfaceSearchSet.contains(mapChunk.coordinate())) {
                         deliveredSurfaceMapChunks.add(mapChunk.coordinate());
-                        rainPlannerSession.accept(mapChunk);
+                        surfaceSession.acceptMapChunk(mapChunk);
                     }
                 },
                 progress
         );
         MapTerrainPreparation terrain = terrainBuilder.finish();
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
-        Map<Integer, BlockInfo> registry = reader.readBlockRegistry(request.savePath());
-        RainHeightSurfacePlan rainPlan = rainPlannerSession.finish();
-        RainHeightSurfaceScanner.StreamingSession fastSession =
-                rainHeightSurfaceScanner.begin(
-                        rainPlan,
-                        registry,
-                        true,
-                        true
-                );
+        SurfaceRainHeightPlan rainPlan = surfaceSession.finishPlanning();
         ChunkStreamStats fastChunkStats = new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         if (!rainPlan.chunkPositions().isEmpty()) {
             fastChunkStats = reader.forEachChunkByPositionAdaptive(
                     request.savePath(),
                     rainPlan.chunkPositions(),
                     chunkDiagnostics,
-                    fastSession::accept,
+                    surfaceSession::acceptFastChunk,
                     progress
             );
         }
-        RainHeightSurfaceScanResult fastResult = fastSession.finish();
-        List<MapChunkCoordinate> fallbackMapChunks = surfaceFallbackMapChunks.collect(
-                surfaceMapChunkCoordinates,
-                deliveredSurfaceMapChunks,
-                rainPlan,
-                fastResult
-        );
-        List<ChunkPosition> fallbackChunkPositions = surfaceFallbackChunkPlanner.plan(
+        List<MapChunkCoordinate> fallbackMapChunks = surfaceSession.fallbackMapChunks();
+        List<ChunkPosition> fallbackChunkPositions = new cartographer.scanner.SurfaceFallbackChunkPlanner().plan(
                 metadata,
                 fallbackMapChunks
         );
-        List<ParsedChunk> fallbackChunks = new ArrayList<>();
         ChunkStreamStats fallbackChunkStats = new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         if (!fallbackChunkPositions.isEmpty()) {
             fallbackChunkStats = reader.forEachChunkByPositionAdaptive(
                     request.savePath(),
                     fallbackChunkPositions,
                     chunkDiagnostics,
-                    fallbackChunks::add,
+                    surfaceSession::acceptFallbackChunk,
                     progress
             );
         }
-        SurfaceScanResult fallbackSurface = fallbackMapChunks.isEmpty()
-                ? new SurfaceScanResult(List.of(), 0, 0, 0, 0)
-                : surfaceScanner.scan(fallbackChunks, registry, true, progress);
-        int healthyFastColumns = rainPlan.targets().stream()
-                .filter(target -> !fallbackMapChunks.contains(target.mapChunkCoordinate()))
-                .toList()
-                .size();
+        SurfaceRainHeightScanResult compact = surfaceSession.finish();
+        SurfaceMap surfaceMap = compact.surface();
+        SurfaceRainHeightDiagnosticCounters diagnostics = compact.diagnostics();
         int chunksScanned = Math.addExact(
                 fastChunkStats.parsedChunks(),
                 fallbackChunkStats.parsedChunks()
         );
-        int columnsScanned = Math.addExact(
-                healthyFastColumns,
-                fallbackSurface.columnsScanned()
-        );
-        List<SurfaceBlock> mergedSurfaceBlocks = surfaceFastPathMerger.merge(
-                fastResult.blocks(),
-                fallbackSurface.blocks(),
-                fallbackMapChunks,
-                metadata,
-                centerWorldX,
-                centerWorldZ,
-                request.radius()
-        );
-        SurfaceScanResult surface = new SurfaceScanResult(
-                mergedSurfaceBlocks,
+        SurfaceMapScanResult surface = new SurfaceMapScanResult(
+                surfaceMap,
+                registry,
                 chunksScanned,
-                columnsScanned,
-                fallbackSurface.emptyColumns(),
-                fallbackSurface.liquidUnavailableColumns()
+                diagnostics.columnsScanned(),
+                diagnostics.emptyColumns(),
+                diagnostics.liquidUnavailableColumns()
         );
         SurfaceRenderAnalysis analysis;
         if (request.material().isPresent()) {
-            List<SurfaceBlock> matchingBlocks = request.material().orElseThrow()
-                    .matchingBlocks(surface.blocks());
-            analysis = surfaceMaterialAnalyzer.analyzeMatched(
-                    request.resourceDisplayName(), matchingBlocks, surface.columnsScanned());
+            analysis = surfaceMaterialAnalyzer.analyze(
+                    surface,
+                    request.material().orElseThrow(),
+                    request.resourceDisplayName());
         } else {
             analysis = new SurfaceObjectSelectionAnalysis(
                     request.observedResources().stream()
@@ -275,7 +228,8 @@ public class RenderSurfaceResourceMapUseCase {
                 player,
                 home,
                 terrain,
-                surface.blocks(),
+                surface.map(),
+                registry,
                 options,
                 progress
         );

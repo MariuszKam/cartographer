@@ -32,7 +32,10 @@ import cartographer.render.RenderedMap;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.render.ActualOreOverlayPainter;
 import cartographer.scanner.ActualBlockMapScanner;
-import cartographer.scanner.SurfaceScanResult;
+import cartographer.scanner.SurfaceMapScanResult;
+import cartographer.scanner.SurfaceMap;
+import cartographer.scanner.SurfaceTileAccumulator;
+import cartographer.scanner.SurfaceTileLayout;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.MapChunkStreamStats;
@@ -768,6 +771,28 @@ class MapCommandTest {
             );
         }
 
+        @Override
+        public RenderedMap render(
+                WorldPosition center,
+                WorldPosition player,
+                HomeState home,
+                MapTerrainPreparation terrain,
+                SurfaceMap surfaceMap,
+                Map<Integer, BlockInfo> registry,
+                RenderOptions options,
+                cartographer.application.ProgressReporter progress
+        ) {
+            this.player = player;
+            this.home = home;
+            return new RenderedMap(
+                    new BufferedImage(32, 32, BufferedImage.TYPE_INT_ARGB),
+                    new MapRenderReport(
+                            32, 32, terrain.mapChunkCount(), 0,
+                            home instanceof HomeState.Present ? 2 : 1,
+                            RenderStyle.SIMPLE, "MARKERS"),
+                    MapViewportGeometry.fullImage(32, 32, 0, 0, 1, 1));
+        }
+
         HomeLocation homeLocation() {
             if (home instanceof HomeState.Present(HomeLocation location)) {
                 return location;
@@ -843,13 +868,7 @@ class MapCommandTest {
                             request.style(),
                             useCaseLayers(request)
                     ),
-                    new SurfaceScanResult(
-                            List.of(),
-                            0,
-                            0,
-                            0,
-                            0
-                    ),
+                    emptySurface(),
                     OverlayRenderReport.none(),
                     OverlayRenderReport.none(),
                     Optional.empty(),
@@ -857,8 +876,16 @@ class MapCommandTest {
                     new ReadDiagnostics(),
                     new ReadDiagnostics(),
                     new ReadDiagnostics(),
-                    0
+                    0,
+                    List.of()
             );
+        }
+
+        private SurfaceMapScanResult emptySurface() {
+            return new SurfaceMapScanResult(
+                    new SurfaceTileAccumulator(SurfaceTileLayout.forSurface(
+                            0, 0, 1, new WorldMetadata(1, 1, 1))).finish(),
+                    Map.of(), 0, 0, 0, 0);
         }
 
         private String useCaseLayers(RenderActualOreMapRequest request) {

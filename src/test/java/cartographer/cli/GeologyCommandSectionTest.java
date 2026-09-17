@@ -70,7 +70,6 @@ class GeologyCommandSectionTest {
                 new GeologyCommand(
                         out,
                         reader,
-                        new SurfaceScanner(),
                         new GeologyAnalyzer(),
                         new GeologyCrossSectionAnalyzer(),
                         new GeologyCrossSectionRenderer(),
