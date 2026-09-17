@@ -51,6 +51,129 @@ class RockStreamingSessionTest {
     }
 
     @Test
+    void differentialMatrixPreservesCoverageAndRockSemantics() {
+        ParsedChunk lower = RockCharacterizationFixtures.chunk(
+                new ChunkCoordinate(0, 0, 0), RockCharacterizationFixtures.at(1, 10, 1, 1));
+        ParsedChunk upper = RockCharacterizationFixtures.chunk(
+                new ChunkCoordinate(0, 1, 0));
+        ChunkCoordinate lowerPosition = new ChunkCoordinate(0, 0, 0);
+        ChunkCoordinate upperPosition = new ChunkCoordinate(0, 1, 0);
+        WorldPosition center = new WorldPosition(1, 0, 1);
+
+        differential(List.of(lower), List.of(
+                SelectiveChunkVisit.decoded(position(lowerPosition), lower),
+                SelectiveChunkVisit.paletteRejected(position(upperPosition))),
+                RockCharacterizationFixtures.coverage(lowerPosition, upperPosition), center, 0, 64);
+        differential(List.of(lower), List.of(
+                SelectiveChunkVisit.decoded(position(lowerPosition), lower),
+                SelectiveChunkVisit.missing(position(upperPosition))),
+                RockCharacterizationFixtures.coverage(lowerPosition), center, 0, 64);
+        differential(List.of(lower), List.of(
+                SelectiveChunkVisit.decoded(position(lowerPosition), lower),
+                SelectiveChunkVisit.failed(position(upperPosition), "decode failure")),
+                RockCharacterizationFixtures.coverage(lowerPosition), center, 0, 64);
+        differential(List.of(upper), List.of(
+                SelectiveChunkVisit.decoded(position(upperPosition), upper),
+                SelectiveChunkVisit.missing(position(lowerPosition))),
+                RockCharacterizationFixtures.coverage(upperPosition), center, 0, 64);
+
+        ParsedChunk top = RockCharacterizationFixtures.chunk(new ChunkCoordinate(0, 2, 0));
+        differential(List.of(lower, top), List.of(
+                SelectiveChunkVisit.decoded(position(lowerPosition), lower),
+                SelectiveChunkVisit.missing(position(upperPosition)),
+                SelectiveChunkVisit.decoded(position(new ChunkCoordinate(0, 2, 0)), top)),
+                RockCharacterizationFixtures.coverage(lowerPosition, new ChunkCoordinate(0, 2, 0)),
+                center, 0, 96);
+
+        differential(List.of(lower, upper), List.of(
+                SelectiveChunkVisit.decoded(position(lowerPosition), lower),
+                SelectiveChunkVisit.decoded(position(upperPosition), upper)),
+                RockCharacterizationFixtures.coverage(lowerPosition, upperPosition), center, 0, 64);
+
+        differential(List.of(), List.of(
+                SelectiveChunkVisit.paletteRejected(position(lowerPosition)),
+                SelectiveChunkVisit.paletteRejected(position(upperPosition))),
+                RockCharacterizationFixtures.coverage(lowerPosition, upperPosition), center, 0, 64);
+    }
+
+    @Test
+    void differentialMatrixPreservesModdedOreAndPartialYSemantics() {
+        WorldPosition center = new WorldPosition(1, 0, 1);
+        ChunkCoordinate position = new ChunkCoordinate(0, 0, 0);
+        ParsedChunk modded = RockCharacterizationFixtures.chunk(position,
+                RockCharacterizationFixtures.at(1, 1, 1, 3));
+        RockMap moddedMap = differential(List.of(modded), List.of(
+                SelectiveChunkVisit.decoded(position(position), modded)),
+                RockCharacterizationFixtures.coverage(position), center, 0, 32);
+        assertEquals("somemod:rock-gneiss", moddedMap.sampleAt(1, 1).orElseThrow()
+                .rock().orElseThrow().code());
+
+        ParsedChunk ore = RockCharacterizationFixtures.chunk(position,
+                RockCharacterizationFixtures.at(1, 1, 1, 4));
+        RockMap oreMap = differential(List.of(ore), List.of(
+                SelectiveChunkVisit.decoded(position(position), ore)),
+                RockCharacterizationFixtures.coverage(position), center, 0, 32);
+        assertEquals(RockColumnState.NO_ROCK, oreMap.stateAt(1, 1));
+
+        ParsedChunk lower = RockCharacterizationFixtures.chunk(position,
+                RockCharacterizationFixtures.at(1, 4, 1, 1),
+                RockCharacterizationFixtures.at(1, 5, 1, 2));
+        ParsedChunk upper = RockCharacterizationFixtures.chunk(new ChunkCoordinate(0, 1, 0),
+                RockCharacterizationFixtures.at(1, 1, 1, 2),
+                RockCharacterizationFixtures.at(1, 2, 1, 1));
+        RockMap partial = differential(List.of(lower, upper), List.of(
+                SelectiveChunkVisit.decoded(position(position), lower),
+                SelectiveChunkVisit.decoded(position(new ChunkCoordinate(0, 1, 0)), upper)),
+                RockCharacterizationFixtures.coverage(position, new ChunkCoordinate(0, 1, 0)),
+                center, 5, 34);
+        assertEquals(33, partial.rockYAt(1, 1).orElseThrow());
+        RockMap narrow = differential(List.of(lower), List.of(
+                SelectiveChunkVisit.decoded(position(position), lower)),
+                RockCharacterizationFixtures.coverage(position), center, 5, 6);
+        assertEquals(5, narrow.rockYAt(1, 1).orElseThrow());
+    }
+
+    @Test
+    void differentialMatrixPreservesNegativeAndFractionalCoordinates() {
+        ChunkCoordinate negativePosition = new ChunkCoordinate(-1, 0, -1);
+        ParsedChunk negative = RockCharacterizationFixtures.chunk(negativePosition,
+                RockCharacterizationFixtures.at(31, 1, 31, 3));
+        differential(List.of(negative), List.of(
+                SelectiveChunkVisit.decoded(position(negativePosition), negative)),
+                RockCharacterizationFixtures.coverage(negativePosition),
+                new WorldPosition(-0.2, 0, -0.2), 0, 32);
+
+        ChunkCoordinate positivePosition = new ChunkCoordinate(0, 0, 0);
+        ParsedChunk positive = RockCharacterizationFixtures.chunk(positivePosition,
+                RockCharacterizationFixtures.at(10, 1, 10, 3));
+        differential(List.of(positive), List.of(
+                SelectiveChunkVisit.decoded(position(positivePosition), positive)),
+                RockCharacterizationFixtures.coverage(positivePosition),
+                new WorldPosition(10.8, 0, 10.8), 0, 32);
+    }
+
+    @Test
+    void coverageStatusPermutationsAreDeterministicAndMatchLegacy() {
+        ChunkCoordinate lowerPosition = new ChunkCoordinate(0, 0, 0);
+        ChunkCoordinate upperPosition = new ChunkCoordinate(0, 1, 0);
+        ParsedChunk lower = RockCharacterizationFixtures.chunk(lowerPosition,
+                RockCharacterizationFixtures.at(1, 10, 1, 1));
+        WorldPosition center = new WorldPosition(1, 0, 1);
+        assertPermutations(
+                List.of(SelectiveChunkVisit.decoded(position(lowerPosition), lower),
+                        SelectiveChunkVisit.paletteRejected(position(upperPosition))),
+                List.of(lower), RockCharacterizationFixtures.coverage(lowerPosition, upperPosition), center);
+        assertPermutations(
+                List.of(SelectiveChunkVisit.decoded(position(lowerPosition), lower),
+                        SelectiveChunkVisit.missing(position(upperPosition))),
+                List.of(lower), RockCharacterizationFixtures.coverage(lowerPosition), center);
+        assertPermutations(
+                List.of(SelectiveChunkVisit.decoded(position(lowerPosition), lower),
+                        SelectiveChunkVisit.failed(position(upperPosition), "decode failure")),
+                List.of(lower), RockCharacterizationFixtures.coverage(lowerPosition), center);
+    }
+
+    @Test
     void unknownAboveCandidateInvalidatesLowerCandidateButUnknownBelowDoesNot() {
         RockStreamingSession lowerOnly = session();
         lowerOnly.accept(decoded(0, 0, 0, 10, 1));
@@ -110,6 +233,13 @@ class RockStreamingSessionTest {
         crossStatus.accept(SelectiveChunkVisit.failed(position(0, 0, 0), "decode failure"));
         assertThrows(IllegalArgumentException.class,
                 () -> crossStatus.accept(decoded(0, 0, 0, 10, 1)));
+
+        assertCrossStatus(SelectiveChunkVisit.paletteRejected(position(0, 0, 0)),
+                SelectiveChunkVisit.missing(position(0, 0, 0)));
+        assertCrossStatus(SelectiveChunkVisit.missing(position(0, 0, 0)),
+                SelectiveChunkVisit.paletteRejected(position(0, 0, 0)));
+        assertCrossStatus(decoded(0, 0, 0, 10, 1),
+                SelectiveChunkVisit.failed(position(0, 0, 0), "decode failure"));
     }
 
     @Test
@@ -119,9 +249,20 @@ class RockStreamingSessionTest {
                         new cartographer.model.ChunkPosition(0, 0, 0, 1),
                         SelectiveChunkVisitStatus.MISSING, null, null)));
         assertThrows(IllegalArgumentException.class,
+                () -> session().accept(SelectiveChunkVisit.missing(position(-2, 0, 0))));
+        assertThrows(IllegalArgumentException.class,
                 () -> session().accept(SelectiveChunkVisit.missing(position(1, 0, 0))));
         assertThrows(IllegalArgumentException.class,
-                () -> session().accept(SelectiveChunkVisit.missing(position(0, 2, 0))));
+                () -> session().accept(SelectiveChunkVisit.missing(position(0, 0, -2))));
+        assertThrows(IllegalArgumentException.class,
+                () -> session().accept(SelectiveChunkVisit.missing(position(0, 0, 1))));
+        assertThrows(IllegalArgumentException.class,
+                () -> session().accept(SelectiveChunkVisit.missing(position(0, -1, 0))));
+        assertThrows(IllegalArgumentException.class,
+                () -> session().accept(SelectiveChunkVisit.missing(position(0, 1 + 1, 0))));
+        ParsedChunk mismatched = chunk(1, 0, 0, 10, 1);
+        assertThrows(IllegalArgumentException.class,
+                () -> session().accept(SelectiveChunkVisit.decoded(position(0, 0, 0), mismatched)));
     }
 
     @Test
@@ -157,10 +298,11 @@ class RockStreamingSessionTest {
     }
 
     private ParsedChunk chunk(int chunkX, int chunkY, int chunkZ, int localY, int blockId) {
-        int[] blocks = new int[32 * 32 * 32];
-        blocks[(localY * 32 + 0) * 32] = blockId;
-        return new ParsedChunk(new ChunkCoordinate(chunkX, chunkY, chunkZ), chunkY * 32,
-                32, 32, 32, blocks);
+        int size = ChunkCoordinate.SIZE_BLOCKS;
+        int[] blocks = new int[size * size * size];
+        blocks[(localY * size) * size] = blockId;
+        return new ParsedChunk(new ChunkCoordinate(chunkX, chunkY, chunkZ), chunkY * size,
+                size, size, size, blocks);
     }
 
     private SelectiveChunkVisit visitFor(SelectiveChunkVisitStatus status,
@@ -180,7 +322,49 @@ class RockStreamingSessionTest {
         return session.finish();
     }
 
+    private void assertCrossStatus(SelectiveChunkVisit first, SelectiveChunkVisit second) {
+        RockStreamingSession session = session();
+        session.accept(first);
+        assertThrows(IllegalArgumentException.class, () -> session.accept(second));
+    }
+
     private cartographer.model.ChunkPosition position(int x, int y, int z) {
         return new cartographer.model.ChunkPosition(x, y, z, 0);
+    }
+
+    private cartographer.model.ChunkPosition position(ChunkCoordinate coordinate) {
+        return position(coordinate.x(), coordinate.y(), coordinate.z());
+    }
+
+    private RockMap differential(List<ParsedChunk> chunks, List<SelectiveChunkVisit> visits,
+                                 RockChunkCoverage coverage, WorldPosition center, int minY, int maxY) {
+        RockMap legacy = new RockColumnScanner().scan(chunks, RockCharacterizationFixtures.CATALOG,
+                center, 1, minY, maxY, coverage);
+        RockStreamingSession streaming = RockStreamingSession.open(center, 1, minY, maxY, 0,
+                RockCharacterizationFixtures.CATALOG);
+        for (SelectiveChunkVisit visit : visits) streaming.accept(visit);
+        RockMap result = streaming.finish();
+        assertEquals(RockLegacyOracle.snapshot(legacy), RockLegacyOracle.snapshot(result));
+        assertEquals(legacy.observedCount(), result.observedCount());
+        assertEquals(legacy.noRockCount(), result.noRockCount());
+        assertEquals(legacy.unavailableCount(), result.unavailableCount());
+        return result;
+    }
+
+    private void assertPermutations(List<SelectiveChunkVisit> visits, List<ParsedChunk> chunks,
+                                    RockChunkCoverage coverage, WorldPosition center) {
+        RockMap first = mapWithFixtureVisits(visits);
+        RockMap second = mapWithFixtureVisits(List.of(visits.get(1), visits.get(0)));
+        RockMap legacy = new RockColumnScanner().scan(chunks, RockCharacterizationFixtures.CATALOG,
+                center, 1, 0, 64, coverage);
+        assertEquals(RockLegacyOracle.snapshot(legacy), RockLegacyOracle.snapshot(first));
+        assertEquals(RockLegacyOracle.snapshot(first), RockLegacyOracle.snapshot(second));
+    }
+
+    private RockMap mapWithFixtureVisits(List<SelectiveChunkVisit> visits) {
+        RockStreamingSession session = RockStreamingSession.open(
+                new WorldPosition(1, 0, 1), 1, 0, 64, 0, RockCharacterizationFixtures.CATALOG);
+        for (SelectiveChunkVisit visit : visits) session.accept(visit);
+        return session.finish();
     }
 }
