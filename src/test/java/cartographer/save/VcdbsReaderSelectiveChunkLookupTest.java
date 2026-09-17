@@ -308,7 +308,11 @@ class VcdbsReaderSelectiveChunkLookupTest {
         assertEquals(1, visits.size());
         assertEquals(SelectiveChunkVisitStatus.FAILED, visits.get(0).status());
         assertEquals("chunk row has null payload", visits.get(0).error());
-        assertTrue(diagnostics.notes().contains("chunk row has null payload"));
+        assertEquals(1, diagnostics.skipped());
+        assertEquals(0, diagnostics.failed());
+        assertTrue(diagnostics.skippedNotes().contains(
+                "skipped: 1 x chunk row has null payload"
+        ));
     }
 
     @Test
