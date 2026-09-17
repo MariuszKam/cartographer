@@ -34,6 +34,7 @@ public final class SurfaceObjectStreamingScanner {
         private int[] observationZ = new int[16];
         private int[] observationBlockIds = new int[16];
         private int observationCount;
+        private boolean unvisitedPositionsAvailable;
         private boolean finished;
 
         private Session(SurfaceObjectCompactPlan plan, int[] wantedBlockIds) {
@@ -67,6 +68,12 @@ public final class SurfaceObjectStreamingScanner {
             }
         }
 
+        /** Used by the legacy empty-wanted-ID path, which intentionally skips reading. */
+        public void markExpectedPositionsAvailableWithoutVisits() {
+            ensureMutable();
+            unvisitedPositionsAvailable = true;
+        }
+
         public SurfaceObjectCompactScanResult finish() {
             ensureMutable();
             finished = true;
@@ -85,8 +92,13 @@ public final class SurfaceObjectStreamingScanner {
                     }
                     boolean targetUnavailable = false;
                     for (int candidate = 0; candidate < count; candidate++) {
-                        int positionIndex = tile.candidateChunkIndexAt(cell, candidate);
-                        if ((positionStatuses[positionIndex] & 2) != 0) {
+                        int worldX = tile.coordinate().x() * cartographer.model.MapChunk.SIZE
+                                + cell % cartographer.model.MapChunk.SIZE;
+                        int worldZ = tile.coordinate().z() * cartographer.model.MapChunk.SIZE
+                                + cell / cartographer.model.MapChunk.SIZE;
+                        int positionIndex = plan.chunkPositionIndexAt(
+                                worldX, tile.candidateYAt(cell, candidate), worldZ);
+                        if (isUnavailable(positionIndex)) {
                             targetUnavailable = true;
                             break;
                         }
@@ -127,10 +139,10 @@ public final class SurfaceObjectStreamingScanner {
                             if (worldX < firstWorldX || worldX > lastWorldX
                                     || worldZ < firstWorldZ || worldZ > lastWorldZ) continue;
                             int cell = localZ * cartographer.model.MapChunk.SIZE + localX;
-                            int count = tile.candidateCountAt(cell);
-                            for (int candidate = 0; candidate < count; candidate++) {
-                                if (tile.candidateChunkIndexAt(cell, candidate) != positionIndex) continue;
-                                int worldY = tile.candidateYAt(cell, candidate);
+                            for (int worldY = tile.firstCandidateY(cell);
+                                 worldY < tile.lastCandidateYExclusive(cell); worldY++) {
+                                if (!tile.isCandidateY(cell, worldY)
+                                        || plan.chunkPositionIndexAt(worldX, worldY, worldZ) != positionIndex) continue;
                                 int localY = worldY - chunk.minY();
                                 if (localY < 0 || localY >= chunk.sizeY()) continue;
                                 int blockId = chunk.blockIdAt(
@@ -161,17 +173,34 @@ public final class SurfaceObjectStreamingScanner {
         }
 
         private void sortObservations() {
-            for (int index = 1; index < observationCount; index++) {
-                int x = observationX[index], y = observationY[index], z = observationZ[index], id = observationBlockIds[index];
-                int cursor = index - 1;
-                while (cursor >= 0 && compare(z, x, y, id,
-                        observationZ[cursor], observationX[cursor], observationY[cursor], observationBlockIds[cursor]) < 0) {
-                    observationX[cursor + 1] = observationX[cursor]; observationY[cursor + 1] = observationY[cursor];
-                    observationZ[cursor + 1] = observationZ[cursor]; observationBlockIds[cursor + 1] = observationBlockIds[cursor--];
-                }
-                observationX[cursor + 1] = x; observationY[cursor + 1] = y;
-                observationZ[cursor + 1] = z; observationBlockIds[cursor + 1] = id;
+            // Heap sort keeps the four primitive payload arrays in lockstep and guarantees O(m log m).
+            for (int root = observationCount / 2 - 1; root >= 0; root--) siftDown(root, observationCount);
+            for (int end = observationCount - 1; end > 0; end--) {
+                swap(0, end);
+                siftDown(0, end);
             }
+        }
+
+        private void siftDown(int root, int size) {
+            while (root * 2 + 1 < size) {
+                int child = root * 2 + 1;
+                if (child + 1 < size && compareAt(child, child + 1) < 0) child++;
+                if (compareAt(root, child) >= 0) return;
+                swap(root, child);
+                root = child;
+            }
+        }
+
+        private int compareAt(int left, int right) {
+            return compare(observationZ[left], observationX[left], observationY[left], observationBlockIds[left],
+                    observationZ[right], observationX[right], observationY[right], observationBlockIds[right]);
+        }
+
+        private void swap(int left, int right) {
+            int value = observationX[left]; observationX[left] = observationX[right]; observationX[right] = value;
+            value = observationY[left]; observationY[left] = observationY[right]; observationY[right] = value;
+            value = observationZ[left]; observationZ[left] = observationZ[right]; observationZ[right] = value;
+            value = observationBlockIds[left]; observationBlockIds[left] = observationBlockIds[right]; observationBlockIds[right] = value;
         }
 
         private int compare(int z1, int x1, int y1, int id1, int z2, int x2, int y2, int id2) {
@@ -179,6 +208,11 @@ public final class SurfaceObjectStreamingScanner {
             result = Integer.compare(x1, x2); if (result != 0) return result;
             result = Integer.compare(y1, y2); if (result != 0) return result;
             return Integer.compare(id1, id2);
+        }
+
+        private boolean isUnavailable(int positionIndex) {
+            return positionIndex < 0 || (positionStatuses[positionIndex] & 2) != 0
+                    || ((positionStatuses[positionIndex] & VISITED) == 0 && !unvisitedPositionsAvailable);
         }
 
         private void ensureMutable() {

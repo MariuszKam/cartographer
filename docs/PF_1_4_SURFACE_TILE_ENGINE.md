@@ -123,12 +123,22 @@ PENDING**. E runtime evidence is **NOT RUN**.
 ### Checkpoint F status
 
 Checkpoint F adds `SurfaceObjectCompactPlanner`, which consumes each mapchunk
-into one mapchunk-sized primitive tile state and stores fixed-capacity union
-candidate Ys plus requested server-chunk indexes. `SurfaceObjectStreamingScanner`
+into one mapchunk-sized primitive tile state and stores only a terrain anchor,
+a rain anchor, and two presence bits per active cell. Candidate Y values are
+the clipped union of the two fixed ranges and server-chunk membership is
+derived while planning/scanning; expanded per-candidate Y and chunk-index
+arrays are not retained. The plan payload is 9 bytes per tile cell as an
+arithmetic representation estimate (two `int` anchors and one flag byte),
+excluding tile and chunk metadata; this is not a heap measurement.
+`SurfaceObjectStreamingScanner`
 consumes each `SelectiveChunkVisit` directly: decoded chunks are inspected and
 released within the callback, palette rejection is available-but-not-observed,
-and missing/failed visits contribute unavailable evidence. Primitive observation
-arrays are sorted deterministically by Z/X/Y/block ID at finalization.
+and missing/failed visits contribute unavailable evidence. An expected position
+with no visit is also unavailable for normal non-empty wanted-ID scans; the
+empty-wanted-ID path explicitly marks planned positions available because the
+legacy reader intentionally skips the selective read. Primitive observation
+arrays are heap-sorted deterministically by Z/X/Y/block ID at finalization,
+with O(m log m) time and no boxed observation objects.
 
 `DiscoverObservedSurfaceResourcesUseCase` and `InspectSurfaceObjectsUseCase`
 now return scalar plan statistics plus `SurfaceObjectCompactScanResult`.

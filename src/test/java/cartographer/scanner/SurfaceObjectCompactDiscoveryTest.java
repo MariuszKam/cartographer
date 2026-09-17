@@ -142,6 +142,58 @@ class SurfaceObjectCompactDiscoveryTest {
         assertTrue(result.unavailablePositions() > 0);
     }
 
+    @Test
+    void unvisitedExpectedPositionIsUnavailableForNonEmptyWantedIds() {
+        SurfaceObjectCompactPlan plan = planned(10, 20);
+        SurfaceObjectCompactScanResult result = new SurfaceObjectStreamingScanner()
+                .begin(plan, new int[] {7})
+                .finish();
+
+        assertTrue(result.unavailablePositions() > 0);
+        assertEquals(0, result.notObservedTargets());
+    }
+
+    @Test
+    void emptyWantedIdsTreatSkippedExpectedPositionsAsAvailable() {
+        SurfaceObjectCompactPlan plan = planned(10, 20);
+        SurfaceObjectStreamingScanner.Session session = new SurfaceObjectStreamingScanner()
+                .begin(plan, new int[0]);
+        session.markExpectedPositionsAvailableWithoutVisits();
+
+        SurfaceObjectCompactScanResult result = session.finish();
+
+        assertEquals(0, result.unavailablePositions());
+        assertEquals(plan.plannedTargetCount(), result.notObservedTargets());
+    }
+
+    @Test
+    void observationsAreDeterministicallyOrderedByZThenXThenYThenBlockId() {
+        SurfaceObjectCompactPlan plan = planned(10, 20);
+        SurfaceObjectStreamingScanner.Session session = new SurfaceObjectStreamingScanner()
+                .begin(plan, new int[] {7});
+        int[] blocks = new int[ChunkCoordinate.SIZE_BLOCKS * ChunkCoordinate.SIZE_BLOCKS
+                * ChunkCoordinate.SIZE_BLOCKS];
+        Arrays.fill(blocks, 7);
+        ParsedChunk chunk = new ParsedChunk(
+                new ChunkCoordinate(0, 0, 0), 0,
+                ChunkCoordinate.SIZE_BLOCKS, ChunkCoordinate.SIZE_BLOCKS,
+                ChunkCoordinate.SIZE_BLOCKS, blocks);
+        session.accept(SelectiveChunkVisit.decoded(new ChunkPosition(0, 0, 0, 0), chunk));
+
+        int[] previous = {Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE};
+        SurfaceObjectCompactScanResult result = session.finish();
+        result.forEachObservation((x, y, z, blockId) -> {
+            assertTrue(z > previous[2]
+                    || (z == previous[2] && (x > previous[0]
+                    || (x == previous[0] && (y > previous[1]
+                    || (y == previous[1] && blockId >= previous[3]))))));
+            previous[0] = x;
+            previous[1] = y;
+            previous[2] = z;
+            previous[3] = blockId;
+        });
+    }
+
     private SurfaceObjectCompactPlan planned(int terrain, int rain) {
         int[] terrainHeights = filled(terrain);
         int[] rainHeights = filled(rain);

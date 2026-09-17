@@ -80,6 +80,9 @@ public final class InspectSurfaceObjectsUseCase {
         SurfaceObjectStreamingScanner.Session scanSession = scanner.begin(plan, wantedIds);
         SelectiveChunkStreamStats stats;
         if (wantedIds.length == 0 || plan.chunkPositions().isEmpty()) {
+            if (wantedIds.length == 0) {
+                scanSession.markExpectedPositionsAvailableWithoutVisits();
+            }
             stats = new SelectiveChunkStreamStats(
                     plan.chunkPositions().size(), 0, 0, 0, 0, 0, 0, 0
             );
