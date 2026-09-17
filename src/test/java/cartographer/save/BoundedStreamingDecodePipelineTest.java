@@ -440,6 +440,7 @@ class BoundedStreamingDecodePipelineTest {
                     }
                     return 1;
                 });
+                awaitControllerLatch(firstStarted);
                 pipeline.submit(() -> {
                     throw cause;
                 });
@@ -492,6 +493,7 @@ class BoundedStreamingDecodePipelineTest {
                     }
                     return 1;
                 });
+                awaitControllerLatch(firstStarted);
                 pipeline.submit(() -> { throw cause; });
                 pipeline.finish();
             } catch (Throwable thrown) {
@@ -557,6 +559,7 @@ class BoundedStreamingDecodePipelineTest {
                     }
                     return 1;
                 });
+                awaitControllerLatch(firstStarted);
                 pipeline.submit(() -> 2);
                 pipeline.finish();
             } catch (Throwable thrown) {
@@ -611,6 +614,7 @@ class BoundedStreamingDecodePipelineTest {
                     }
                     return 1;
                 });
+                awaitControllerLatch(started);
                 pipeline.close();
             } catch (Throwable thrown) {
                 failure.set(thrown);
@@ -638,11 +642,13 @@ class BoundedStreamingDecodePipelineTest {
     @Test
     void closeCancelsRunningAndQueuedWorkWithoutCallbacks() throws Exception {
         CountDownLatch firstStarted = new CountDownLatch(1);
+        CountDownLatch firstBlocked = new CountDownLatch(1);
         CountDownLatch firstInterrupted = new CountDownLatch(1);
         CountDownLatch secondStarted = new CountDownLatch(1);
         CountDownLatch submitted = new CountDownLatch(1);
         CountDownLatch closeReturned = new CountDownLatch(1);
         List<Integer> callbacks = new ArrayList<>();
+        AtomicReference<Thread> worker = new AtomicReference<>();
         AtomicReference<Throwable> failure = new AtomicReference<>();
 
         BoundedStreamingDecodePipeline<Integer> pipeline =
@@ -650,14 +656,17 @@ class BoundedStreamingDecodePipelineTest {
         Thread controller = Thread.ofPlatform().start(() -> {
             try {
                 pipeline.submit(() -> {
+                    worker.set(Thread.currentThread());
                     firstStarted.countDown();
                     try {
+                        firstBlocked.countDown();
                         new CountDownLatch(1).await();
                     } catch (InterruptedException interruption) {
                         firstInterrupted.countDown();
                     }
                     return 1;
                 });
+                awaitControllerLatch(firstBlocked);
                 pipeline.submit(() -> {
                     secondStarted.countDown();
                     return 2;
@@ -673,6 +682,7 @@ class BoundedStreamingDecodePipelineTest {
 
         try {
             assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
+            assertTrue(firstBlocked.await(1, TimeUnit.SECONDS));
             assertTrue(submitted.await(1, TimeUnit.SECONDS));
             assertTrue(firstInterrupted.await(1, TimeUnit.SECONDS));
             assertTrue(closeReturned.await(1, TimeUnit.SECONDS));
@@ -680,6 +690,7 @@ class BoundedStreamingDecodePipelineTest {
             assertEquals(1, secondStarted.getCount());
             assertTrue(callbacks.isEmpty());
             assertEquals(0, pipeline.inFlightCount());
+            assertFalse(worker.get().isAlive());
         } finally {
             controller.join(1000);
             pipeline.close();
@@ -692,6 +703,7 @@ class BoundedStreamingDecodePipelineTest {
         CountDownLatch interruptObserved = new CountDownLatch(1);
         CountDownLatch releaseWorker = new CountDownLatch(1);
         CountDownLatch closeReturned = new CountDownLatch(1);
+        AtomicReference<Thread> worker = new AtomicReference<>();
         AtomicReference<Throwable> failure = new AtomicReference<>();
         AtomicBoolean interrupted = new AtomicBoolean();
 
@@ -700,6 +712,7 @@ class BoundedStreamingDecodePipelineTest {
         Thread controller = Thread.ofPlatform().start(() -> {
             try {
                 pipeline.submit(() -> {
+                    worker.set(Thread.currentThread());
                     started.countDown();
                     try {
                         new CountDownLatch(1).await();
@@ -709,6 +722,7 @@ class BoundedStreamingDecodePipelineTest {
                     }
                     return 1;
                 });
+                awaitControllerLatch(started);
                 pipeline.close();
             } catch (Throwable thrown) {
                 failure.set(thrown);
@@ -728,6 +742,7 @@ class BoundedStreamingDecodePipelineTest {
             assertTrue(failure.get() instanceof IllegalStateException);
             assertTrue(failure.get().getCause() instanceof InterruptedException);
             assertTrue(interrupted.get());
+            assertFalse(worker.get().isAlive());
         } finally {
             releaseWorker.countDown();
             controller.join(1000);
@@ -738,30 +753,78 @@ class BoundedStreamingDecodePipelineTest {
     @Test
     void fatalWorkerFailureStopsCallbacksAfterFailureBoundary() throws Exception {
         IllegalArgumentException cause = new IllegalArgumentException("decode exploded");
+        CountDownLatch firstStarted = new CountDownLatch(1);
+        CountDownLatch allowFailure = new CountDownLatch(1);
+        CountDownLatch bothSubmitted = new CountDownLatch(1);
+        CountDownLatch controllerFinished = new CountDownLatch(1);
         CountDownLatch submitted = new CountDownLatch(1);
         List<Integer> callbacks = new ArrayList<>();
+        AtomicReference<Thread> worker = new AtomicReference<>();
         AtomicReference<Throwable> failure = new AtomicReference<>();
 
         BoundedStreamingDecodePipeline<Integer> pipeline =
                 new BoundedStreamingDecodePipeline<>(1, 2, callbacks::add);
         Thread controller = Thread.ofPlatform().start(() -> {
             try {
-                pipeline.submit(() -> { throw cause; });
+                pipeline.submit(() -> {
+                    worker.set(Thread.currentThread());
+                    firstStarted.countDown();
+                    awaitUninterruptibly(allowFailure);
+                    throw cause;
+                });
+                awaitControllerLatch(firstStarted);
                 pipeline.submit(() -> 2);
+                bothSubmitted.countDown();
                 submitted.countDown();
                 pipeline.finish();
             } catch (Throwable thrown) {
                 failure.set(thrown);
+            } finally {
+                controllerFinished.countDown();
             }
         });
 
         try {
+            assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
+            assertTrue(bothSubmitted.await(1, TimeUnit.SECONDS));
+            allowFailure.countDown();
             assertTrue(submitted.await(1, TimeUnit.SECONDS));
-            controller.join(1000);
+            assertTrue(controllerFinished.await(1, TimeUnit.SECONDS));
             assertSame(cause, failure.get().getCause());
             assertTrue(callbacks.isEmpty());
+            assertFalse(worker.get().isAlive());
         } finally {
+            allowFailure.countDown();
             controller.join(1000);
+            pipeline.close();
+        }
+    }
+
+    @Test
+    void closeIsIdempotentAfterFatalAbort() {
+        IllegalStateException cause = new IllegalStateException("fatal decode");
+        AtomicReference<Thread> worker = new AtomicReference<>();
+        List<Integer> callbacks = new ArrayList<>();
+        BoundedStreamingDecodePipeline<Integer> pipeline =
+                new BoundedStreamingDecodePipeline<>(1, 2, callbacks::add);
+
+        try {
+            pipeline.submit(() -> {
+                worker.set(Thread.currentThread());
+                throw cause;
+            });
+            IllegalStateException failure = assertThrows(
+                    IllegalStateException.class,
+                    pipeline::finish
+            );
+            assertSame(cause, failure.getCause());
+            pipeline.close();
+            pipeline.close();
+            assertThrows(IllegalStateException.class, () -> pipeline.submit(() -> 1));
+            assertTrue(callbacks.isEmpty());
+            assertFalse(worker.get().isAlive());
+            assertEquals(0, pipeline.inFlightCount());
+        } finally {
             pipeline.close();
         }
     }
@@ -857,6 +920,7 @@ class BoundedStreamingDecodePipelineTest {
     void interruptedCompletionWaitRestoresInterruptStatusAndAborts() throws Exception {
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch workerInterrupted = new CountDownLatch(1);
+        AtomicReference<Thread> worker = new AtomicReference<>();
         AtomicReference<Throwable> failure = new AtomicReference<>();
         AtomicBoolean interrupted = new AtomicBoolean();
 
@@ -865,6 +929,7 @@ class BoundedStreamingDecodePipelineTest {
         Thread controller = Thread.ofPlatform().start(() -> {
             try {
                 pipeline.submit(() -> {
+                    worker.set(Thread.currentThread());
                     started.countDown();
                     try {
                         new CountDownLatch(1).await();
@@ -879,14 +944,19 @@ class BoundedStreamingDecodePipelineTest {
                 interrupted.set(Thread.currentThread().isInterrupted());
             }
         });
-        assertTrue(started.await(1, TimeUnit.SECONDS));
-        controller.interrupt();
-        controller.join(1000);
-        assertTrue(failure.get() instanceof IllegalStateException);
-        assertTrue(failure.get().getCause() instanceof InterruptedException);
-        assertTrue(interrupted.get());
-        assertTrue(workerInterrupted.await(1, TimeUnit.SECONDS));
-        pipeline.close();
+        try {
+            assertTrue(started.await(1, TimeUnit.SECONDS));
+            controller.interrupt();
+            controller.join(1000);
+            assertTrue(failure.get() instanceof IllegalStateException);
+            assertTrue(failure.get().getCause() instanceof InterruptedException);
+            assertTrue(interrupted.get());
+            assertTrue(workerInterrupted.await(1, TimeUnit.SECONDS));
+            assertFalse(worker.get().isAlive());
+        } finally {
+            pipeline.close();
+            controller.join(1000);
+        }
     }
 
     @Test
@@ -941,6 +1011,17 @@ class BoundedStreamingDecodePipelineTest {
         }
         if (interrupted) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void awaitControllerLatch(CountDownLatch latch) {
+        try {
+            if (!latch.await(1, TimeUnit.SECONDS)) {
+                throw new AssertionError("controller synchronization latch was not signalled");
+            }
+        } catch (InterruptedException interruption) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("controller synchronization was interrupted", interruption);
         }
     }
 }
