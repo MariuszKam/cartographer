@@ -113,6 +113,14 @@ public final class SurfaceTileAccumulator {
         return new SurfaceMap(layout, immutableTiles);
     }
 
+    void clearResolvedForTile(int tileX, int tileZ) {
+        ensureMutable();
+        TileState tile = tiles[layout.tileIndex(tileX, tileZ)];
+        for (int index = 0; index < tile.state.length; index++) {
+            tile.state[index] &= ~SurfaceTile.RESOLVED;
+        }
+    }
+
     private void initializeActiveCells(int tileIndex, int tileX, int tileZ) {
         TileState tile = tiles[tileIndex];
         for (int localZ = 0; localZ < tile.height; localZ++) {

@@ -4,6 +4,7 @@ import cartographer.model.SurfaceBlock;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.StringJoiner;
 
 /** Test-only semantic normalization; never use this as a production mode. */
 final class SurfaceSemanticOracle {
@@ -27,6 +28,14 @@ final class SurfaceSemanticOracle {
                         .thenComparingInt(Cell::liquidBlockId)
                         .thenComparing(Cell::surfaceClass))
                 .toList();
+    }
+
+    static String fingerprint(SurfaceMap map) {
+        StringJoiner result = new StringJoiner(";");
+        map.forEachCell((x, z, state, y, blockId, liquidId, surfaceClass) ->
+                result.add(x + "," + z + "," + state + "," + y + ","
+                        + blockId + "," + liquidId + "," + surfaceClass));
+        return result.toString();
     }
 
     record Cell(

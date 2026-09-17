@@ -66,6 +66,24 @@ The model's equal-Y tie rule is a deterministic primitive tuple tie-breaker
 legacy production behavior; C/D must compare any equal-Y legacy cases before
 using it for production accumulation.
 
+### Checkpoint C status and conclusion
+
+Checkpoint C adds `SurfaceRainHeightPlanner`/
+`SurfaceRainHeightPlan` and `SurfaceRainHeightScanner`/
+`SurfaceRainHeightScanResult`. Planning stores one primitive candidate array
+per tile, compact promotion bits, and primitive cell ordinals grouped by
+requested server `ChunkPosition`; scanning consumes one `ParsedChunk` and
+retains no decoded-chunk reference after the callback. Promotion clears prior
+fast resolutions for the complete mapchunk.
+
+The characterization test confirms that the legacy `SurfaceScanner` keeps the
+first equal-Y value when duplicate rows with the same coordinate are supplied.
+The valid PF-1.2 reader topology requests/delivers each server chunk position
+once, and the C scanner rejects duplicate delivery, so conflicting equal-Y
+observations are unreachable for valid fast-path input. The compact
+tie-breaker remains deterministic and is not claimed equivalent for malformed
+duplicate-row input. C runtime evidence is **NOT RUN**.
+
 ## 3. Current retention inventory
 
 The following is the characterization of the current `master` implementation
