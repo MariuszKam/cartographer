@@ -61,7 +61,7 @@ public record SurfaceMapScanResult(
         });
         Map<String, Long> output = new LinkedHashMap<>();
         for (int index = 0; index < counts.size; index++) {
-            output.put(lookup.code(counts.ids[index]), counts.counts[index]);
+            output.merge(lookup.code(counts.ids[index]), counts.counts[index], Long::sum);
         }
         return output.entrySet().stream()
                 .sorted(Map.Entry.<String, Long>comparingByValue().reversed()

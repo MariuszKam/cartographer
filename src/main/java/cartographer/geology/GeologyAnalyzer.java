@@ -21,7 +21,8 @@ public class GeologyAnalyzer {
         SurfaceRegistryLookup lookup = new SurfaceRegistryLookup(surface.registry());
         int[] materialCounts = new int[lookup.size()];
         int[] rockFamilyCounts = new int[lookup.size()];
-        int[] missingMaterialCount = {0};
+        int[] missingAirCount = {0};
+        int[] missingSolidCount = {0};
         surface.map().forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
             samples[0]++;
             int slot = lookup.slot(blockId);
@@ -30,7 +31,11 @@ public class GeologyAnalyzer {
             if (slot < 0) {
                 material = lookup.materialType(blockId);
                 family = "unknown";
-                missingMaterialCount[0]++;
+                if (blockId == 0) {
+                    missingAirCount[0]++;
+                } else {
+                    missingSolidCount[0]++;
+                }
             } else {
                 material = lookup.materialTypeAt(slot);
                 family = lookup.rockFamilyAt(slot);
@@ -50,8 +55,11 @@ public class GeologyAnalyzer {
                 rockFamilies.merge(lookup.rockFamilyAt(slot), rockFamilyCounts[slot], Integer::sum);
             }
         }
-        if (missingMaterialCount[0] != 0) {
-            materialTypes.merge("solid", missingMaterialCount[0], Integer::sum);
+        if (missingAirCount[0] != 0) {
+            materialTypes.merge("air", missingAirCount[0], Integer::sum);
+        }
+        if (missingSolidCount[0] != 0) {
+            materialTypes.merge("solid", missingSolidCount[0], Integer::sum);
         }
         return new GeologyReport(samples[0], geologicalSamples[0], unknownSamples[0],
                 Map.copyOf(rockFamilies), Map.copyOf(materialTypes));
