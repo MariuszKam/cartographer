@@ -20,11 +20,13 @@ Total test source files: **119**
 
 Files with confirmed risk: **1**
 
-Files with likely risk: **3**
+Files with likely risk: **2**
 
 Files with possible risk: **0**
 
 Files reviewed as safe: **116**
+
+The file-level counts classify each unique file once using its highest-risk finding classification; therefore the pipeline test file is counted under confirmed risk even though it also contains likely findings. The finding-level counts below count individual findings.
 
 Finding counts:
 
