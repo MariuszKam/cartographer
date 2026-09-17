@@ -137,7 +137,7 @@ class RockStreamingSessionTest {
     }
 
     @Test
-    void sessionHasNoDecodedChunkOrBoxedCoverageStateFields() {
+    void sessionHasNoDecodedChunkOrBoxedCoverageStateFields() throws NoSuchFieldException {
         for (Field field : RockStreamingSession.class.getDeclaredFields()) {
             assertEquals(false, ParsedChunk.class.isAssignableFrom(field.getType()));
             assertEquals(false, Map.class.isAssignableFrom(field.getType()));
