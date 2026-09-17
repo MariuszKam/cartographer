@@ -209,13 +209,15 @@ class SurfaceObjectCompactDiscoveryTest {
         List<ChunkPosition> positions = plan.chunkPositions();
         assertTrue(positions.size() >= 2);
 
-        SurfaceObjectCompactScanResult first = scanWithPaletteOrder(plan, positions, false);
-        SurfaceObjectCompactScanResult second = scanWithPaletteOrder(plan, positions, true);
+        SurfaceObjectCompactScanResult first = scanWithDecodedOrder(plan, false);
+        SurfaceObjectCompactScanResult second = scanWithDecodedOrder(plan, true);
 
-        assertEquals(first.plannedTargetCount(), second.plannedTargetCount());
+        assertEquals(first.positionsInspected(), second.positionsInspected());
         assertEquals(first.unavailablePositions(), second.unavailablePositions());
         assertEquals(first.observedTargets(), second.observedTargets());
         assertEquals(first.notObservedTargets(), second.notObservedTargets());
+        assertEquals(first.observedObjects(), second.observedObjects());
+        assertTrue(first.observedObjects() > 0);
         assertEquals(observationFingerprint(first), observationFingerprint(second));
     }
 
@@ -425,18 +427,18 @@ class SurfaceObjectCompactDiscoveryTest {
         return result;
     }
 
-    private SurfaceObjectCompactScanResult scanWithPaletteOrder(
-            SurfaceObjectCompactPlan plan, List<ChunkPosition> positions, boolean reverse) {
+    private SurfaceObjectCompactScanResult scanWithDecodedOrder(
+            SurfaceObjectCompactPlan plan, boolean reverse) {
         SurfaceObjectStreamingScanner.Session session = new SurfaceObjectStreamingScanner()
                 .begin(plan, new int[] {7});
+        ParsedChunk lower = chunk(0, 31, 16, 16, 7);
+        ParsedChunk upper = chunk(1, 32, 16, 16, 7);
         if (reverse) {
-            for (int index = positions.size() - 1; index >= 0; index--) {
-                session.accept(SelectiveChunkVisit.paletteRejected(positions.get(index)));
-            }
+            session.accept(SelectiveChunkVisit.decoded(position(upper), upper));
+            session.accept(SelectiveChunkVisit.decoded(position(lower), lower));
         } else {
-            for (ChunkPosition position : positions) {
-                session.accept(SelectiveChunkVisit.paletteRejected(position));
-            }
+            session.accept(SelectiveChunkVisit.decoded(position(lower), lower));
+            session.accept(SelectiveChunkVisit.decoded(position(upper), upper));
         }
         return session.finish();
     }
