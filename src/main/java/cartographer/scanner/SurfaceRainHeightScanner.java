@@ -5,8 +5,12 @@ import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
 import cartographer.model.ParsedChunk;
 import cartographer.model.SurfaceClass;
+import cartographer.model.MapChunkCoordinate;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -35,6 +39,7 @@ public final class SurfaceRainHeightScanner {
         private final SurfaceTileAccumulator accumulator;
         private final SurfaceClassifier classifier = new SurfaceClassifier();
         private final Set<ChunkPosition> delivered = new HashSet<>();
+        private final Set<ChunkPosition> deliveredFallback = new HashSet<>();
         private final boolean[] promoted;
         private boolean finished;
         private int resolved;
@@ -126,6 +131,77 @@ public final class SurfaceRainHeightScanner {
                 accumulator.recordSurface(
                         worldX, worldZ, worldY, blockId, liquidId, surfaceClass);
                 resolved++;
+            }
+        }
+
+        /** Consumes one promoted-mapchunk fallback chunk without retaining it. */
+        public void acceptFallback(ParsedChunk chunk) {
+            ensureMutable();
+            Objects.requireNonNull(chunk, "chunk is required");
+            ChunkPosition position = new ChunkPosition(
+                    chunk.coordinate().x(),
+                    chunk.coordinate().y(),
+                    chunk.coordinate().z(),
+                    0
+            );
+            if (!deliveredFallback.add(position)) {
+                return;
+            }
+            int tileIndex;
+            try {
+                tileIndex = plan.layout().tileIndex(
+                        chunk.coordinate().x(), chunk.coordinate().z());
+            } catch (IndexOutOfBoundsException ignored) {
+                return;
+            }
+            if (!promoted[tileIndex]) {
+                return;
+            }
+            int tileX = plan.layout().tileXAt(tileIndex);
+            int tileZ = plan.layout().tileZAt(tileIndex);
+            int width = plan.layout().tileWidth(tileX);
+            int height = plan.layout().tileHeight(tileZ);
+            for (int localZ = 0; localZ < height; localZ++) {
+                for (int localX = 0; localX < width; localX++) {
+                    int worldX = plan.layout().worldXForTileLocal(tileX, localX);
+                    int worldZ = plan.layout().worldZForTileLocal(tileZ, localZ);
+                    if (!plan.layout().isActive(worldX, worldZ)) {
+                        continue;
+                    }
+                    accumulator.consider(worldX, worldZ);
+                    if (!chunk.liquidLayerAvailable()) {
+                        accumulator.markLiquidUnavailable(worldX, worldZ);
+                        liquidUnavailable++;
+                    }
+                    for (int localY = chunk.sizeY() - 1; localY >= 0; localY--) {
+                        int blockId = chunk.blockIdAt(localX, localY, localZ);
+                        int liquidId = chunk.liquidLayerAvailable()
+                                ? chunk.liquidIdAt(localX, localY, localZ) : 0;
+                        BlockInfo blockInfo = registry.get(blockId);
+                        if (blockInfo == null) {
+                            blockInfo = BlockInfo.unknown(blockId);
+                        }
+                        BlockInfo liquidInfo = registry.get(liquidId);
+                        if (liquidInfo == null) {
+                            liquidInfo = BlockInfo.unknown(liquidId);
+                        }
+                        SurfaceClass surfaceClass = classifier.classify(blockInfo, liquidInfo);
+                        if (surfaceClass != SurfaceClass.WATER
+                                && (blockInfo.isAir()
+                                || ignoreFoliage && blockInfo.isFoliage())) {
+                            continue;
+                        }
+                        accumulator.recordSurface(
+                                worldX,
+                                worldZ,
+                                chunk.worldY(localY),
+                                blockId,
+                                liquidId,
+                                surfaceClass
+                        );
+                        break;
+                    }
+                }
             }
         }
 

@@ -84,6 +84,18 @@ observations are unreachable for valid fast-path input. The compact
 tie-breaker remains deterministic and is not claimed equivalent for malformed
 duplicate-row input. C runtime evidence is **NOT RUN**.
 
+### Checkpoint D status
+
+Checkpoint D adds `SurfaceStreamingSession` and extends the compact
+RainHeight scanner with immediate fallback consumption. Fallback scans each
+promoted mapchunk column from high to low within each decoded chunk, records
+the highest qualifying observation through the primitive accumulator, and is
+order-independent across vertical chunk completion. Promotion clears any
+earlier fast result, so fallback is authoritative even when its Y is lower
+than the fast observation. Decoded fallback chunks are not retained, and the
+legacy `SurfaceFastPathMerger` is not called by this new session; it remains
+an independent oracle until G. D runtime evidence is **NOT RUN**.
+
 ## 3. Current retention inventory
 
 The following is the characterization of the current `master` implementation
