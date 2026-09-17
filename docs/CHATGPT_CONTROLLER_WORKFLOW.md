@@ -244,6 +244,68 @@ ChatGPT remains responsible for enforcing technical evidence and should
 actively recommend whether the work is ready; it should not silently substitute
 its technical verdict for the user's product acceptance.
 
+## Deterministic test guardrails
+
+Concurrency tests must synchronize on the semantic lifecycle event being
+tested. Prefer explicit test-controlled mechanisms such as latches, barriers,
+phasers, semaphores, controlled futures, or callback handshakes. Do not infer
+task start, completion, callback delivery, queue state, termination, interrupt
+timing, or lifecycle ordering merely from elapsed wall-clock time.
+
+Tests must not use `Thread.sleep(...)` or `TimeUnit.*.sleep(...)` as
+synchronization. Sleeping is appropriate only when passage of time is itself
+the behavior under test and that purpose is documented. A timeout may be used
+as a bounded deadlock or failure guard around an explicit handshake, but it is
+not a correctness condition. Increasing a timeout without changing a
+scheduler-sensitive synchronization model is not a valid flaky-test fix.
+
+`Thread.State`, `Thread.isAlive()`, scheduler observations, and executor queue
+snapshots are diagnostic information, not proof that another thread reached a
+precise lifecycle boundary. Before interrupting a thread, a test must
+deterministically establish that the intended interrupt target phase has been
+reached.
+
+Worker completion and downstream callback or consumer execution are distinct
+events unless the architecture explicitly guarantees otherwise. Tests must
+synchronize on the phase they assert and must preserve the semantic ordering,
+lifecycle, and concurrency coverage they are intended to verify. A repair
+must not make a test green by removing an assertion, disabling a test,
+accepting missing callbacks, or ignoring worker leaks.
+
+Concurrency-test cleanup must run on assertion and failure paths. It should
+release controlled blockers, close test-owned executors or pipelines, prevent
+test-owned threads from leaking into later tests, and verify termination with
+a bounded diagnostic guard. A timed join must not silently ignore a thread
+that remains alive.
+
+When a test fails under concurrency, classify the evidence before calling it
+either a flaky test or a production race. A failure that disappears after
+replacing scheduler assumptions with explicit synchronization indicates a
+test-coordination defect. A deterministic reproducer that still violates the
+production invariant is evidence of a production defect; do not change
+production behavior merely to satisfy a timing-sensitive test.
+
+`local PASS + CI FAIL != PASS`. A CI failure is runtime evidence until the
+exact test, log, and failure phase have been inspected. Do not dismiss an
+Actions failure as merely a slow runner without evidence. Intermittent
+concurrency failures require root-cause diagnosis and rerunning the relevant
+gate; a later green rerun does not erase an unexplained red run.
+
+For a test changed because it was flaky or scheduler-sensitive, validation
+should normally include targeted execution, multiple independent repetitions
+when practical, the normal full suite, and CI execution before merge. The
+controller defines repetition scope for the task; permanent workflow guidance
+must not hard-code task-specific repetition counts or timeout values.
+
+Dynamic test-health inventories, current flaky-test findings, line-number
+reports, and repository-wide test scans should be generated evidence, such as
+a CI artifact, generated report, pull-request artifact/comment, or build
+report. Permanent documentation should describe engineering contracts,
+validation expectations, and evidence semantics, not manually maintained
+snapshots of current test names, findings, line numbers, risk counts, or test
+inventories. Future automation may generate those snapshots; this workflow
+does not require a new job or script.
+
 ## Failure workflow
 
 ```text
