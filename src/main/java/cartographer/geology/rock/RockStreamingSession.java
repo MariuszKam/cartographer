@@ -16,6 +16,7 @@ public final class RockStreamingSession {
     private final int radius;
     private final int minY;
     private final int maxYExclusive;
+    private final RockMapMode mode;
     private final int dimension;
     private final RockCircleGeometry geometry;
     private final RockMapBuilder builder;
@@ -39,6 +40,7 @@ public final class RockStreamingSession {
             int minY,
             int maxYExclusive,
             int dimension,
+            RockMapMode mode,
             RockCatalog catalog
     ) {
         this.center = Objects.requireNonNull(center, "center is required");
@@ -46,6 +48,10 @@ public final class RockStreamingSession {
         this.minY = minY;
         this.maxYExclusive = maxYExclusive;
         this.dimension = dimension;
+        this.mode = Objects.requireNonNull(mode, "mode is required");
+        if (mode != RockMapMode.UPPER_ROCK && mode != RockMapMode.AT_Y) {
+            throw new IllegalArgumentException("unsupported ROCK mode");
+        }
         if (minY >= maxYExclusive) throw new IllegalArgumentException("Y range must not be empty");
         this.geometry = RockCircleGeometry.from(center, radius);
         int centerX = geometry.centerX();
@@ -69,7 +75,7 @@ public final class RockStreamingSession {
         this.terminalSeenWords = new long[planeLength];
         this.availableWords = new long[planeLength];
         this.builder = new RockMapBuilder(center, radius, minY, maxYExclusive,
-                RockMapMode.UPPER_ROCK, catalog);
+                mode, catalog);
         this.builder.initializeAllCellsPresent();
         List<Integer> blockIds = new ArrayList<>(catalog.rockBlockIds());
         blockIds.sort(Integer::compareTo);
@@ -92,17 +98,18 @@ public final class RockStreamingSession {
             int dimension,
             RockCatalog catalog
     ) {
-        return new RockStreamingSession(center, radius, minY, maxYExclusive, dimension, catalog);
+        return new RockStreamingSession(center, radius, minY, maxYExclusive, dimension,
+                RockMapMode.UPPER_ROCK, catalog);
     }
 
     public static RockStreamingSession open(
             WorldPosition center, int radius, int minY, int maxYExclusive,
             int dimension, RockMapMode mode, RockCatalog catalog
     ) {
-        if (mode != RockMapMode.UPPER_ROCK) {
-            throw new IllegalArgumentException("Checkpoint D supports UPPER_ROCK only");
+        if (mode == RockMapMode.AT_Y && Math.subtractExact((long) maxYExclusive, minY) != 1L) {
+            throw new IllegalArgumentException("AT_Y requires a one-block Y range");
         }
-        return open(center, radius, minY, maxYExclusive, dimension, catalog);
+        return new RockStreamingSession(center, radius, minY, maxYExclusive, dimension, mode, catalog);
     }
 
     public void accept(SelectiveChunkVisit visit) {
@@ -159,6 +166,7 @@ public final class RockStreamingSession {
         long startY = Math.max((long) minY, chunk.minY());
         long endY = Math.min((long) maxYExclusive, Math.addExact((long) chunk.minY(), chunk.sizeY()));
         if (startY >= endY) return;
+        if (mode == RockMapMode.AT_Y && (minY < startY || minY >= endY)) return;
         long chunkStartX = Math.multiplyExact((long) chunkX, ChunkCoordinate.SIZE_BLOCKS);
         long chunkEndX = Math.addExact(chunkStartX, Math.min(chunk.sizeX(), ChunkCoordinate.SIZE_BLOCKS));
         long chunkStartZ = Math.multiplyExact((long) chunkZ, ChunkCoordinate.SIZE_BLOCKS);
@@ -173,7 +181,9 @@ public final class RockStreamingSession {
             );
             for (long worldX = startX; worldX < endX; worldX++) {
                 int index = Math.toIntExact(geometry.rowOffset(row) + worldX - geometry.rowStartX(row));
-                for (long worldY = endY - 1; worldY >= startY; worldY--) {
+                long firstY = mode == RockMapMode.AT_Y ? minY : endY - 1;
+                long lastYInclusive = mode == RockMapMode.AT_Y ? minY : startY;
+                for (long worldY = firstY; worldY >= lastYInclusive; worldY--) {
                     int blockId = chunk.blockIdAt(
                             Math.toIntExact(worldX - chunkStartX),
                             Math.toIntExact(worldY - chunk.minY()),
