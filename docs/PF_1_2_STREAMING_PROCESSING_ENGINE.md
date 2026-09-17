@@ -1,13 +1,16 @@
 # PF-1.2 Streaming Processing Engine
 
-**Status:** `DESIGN CONTRACT — IMPLEMENTATION NOT STARTED`
+**Status:** `IMPLEMENTED — FINAL VALIDATION PENDING`
 
-**Scope:** Checkpoint A — Architecture Contract only
+**Scope:** Checkpoints A–F — implementation and documentation record; final reviewer-controlled validation remains pending
 
 PF-1.2 defines the bounded, completion-driven processing infrastructure for
-later streaming analysis stages. This document is normative for the future
-implementation and review of PF-1.2. It does not claim implementation,
-validation, performance improvement, or milestone completion.
+later streaming analysis stages. This document remains normative for the
+implemented architecture and records the checkpoint history. The implementation
+and static checkpoint reviews are complete. Final runtime, regression, save-
+safety, profiling, and performance validation have not been run. PF-1.2 is not
+`VALIDATED`, and no performance improvement is claimed from implementation
+alone.
 
 ## 1. Purpose and stage boundaries
 
@@ -29,15 +32,93 @@ PF-1.2 must not absorb ROCK result construction, surface tiling,
 prospecting fusion, or save-session ownership. Later stages consume the
 engine's completed outcomes and own their domain state and retention choices.
 
+## Implementation record
+
+The following records the actual PF-1.2 checkpoint commits. The checkpoint
+implementation and static reviews are complete; the final validation gates
+remain reviewer-controlled and pending.
+
+| Checkpoint | Commit | Implemented outcome |
+|---|---|---|
+| A — Architecture Contract | `ad6a5a359c0c07f9e54f3e86398a218cf544fae8` — `docs: define p1.2 streaming processing contract` | Established the bounded completion-driven processing contract and its stage boundaries. |
+| B — Completion Engine | `cc62ff1a5b296821d158d8d39bdb9ab07b1294b3` — `perf: add completion-driven decode pipeline` | Added the completion-driven bounded decode pipeline with fixed platform workers and control-thread consumption. |
+| B — Completion Engine hardening | `5914c3d82e7cb7d4cc9aa21bfa19e7e19d1280b8` — `perf: harden completion pipeline failure semantics`; `3a14f4cb20ccfc724a640b13e7fc62cd0112f927` — `perf: enforce safe decode worker quiescence` | Hardened failure propagation, cancellation, shutdown, and worker/resource quiescence. |
+| C — Reader Integration | `6b889ababc776deb22fee61b74054c112c3e2e2c` — `perf: stream vcdbs decode completions` | Migrated all five runtime `VcdbsReader` server-chunk decode paths to the streaming completion-driven pipeline. |
+| D — Failure & Lifecycle Hardening | `6975b1c5f49d1c2bd3829e28bd4447126abc493a` — `perf: harden decode pipeline lifecycle`; `0c9cd729073d591e7f820502e7d1f29f255b963b` — `test: make decode lifecycle tests deterministic` | Established terminal-operation quiescence, interruption-safe cleanup, primary-failure preservation, interrupt restoration, and deterministic latch-based lifecycle tests. The tests have not yet been executed for PF-1.2 closure. |
+| E — Legacy Cleanup | `0dbce56d936cf42a308c31d139e3a1360c99e99f` — `perf: remove legacy decode concurrency` | Deleted the obsolete ordered pipeline, its dedicated tests, and the unused common-pool `ParallelChunkScanner` wrapper. |
+
+## Implemented architecture
+
+The implemented PF-1.2 flow is:
+
+```text
+SQLite producer/control thread
+    -> bounded submissions
+    -> fixed platform decode workers
+    -> ExecutorCompletionService completion queue
+    -> caller/control-thread outcome consumption
+    -> existing downstream semantic consumers
+```
+
+Scheduling is completion-driven: a slow earlier submission does not
+intentionally impose submission-order head-of-line blocking. Downstream
+callbacks remain serialized on the control thread. `maxInFlight` bounds total
+outstanding work and results logically, including completed-but-unconsumed
+outcomes. Decode workspaces remain exclusively borrowed and bounded, and
+pipeline quiescence precedes workspace-pool destruction.
+
+The executor is owned by the operation. No global executor, virtual-thread
+strategy, common-pool scheduler, or replacement legacy abstraction was
+introduced.
+
+### Reader integration
+
+PF-1.2 migrated these five `VcdbsReader` server-chunk decode categories from
+the historical ordered path to `BoundedStreamingDecodePipeline`:
+
+- exact position lookup;
+- regular table streaming;
+- selective exact lookup;
+- selective table streaming; and
+- selective coverage reading.
+
+Diagnostics, counters, progress reporting, and downstream consumers remain
+owned by the producer/control thread. SQLite result order is not treated as a
+semantic ordering guarantee, and semantic consumers were not made parallel.
+
+### Failure and lifecycle record
+
+The following guarantees are implemented and statically reviewed, but remain
+subject to final runtime validation:
+
+- `OPEN` transitions to `FINISHED` on successful completion or to an aborted/closed terminal state on failure or close;
+- submission is allowed only while open;
+- successful `finish` is idempotent and `close` is safe after finish;
+- `close` is idempotent after abort;
+- fatal worker and consumer failures abort outstanding work;
+- the original worker or consumer failure remains primary where applicable;
+- cleanup continues across coordination interruption without worker leakage;
+- the controlling thread's interrupt status is restored; and
+- workspace resources are not destroyed while workers can still use them.
+
+PF-1.1 established decoder ownership, reusable bounded workspace, ZSTD
+context lifecycle, and decoder allocation improvements. PF-1.2 adds
+completion-driven bounded scheduling, deterministic operation-scoped worker
+lifecycle, reader integration, and removal of the ordered/common-pool legacy
+paths. PF-1.3 remains responsible for the Streaming ROCK Engine and for
+removing whole-operation decoded/derived ROCK retention. PF-1.2 does not solve
+the major R4096 `RockMap`/`RockColumnScanner` memory bottleneck.
+
 ## 2. Problem statement
 
-The existing `BoundedOrderedDecodePipeline<T>` bounds in-flight work and uses
-fixed platform worker threads, while downstream consumption remains on the
-submitting/control thread. Its pending collection nevertheless resolves the
-oldest submitted `Future` first. Thus it provides submission-order delivery.
-If an earlier decode is slow while later decodes have completed, the control
-thread waits at the head of the pending collection: this is submission-order
-head-of-line blocking.
+The historical `BoundedOrderedDecodePipeline<T>` bounded in-flight work and
+used fixed platform worker threads, while downstream consumption remained on
+the submitting/control thread. Its pending collection nevertheless resolved
+the oldest submitted `Future` first. Thus it provided submission-order
+delivery. If an earlier decode was slow while later decodes had completed, the
+control thread waited at the head of the pending collection: this was
+submission-order head-of-line blocking. Checkpoint E removed that obsolete
+implementation and its dedicated tests.
 
 PF-1.2 replaces submission-order result resolution with completion-driven
 resolution. The engine consumes a completed result when **any** task
@@ -124,8 +205,8 @@ until measured evidence exists.
 
 ## 5. Submission and completion algorithm
 
-The future implementation must be completion-driven and conceptually follow
-this algorithm on submission:
+The implemented engine is completion-driven and follows this algorithm on
+submission:
 
 1. Non-blockingly drain already completed outcomes where possible.
 2. If total in-flight work is at `F`, block until **any** task completes.
@@ -241,14 +322,15 @@ minimizes the thread-safety surface and lets later streaming milestones
 process one completed decoded chunk at a time without making all domain code
 concurrent.
 
-## 11. Legacy `ParallelChunkScanner`
+## 11. Removed legacy concurrency paths
 
-The current `ParallelChunkScanner` uses `parallelStream()` and therefore
-relies on common `ForkJoinPool` behavior. PF-1.2 must not blindly rewrite it
-and must not modify it in this checkpoint. Before removal or modification in
-a later checkpoint, production usages must be audited with repository search.
-If it is unused, later cleanup may remove it. If it is used, its semantics
-must be reviewed before migration.
+Checkpoint E audited and removed the unused `ParallelChunkScanner` wrapper,
+which had used `parallelStream()` and therefore relied on common
+`ForkJoinPool` behavior. The obsolete `BoundedOrderedDecodePipeline` and its
+dedicated tests were removed as well. Neither implementation remains a source
+alternative to the completion-driven pipeline. Historical references in this
+document describe the architecture that was replaced, not active production
+components.
 
 ## 12. Explicit non-goals
 
@@ -278,7 +360,7 @@ PF-1.2 must not claim that R4096 will succeed. PF-1.1 evidence associates
 R4096 failure with downstream whole-operation ROCK retention and intentionally
 leaves that responsibility to PF-1.3.
 
-## 13. Planned implementation checkpoints
+## 13. Implementation checkpoints
 
 The planned sequence is:
 
@@ -291,13 +373,13 @@ E — Legacy Cleanup
 F — Implementation / Validation Record
 ```
 
-This document implements only checkpoint A. Checkpoints B through F are not
-pre-marked complete and require their own implementation, review, and
-evidence.
+Checkpoints A through E are implemented and statically reviewed. Checkpoint F
+records the implementation and validation status. Final runtime evidence is
+still required before PF-1.2 can be called `VALIDATED`.
 
-## 14. Required future unit/concurrency tests
+## 14. Implemented unit/concurrency test coverage
 
-Checkpoint B/D implementation must provide deterministic tests, using latches,
+Checkpoint B/D provide deterministic tests, using latches,
 barriers, or equivalent synchronization primitives rather than fragile
 wall-clock micro-timing assertions, for at least:
 
@@ -319,10 +401,33 @@ wall-clock micro-timing assertions, for at least:
 - submission after terminal state failing; and
 - no reliance on elapsed-time performance assertions for correctness.
 
-## 15. Future validation gates
+## 15. Validation status and final validation plan
 
-PF-1.2 cannot become `VALIDATED` from static review or unit tests alone.
-Future reviewer-controlled evidence must include:
+PF-1.2 is implemented and statically reviewed but is not yet `VALIDATED`.
+The following gates are explicitly pending:
+
+| Gate | Status |
+|---|---|
+| Architecture/static review A | PASS |
+| Completion engine static review B | PASS |
+| Reader integration static review C | PASS |
+| Lifecycle hardening static review D | PASS |
+| Legacy cleanup static review E | PASS |
+| Final documentation/static review F | PENDING REVIEW |
+| `clean test` | NOT RUN |
+| `jmhClasses` | NOT RUN |
+| real-save safety | NOT RUN |
+| ROCK R1024 candidate comparison | NOT RUN for PF-1.2 candidate |
+| ROCK R2048 candidate comparison | NOT RUN for PF-1.2 candidate |
+| Exact correctness fingerprint comparison | NOT RUN for PF-1.2 candidate |
+| Raw timing sample inspection | NOT RUN |
+| JFR | NOT RUN |
+| R4096 stretch | NOT RUN |
+
+PF-1.1 measurements are historical context and baseline evidence only; they
+are not PF-1.2 candidate validation.
+
+The final reviewer-controlled validation plan is:
 
 - static architecture and diff review;
 - `clean test`;
@@ -330,13 +435,15 @@ Future reviewer-controlled evidence must include:
 - real-save save-safety validation;
 - canonical ROCK R1024 comparison;
 - ROCK R2048 comparison;
-- identical correctness fingerprints for comparable baseline/candidate
-  workloads;
-- inspection of raw benchmark samples, not only comparator status;
+- exact correctness fingerprint comparison where baseline comparison is
+  applicable;
+- inspection of raw timing samples, not only comparator status;
 - JFR inspection because this stage changes concurrency architecture; and
 - an R4096 stretch observation, with success not required for PF-1.2.
 
-No results are supplied or implied by this contract.
+None of these final validation operations has been executed for PF-1.2 in
+this documentation checkpoint. No candidate result, performance improvement,
+or R4096 success is supplied or implied.
 
 Current comparison tooling primarily validates comparability and correctness
 fingerprints and reports timing deltas. A helper/comparator `PASS` alone is
@@ -351,9 +458,10 @@ modify SQLite access mode. Creating WAL/SHM files is not acceptable as normal
 behavior. Save SHA/size and sidecar state remain part of reviewer validation
 when save-access code changes. Analysis assumes an offline, quiescent save.
 
-## 17. Checkpoint-A boundary
+## 17. Checkpoint-F boundary
 
-This file is the complete PF-1.2 Checkpoint-A architecture contract. It adds
-no production Java, test Java, Gradle, CI, parser, decoder, SQLite, UI, or
-runtime behavior. PF-1.2 remains design-only until later checkpoints and
-independent reviewer-controlled validation provide evidence.
+This file is the PF-1.2 architecture contract and implementation/validation
+record. Checkpoint F changes documentation/status only; it adds no production
+Java, test Java, Gradle, CI, parser, decoder, SQLite, UI, or runtime behavior.
+PF-1.2 remains pending final reviewer-controlled validation and must not be
+described as `VALIDATED` until that evidence exists.
