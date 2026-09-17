@@ -1,9 +1,7 @@
 package cartographer.application;
 
 import cartographer.model.BlockInfo;
-import cartographer.model.ChunkPosition;
 import cartographer.model.MapChunkCoordinate;
-import cartographer.model.ParsedChunk;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.resource.SurfaceObjectCandidate;
@@ -12,30 +10,25 @@ import cartographer.resource.SurfaceObjectCandidateCatalogBuilder;
 import cartographer.resource.SurfaceObjectCandidateResolver;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SelectiveChunkStreamStats;
-import cartographer.save.SelectiveChunkVisitStatus;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
-import cartographer.scanner.SurfaceObjectPlan;
-import cartographer.scanner.SurfaceObjectPlanner;
-import cartographer.scanner.SurfaceObjectScanResult;
-import cartographer.scanner.SurfaceObjectScanner;
+import cartographer.scanner.SurfaceObjectCompactPlan;
+import cartographer.scanner.SurfaceObjectCompactPlanner;
+import cartographer.scanner.SurfaceObjectCompactScanResult;
+import cartographer.scanner.SurfaceObjectStreamingScanner;
 
-import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
 
 public final class InspectSurfaceObjectsUseCase {
     private final VcdbsReader reader;
     private final WorldMetadataReader metadataReader;
     private final MapChunkPositionPlanner mapChunkPositionPlanner =
             new MapChunkPositionPlanner();
-    private final SurfaceObjectPlanner planner = new SurfaceObjectPlanner();
-    private final SurfaceObjectScanner scanner = new SurfaceObjectScanner();
+    private final SurfaceObjectCompactPlanner planner = new SurfaceObjectCompactPlanner();
+    private final SurfaceObjectStreamingScanner scanner = new SurfaceObjectStreamingScanner();
     private final SurfaceObjectCandidateCatalogBuilder candidateBuilder =
             new SurfaceObjectCandidateCatalogBuilder();
     private final SurfaceObjectCandidateResolver candidateResolver =
@@ -56,7 +49,7 @@ public final class InspectSurfaceObjectsUseCase {
         );
         int centerX = (int) Math.floor(center.x());
         int centerZ = (int) Math.floor(center.z());
-        SurfaceObjectPlanner.StreamingSession planning = planner.begin(
+        SurfaceObjectCompactPlanner.StreamingSession planning = planner.begin(
                 metadata, centerX, centerZ, request.radius()
         );
         ReadDiagnostics mapDiagnostics = new ReadDiagnostics();
@@ -69,7 +62,7 @@ public final class InspectSurfaceObjectsUseCase {
                 mapDiagnostics,
                 planning::accept
         );
-        SurfaceObjectPlan plan = planning.finish();
+        SurfaceObjectCompactPlan plan = planning.finish();
         Map<Integer, BlockInfo> registry = reader.readBlockRegistry(request.savePath());
         SurfaceObjectCandidateCatalog catalog = candidateBuilder.build(registry);
         SurfaceObjectCandidate selectedCandidate = candidateResolver.resolve(
@@ -84,42 +77,27 @@ public final class InspectSurfaceObjectsUseCase {
                 .sorted(Comparator.comparingInt(BlockInfo::id))
                 .toList();
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
-        List<ParsedChunk> decoded = new ArrayList<>();
-        Set<ChunkPosition> available = new HashSet<>();
+        SurfaceObjectStreamingScanner.Session scanSession = scanner.begin(plan, wantedIds);
         SelectiveChunkStreamStats stats;
         if (wantedIds.length == 0 || plan.chunkPositions().isEmpty()) {
             stats = new SelectiveChunkStreamStats(
                     plan.chunkPositions().size(), 0, 0, 0, 0, 0, 0, 0
             );
-            available.addAll(plan.chunkPositions());
         } else {
             stats = reader.forEachChunkByPositionMatchingBlockIdsWithCoverage(
                     request.savePath(),
                     plan.chunkPositions(),
                     wantedIds,
                     chunkDiagnostics,
-                    visit -> {
-                        if (visit.status() == SelectiveChunkVisitStatus.DECODED) {
-                            decoded.add(visit.chunk());
-                            available.add(visit.position());
-                        } else if (visit.status()
-                                == SelectiveChunkVisitStatus.PALETTE_REJECTED) {
-                            available.add(visit.position());
-                        }
-                    }
+                    scanSession::accept
             );
         }
-        SurfaceObjectScanResult scan = scanner.scan(
-                plan,
-                registry,
-                java.util.Arrays.stream(wantedIds).boxed().collect(java.util.stream.Collectors.toSet()),
-                decoded,
-                available
-        );
+        SurfaceObjectCompactScanResult scan = scanSession.finish();
         return new InspectSurfaceObjectsResult(
                 center,
                 registryMatches,
-                plan,
+                plan.plannedTargetCount(),
+                plan.chunkPositions().size(),
                 stats,
                 scan,
                 mapDiagnostics,

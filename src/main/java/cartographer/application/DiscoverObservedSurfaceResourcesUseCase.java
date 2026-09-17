@@ -1,9 +1,7 @@
 package cartographer.application;
 
 import cartographer.model.BlockInfo;
-import cartographer.model.ChunkPosition;
 import cartographer.model.MapChunkCoordinate;
-import cartographer.model.ParsedChunk;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.resource.ObservedSurfaceResourceCatalog;
@@ -12,20 +10,15 @@ import cartographer.resource.SurfaceObjectCandidateCatalog;
 import cartographer.resource.SurfaceObjectCandidateCatalogBuilder;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SelectiveChunkStreamStats;
-import cartographer.save.SelectiveChunkVisitStatus;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
-import cartographer.scanner.SurfaceObjectPlan;
-import cartographer.scanner.SurfaceObjectPlanner;
-import cartographer.scanner.SurfaceObjectScanResult;
-import cartographer.scanner.SurfaceObjectScanner;
+import cartographer.scanner.SurfaceObjectCompactPlan;
+import cartographer.scanner.SurfaceObjectCompactPlanner;
+import cartographer.scanner.SurfaceObjectCompactScanResult;
+import cartographer.scanner.SurfaceObjectStreamingScanner;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /** Discovers observed loose surface objects with one combined selective scan. */
 public final class DiscoverObservedSurfaceResourcesUseCase {
@@ -33,8 +26,8 @@ public final class DiscoverObservedSurfaceResourcesUseCase {
     private final WorldMetadataReader metadataReader;
     private final MapChunkPositionPlanner mapChunkPositionPlanner =
             new MapChunkPositionPlanner();
-    private final SurfaceObjectPlanner planner = new SurfaceObjectPlanner();
-    private final SurfaceObjectScanner scanner = new SurfaceObjectScanner();
+    private final SurfaceObjectCompactPlanner planner = new SurfaceObjectCompactPlanner();
+    private final SurfaceObjectStreamingScanner scanner = new SurfaceObjectStreamingScanner();
     private final SurfaceObjectCandidateCatalogBuilder candidateBuilder =
             new SurfaceObjectCandidateCatalogBuilder();
     private final ObservedSurfaceResourceCatalogBuilder observedBuilder =
@@ -60,10 +53,8 @@ public final class DiscoverObservedSurfaceResourcesUseCase {
         ReadDiagnostics mapDiagnostics = new ReadDiagnostics();
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
         if (candidates.candidateBlockIds().isEmpty()) {
-            SurfaceObjectPlan emptyPlan = new SurfaceObjectPlan(List.of(), List.of());
-            SurfaceObjectScanResult emptyScan = new SurfaceObjectScanResult(
-                    List.of(), 0, 0, 0, 0
-            );
+            SurfaceObjectCompactPlan emptyPlan = SurfaceObjectCompactPlan.empty();
+            SurfaceObjectCompactScanResult emptyScan = SurfaceObjectCompactScanResult.empty();
             return result(
                     center,
                     candidates,
@@ -77,7 +68,7 @@ public final class DiscoverObservedSurfaceResourcesUseCase {
 
         int centerX = (int) Math.floor(center.x());
         int centerZ = (int) Math.floor(center.z());
-        SurfaceObjectPlanner.StreamingSession planning = planner.begin(
+        SurfaceObjectCompactPlanner.StreamingSession planning = planner.begin(
                 metadata, centerX, centerZ, request.radius()
         );
         List<MapChunkCoordinate> coordinates = mapChunkPositionPlanner.plan(
@@ -86,37 +77,24 @@ public final class DiscoverObservedSurfaceResourcesUseCase {
         reader.forEachMapChunkByCoordinate(
                 request.savePath(), coordinates, mapDiagnostics, planning::accept
         );
-        SurfaceObjectPlan plan = planning.finish();
-        List<ParsedChunk> decoded = new ArrayList<>();
-        Set<ChunkPosition> available = new HashSet<>();
+        SurfaceObjectCompactPlan plan = planning.finish();
+        SurfaceObjectStreamingScanner.Session scanSession = scanner.begin(
+                plan,
+                candidates.candidateBlockIds().stream().mapToInt(Integer::intValue).toArray()
+        );
         SelectiveChunkStreamStats stats = emptyStats();
         int[] wantedIds = candidates.candidateBlockIds().stream()
-                .mapToInt(Integer::intValue)
-                .toArray();
+                .mapToInt(Integer::intValue).toArray();
         if (!plan.chunkPositions().isEmpty()) {
             stats = reader.forEachChunkByPositionMatchingBlockIdsWithCoverage(
                     request.savePath(),
                     plan.chunkPositions(),
                     wantedIds,
                     chunkDiagnostics,
-                    visit -> {
-                        if (visit.status() == SelectiveChunkVisitStatus.DECODED) {
-                            decoded.add(visit.chunk());
-                            available.add(visit.position());
-                        } else if (visit.status()
-                                == SelectiveChunkVisitStatus.PALETTE_REJECTED) {
-                            available.add(visit.position());
-                        }
-                    }
+                    scanSession::accept
             );
         }
-        SurfaceObjectScanResult scan = scanner.scan(
-                plan,
-                registry,
-                new HashSet<>(Arrays.stream(wantedIds).boxed().toList()),
-                decoded,
-                available
-        );
+        SurfaceObjectCompactScanResult scan = scanSession.finish();
         return result(
                 center,
                 candidates,
@@ -131,20 +109,21 @@ public final class DiscoverObservedSurfaceResourcesUseCase {
     private DiscoverObservedSurfaceResourcesResult result(
             WorldPosition center,
             SurfaceObjectCandidateCatalog candidates,
-            SurfaceObjectPlan plan,
+            SurfaceObjectCompactPlan plan,
             SelectiveChunkStreamStats stats,
-            SurfaceObjectScanResult scan,
+            SurfaceObjectCompactScanResult scan,
             ReadDiagnostics mapDiagnostics,
             ReadDiagnostics chunkDiagnostics
     ) {
         ObservedSurfaceResourceCatalog observed = observedBuilder.build(
                 candidates,
-                scan.blocks()
+                scan
         );
         return new DiscoverObservedSurfaceResourcesResult(
                 center,
                 candidates,
-                plan,
+                plan.plannedTargetCount(),
+                plan.chunkPositions().size(),
                 stats,
                 scan,
                 observed,

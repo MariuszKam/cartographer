@@ -6,10 +6,10 @@ This document is the normative architecture contract for PF-1.4 Surface Tile
 Engine. Checkpoint A defined the architecture, semantic inventory, caller
 inventory, test plan, and review gates. Checkpoint B is implemented as the
 test-only characterization/oracle layer and compact tile/layout/result model.
-Checkpoints C, D, and E are implemented as the compact fast path, streaming
-fallback session, and SurfaceMap render integration respectively; all remain
-pending static review and runtime validation. This document contains no runtime
-evidence.
+Checkpoints C, D, E, and F are implemented as the compact fast path, streaming
+fallback session, SurfaceMap render integration, and compact streaming Surface
+Object discovery respectively; all remain pending static review and runtime
+validation. This document contains no runtime evidence.
 
 PF-1.2 remains authoritative for bounded decode, completion-driven
 consumption, worker lifecycle, serialized consumer mutation, and backpressure.
@@ -19,7 +19,9 @@ validation is still pending. PF-1.4 must preserve both contracts.
 Checkpoint A changed only this document and the PF roadmap status. B adds the
 model and test-only characterization files listed in the implementation
 commit. C/D add the compact session and streaming fallback. E wires the two
-Surface render pipelines and primitive consumers to the compact result. No
+Surface render pipelines and primitive consumers to the compact result. F wires
+both Surface Object discovery callers to compact planning and visit streaming.
+No
 Gradle command, test, application run,
 benchmark, JFR capture, real-save validation, or PNG inspection is performed
 in this checkpoint.
@@ -117,6 +119,24 @@ matches for compatibility with existing result and overlay APIs; they are not
 the working graph. Registry metadata remains outside the cells and is looked
 up only at the consumer boundary. E is **IMPLEMENTED — STATIC REVIEW
 PENDING**. E runtime evidence is **NOT RUN**.
+
+### Checkpoint F status
+
+Checkpoint F adds `SurfaceObjectCompactPlanner`, which consumes each mapchunk
+into one mapchunk-sized primitive tile state and stores fixed-capacity union
+candidate Ys plus requested server-chunk indexes. `SurfaceObjectStreamingScanner`
+consumes each `SelectiveChunkVisit` directly: decoded chunks are inspected and
+released within the callback, palette rejection is available-but-not-observed,
+and missing/failed visits contribute unavailable evidence. Primitive observation
+arrays are sorted deterministically by Z/X/Y/block ID at finalization.
+
+`DiscoverObservedSurfaceResourcesUseCase` and `InspectSurfaceObjectsUseCase`
+now return scalar plan statistics plus `SurfaceObjectCompactScanResult`.
+`ObservedSurfaceResourceCatalogBuilder` consumes that result without creating
+SurfaceBlock adapters. The legacy planner, target, plan, batch scanner, and
+bulk scan result remain independent differential oracles with no migrated
+production callers; final legacy cleanup is G. F is **IMPLEMENTED — STATIC
+REVIEW PENDING**. F runtime evidence is **NOT RUN**.
 
 ### Controller-review repair status
 

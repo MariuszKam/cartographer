@@ -1,6 +1,7 @@
 package cartographer.resource;
 
 import cartographer.model.SurfaceBlock;
+import cartographer.scanner.SurfaceObjectCompactScanResult;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -43,6 +44,38 @@ public final class ObservedSurfaceResourceCatalogBuilder {
             );
         }
 
+        List<ObservedSurfaceResource> resources = grouped.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> {
+                    List<SurfaceObjectObservation> observations = entry.getValue();
+                    observations.sort(OBSERVATION_ORDER);
+                    SurfaceObjectCandidate candidate = observations.getFirst().candidate();
+                    return new ObservedSurfaceResource(candidate, observations);
+                })
+                .toList();
+        return new ObservedSurfaceResourceCatalog(resources);
+    }
+
+    /** Builds directly from primitive streaming observations; no SurfaceBlock adapter. */
+    public ObservedSurfaceResourceCatalog build(
+            SurfaceObjectCandidateCatalog candidateCatalog,
+            SurfaceObjectCompactScanResult scan
+    ) {
+        Objects.requireNonNull(candidateCatalog, "candidate catalog is required");
+        Objects.requireNonNull(scan, "compact scan is required");
+        Map<String, List<SurfaceObjectObservation>> grouped = new HashMap<>();
+        scan.forEachObservation((worldX, worldY, worldZ, blockId) ->
+                candidateCatalog.findByBlockId(blockId).ifPresent(candidate ->
+                        grouped.computeIfAbsent(
+                                candidate.qualifiedResourceKey(), ignored -> new ArrayList<>())
+                                .add(new SurfaceObjectObservation(
+                                        candidate, worldX, worldY, worldZ, blockId))));
+        return buildGrouped(grouped);
+    }
+
+    private ObservedSurfaceResourceCatalog buildGrouped(
+            Map<String, List<SurfaceObjectObservation>> grouped
+    ) {
         List<ObservedSurfaceResource> resources = grouped.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .map(entry -> {

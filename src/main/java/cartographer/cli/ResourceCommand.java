@@ -881,8 +881,8 @@ public class ResourceCommand implements Command {
         if (result.registryMatches().isEmpty()) {
             out.println("No block registry codes matched the surface resource families.");
         }
-        out.println("Targets planned: " + result.plan().targets().size());
-        out.println("Chunk positions requested: " + result.plan().chunkPositions().size());
+        out.println("Targets planned: " + result.plannedTargetCount());
+        out.println("Chunk positions requested: " + result.requestedChunkPositionCount());
         out.println("Chunk outcomes:");
         out.println("  decoded: " + result.chunkStats().fullyDecodedChunks());
         out.println("  palette rejected: " + result.chunkStats().paletteRejectedChunks());
@@ -893,10 +893,15 @@ public class ResourceCommand implements Command {
         out.println("Not observed: " + result.scan().notObservedTargets());
         out.println("Unavailable: " + result.scan().unavailablePositions());
         out.println("Observations:");
-        result.scan().blocks().stream().limit(100).forEach(block -> out.println(
-                "  " + block.blockInfo().code() + " @ X=" + block.worldX()
-                        + " Y=" + block.y() + " Z=" + block.worldZ()
-        ));
+        Map<Integer, String> codesById = result.registryMatches().stream()
+                .collect(java.util.stream.Collectors.toMap(BlockInfo::id, BlockInfo::code));
+        int[] printed = {0};
+        result.scan().forEachObservation((worldX, worldY, worldZ, blockId) -> {
+            if (printed[0] >= 100) return;
+            printed[0]++;
+            out.println("  " + codesById.getOrDefault(blockId, "unknown:" + blockId)
+                    + " @ X=" + worldX + " Y=" + worldY + " Z=" + worldZ);
+        });
     }
 
     private void surfaceRender(

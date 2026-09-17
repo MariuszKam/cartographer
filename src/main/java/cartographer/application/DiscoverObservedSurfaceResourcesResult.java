@@ -5,17 +5,17 @@ import cartographer.resource.ObservedSurfaceResourceCatalog;
 import cartographer.resource.SurfaceObjectCandidateCatalog;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SelectiveChunkStreamStats;
-import cartographer.scanner.SurfaceObjectPlan;
-import cartographer.scanner.SurfaceObjectScanResult;
+import cartographer.scanner.SurfaceObjectCompactScanResult;
 
 import java.util.Objects;
 
 public record DiscoverObservedSurfaceResourcesResult(
         WorldPosition center,
         SurfaceObjectCandidateCatalog candidateCatalog,
-        SurfaceObjectPlan plan,
+        int plannedTargetCount,
+        int requestedChunkPositionCount,
         SelectiveChunkStreamStats chunkStats,
-        SurfaceObjectScanResult scan,
+        SurfaceObjectCompactScanResult scan,
         ObservedSurfaceResourceCatalog observedResources,
         ReadDiagnostics mapChunkDiagnostics,
         ReadDiagnostics chunkDiagnostics
@@ -23,7 +23,9 @@ public record DiscoverObservedSurfaceResourcesResult(
     public DiscoverObservedSurfaceResourcesResult {
         Objects.requireNonNull(center, "center is required");
         Objects.requireNonNull(candidateCatalog, "candidate catalog is required");
-        Objects.requireNonNull(plan, "plan is required");
+        if (plannedTargetCount < 0 || requestedChunkPositionCount < 0) {
+            throw new IllegalArgumentException("discovery counts cannot be negative");
+        }
         Objects.requireNonNull(chunkStats, "chunk stats are required");
         Objects.requireNonNull(scan, "scan is required");
         Objects.requireNonNull(observedResources, "observed resources are required");
