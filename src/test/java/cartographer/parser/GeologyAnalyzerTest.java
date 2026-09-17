@@ -56,4 +56,21 @@ class GeologyAnalyzerTest {
                 new GeologyAnalyzer().analyze(legacyBlocks),
                 new GeologyAnalyzer().analyze(compact));
     }
+
+    @Test
+    void compactAnalysisPreservesMissingZeroAirMaterialWithWaterLiquid() {
+        Map<Integer, BlockInfo> registry = Map.of(
+                7, new BlockInfo(7, "game:water-still"));
+        SurfaceTileAccumulator accumulator = new SurfaceTileAccumulator(
+                SurfaceTileLayout.forSurface(0, 0, 2, new WorldMetadata(8, 64, 8)));
+        accumulator.recordSurface(0, 0, 0, 0, 7, SurfaceClass.WATER);
+        SurfaceMapScanResult compact = new SurfaceMapScanResult(
+                accumulator.finish(), registry, 1, 1, 0, 0);
+
+        GeologyReport expected = new GeologyAnalyzer().analyze(List.of(
+                new SurfaceBlock(0, 0, 0, BlockInfo.unknown(0))));
+
+        assertEquals(expected, new GeologyAnalyzer().analyze(compact));
+        assertEquals(1, compact.waterColumns());
+    }
 }

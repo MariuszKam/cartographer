@@ -68,7 +68,7 @@ public final class SurfaceRegistryLookup {
 
     public String materialType(int id) {
         int i = index(id);
-        return i < 0 ? "solid" : materialTypes[i];
+        return i < 0 ? id == 0 ? "air" : "solid" : materialTypes[i];
     }
 
     public String rockFamily(int id) {

@@ -34,10 +34,14 @@ class ReadSurfaceMapUseCaseTest {
         ReadSurfaceMapResult result = new ReadSurfaceMapUseCase(
                 reader, new FixedMetadataReader()).execute(
                 new ReadSurfaceMapRequest(Path.of("fixture.vcdbs"),
-                        new WorldPosition(1.4, 0, 1.4), 2, true, true));
+                        new WorldPosition(1.6, 0, 1.6), 2, true, true));
 
+        assertEquals(2, result.surface().map().layout().centerWorldX());
+        assertEquals(2, result.surface().map().layout().centerWorldZ());
         assertTrue(result.surface().map().isResolved(1, 1));
         assertEquals(1, result.surface().chunksScanned());
+        assertTrue(result.surface().columnsScanned() > 0);
+        assertEquals(0, result.surface().emptyColumns());
         assertEquals(0, result.surface().liquidUnavailableColumns());
         assertEquals(0, reader.batchReadCalls);
         assertEquals(1, reader.adaptiveReadCalls);
@@ -56,6 +60,35 @@ class ReadSurfaceMapUseCaseTest {
         assertEquals(2, reader.adaptiveReadCalls);
     }
 
+    @Test
+    void forwardsIgnoreFoliageToCompactSurfaceSession() {
+        FakeReader ignoredReader = new FakeReader();
+        ignoredReader.blockId = 2;
+        ReadSurfaceMapResult ignored = read(ignoredReader, true);
+
+        FakeReader includedReader = new FakeReader();
+        includedReader.blockId = 2;
+        ReadSurfaceMapResult included = read(includedReader, false);
+
+        assertEquals(0, resolvedCells(ignored));
+        assertTrue(resolvedCells(included) > 0);
+        assertTrue(ignoredReader.adaptiveReadCalls > 1);
+        assertEquals(1, includedReader.adaptiveReadCalls);
+    }
+
+    private ReadSurfaceMapResult read(FakeReader reader, boolean ignoreFoliage) {
+        return new ReadSurfaceMapUseCase(reader, new FixedMetadataReader()).execute(
+                new ReadSurfaceMapRequest(Path.of("fixture.vcdbs"),
+                        new WorldPosition(1, 0, 1), 2, ignoreFoliage, true));
+    }
+
+    private int resolvedCells(ReadSurfaceMapResult result) {
+        int[] count = {0};
+        result.surface().map().forEachResolvedCell(
+                (x, z, y, blockId, liquidId, surfaceClass) -> count[0]++);
+        return count[0];
+    }
+
     private static final class FixedMetadataReader extends WorldMetadataReader {
         @Override
         public WorldMetadata read(Path savePath, ProgressReporter progress) {
@@ -67,6 +100,7 @@ class ReadSurfaceMapUseCaseTest {
         private int batchReadCalls;
         private int adaptiveReadCalls;
         private boolean liquidAvailable = true;
+        private int blockId = 1;
 
         private FakeReader() {
             super(new PlayerDataParser(), new MapChunkParser(), new ChunkParser(), new RegistryParser());
@@ -75,7 +109,8 @@ class ReadSurfaceMapUseCaseTest {
         @Override
         public Map<Integer, BlockInfo> readBlockRegistry(Path savePath, ProgressReporter progress) {
             return Map.of(0, new BlockInfo(0, "air"),
-                    1, new BlockInfo(1, "game:soil-medium"));
+                    1, new BlockInfo(1, "game:soil-medium"),
+                    2, new BlockInfo(2, "game:fern-leaf"));
         }
 
         @Override
@@ -116,7 +151,7 @@ class ReadSurfaceMapUseCaseTest {
         private ParsedChunk filledChunk() {
             int size = ChunkCoordinate.SIZE_BLOCKS;
             int[] blocks = new int[size * size * size];
-            Arrays.fill(blocks, 1);
+            Arrays.fill(blocks, blockId);
             return new ParsedChunk(new ChunkCoordinate(0, 0, 0), 0,
                     size, size, size, blocks, new int[blocks.length], 0, true, "");
         }

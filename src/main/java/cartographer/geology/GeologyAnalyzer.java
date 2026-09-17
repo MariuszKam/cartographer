@@ -28,7 +28,7 @@ public class GeologyAnalyzer {
             String material;
             String family;
             if (slot < 0) {
-                material = "solid";
+                material = lookup.materialType(blockId);
                 family = "unknown";
                 missingMaterialCount[0]++;
             } else {
