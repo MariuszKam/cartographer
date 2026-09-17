@@ -266,13 +266,11 @@ All 119 files under `src/test/` were enumerated. Files not listed in Findings ar
 | SAFE | `src/test/java/cartographer/resource/SurfaceObjectFilterTest.java` |
 | SAFE | `src/test/java/cartographer/resource/SurfaceObjectPresentationTest.java` |
 | SAFE | `src/test/java/cartographer/resource/SurfaceObjectSelectionAnalysisTest.java` |
-| SAFE | `src/test/java/cartographer/resource/SurfaceObjectCandidateCatalogTest.java` |
 | SAFE | `src/test/java/cartographer/save/ChunkDecodeWorkspacePoolTest.java` |
 | SAFE | `src/test/java/cartographer/save/ChunkPosDecoderTest.java` |
 | SAFE | `src/test/java/cartographer/save/ChunkPosEncoderTest.java` |
 | SAFE | `src/test/java/cartographer/save/ReadDiagnosticsTest.java` |
 | SAFE | `src/test/java/cartographer/save/VcdbsReaderDirectMapChunkLookupTest.java` |
-| SAFE | `src/test/java/cartographer/save/VcdbsReaderSelectiveChunkLookupTest.java` |
 | SAFE | `src/test/java/cartographer/scanner/ActualBlockMapScannerTest.java` |
 | SAFE | `src/test/java/cartographer/scanner/MultiActualBlockMapScannerTest.java` |
 | SAFE | `src/test/java/cartographer/scanner/OreCodeMatcherTest.java` |
@@ -299,8 +297,6 @@ All 119 files under `src/test/` were enumerated. Files not listed in Findings ar
 | FINDINGS TD-004 | `src/test/java/cartographer/save/VcdbsReaderDirectChunkLookupTest.java` |
 | FINDINGS TD-004 | `src/test/java/cartographer/save/VcdbsReaderSelectiveChunkLookupTest.java` |
 | FINDINGS TD-001–TD-003, TD-005 | `src/test/java/cartographer/save/BoundedStreamingDecodePipelineTest.java` |
-
-Note: `SurfaceObjectCandidateCatalogTest.java` appeared once in the repository enumeration; the inventory above preserves the source path once (the second occurrence is omitted from the count).
 
 ## Checkpoint B recommended scope
 
