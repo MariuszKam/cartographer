@@ -4,6 +4,7 @@ import cartographer.model.WorldPosition;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Arrays;
 
 /** Package-private mutable owner used to transfer compact map storage once. */
 final class RockMapBuilder {
@@ -66,6 +67,57 @@ final class RockMapBuilder {
         else unavailableCount++;
     }
 
+    void updateCandidate(int index, int ordinal, int worldY) {
+        checkOpen();
+        long packed = packedAt(index);
+        RockColumnState current = layout.state(packed);
+        if (current != RockColumnState.UNAVAILABLE && current != RockColumnState.OBSERVED) {
+            throw new IllegalStateException("candidate update follows ROCK finalization");
+        }
+        long candidateOffset = (long) worldY - minY;
+        if (current == RockColumnState.OBSERVED) {
+            long currentY = (long) minY + layout.yOffset(packed);
+            if (worldY < currentY) return;
+            if (worldY == currentY) {
+                if (layout.rockOrdinal(packed) != ordinal) {
+                    throw new IllegalArgumentException("conflicting ROCK candidates at equal Y");
+                }
+                return;
+            }
+        }
+        long replacement = layout.pack(RockColumnState.OBSERVED, ordinal, candidateOffset);
+        writePacked(index, replacement);
+    }
+
+    void initializeAllCellsPresent() {
+        checkOpen();
+        Arrays.fill(presentWords, -1L);
+        int remainder = Math.toIntExact(geometry.cellCount() % 64L);
+        if (remainder != 0) presentWords[presentWords.length - 1] = (1L << remainder) - 1L;
+    }
+
+    boolean hasCandidate(int index) {
+        return layout.state(packedAt(index)) == RockColumnState.OBSERVED;
+    }
+
+    void finalizeCell(int index, RockColumnState state) {
+        checkOpen();
+        long packed = packedAt(index);
+        if (state == RockColumnState.OBSERVED) {
+            if (layout.state(packed) != RockColumnState.OBSERVED) {
+                throw new IllegalStateException("observed finalization requires a candidate");
+            }
+            int ordinal = layout.rockOrdinal(packed);
+            long yOffset = layout.yOffset(packed);
+            countsByOrdinal[ordinal]++;
+        } else {
+            writePacked(index, layout.pack(state, 0, 0));
+        }
+        if (state == RockColumnState.OBSERVED) observedCount++;
+        else if (state == RockColumnState.NO_ROCK) noRockCount++;
+        else unavailableCount++;
+    }
+
     RockMap finish() {
         checkOpen();
         transferred = true;
@@ -77,6 +129,27 @@ final class RockMapBuilder {
     int packedStorageIdentityForTest() {
         checkOpen();
         return System.identityHashCode(layout.intBacked() ? intCells : longCells);
+    }
+
+    int candidateY(int index) {
+        long packed = packedAt(index);
+        if (layout.state(packed) != RockColumnState.OBSERVED) {
+            throw new IllegalStateException("ROCK candidate is absent");
+        }
+        return Math.toIntExact((long) minY + layout.yOffset(packed));
+    }
+
+    List<RockIdentity> ordinalTableForSession() {
+        return ordinalTable;
+    }
+
+    private long packedAt(int index) {
+        return layout.intBacked() ? intCells[index] & 0xFFFF_FFFFL : longCells[index];
+    }
+
+    private void writePacked(int index, long packed) {
+        if (layout.intBacked()) intCells[index] = (int) packed;
+        else longCells[index] = packed;
     }
 
     private int ordinalFor(RockIdentity identity) {
