@@ -67,7 +67,7 @@ The following inventory was established by searching `src/main` and
 | `RenderRockMapUseCase` | `RockCommand`, `CommandRouter`, `CartographerDesktopApp`, `MacroBaselineRunner` | Create one session before the reader call; feed visits directly; finish before rendering. |
 | `RenderRockMapResult` | `RockCommand`, `ResultInspectorPane`, macro runner and application tests | Preserve result-level counts/diagnostics/catalog semantics; map becomes compact. |
 | `RockMap` | `RockMapRenderer`, `AnalyzeProspectingAreaUseCase`, scanner tests, renderer tests | Replace list storage with immutable primitive cells and geometry; expose scalar access/iteration without bulk materialization. |
-| `RockMap.columns()` | `RockMapRenderer`, `AnalyzeProspectingAreaUseCase`, `RockColumnScannerTest`, `RockAtYScannerTest`, `RockMapRendererTest` | Remove from production hot paths. Tests/UI compatibility may use `sampleAt`; any bulk adapter must be explicitly test-only or bounded and never used by production. |
+| `RockMap.columns()` | `RockMapRenderer`, `AnalyzeProspectingAreaUseCase`, `RockColumnScannerTest`, `RockAtYScannerTest`, `RockMapRendererTest` | Renderer migration removes its production use in F; `AnalyzeProspectingAreaUseCase` migrates to compact aggregates in E. It cannot be restricted to test-only or removed until both production consumers have migrated. |
 | `RockColumnSample` | Both scanners, renderer, prospecting geology aggregation, scanner/renderer tests | Retain as a single-cell compatibility/value facade if useful; never as production map storage. |
 | `RockColumnScanner` | Only `RenderRockMapUseCase` and its tests | Replace with streaming UPPER session; removable after differential tests and integration migration. |
 | `RockAtYScanner` | Only `RenderRockMapUseCase` and its tests | Replace with streaming AT_Y session; removable after differential tests and integration migration. |
@@ -170,7 +170,8 @@ therefore cannot create a gap.
 ## 9. AT_Y aggregation algorithm
 
 AT_Y has a single requested absolute Y and therefore one required vertical
-chunk row (`floorDiv(worldY, 16)`) for each horizontal chunk column. A decoded
+chunk row (`floorDiv(worldY, S)`) for each horizontal chunk column, where
+`S = ChunkCoordinate.SIZE_BLOCKS`. A decoded
 visit reads exactly the target local Y and updates the cell to observed when
 the block resolves to a catalog rock, otherwise to the no-rock candidate.
 The operation is deterministic even if duplicate decoded observations are
@@ -202,22 +203,32 @@ not converted into available coverage.
 The requested horizontal chunk bounds are:
 
 ```text
-chunkMinX = floorDiv(centerBlockX - radius, 16)
-chunkMaxX = floorDiv(centerBlockX + radius, 16)
-chunkMinZ = floorDiv(centerBlockZ - radius, 16)
-chunkMaxZ = floorDiv(centerBlockZ + radius, 16)
-chunkMinY = floorDiv(minY, 16)
-chunkMaxY = floorDiv(maxYExclusive - 1, 16)
+S = ChunkCoordinate.SIZE_BLOCKS
+
+chunkMinX = floorDiv(centerBlockX - radius, S)
+chunkMaxX = floorDiv(centerBlockX + radius, S)
+chunkMinZ = floorDiv(centerBlockZ - radius, S)
+chunkMaxZ = floorDiv(centerBlockZ + radius, S)
+chunkMinY = floorDiv(minY, S)
+chunkMaxY = floorDiv(maxYExclusive - 1, S)
+verticalChunkCount = chunkMaxY - chunkMinY + 1
 ```
 
 Use checked `long` intermediates for bounds and differences. Map a horizontal
 chunk `(cx,cz)` to `((long)cz - chunkMinZ) * horizontalWidth + cx - chunkMinX`
 after checking the product against the primitive-array limit. Map vertical
-chunk `cy` to `cy - chunkMinY`. With `verticalChunkCount = maxY-minY`
-rounded over chunk boundaries, use
+chunk `cy` to `cy - chunkMinY`. The exact
+`verticalChunkCount = chunkMaxY - chunkMinY + 1` is derived from the requested
+Y endpoints, not from a rounded block-height approximation. Use
 `wordsPerHorizontalColumn = ceil(verticalChunkCount / 64)`, not a single-long
 assumption. Partial bottom/top chunks set only the requested span's coverage
 meaning; the finalizer clips tests to `[minY,maxYExclusive)`.
+
+Every server-chunk calculation, including AT_Y's `chunkY = floorDiv(worldY,S)`
+and `localY = floorMod(worldY,S)`, must use `ChunkCoordinate.SIZE_BLOCKS` in
+production. The architecture must not duplicate a numeric server-chunk size
+literal or conflate server chunks with mapchunks. For the current 256-block
+world and `S=32`, the full vertical range spans at most 8 server-chunk rows.
 
 Coverage's trusted bitset is compact, negative-coordinate safe, and does not
 need `HashSet<ChunkCoordinate>` or `Map<ColumnCoordinate,List<ChunkSpan>>` in
@@ -265,8 +276,8 @@ The exact output-cell count is
 `N(r) = sum(dz=-r..r, 2*floorSqrt(r*r-dz*dz)+1)`. The geometry is shared by
 analysis and rendering so neither stage reconstructs a different square/circle
 mapping. The current workload test records `N(1024)=3,294,097`; the
-area estimates for R2048 and R4096 are approximately 13,176,795 and
-52,707,179 respectively (the exact formula remains the authority).
+area estimates for R2048 and R4096 are approximately 13,176,729 and
+52,706,921 respectively (the exact formula remains the authority).
 
 ## 13. Packed cell representation
 
@@ -304,13 +315,19 @@ reserved values are rejected on construction and decode.
 ## 14. Rock catalog and ordinal representation
 
 `RockCatalog` remains the source of truth for block ID to `RockIdentity`.
-During session creation, create a frozen ordinal table in deterministic block
-ID order (the current catalog is backed by a `TreeMap`). Ordinal zero is
-reserved for non-observed states. The table stores the identities needed for
-legend/palette/UI access; the cell store stores only ordinals.
+During session creation, create a frozen ordinal table explicitly by iterating
+recognized entries in ascending block-ID order. This is a new packed-map
+construction rule; it must not depend on the iteration order of
+`Map.copyOf(...)`. `RockCatalog.from(...)` currently builds recognized entries
+in a `TreeMap`, then copies that map and its ordered views, but the ordinal
+contract is the explicit ascending block-ID construction rather than any
+unspecified copied-map order. Ordinal zero is reserved for non-observed states.
+The table stores the identities needed for legend/palette/UI access; the cell
+store stores only ordinals.
 
-The catalog must validate that every recognized block ID maps to exactly one
-ordinal and that the reverse table is stable across runs for the same registry.
+The catalog/ordinal builder must validate that every recognized block ID maps
+to exactly one stable ordinal and that the reverse table is stable across runs
+for the same registry.
 Counts should be accumulated in primitive `long[] countsByOrdinal` during
 finalization or one controlled cell pass, then converted to the existing
 legend entries in deterministic count-descending/code order. No per-cell
@@ -328,8 +345,15 @@ The target API should provide primitive-friendly operations such as
 and aggregate counts. `sampleAt(worldX,worldZ)` may materialize one
 `RockColumnSample` on demand for tests/UI compatibility. A bulk `columns()`
 adapter, if temporarily retained, must be marked compatibility/test-only and
-must not be called by production renderer or analysis code; it must not be a
-silent fallback to the old unbounded implementation.
+must not be called by the production renderer or production prospecting
+analysis after their assigned migrations. It must not be a silent fallback to
+the old unbounded implementation. In particular, Checkpoint E migrates
+`AnalyzeProspectingAreaUseCase.geology(RockMap)` to consume compact map
+aggregates: observed/no-rock/unavailable counts and the observed rock identity
+set or ordinal counts exposed by `RockMap`. It must not materialize or iterate
+`RockColumnSample` objects merely to reconstruct those values. `columns()`
+cannot be removed or restricted to test-only before that production migration
+and the renderer migration are complete.
 
 `RenderRockMapResult` can continue to carry the map, render result, catalog,
 stats, diagnostics, center, and Y bounds while migration is staged. The
@@ -370,16 +394,17 @@ illustration, packed-cell payload alone is:
 | Workload | Cell estimate | `int[]` payload | `long[]` payload |
 |---|---:|---:|---:|
 | R1024 | 3,294,097 exact | 12.57 MiB | 25.13 MiB |
-| R2048 | ~13,176,795 | ~50.27 MiB | ~100.53 MiB |
-| R4096 | ~52,707,179 | ~201.06 MiB | ~402.12 MiB |
+| R2048 | 13,176,729 exact | ~50.27 MiB | ~100.53 MiB |
+| R4096 | 52,706,921 exact | ~201.06 MiB | ~402.12 MiB |
 
 These are arithmetic estimates, not measurements and exclude JVM array/object
 headers, geometry, coverage, decoder working set, and the output image. With
-the current 256-block world height, `V` is up to 16 chunks and `W=1`; for a
-horizontal circle the R1024/R2048/R4096 chunk boxes are approximately
-129x129, 257x257, and 513x513 columns, so one-long coverage is only about
-0.13, 0.50, and 2.00 MiB respectively. Wider or modded vertical ranges use
-additional words linearly in `W`.
+the current 256-block world height and `S=32`, `V` is up to 8 server chunks
+and `W=1`; for a horizontal circle the R1024/R2048/R4096 server-chunk boxes
+are approximately 65x65, 129x129, and 257x257 columns. One-long coverage is
+therefore about 0.032, 0.127, and 0.503 MiB respectively. Wider or modded
+vertical ranges use additional words linearly in `W`. These are server-chunk
+figures; mapchunk geometry is a separate format and is not substituted here.
 
 The full square ARGB raster is a separate cost: approximately 16.02 MiB,
 64.03 MiB, and 256.06 MiB for R1024/R2048/R4096 before image overhead. A
@@ -396,7 +421,10 @@ An unsupported size is a clear `IllegalArgumentException`/domain failure with
 diagnostics; partial/truncated maps are forbidden.
 
 `floorDiv` and `floorMod` are mandatory for negative chunk/local coordinates.
-World-coordinate bounds must remain consistent with `WorldMetadata` when
+All horizontal local coordinates use `floorMod(worldCoordinate, S)` with
+`S = ChunkCoordinate.SIZE_BLOCKS`, just as AT_Y uses `localY`; no numeric
+server-chunk-size literal is permitted. World-coordinate bounds must remain
+consistent with `WorldMetadata` when
 available, but the generic primitive layout must not assume positive values.
 
 ## 19. Test strategy
@@ -453,8 +481,11 @@ when primitive coverage is integrated; a small test-only constructor/facade
 may survive temporarily if it does not retain decoded chunks in runtime code.
 `RockColumnSample` may survive as a single-cell compatibility facade, but its
 list-based production role must disappear. `RockMap.columns()` must not remain
-an unbounded production API. No legacy scanner may be selected as a hidden
-fallback for large radii or errors.
+an unbounded production API after Checkpoint E migrates
+`AnalyzeProspectingAreaUseCase` to compact aggregates and Checkpoint F removes
+the renderer's bulk use; until then it is a temporary production compatibility
+surface, not permission to retain both representations. No legacy scanner may
+be selected as a hidden fallback for large radii or errors.
 
 ## 24. Remaining PF-1.3 checkpoint plan
 
@@ -463,7 +494,7 @@ A — this Architecture Contract (documentation only)
 B — semantic characterization/differential oracle
 C — compact immutable RockMap and shared circle geometry
 D — streaming UPPER session and primitive coverage
-E — streaming AT_Y and use-case integration
+E — streaming AT_Y, ROCK use-case integration, and production prospecting aggregate migration
 F — primitive renderer and aggregate legend/count migration
 G — legacy cleanup after reviewer gates
 H — runtime validation, profiling, and performance evidence
@@ -506,7 +537,7 @@ not open a save or run that gate.
 ## 28. Explicit non-goals and prohibitions
 
 PF-1.3-A does not implement ROCK, alter PF-1.2, modify SQLite/decoders/parsers,
-change surface/prospecting/cache/SaveSession behavior, add a dependency,
+redesign the prospecting engine, change surface/cache/SaveSession behavior, add a dependency,
 introduce native/Unsafe/GPU code, claim R4096 support, or mark any milestone
 validated.
 
