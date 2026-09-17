@@ -20,7 +20,9 @@ import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -222,6 +224,39 @@ class VcdbsReaderSelectiveChunkLookupTest {
         assertNull(failure.get());
         assertEquals(callerThread.get(), consumerThread.get());
         assertEquals(2, parser.workerThreads.size());
+    }
+
+    @Test
+    void coverageVisitsAreKeyedByPositionRatherThanCallbackOrder() throws Exception {
+        ChunkPosition existing = new ChunkPosition(1, 0, 2, 0);
+        ChunkPosition missing = new ChunkPosition(3, 0, 4, 0);
+        Path database = databaseWithRow(existing, new byte[]{7});
+        RecordingChunkParser parser = parserWithPalette(99);
+        List<SelectiveChunkVisit> visits = new ArrayList<>();
+
+        SelectiveChunkStreamStats stats = new VcdbsReader(
+                null, null, parser, null
+        ).forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                database,
+                List.of(missing, existing),
+                new int[]{99},
+                new ReadDiagnostics(),
+                visits::add
+        );
+
+        Map<ChunkPosition, SelectiveChunkVisitStatus> statuses = new HashMap<>();
+        for (SelectiveChunkVisit visit : visits) {
+            statuses.put(visit.position(), visit.status());
+        }
+        assertEquals(2, stats.uniquePositionsRequested());
+        assertEquals(1, stats.rowsFound());
+        assertEquals(
+                Map.of(
+                        existing, SelectiveChunkVisitStatus.DECODED,
+                        missing, SelectiveChunkVisitStatus.MISSING
+                ),
+                statuses
+        );
     }
 
     @Test

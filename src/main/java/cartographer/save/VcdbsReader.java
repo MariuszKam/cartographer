@@ -518,8 +518,8 @@ public class VcdbsReader {
 
             List<Long> requested = new ArrayList<>(packedPositions);
             try (ChunkDecodeWorkspacePool workspaces = new ChunkDecodeWorkspacePool(chunkDecodeWorkerCount);
-                 BoundedOrderedDecodePipeline<SelectiveDecodeOutcome> pipeline =
-                         new BoundedOrderedDecodePipeline<>(
+                 BoundedStreamingDecodePipeline<SelectiveDecodeOutcome> pipeline =
+                         new BoundedStreamingDecodePipeline<>(
                                  chunkDecodeWorkerCount,
                                  chunkDecodeMaxInFlight,
                                  outcome -> applySelectiveOutcome(
@@ -611,8 +611,8 @@ public class VcdbsReader {
             }
 
             try (ChunkDecodeWorkspacePool workspaces = new ChunkDecodeWorkspacePool(chunkDecodeWorkerCount);
-                 BoundedOrderedDecodePipeline<ChunkDecodeOutcome> pipeline =
-                         new BoundedOrderedDecodePipeline<>(
+                 BoundedStreamingDecodePipeline<ChunkDecodeOutcome> pipeline =
+                         new BoundedStreamingDecodePipeline<>(
                                  chunkDecodeWorkerCount,
                                  chunkDecodeMaxInFlight,
                                  outcome -> applyChunkOutcome(
@@ -707,8 +707,8 @@ public class VcdbsReader {
             }
 
             try (ChunkDecodeWorkspacePool workspaces = new ChunkDecodeWorkspacePool(chunkDecodeWorkerCount);
-                 BoundedOrderedDecodePipeline<SelectiveDecodeOutcome> pipeline =
-                         new BoundedOrderedDecodePipeline<>(
+                 BoundedStreamingDecodePipeline<SelectiveDecodeOutcome> pipeline =
+                         new BoundedStreamingDecodePipeline<>(
                                  chunkDecodeWorkerCount,
                                  chunkDecodeMaxInFlight,
                                  outcome -> applySelectiveOutcome(
@@ -829,8 +829,8 @@ public class VcdbsReader {
 
             List<Long> requested = new ArrayList<>(packedPositions);
             try (ChunkDecodeWorkspacePool workspaces = new ChunkDecodeWorkspacePool(chunkDecodeWorkerCount);
-                 BoundedOrderedDecodePipeline<ChunkDecodeOutcome> pipeline =
-                         new BoundedOrderedDecodePipeline<>(
+                 BoundedStreamingDecodePipeline<ChunkDecodeOutcome> pipeline =
+                         new BoundedStreamingDecodePipeline<>(
                                  chunkDecodeWorkerCount,
                                  chunkDecodeMaxInFlight,
                                  outcome -> applyChunkOutcome(
@@ -985,7 +985,7 @@ public class VcdbsReader {
             Connection connection,
             List<Long> packedPositions,
             ReadDiagnostics diagnostics,
-            BoundedOrderedDecodePipeline<ChunkDecodeOutcome> pipeline,
+            BoundedStreamingDecodePipeline<ChunkDecodeOutcome> pipeline,
             ChunkDecodeWorkspacePool workspaces
     ) throws SQLException {
         String sql =
@@ -1129,7 +1129,7 @@ public class VcdbsReader {
             List<Long> packedPositions,
             int[] wantedBlockIds,
             ReadDiagnostics diagnostics,
-            BoundedOrderedDecodePipeline<SelectiveDecodeOutcome> pipeline,
+            BoundedStreamingDecodePipeline<SelectiveDecodeOutcome> pipeline,
             ChunkDecodeWorkspacePool workspaces
     ) throws SQLException {
         String sql =
@@ -1224,8 +1224,8 @@ public class VcdbsReader {
             }
 
             try (ChunkDecodeWorkspacePool workspaces = new ChunkDecodeWorkspacePool(chunkDecodeWorkerCount);
-                 BoundedOrderedDecodePipeline<CoverageDecodeOutcome> pipeline =
-                         new BoundedOrderedDecodePipeline<>(
+                 BoundedStreamingDecodePipeline<CoverageDecodeOutcome> pipeline =
+                         new BoundedStreamingDecodePipeline<>(
                                  chunkDecodeWorkerCount,
                                  chunkDecodeMaxInFlight,
                                  outcome -> applyCoverageOutcome(
@@ -1332,7 +1332,7 @@ public class VcdbsReader {
             Set<Long> found,
             int[] wantedBlockIds,
             ReadDiagnostics diagnostics,
-            BoundedOrderedDecodePipeline<CoverageDecodeOutcome> pipeline,
+            BoundedStreamingDecodePipeline<CoverageDecodeOutcome> pipeline,
             ChunkDecodeWorkspacePool workspaces,
             Consumer<SelectiveChunkVisit> consumer,
             int[] rowsFound,

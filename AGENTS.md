@@ -145,8 +145,7 @@ src/main/java/cartographer/
 │
 └── perf/
     ├── RenderCache
-    ├── IncrementalRenderIndex
-    └── ParallelChunkScanner
+    └── IncrementalRenderIndex
 ```
 
 This is a living architecture. Do not create unused abstractions only because they appear in the roadmap.
@@ -510,7 +509,7 @@ bounded tile processing
 profiling of hot paths
 ```
 
-`ParallelChunkScanner` exists but is not considered wired into the main pipeline yet.
+Legacy common-pool decode scanning was removed during PF-1.2 Checkpoint E.
 
 ---
 
