@@ -19,15 +19,23 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BoundedStreamingDecodePipelineTest {
+    private static final long TEST_DEADLOCK_TIMEOUT_SECONDS = 10;
+
     @Test
     void laterCompletionIsConsumedBeforeSlowFirstTask() throws Exception {
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
         CountDownLatch secondDone = new CountDownLatch(1);
+        CountDownLatch secondConsumed = new CountDownLatch(1);
         List<Integer> values = new ArrayList<>();
 
         try (BoundedStreamingDecodePipeline<Integer> pipeline =
-                     new BoundedStreamingDecodePipeline<>(2, 3, values::add)) {
+                     new BoundedStreamingDecodePipeline<>(2, 3, value -> {
+                         values.add(value);
+                         if (value == 2) {
+                             secondConsumed.countDown();
+                         }
+                     })) {
             pipeline.submit(() -> {
                 firstStarted.countDown();
                 releaseFirst.await();
@@ -37,10 +45,11 @@ class BoundedStreamingDecodePipelineTest {
                 secondDone.countDown();
                 return 2;
             });
-            assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
-            assertTrue(secondDone.await(1, TimeUnit.SECONDS));
+            awaitLatch(firstStarted, "firstStarted");
+            awaitLatch(secondDone, "secondDone");
 
             pipeline.submit(() -> 3);
+            awaitLatch(secondConsumed, "secondConsumed");
             assertTrue(values.contains(2));
             assertFalse(values.contains(1));
 
@@ -56,10 +65,16 @@ class BoundedStreamingDecodePipelineTest {
         CountDownLatch releaseFirst = new CountDownLatch(1);
         CountDownLatch secondDone = new CountDownLatch(1);
         CountDownLatch thirdStarted = new CountDownLatch(1);
+        CountDownLatch secondConsumed = new CountDownLatch(1);
         List<Integer> values = new ArrayList<>();
 
         try (BoundedStreamingDecodePipeline<Integer> pipeline =
-                     new BoundedStreamingDecodePipeline<>(2, 3, values::add)) {
+                     new BoundedStreamingDecodePipeline<>(2, 3, value -> {
+                         values.add(value);
+                         if (value == 2) {
+                             secondConsumed.countDown();
+                         }
+                     })) {
             pipeline.submit(() -> {
                 firstStarted.countDown();
                 releaseFirst.await();
@@ -74,11 +89,12 @@ class BoundedStreamingDecodePipelineTest {
                 releaseFirst.await();
                 return 3;
             });
-            assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
-            assertTrue(secondDone.await(1, TimeUnit.SECONDS));
-            assertTrue(thirdStarted.await(1, TimeUnit.SECONDS));
+            awaitLatch(firstStarted, "firstStarted");
+            awaitLatch(secondDone, "secondDone");
+            awaitLatch(thirdStarted, "thirdStarted");
 
             pipeline.submit(() -> 4);
+            awaitLatch(secondConsumed, "secondConsumed");
             assertTrue(values.contains(2));
             assertFalse(values.contains(1));
 
@@ -122,7 +138,7 @@ class BoundedStreamingDecodePipelineTest {
 
         assertFalse(worker.get().isVirtual());
         assertTrue(worker.get().getName().startsWith("cartographer-decode-"));
-        assertFalse(worker.get().isAlive());
+        awaitWorkerTermination(worker);
     }
 
     @Test
@@ -142,7 +158,7 @@ class BoundedStreamingDecodePipelineTest {
                 release.await();
                 return 2;
             });
-            assertTrue(active.await(1, TimeUnit.SECONDS));
+            awaitLatch(active, "active");
             release.countDown();
             pipeline.finish();
         }
@@ -176,8 +192,11 @@ class BoundedStreamingDecodePipelineTest {
     void completedResultRetainsCapacityUntilConsumerReturns() throws Exception {
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
+        CountDownLatch secondReady = new CountDownLatch(1);
+        CountDownLatch allowSecondComplete = new CountDownLatch(1);
         CountDownLatch consumerEntered = new CountDownLatch(1);
         CountDownLatch releaseConsumer = new CountDownLatch(1);
+        CountDownLatch thirdSubmitted = new CountDownLatch(1);
         CountDownLatch submitReturned = new CountDownLatch(1);
         AtomicReference<Throwable> submitFailure = new AtomicReference<>();
 
@@ -195,11 +214,16 @@ class BoundedStreamingDecodePipelineTest {
                     releaseFirst.await();
                     return 1;
                 });
-                pipeline.submit(() -> 2);
+                pipeline.submit(() -> {
+                    secondReady.countDown();
+                    awaitUninterruptibly(allowSecondComplete);
+                    return 2;
+                });
                 pipeline.submit(() -> {
                     releaseFirst.await();
                     return 3;
                 });
+                thirdSubmitted.countDown();
                 try {
                     pipeline.submit(() -> 4);
                 } catch (Throwable failure) {
@@ -214,19 +238,24 @@ class BoundedStreamingDecodePipelineTest {
             }
         });
         try {
-            assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
-            assertTrue(consumerEntered.await(1, TimeUnit.SECONDS));
+            awaitLatch(firstStarted, "firstStarted");
+            awaitLatch(secondReady, "secondReady");
+            awaitLatch(thirdSubmitted, "thirdSubmitted");
+            allowSecondComplete.countDown();
+            awaitLatch(consumerEntered, "consumerEntered");
             assertEquals(3, pipeline.inFlightCount());
 
             releaseConsumer.countDown();
-            assertTrue(submitReturned.await(1, TimeUnit.SECONDS));
+            allowSecondComplete.countDown();
+            awaitLatch(submitReturned, "submitReturned");
             assertEquals(null, submitFailure.get());
             releaseFirst.countDown();
             control.join();
         } finally {
             releaseConsumer.countDown();
+            allowSecondComplete.countDown();
             releaseFirst.countDown();
-            control.join(1000);
+            joinThread(control, "control");
             pipeline.close();
         }
     }
@@ -261,17 +290,17 @@ class BoundedStreamingDecodePipelineTest {
             pipeline.finish();
         });
         try {
-            assertTrue(ready.await(1, TimeUnit.SECONDS));
-            assertTrue(submitAttempted.await(1, TimeUnit.SECONDS));
+            awaitLatch(ready, "ready");
+            awaitLatch(submitAttempted, "submitAttempted");
             assertEquals(3, pipeline.inFlightCount());
             releaseSecond.countDown();
-            assertTrue(submitReturned.await(1, TimeUnit.SECONDS));
+            awaitLatch(submitReturned, "submitReturned");
             releaseFirst.countDown();
             control.join();
         } finally {
             releaseFirst.countDown();
             releaseSecond.countDown();
-            control.join(1000);
+            joinThread(control, "control");
             pipeline.close();
         }
     }
@@ -308,11 +337,11 @@ class BoundedStreamingDecodePipelineTest {
             pipeline.finish();
         });
         try {
-            assertTrue(ready.await(1, TimeUnit.SECONDS));
-            assertTrue(submitAttempted.await(1, TimeUnit.SECONDS));
+            awaitLatch(ready, "ready");
+            awaitLatch(submitAttempted, "submitAttempted");
             assertEquals(3, pipeline.inFlightCount());
             releaseSecond.countDown();
-            assertTrue(submitReturned.await(1, TimeUnit.SECONDS));
+            awaitLatch(submitReturned, "submitReturned");
             assertTrue(values.contains(2));
             assertFalse(values.contains(1));
             releaseFirst.countDown();
@@ -322,7 +351,7 @@ class BoundedStreamingDecodePipelineTest {
             releaseFirst.countDown();
             releaseSecond.countDown();
             releaseThird.countDown();
-            control.join(1000);
+            joinThread(control, "control");
             pipeline.close();
         }
     }
@@ -374,7 +403,7 @@ class BoundedStreamingDecodePipelineTest {
             pipeline.submit(() -> {
                 throw cause;
             });
-            assertTrue(started.await(1, TimeUnit.SECONDS));
+            awaitLatch(started, "started");
 
             IllegalStateException failure = assertThrows(
                     IllegalStateException.class,
@@ -402,7 +431,7 @@ class BoundedStreamingDecodePipelineTest {
             pipeline.submit(() -> {
                 throw cause;
             });
-            assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
+            awaitLatch(firstStarted, "firstStarted");
 
             IllegalStateException failure = assertThrows(
                     IllegalStateException.class,
@@ -451,16 +480,16 @@ class BoundedStreamingDecodePipelineTest {
                 controllerFinished.countDown();
             }
         });
-        assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
-        assertTrue(interruptObserved.await(1, TimeUnit.SECONDS));
+        awaitLatch(firstStarted, "firstStarted");
+        awaitLatch(interruptObserved, "interruptObserved");
         assertEquals(1, controllerFinished.getCount());
         assertEquals(1, firstStopped.getCount());
 
         releaseFirst.countDown();
-        assertTrue(controllerFinished.await(1, TimeUnit.SECONDS));
+        awaitLatch(controllerFinished, "controllerFinished");
         assertSame(cause, failure.get().getCause());
         pipeline.close();
-        assertTrue(firstStopped.await(1, TimeUnit.SECONDS));
+        awaitLatch(firstStopped, "firstStopped");
         controller.join();
     }
 
@@ -505,21 +534,21 @@ class BoundedStreamingDecodePipelineTest {
         });
 
         try {
-            assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
-            assertTrue(interruptObserved.await(1, TimeUnit.SECONDS));
+            awaitLatch(firstStarted, "firstStarted");
+            awaitLatch(interruptObserved, "interruptObserved");
             controller.interrupt();
             assertEquals(1, controllerFinished.getCount());
             assertEquals(1, firstStopped.getCount());
 
             releaseFirst.countDown();
-            assertTrue(controllerFinished.await(1, TimeUnit.SECONDS));
+            awaitLatch(controllerFinished, "controllerFinished");
             assertSame(cause, failure.get().getCause());
             assertTrue(controlInterrupted.get());
-            assertTrue(firstStopped.await(1, TimeUnit.SECONDS));
-            assertFalse(worker.get().isAlive());
+            awaitLatch(firstStopped, "firstStopped");
+            awaitWorkerTermination(worker);
         } finally {
             releaseFirst.countDown();
-            controller.join(1000);
+            joinThread(controller, "controller");
             pipeline.close();
         }
     }
@@ -571,21 +600,21 @@ class BoundedStreamingDecodePipelineTest {
         });
 
         try {
-            assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
-            assertTrue(consumerEntered.await(1, TimeUnit.SECONDS));
-            assertTrue(interruptObserved.await(1, TimeUnit.SECONDS));
+            awaitLatch(firstStarted, "firstStarted");
+            awaitLatch(consumerEntered, "consumerEntered");
+            awaitLatch(interruptObserved, "interruptObserved");
             controller.interrupt();
             assertEquals(1, controllerFinished.getCount());
 
             releaseFirst.countDown();
-            assertTrue(controllerFinished.await(1, TimeUnit.SECONDS));
+            awaitLatch(controllerFinished, "controllerFinished");
             assertSame(cause, failure.get());
             assertTrue(controlInterrupted.get());
-            assertTrue(firstStopped.await(1, TimeUnit.SECONDS));
-            assertFalse(worker.get().isAlive());
+            awaitLatch(firstStopped, "firstStopped");
+            awaitWorkerTermination(worker);
         } finally {
             releaseFirst.countDown();
-            controller.join(1000);
+            joinThread(controller, "controller");
             pipeline.close();
         }
     }
@@ -624,17 +653,17 @@ class BoundedStreamingDecodePipelineTest {
         });
 
         try {
-            assertTrue(started.await(1, TimeUnit.SECONDS));
-            assertTrue(interruptObserved.await(1, TimeUnit.SECONDS));
+            awaitLatch(started, "started");
+            awaitLatch(interruptObserved, "interruptObserved");
             assertEquals(1, closeReturned.getCount());
             releaseWorker.countDown();
-            assertTrue(closeReturned.await(1, TimeUnit.SECONDS));
+            awaitLatch(closeReturned, "closeReturned");
             assertEquals(null, failure.get());
             assertEquals(0, pipeline.inFlightCount());
-            assertFalse(worker.get().isAlive());
+            awaitWorkerTermination(worker);
         } finally {
             releaseWorker.countDown();
-            controller.join(1000);
+            joinThread(controller, "controller");
             pipeline.close();
         }
     }
@@ -685,18 +714,18 @@ class BoundedStreamingDecodePipelineTest {
         });
 
         try {
-            assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
-            assertTrue(firstBlocked.await(1, TimeUnit.SECONDS));
-            assertTrue(submitted.await(1, TimeUnit.SECONDS));
-            assertTrue(firstInterrupted.await(1, TimeUnit.SECONDS));
-            assertTrue(closeReturned.await(1, TimeUnit.SECONDS));
+            awaitLatch(firstStarted, "firstStarted");
+            awaitLatch(firstBlocked, "firstBlocked");
+            awaitLatch(submitted, "submitted");
+            awaitLatch(firstInterrupted, "firstInterrupted");
+            awaitLatch(closeReturned, "closeReturned");
             assertEquals(null, failure.get());
             assertEquals(1, secondStarted.getCount());
             assertTrue(callbacks.isEmpty());
             assertEquals(0, pipeline.inFlightCount());
-            assertFalse(worker.get().isAlive());
+            awaitWorkerTermination(worker);
         } finally {
-            controller.join(1000);
+            joinThread(controller, "controller");
             pipeline.close();
         }
     }
@@ -743,21 +772,20 @@ class BoundedStreamingDecodePipelineTest {
         });
 
         try {
-            assertTrue(started.await(1, TimeUnit.SECONDS));
-            assertTrue(closeStarted.await(1, TimeUnit.SECONDS));
-            assertTrue(interruptObserved.await(1, TimeUnit.SECONDS));
-            awaitThreadState(controller, Thread.State.WAITING, Thread.State.TIMED_WAITING);
+            awaitLatch(started, "started");
+            awaitLatch(closeStarted, "closeStarted");
+            awaitLatch(interruptObserved, "interruptObserved");
             controller.interrupt();
             assertEquals(1, closeReturned.getCount());
             releaseWorker.countDown();
-            assertTrue(closeReturned.await(1, TimeUnit.SECONDS));
+            awaitLatch(closeReturned, "closeReturned");
             assertTrue(failure.get() instanceof IllegalStateException);
             assertTrue(failure.get().getCause() instanceof InterruptedException);
             assertTrue(interrupted.get());
-            assertFalse(worker.get().isAlive());
+            awaitWorkerTermination(worker);
         } finally {
             releaseWorker.countDown();
-            controller.join(1000);
+            joinThread(controller, "controller");
             pipeline.close();
         }
     }
@@ -797,17 +825,17 @@ class BoundedStreamingDecodePipelineTest {
         });
 
         try {
-            assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
-            assertTrue(bothSubmitted.await(1, TimeUnit.SECONDS));
+            awaitLatch(firstStarted, "firstStarted");
+            awaitLatch(bothSubmitted, "bothSubmitted");
             allowFailure.countDown();
-            assertTrue(submitted.await(1, TimeUnit.SECONDS));
-            assertTrue(controllerFinished.await(1, TimeUnit.SECONDS));
+            awaitLatch(submitted, "submitted");
+            awaitLatch(controllerFinished, "controllerFinished");
             assertSame(cause, failure.get().getCause());
             assertTrue(callbacks.isEmpty());
-            assertFalse(worker.get().isAlive());
+            awaitWorkerTermination(worker);
         } finally {
             allowFailure.countDown();
-            controller.join(1000);
+            joinThread(controller, "controller");
             pipeline.close();
         }
     }
@@ -834,7 +862,7 @@ class BoundedStreamingDecodePipelineTest {
             pipeline.close();
             assertThrows(IllegalStateException.class, () -> pipeline.submit(() -> 1));
             assertTrue(callbacks.isEmpty());
-            assertFalse(worker.get().isAlive());
+            awaitWorkerTermination(worker);
             assertEquals(0, pipeline.inFlightCount());
         } finally {
             pipeline.close();
@@ -899,7 +927,7 @@ class BoundedStreamingDecodePipelineTest {
                 return 1;
             });
             pipeline.submit(() -> 2);
-            assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
+            awaitLatch(firstStarted, "firstStarted");
             RuntimeException failure = assertThrows(RuntimeException.class, pipeline::finish);
             assertSame(cause, failure);
             assertEquals(1, callbacks.get());
@@ -922,9 +950,9 @@ class BoundedStreamingDecodePipelineTest {
             }
             return 1;
         });
-        assertTrue(started.await(1, TimeUnit.SECONDS));
+        awaitLatch(started, "started");
         pipeline.close();
-        assertTrue(interrupted.await(1, TimeUnit.SECONDS));
+        awaitLatch(interrupted, "interrupted");
         assertEquals(0, pipeline.inFlightCount());
     }
 
@@ -968,20 +996,19 @@ class BoundedStreamingDecodePipelineTest {
             }
         });
         try {
-            assertTrue(started.await(1, TimeUnit.SECONDS));
-            assertTrue(blocked.await(1, TimeUnit.SECONDS));
-            assertTrue(finishStarted.await(1, TimeUnit.SECONDS));
-            awaitThreadState(controller, Thread.State.WAITING, Thread.State.TIMED_WAITING);
+            awaitLatch(started, "started");
+            awaitLatch(blocked, "blocked");
+            awaitLatch(finishStarted, "finishStarted");
             controller.interrupt();
-            assertTrue(controllerFinished.await(1, TimeUnit.SECONDS));
+            awaitLatch(controllerFinished, "controllerFinished");
             assertTrue(failure.get() instanceof IllegalStateException);
             assertTrue(failure.get().getCause() instanceof InterruptedException);
             assertTrue(interrupted.get());
-            assertTrue(workerInterrupted.await(1, TimeUnit.SECONDS));
-            assertFalse(worker.get().isAlive());
+            awaitLatch(workerInterrupted, "workerInterrupted");
+            awaitWorkerTermination(worker);
         } finally {
             pipeline.close();
-            controller.join(1000);
+            joinThread(controller, "controller");
         }
     }
 
@@ -1041,14 +1068,28 @@ class BoundedStreamingDecodePipelineTest {
     }
 
     private static void awaitControllerLatch(CountDownLatch latch) {
+        awaitLatch(latch, "controller synchronization");
+    }
+
+    private static void awaitLatch(CountDownLatch latch, String description) {
         try {
-            if (!latch.await(1, TimeUnit.SECONDS)) {
-                throw new AssertionError("controller synchronization latch was not signalled");
+            if (!latch.await(TEST_DEADLOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                throw new AssertionError(description + " was not signalled");
             }
         } catch (InterruptedException interruption) {
             Thread.currentThread().interrupt();
-            throw new AssertionError("controller synchronization was interrupted", interruption);
+            throw new AssertionError(description + " was interrupted", interruption);
         }
+    }
+
+    private static void joinThread(Thread thread, String description) {
+        try {
+            thread.join(TimeUnit.SECONDS.toMillis(TEST_DEADLOCK_TIMEOUT_SECONDS));
+        } catch (InterruptedException interruption) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError(description + " join was interrupted", interruption);
+        }
+        assertFalse(thread.isAlive(), description + " did not terminate");
     }
 
     private static void awaitWorkerTermination(AtomicReference<Thread> worker) {
@@ -1076,24 +1117,4 @@ class BoundedStreamingDecodePipelineTest {
         }
     }
 
-    private static void awaitThreadState(Thread thread, Thread.State... expectedStates) {
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-        while (!contains(expectedStates, thread.getState())) {
-            if (System.nanoTime() >= deadline) {
-                throw new AssertionError(
-                        "controller did not reach a wait state; state was " + thread.getState()
-                );
-            }
-            Thread.yield();
-        }
-    }
-
-    private static boolean contains(Thread.State[] states, Thread.State actual) {
-        for (Thread.State state : states) {
-            if (state == actual) {
-                return true;
-            }
-        }
-        return false;
-    }
 }

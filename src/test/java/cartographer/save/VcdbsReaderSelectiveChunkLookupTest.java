@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VcdbsReaderSelectiveChunkLookupTest {
+    private static final long TEST_DEADLOCK_TIMEOUT_SECONDS = 10;
 
     @TempDir
     Path temporaryDirectory;
@@ -217,9 +218,14 @@ class VcdbsReaderSelectiveChunkLookupTest {
             }
         });
 
-        assertTrue(parser.bothStarted.await(1, TimeUnit.SECONDS));
-        parser.release.countDown();
-        caller.join();
+        try {
+            awaitLatch(parser.bothStarted, "both workers started");
+            parser.release.countDown();
+            joinThread(caller, "caller");
+        } finally {
+            parser.release.countDown();
+            joinThread(caller, "caller");
+        }
 
         assertNull(failure.get());
         assertEquals(callerThread.get(), consumerThread.get());
@@ -478,6 +484,20 @@ class VcdbsReaderSelectiveChunkLookupTest {
                 statement.execute(schema);
             }
         }
+    }
+
+    private static void awaitLatch(CountDownLatch latch, String description)
+            throws InterruptedException {
+        assertTrue(
+                latch.await(TEST_DEADLOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                description + " was not signalled"
+        );
+    }
+
+    private static void joinThread(Thread thread, String description)
+            throws InterruptedException {
+        thread.join(TimeUnit.SECONDS.toMillis(TEST_DEADLOCK_TIMEOUT_SECONDS));
+        assertTrue(!thread.isAlive(), description + " did not terminate");
     }
 
     private static final class RecordingChunkParser extends ChunkParser {
