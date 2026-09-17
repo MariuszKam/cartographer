@@ -676,7 +676,11 @@ class BoundedStreamingDecodePipelineTest {
             } catch (Throwable thrown) {
                 failure.set(thrown);
             } finally {
-                closeReturned.countDown();
+                try {
+                    awaitWorkerTermination(worker);
+                } finally {
+                    closeReturned.countDown();
+                }
             }
         });
 
@@ -702,6 +706,7 @@ class BoundedStreamingDecodePipelineTest {
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch interruptObserved = new CountDownLatch(1);
         CountDownLatch releaseWorker = new CountDownLatch(1);
+        CountDownLatch closeStarted = new CountDownLatch(1);
         CountDownLatch closeReturned = new CountDownLatch(1);
         AtomicReference<Thread> worker = new AtomicReference<>();
         AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -723,18 +728,25 @@ class BoundedStreamingDecodePipelineTest {
                     return 1;
                 });
                 awaitControllerLatch(started);
+                closeStarted.countDown();
                 pipeline.close();
             } catch (Throwable thrown) {
                 failure.set(thrown);
                 interrupted.set(Thread.currentThread().isInterrupted());
             } finally {
-                closeReturned.countDown();
+                try {
+                    awaitWorkerTermination(worker);
+                } finally {
+                    closeReturned.countDown();
+                }
             }
         });
 
         try {
             assertTrue(started.await(1, TimeUnit.SECONDS));
+            assertTrue(closeStarted.await(1, TimeUnit.SECONDS));
             assertTrue(interruptObserved.await(1, TimeUnit.SECONDS));
+            awaitThreadState(controller, Thread.State.WAITING, Thread.State.TIMED_WAITING);
             controller.interrupt();
             assertEquals(1, closeReturned.getCount());
             releaseWorker.countDown();
@@ -919,7 +931,10 @@ class BoundedStreamingDecodePipelineTest {
     @Test
     void interruptedCompletionWaitRestoresInterruptStatusAndAborts() throws Exception {
         CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch blocked = new CountDownLatch(1);
+        CountDownLatch finishStarted = new CountDownLatch(1);
         CountDownLatch workerInterrupted = new CountDownLatch(1);
+        CountDownLatch controllerFinished = new CountDownLatch(1);
         AtomicReference<Thread> worker = new AtomicReference<>();
         AtomicReference<Throwable> failure = new AtomicReference<>();
         AtomicBoolean interrupted = new AtomicBoolean();
@@ -932,22 +947,33 @@ class BoundedStreamingDecodePipelineTest {
                     worker.set(Thread.currentThread());
                     started.countDown();
                     try {
+                        blocked.countDown();
                         new CountDownLatch(1).await();
                     } catch (InterruptedException interruption) {
                         workerInterrupted.countDown();
                     }
                     return 1;
                 });
+                finishStarted.countDown();
                 pipeline.finish();
             } catch (Throwable thrown) {
                 failure.set(thrown);
                 interrupted.set(Thread.currentThread().isInterrupted());
+            } finally {
+                try {
+                    awaitWorkerTermination(worker);
+                } finally {
+                    controllerFinished.countDown();
+                }
             }
         });
         try {
             assertTrue(started.await(1, TimeUnit.SECONDS));
+            assertTrue(blocked.await(1, TimeUnit.SECONDS));
+            assertTrue(finishStarted.await(1, TimeUnit.SECONDS));
+            awaitThreadState(controller, Thread.State.WAITING, Thread.State.TIMED_WAITING);
             controller.interrupt();
-            controller.join(1000);
+            assertTrue(controllerFinished.await(1, TimeUnit.SECONDS));
             assertTrue(failure.get() instanceof IllegalStateException);
             assertTrue(failure.get().getCause() instanceof InterruptedException);
             assertTrue(interrupted.get());
@@ -1023,5 +1049,51 @@ class BoundedStreamingDecodePipelineTest {
             Thread.currentThread().interrupt();
             throw new AssertionError("controller synchronization was interrupted", interruption);
         }
+    }
+
+    private static void awaitWorkerTermination(AtomicReference<Thread> worker) {
+        Thread workerThread = worker.get();
+        if (workerThread == null) {
+            throw new AssertionError("worker thread was not captured");
+        }
+
+        boolean interrupted = false;
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (workerThread.isAlive()) {
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0) {
+                throw new AssertionError("worker did not terminate");
+            }
+            try {
+                workerThread.join(Math.max(1L, Math.min(
+                        TimeUnit.NANOSECONDS.toMillis(remaining), 100L)));
+            } catch (InterruptedException interruption) {
+                interrupted = true;
+            }
+        }
+        if (interrupted) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void awaitThreadState(Thread thread, Thread.State... expectedStates) {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (!contains(expectedStates, thread.getState())) {
+            if (System.nanoTime() >= deadline) {
+                throw new AssertionError(
+                        "controller did not reach a wait state; state was " + thread.getState()
+                );
+            }
+            Thread.yield();
+        }
+    }
+
+    private static boolean contains(Thread.State[] states, Thread.State actual) {
+        for (Thread.State state : states) {
+            if (state == actual) {
+                return true;
+            }
+        }
+        return false;
     }
 }
