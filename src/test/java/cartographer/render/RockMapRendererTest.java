@@ -82,7 +82,28 @@ class RockMapRendererTest {
         RockMapRenderResult second = new RockMapRenderer().render(map);
 
         assertEquals(first.legend(), second.legend());
-        assertEquals("game:rock-shale", first.legend().get(0).rock().code());
+        assertEquals(
+                List.of(
+                        "game:rock-shale",
+                        "game:rock-granite",
+                        "geologymod:rock-gneiss"
+                ),
+                first.legend().stream()
+                        .map(entry -> entry.rock().code())
+                        .toList()
+        );
+        assertEquals(
+                List.of(2L, 1L, 1L),
+                first.legend().stream()
+                        .map(RockLegendEntry::observedCellCount)
+                        .toList()
+        );
+        assertEquals(
+                List.of(50.0, 25.0, 25.0),
+                first.legend().stream()
+                        .map(RockLegendEntry::observedPercentage)
+                        .toList()
+        );
         assertNotEquals(
                 new RockPalette().colorFor(GRANITE),
                 new RockPalette().colorFor(MODDED)

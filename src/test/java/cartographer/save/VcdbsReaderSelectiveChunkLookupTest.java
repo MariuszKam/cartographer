@@ -355,7 +355,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
     }
 
     @Test
-    void coverageDecodeAndPaletteFailuresProduceTerminalFailedVisits()
+    void coverageMultipleFullDecodeFailuresProduceTerminalFailedVisits()
             throws Exception {
         ChunkPosition decodePosition = new ChunkPosition(1, 0, 2, 0);
         ChunkPosition palettePosition = new ChunkPosition(3, 0, 4, 0);

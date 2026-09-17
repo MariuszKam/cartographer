@@ -29,16 +29,34 @@ class RockAtYCharacterizationTest {
         );
 
         assertEquals(
+                RockColumnState.OBSERVED,
+                sample(List.of(lower), coverage(lower.coordinate()), 31).state()
+        );
+        assertEquals(
                 "game:rock-granite",
                 sample(List.of(lower), coverage(lower.coordinate()), 31).rockCode()
         );
+        RockLegacyOracle.Cell at32 = sample(
+                List.of(upper), coverage(upper.coordinate()), 32
+        );
         assertEquals(
-                RockColumnState.NO_ROCK,
-                sample(List.of(upper), coverage(upper.coordinate()), 32).state()
+                RockColumnState.OBSERVED,
+                at32.state()
+        );
+        assertEquals(
+                "somemod:rock-gneiss",
+                at32.rockCode()
+        );
+        RockLegacyOracle.Cell at33 = sample(
+                List.of(upper), coverage(upper.coordinate()), 33
+        );
+        assertEquals(
+                RockColumnState.OBSERVED,
+                at33.state()
         );
         assertEquals(
                 "game:rock-shale",
-                sample(List.of(upper), coverage(upper.coordinate()), 33).rockCode()
+                at33.rockCode()
         );
     }
 

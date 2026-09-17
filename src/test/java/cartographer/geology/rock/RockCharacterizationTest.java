@@ -99,11 +99,13 @@ class RockCharacterizationTest {
     void characterizesPartialRangesBoundariesAndMissingMiddleChunk() {
         ParsedChunk lower = chunk(
                 new ChunkCoordinate(0, 0, 0),
-                at(1, 6, 1, 1)
+                at(1, 4, 1, 1),
+                at(1, 5, 1, 2)
         );
         ParsedChunk upper = chunk(
                 new ChunkCoordinate(0, 1, 0),
-                at(1, 1, 1, 2)
+                at(1, 1, 1, 2),
+                at(1, 2, 1, 1)
         );
 
         RockMap partial = scan(
@@ -114,6 +116,19 @@ class RockCharacterizationTest {
                 34
         );
         assertEquals(33, cellAt(RockLegacyOracle.snapshot(partial), 1, 1).rockY());
+
+        RockMap lowerBoundInclusive = scan(
+                List.of(lower),
+                coverage(new ChunkCoordinate(0, 0, 0)),
+                new WorldPosition(1, 0, 1),
+                5,
+                6
+        );
+        RockLegacyOracle.Cell lowerCell = cellAt(
+                RockLegacyOracle.snapshot(lowerBoundInclusive), 1, 1
+        );
+        assertEquals(RockColumnState.OBSERVED, lowerCell.state());
+        assertEquals(5, lowerCell.rockY());
 
         ParsedChunk secondUpper = chunk(new ChunkCoordinate(0, 2, 0));
         RockMap middleMissing = scan(
