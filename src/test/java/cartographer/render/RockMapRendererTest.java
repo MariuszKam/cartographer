@@ -161,6 +161,30 @@ class RockMapRendererTest {
         assertEquals(100.0, result.legend().get(0).observedPercentage());
     }
 
+    @Test
+    void preservesCircleBackgroundAndRendersBothUnavailableParityColors() {
+        RockMapRenderResult result = new RockMapRenderer().render(
+                map(
+                        0,
+                        0,
+                        2,
+                        RockColumnSample.observed(0, 0, GRANITE, 5),
+                        RockColumnSample.noRock(1, 0),
+                        RockColumnSample.unavailable(0, 1),
+                        RockColumnSample.unavailable(1, 1)
+                )
+        );
+
+        assertEquals(new RockPalette().colorFor(GRANITE), result.image().getRGB(2, 2));
+        assertEquals(0xFF4A4A4A, result.image().getRGB(3, 2));
+        assertEquals(0xFF707070, result.image().getRGB(2, 3));
+        assertEquals(0xFF888888, result.image().getRGB(3, 3));
+        assertEquals(0, result.image().getRGB(0, 0));
+        assertEquals(1, result.observedCount());
+        assertEquals(1, result.noRockCount());
+        assertEquals(2, result.unavailableCount());
+    }
+
     private RockMap map(
             int centerX,
             int centerZ,

@@ -266,6 +266,153 @@ class VcdbsReaderSelectiveChunkLookupTest {
     }
 
     @Test
+    void coverageDeduplicatesRequestedPositionsAndEmitsOneTerminalVisit()
+            throws Exception {
+        ChunkPosition position = new ChunkPosition(1, 0, 2, 0);
+        Path database = databaseWithRow(position, new byte[]{7});
+        RecordingChunkParser parser = parserWithPalette(99);
+        List<SelectiveChunkVisit> visits = new ArrayList<>();
+
+        SelectiveChunkStreamStats stats = new VcdbsReader(
+                null, null, parser, null
+        ).forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                database,
+                List.of(position, position),
+                new int[]{99},
+                new ReadDiagnostics(),
+                visits::add
+        );
+
+        assertEquals(1, stats.uniquePositionsRequested());
+        assertEquals(1, visits.size());
+        assertEquals(position, visits.get(0).position());
+        assertEquals(SelectiveChunkVisitStatus.DECODED, visits.get(0).status());
+    }
+
+    @Test
+    void coverageNullPayloadProducesTerminalFailedVisit() throws Exception {
+        ChunkPosition position = new ChunkPosition(1, 0, 2, 0);
+        Path database = databaseWithNullRow(position);
+        List<SelectiveChunkVisit> visits = new ArrayList<>();
+        ReadDiagnostics diagnostics = new ReadDiagnostics();
+
+        new VcdbsReader(null, null, parserWithPalette(99), null)
+                .forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                        database,
+                        List.of(position),
+                        new int[]{99},
+                        diagnostics,
+                        visits::add
+                );
+
+        assertEquals(1, visits.size());
+        assertEquals(SelectiveChunkVisitStatus.FAILED, visits.get(0).status());
+        assertEquals("chunk row has null payload", visits.get(0).error());
+        assertTrue(diagnostics.notes().contains("chunk row has null payload"));
+    }
+
+    @Test
+    void coveragePaletteRejectionProducesOneTerminalVisit() throws Exception {
+        ChunkPosition position = new ChunkPosition(1, 0, 2, 0);
+        Path database = databaseWithRow(position, new byte[]{7});
+        RecordingChunkParser parser = parserWithPalette(1, 2, 3);
+        List<SelectiveChunkVisit> visits = new ArrayList<>();
+
+        new VcdbsReader(null, null, parser, null)
+                .forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                        database,
+                        List.of(position),
+                        new int[]{99},
+                        new ReadDiagnostics(),
+                        visits::add
+                );
+
+        assertEquals(1, visits.size());
+        assertEquals(SelectiveChunkVisitStatus.PALETTE_REJECTED,
+                visits.get(0).status());
+    }
+
+    @Test
+    void coveragePaletteProbeFailureProducesTerminalFailedVisit() throws Exception {
+        ChunkPosition position = new ChunkPosition(1, 0, 2, 0);
+        Path database = databaseWithRow(position, new byte[]{7});
+        RecordingChunkParser parser = parserWithPalette(99);
+        parser.paletteResult = ParseResult.failure("malformed palette");
+        List<SelectiveChunkVisit> visits = new ArrayList<>();
+
+        new VcdbsReader(null, null, parser, null)
+                .forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                        database,
+                        List.of(position),
+                        new int[]{99},
+                        new ReadDiagnostics(),
+                        visits::add
+                );
+
+        assertEquals(1, visits.size());
+        assertEquals(SelectiveChunkVisitStatus.FAILED, visits.get(0).status());
+        assertEquals("malformed palette", visits.get(0).error());
+    }
+
+    @Test
+    void coverageDecodeAndPaletteFailuresProduceTerminalFailedVisits()
+            throws Exception {
+        ChunkPosition decodePosition = new ChunkPosition(1, 0, 2, 0);
+        ChunkPosition palettePosition = new ChunkPosition(3, 0, 4, 0);
+        Path database = databaseWithRow(decodePosition, new byte[]{7});
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database);
+             PreparedStatement statement = connection.prepareStatement(
+                     "INSERT INTO chunk(position, data) VALUES (?, ?)")) {
+            statement.setLong(1, ChunkPosEncoder.encode(palettePosition));
+            statement.setBytes(2, new byte[]{7});
+            statement.executeUpdate();
+        }
+        RecordingChunkParser parser = parserWithPalette(99);
+        parser.fullDecodeResult = ParseResult.failure("decode failed");
+        List<SelectiveChunkVisit> visits = new ArrayList<>();
+
+        new VcdbsReader(null, null, parser, null)
+                .forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                        database,
+                        List.of(decodePosition, palettePosition),
+                        new int[]{99},
+                        new ReadDiagnostics(),
+                        visits::add
+                );
+
+        assertEquals(2, visits.size());
+        assertTrue(visits.stream().allMatch(visit ->
+                visit.status() == SelectiveChunkVisitStatus.FAILED
+        ));
+    }
+
+    @Test
+    void missingChunkTableCompletesCoverageWithZeroPositionVisits()
+            throws Exception {
+        Path database = temporaryDirectory.resolve("missing-coverage-table.vcdbs");
+        createDatabase(database, "");
+        ChunkPosition position = new ChunkPosition(1, 0, 2, 0);
+        List<SelectiveChunkVisit> visits = new ArrayList<>();
+        ReadDiagnostics diagnostics = new ReadDiagnostics();
+
+        SelectiveChunkStreamStats stats = new VcdbsReader(
+                null, null, parserWithPalette(99), null
+        ).forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                database,
+                List.of(position),
+                new int[]{99},
+                diagnostics,
+                visits::add
+        );
+
+        assertTrue(visits.isEmpty());
+        assertEquals(1, stats.uniquePositionsRequested());
+        assertEquals(0, stats.rowsFound());
+        assertEquals(0, stats.failedChunks());
+        assertTrue(diagnostics.notes().contains("missing table: chunk"));
+    }
+
+    @Test
     void emptyPositionsReturnZeroStats() {
         SelectiveChunkStreamStats stats = new VcdbsReader(
                 null,
