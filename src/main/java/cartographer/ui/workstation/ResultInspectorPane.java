@@ -75,9 +75,9 @@ public final class ResultInspectorPane extends VBox {
         nodes.add(label("Layers: " + result.renderReport().layers()));
         nodes.add(label("User markers: " + result.userMarkersDrawn()));
         if (requiresSurfaceData(request)) {
-            nodes.add(label("Surface columns: " + result.compactSurface().columnsScanned()));
-            nodes.add(label("Water columns: " + result.compactSurface().waterColumns()));
-            nodes.add(label("Unknown surface blocks: " + result.compactSurface().unknownSurfaceBlocks()));
+            nodes.add(label("Surface columns: " + result.surface().columnsScanned()));
+            nodes.add(label("Water columns: " + result.surface().waterColumns()));
+            nodes.add(label("Unknown surface blocks: " + result.surface().unknownSurfaceBlocks()));
         }
         content.getChildren().setAll(nodes);
         diagnostics.show(mapDiagnostics(result, request));

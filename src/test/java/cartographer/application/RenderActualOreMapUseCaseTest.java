@@ -91,7 +91,7 @@ class RenderActualOreMapUseCaseTest {
                 NullPointerException.class,
                 () -> new RenderActualOreMapResult(
                         null, null, null, null, null, null, null,
-                        null, null, null, null, 0
+                        null, null, null, null, 0, List.of()
                 )
         );
     }
@@ -213,8 +213,7 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(1, reader.adaptiveExactChunkCalls);
         assertEquals(1, reader.exactChunkCalls);
         assertEquals(1, reader.exactRequests.getFirst().size());
-        assertTrue(result.surface().blocks().stream()
-                .anyMatch(block -> block.blockInfo().id() == 1));
+        assertTrue(hasSurfaceBlockId(result, 1));
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
     }
@@ -238,8 +237,7 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(1, reader.registryCalls);
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
-        assertTrue(result.surface().blocks().stream()
-                .anyMatch(block -> "game:soil-medium-normal".equals(block.blockInfo().code())));
+        assertTrue(hasSurfaceCode(result, "game:soil-medium-normal"));
         assertTrue(result.image().getRGB(32, 32)
                 != new cartographer.render.TerrainPalette()
                 .background(RenderStyle.TOPOGRAPHIC));
@@ -264,8 +262,7 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(1, reader.registryCalls);
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
-        assertTrue(result.surface().blocks().stream()
-                .anyMatch(block -> "game:soil-medium-normal".equals(block.blockInfo().code())));
+        assertTrue(hasSurfaceCode(result, "game:soil-medium-normal"));
     }
 
     @Test
@@ -313,10 +310,8 @@ class RenderActualOreMapUseCaseTest {
         assertTrue(reader.exactRequests.get(1).stream()
                 .allMatch(position -> position.x() == fallback.x()
                         && position.z() == fallback.z()));
-        assertTrue(result.surface().blocks().stream()
-                .anyMatch(block -> block.worldX() < 32));
-        assertTrue(result.surface().blocks().stream()
-                .anyMatch(block -> block.worldX() >= 32));
+        assertTrue(hasSurfaceXLessThan(result, 32));
+        assertTrue(hasSurfaceXAtLeast(result, 32));
     }
 
     @Test
@@ -379,8 +374,7 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(2, reader.exactChunkCalls);
         assertEquals(8, reader.exactRequests.get(1).size());
         assertTrue(result.actualOreMap().isEmpty());
-        assertTrue(result.surface().blocks().stream()
-                .anyMatch(block -> block.blockInfo().id() == 1));
+        assertTrue(hasSurfaceBlockId(result, 1));
     }
 
     @Test
@@ -404,8 +398,8 @@ class RenderActualOreMapUseCaseTest {
                 32
         );
 
-        assertTrue(result.surface().blocks().stream().anyMatch(block -> block.worldX() < 32));
-        assertTrue(result.surface().blocks().stream().anyMatch(block -> block.worldX() >= 32));
+        assertTrue(hasSurfaceXLessThan(result, 32));
+        assertTrue(hasSurfaceXAtLeast(result, 32));
     }
 
     private RenderActualOreMapResult execute(FakeReader reader) {
@@ -418,6 +412,39 @@ class RenderActualOreMapUseCaseTest {
                         ActualBlockMatchMode.ORE_CODE
                 ))
         );
+    }
+
+    private boolean hasSurfaceBlockId(RenderActualOreMapResult result, int id) {
+        int[] found = {0};
+        result.surface().map().forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
+            if (blockId == id) found[0]++;
+        });
+        return found[0] != 0;
+    }
+
+    private boolean hasSurfaceCode(RenderActualOreMapResult result, String code) {
+        int[] found = {0};
+        result.surface().map().forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
+            BlockInfo info = result.surface().registry().get(blockId);
+            if (info != null && code.equals(info.code())) found[0]++;
+        });
+        return found[0] != 0;
+    }
+
+    private boolean hasSurfaceXLessThan(RenderActualOreMapResult result, int bound) {
+        int[] found = {0};
+        result.surface().map().forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
+            if (x < bound) found[0]++;
+        });
+        return found[0] != 0;
+    }
+
+    private boolean hasSurfaceXAtLeast(RenderActualOreMapResult result, int bound) {
+        int[] found = {0};
+        result.surface().map().forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
+            if (x >= bound) found[0]++;
+        });
+        return found[0] != 0;
     }
 
     private RenderActualOreMapResult execute(

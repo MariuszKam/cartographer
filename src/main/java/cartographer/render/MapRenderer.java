@@ -76,7 +76,6 @@ public class MapRenderer {
     ) {
         Objects.requireNonNull(home, "Home state is required");
         Objects.requireNonNull(terrain, "terrain preparation is required");
-        Objects.requireNonNull(surfaceMap, "surface map is required");
         Objects.requireNonNull(registry, "registry is required");
         int diameter = Math.clamp((long) options.radiusBlocks() * 2
                         * options.pixelsPerBlock() + 1, 64, MAX_IMAGE_SIZE);
@@ -93,13 +92,13 @@ public class MapRenderer {
         int tilesDrawn = options.layers().contains(RenderLayer.TERRAIN)
                 ? drawTerrain(raster, terrain.heights(), minX, minZ, scale, diameter, options, progress)
                 : 0;
-        if (options.layers().contains(RenderLayer.SURFACE)) {
+        if (surfaceMap != null && options.layers().contains(RenderLayer.SURFACE)) {
             drawSurfaceMap(raster, surfaceMap, terrain.heights(), minX, minZ, scale, diameter, progress);
         }
-        if (options.layers().contains(RenderLayer.SOIL_FERTILITY)) {
+        if (surfaceMap != null && options.layers().contains(RenderLayer.SOIL_FERTILITY)) {
             soilFertilityRenderer.draw(image, surfaceMap, registry, minX, minZ, scale, progress);
         }
-        if (options.layers().contains(RenderLayer.SURFACE)) {
+        if (surfaceMap != null && options.layers().contains(RenderLayer.SURFACE)) {
             drawLegend(image, surfaceMap);
         }
         int markerCount = drawMarkers(image, player, home, geometry, options, progress);
@@ -117,15 +116,7 @@ public class MapRenderer {
             RenderOptions options,
             ProgressReporter progress
     ) {
-        return render(
-                center,
-                center,
-                home,
-                chunks,
-                List.of(),
-                options,
-                progress
-        );
+        return render(center, center, home, chunks, options, progress);
     }
 
     public RenderedMap render(
@@ -155,15 +146,10 @@ public class MapRenderer {
             RenderOptions options,
             ProgressReporter progress
     ) {
-        return render(
-                center,
-                player,
-                home,
-                chunks,
-                List.of(),
-                options,
-                progress
-        );
+        MapTerrainPreparation.Builder builder = MapTerrainPreparation.builder(
+                center, options, chunks.size(), progress);
+        chunks.forEach(builder::accept);
+        return render(center, player, home, builder.finish(), null, Map.of(), options, progress);
     }
 
     public RenderedMap render(

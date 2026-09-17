@@ -52,10 +52,11 @@ public record SurfaceMapScanResult(
         if (limit <= 0) {
             return List.of();
         }
+        SurfaceRegistryLookup lookup = new SurfaceRegistryLookup(registry);
         Map<String, Long> counts = new LinkedHashMap<>();
         map.forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
             if (surfaceClass == SurfaceClass.UNKNOWN) {
-                String code = blockInfo(blockId).code();
+                String code = lookup.code(blockId);
                 counts.merge(code, 1L, Long::sum);
             }
         });
@@ -71,21 +72,17 @@ public record SurfaceMapScanResult(
         if (limit <= 0) {
             return Set.of();
         }
+        SurfaceRegistryLookup lookup = new SurfaceRegistryLookup(registry);
         Set<String> codes = new TreeSet<>();
         map.forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
             if (codes.size() < limit) {
-                codes.add(blockInfo(blockId).code());
+                codes.add(lookup.code(blockId));
             }
         });
         return Set.copyOf(codes);
     }
 
     public record BlockCodeCount(String code, long count) {
-    }
-
-    private BlockInfo blockInfo(int blockId) {
-        BlockInfo info = registry.get(blockId);
-        return info == null ? BlockInfo.unknown(blockId) : info;
     }
 
     private static final class Counter {

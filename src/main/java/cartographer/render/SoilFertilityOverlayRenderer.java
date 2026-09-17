@@ -5,6 +5,7 @@ import cartographer.model.SurfaceBlock;
 import cartographer.model.SurfaceClass;
 import cartographer.model.BlockInfo;
 import cartographer.scanner.SurfaceMap;
+import cartographer.scanner.SurfaceRegistryLookup;
 import cartographer.soil.SoilFertilityClassification;
 import cartographer.soil.SoilFertilityClassifier;
 import cartographer.soil.SoilFertilityTier;
@@ -134,6 +135,7 @@ public final class SoilFertilityOverlayRenderer {
         if (scale <= 0.0 || progress == null) {
             throw new IllegalArgumentException("Scale and progress reporter are required");
         }
+        SurfaceRegistryLookup lookup = new SurfaceRegistryLookup(registry);
         progress.start("Drawing soil fertility");
         int[] drawn = {0};
         Graphics2D graphics = image.createGraphics();
@@ -143,8 +145,7 @@ public final class SoilFertilityOverlayRenderer {
                 if (surfaceClass == SurfaceClass.WATER || surfaceClass == SurfaceClass.SNOW) {
                     return;
                 }
-                SoilFertilityClassification classification = classifier.classify(
-                        registry.getOrDefault(blockId, BlockInfo.unknown(blockId))).orElse(null);
+                SoilFertilityClassification classification = lookup.fertility(blockId);
                 if (classification == null) {
                     return;
                 }

@@ -39,7 +39,6 @@ import cartographer.scanner.SurfaceRainHeightDiagnosticCounters;
 import cartographer.scanner.SurfaceFallbackChunkPlanner;
 import cartographer.scanner.SurfaceMap;
 import cartographer.scanner.SurfaceMapScanResult;
-import cartographer.scanner.SurfaceScanResult;
 import cartographer.scanner.SurfaceStreamingSession;
 import cartographer.scanner.SurfaceTileAccumulator;
 import cartographer.scanner.SurfaceTileLayout;
@@ -307,7 +306,7 @@ public class RenderActualOreMapUseCase {
 
         return new RenderActualOreMapResult(
                 rendered.image(), rendered.geometry(), rendered.report(),
-                compatibilitySurface(compactSurface), compactSurface,
+                compactSurface,
                 environmentOverlay, geologyOverlay,
                 actualOreOverlays.isEmpty()
                         ? Optional.empty()
@@ -454,16 +453,6 @@ public class RenderActualOreMapUseCase {
         SurfaceTileAccumulator accumulator = new SurfaceTileAccumulator(layout);
         return new SurfaceMapScanResult(
                 accumulator.finish(), Map.of(), 0, 0, 0, 0
-        );
-    }
-
-    private SurfaceScanResult compatibilitySurface(SurfaceMapScanResult surface) {
-        return new SurfaceScanResult(
-                List.of(),
-                surface.chunksScanned(),
-                surface.columnsScanned(),
-                surface.emptyColumns(),
-                surface.liquidUnavailableColumns()
         );
     }
 

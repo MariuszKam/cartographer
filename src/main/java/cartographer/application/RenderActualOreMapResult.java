@@ -4,8 +4,6 @@ import cartographer.render.MapRenderReport;
 import cartographer.render.MapViewportGeometry;
 import cartographer.render.OverlayRenderReport;
 import cartographer.scanner.ActualBlockMap;
-import cartographer.scanner.ActualBlockMatchMode;
-import cartographer.scanner.SurfaceScanResult;
 import cartographer.scanner.SurfaceMapScanResult;
 import cartographer.save.ReadDiagnostics;
 
@@ -18,8 +16,7 @@ public record RenderActualOreMapResult(
         BufferedImage image,
         MapViewportGeometry geometry,
         MapRenderReport renderReport,
-        SurfaceScanResult surface,
-        SurfaceMapScanResult compactSurface,
+        SurfaceMapScanResult surface,
         OverlayRenderReport environmentOverlay,
         OverlayRenderReport geologyOverlay,
         Optional<ActualBlockMap> actualOreMap,
@@ -31,43 +28,11 @@ public record RenderActualOreMapResult(
         List<ActualOreOverlayResult> actualOreOverlays
 ) {
 
-    public RenderActualOreMapResult(
-            BufferedImage image,
-            MapViewportGeometry geometry,
-            MapRenderReport renderReport,
-            SurfaceScanResult surface,
-            OverlayRenderReport environmentOverlay,
-            OverlayRenderReport geologyOverlay,
-            Optional<ActualBlockMap> actualOreMap,
-            ReadDiagnostics mapChunkDiagnostics,
-            ReadDiagnostics chunkDiagnostics,
-            ReadDiagnostics mapRegionDiagnostics,
-            ReadDiagnostics actualOreDiagnostics,
-            int userMarkersDrawn
-    ) {
-        this(
-                image,
-                geometry,
-                renderReport,
-                surface,
-                SurfaceMapScanResultCompatibility.fromLegacy(surface),
-                environmentOverlay,
-                geologyOverlay,
-                actualOreMap,
-                mapChunkDiagnostics,
-                chunkDiagnostics,
-                mapRegionDiagnostics,
-                actualOreDiagnostics,
-                userMarkersDrawn,
-                compatibilityOverlays(actualOreMap)
-        );
-    }
-
     public RenderActualOreMapResult {
         Objects.requireNonNull(image, "image is required");
         Objects.requireNonNull(geometry, "geometry is required");
         Objects.requireNonNull(renderReport, "renderReport is required");
-        Objects.requireNonNull(compactSurface, "compact surface is required");
+        Objects.requireNonNull(surface, "surface is required");
         Objects.requireNonNull(
                 actualOreMap,
                 "actualOreMap is required; use Optional.empty() when absent"
@@ -77,25 +42,4 @@ public record RenderActualOreMapResult(
         );
     }
 
-    private static List<ActualOreOverlayResult> compatibilityOverlays(
-            Optional<ActualBlockMap> actualOreMap
-    ) {
-        Objects.requireNonNull(
-                actualOreMap,
-                "actualOreMap is required; use Optional.empty() when absent"
-        );
-        return actualOreMap.map(
-                map -> List.of(
-                        new ActualOreOverlayResult(
-                                new ActualOreOverlaySpec(
-                                        map.match(),
-                                        map.match(),
-                                        new java.awt.Color(225, 92, 24),
-                                        ActualBlockMatchMode.GENERIC_SUBSTRING
-                                ),
-                                map
-                        )
-                )
-        ).orElse(List.of());
-    }
 }

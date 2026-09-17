@@ -25,7 +25,7 @@ public final class SurfaceRainHeightScanner {
     ) {
         return new StreamingSession(
                 Objects.requireNonNull(plan, "plan is required"),
-                Objects.requireNonNull(registry, "registry is required"),
+                new SurfaceRegistryLookup(Objects.requireNonNull(registry, "registry is required")),
                 ignoreFoliage,
                 requireLiquidLayer
         );
@@ -33,11 +33,10 @@ public final class SurfaceRainHeightScanner {
 
     public static final class StreamingSession {
         private final SurfaceRainHeightPlan plan;
-        private final Map<Integer, BlockInfo> registry;
+        private final SurfaceRegistryLookup registry;
         private final boolean ignoreFoliage;
         private final boolean requireLiquidLayer;
         private final SurfaceTileAccumulator accumulator;
-        private final SurfaceClassifier classifier = new SurfaceClassifier();
         private final Set<ChunkPosition> delivered = new HashSet<>();
         private final Set<ChunkPosition> deliveredFallback = new HashSet<>();
         private final SurfaceFallbackDiagnosticState fallbackDiagnostics =
@@ -50,7 +49,7 @@ public final class SurfaceRainHeightScanner {
 
         private StreamingSession(
                 SurfaceRainHeightPlan plan,
-                Map<Integer, BlockInfo> registry,
+                SurfaceRegistryLookup registry,
                 boolean ignoreFoliage,
                 boolean requireLiquidLayer
         ) {
@@ -118,17 +117,9 @@ public final class SurfaceRainHeightScanner {
                 int blockId = chunk.blockIdAt(localX, localY, localZ);
                 int liquidId = chunk.liquidLayerAvailable()
                         ? chunk.liquidIdAt(localX, localY, localZ) : 0;
-                BlockInfo blockInfo = registry.get(blockId);
-                if (blockInfo == null) {
-                    blockInfo = BlockInfo.unknown(blockId);
-                }
-                BlockInfo liquidInfo = registry.get(liquidId);
-                if (liquidInfo == null) {
-                    liquidInfo = BlockInfo.unknown(liquidId);
-                }
-                SurfaceClass surfaceClass = classifier.classify(blockInfo, liquidInfo);
+                SurfaceClass surfaceClass = registry.classify(blockId, liquidId);
                 if (surfaceClass != SurfaceClass.WATER
-                        && (blockInfo.isAir() || ignoreFoliage && blockInfo.isFoliage())) {
+                        && (registry.isAir(blockId) || ignoreFoliage && registry.isFoliage(blockId))) {
                     promote(tileIndex);
                     continue;
                 }
@@ -178,18 +169,10 @@ public final class SurfaceRainHeightScanner {
                         int blockId = chunk.blockIdAt(localX, localY, localZ);
                         int liquidId = chunk.liquidLayerAvailable()
                                 ? chunk.liquidIdAt(localX, localY, localZ) : 0;
-                        BlockInfo blockInfo = registry.get(blockId);
-                        if (blockInfo == null) {
-                            blockInfo = BlockInfo.unknown(blockId);
-                        }
-                        BlockInfo liquidInfo = registry.get(liquidId);
-                        if (liquidInfo == null) {
-                            liquidInfo = BlockInfo.unknown(liquidId);
-                        }
-                        SurfaceClass surfaceClass = classifier.classify(blockInfo, liquidInfo);
+                        SurfaceClass surfaceClass = registry.classify(blockId, liquidId);
                         if (surfaceClass != SurfaceClass.WATER
-                                && (blockInfo.isAir()
-                                || ignoreFoliage && blockInfo.isFoliage())) {
+                                && (registry.isAir(blockId)
+                                || ignoreFoliage && registry.isFoliage(blockId))) {
                             continue;
                         }
                         fallbackDiagnostics.markResolved(chunk, localX, localZ);

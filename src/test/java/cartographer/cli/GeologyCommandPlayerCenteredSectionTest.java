@@ -221,7 +221,6 @@ class GeologyCommandPlayerCenteredSectionTest {
                 new GeologyCommand(
                         out,
                         reader,
-                        new SurfaceScanner(),
                         new GeologyAnalyzer(),
                         new GeologyCrossSectionAnalyzer(),
                         new GeologyCrossSectionRenderer(),

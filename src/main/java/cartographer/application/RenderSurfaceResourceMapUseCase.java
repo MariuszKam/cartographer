@@ -32,7 +32,6 @@ import cartographer.scanner.SurfaceRainHeightPlan;
 import cartographer.scanner.SurfaceRainHeightScanResult;
 import cartographer.scanner.SurfaceRainHeightDiagnosticCounters;
 import cartographer.scanner.SurfaceStreamingSession;
-import cartographer.scanner.SurfaceScanResult;
 
 import java.util.Comparator;
 import java.util.HashSet;
@@ -65,7 +64,6 @@ public class RenderSurfaceResourceMapUseCase {
             MarkerStore markerStore,
             MapRenderer renderer,
             UserMarkerRenderer userMarkerRenderer,
-            cartographer.scanner.SurfaceScanner surfaceScanner,
             SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
             SurfaceResourceOverlayRenderer overlayRenderer
     ) {
@@ -75,7 +73,6 @@ public class RenderSurfaceResourceMapUseCase {
         this.markerStore = Objects.requireNonNull(markerStore, "markerStore is required");
         this.renderer = Objects.requireNonNull(renderer, "renderer is required");
         this.userMarkerRenderer = Objects.requireNonNull(userMarkerRenderer, "userMarkerRenderer is required");
-        Objects.requireNonNull(surfaceScanner, "surfaceScanner is required");
         this.surfaceMaterialAnalyzer = Objects.requireNonNull(
                 surfaceMaterialAnalyzer,
                 "surfaceMaterialAnalyzer is required"
@@ -256,18 +253,10 @@ public class RenderSurfaceResourceMapUseCase {
             }
         }
 
-        SurfaceScanResult compatibilitySurface = new SurfaceScanResult(
-                List.of(),
-                surface.chunksScanned(),
-                surface.columnsScanned(),
-                surface.emptyColumns(),
-                surface.liquidUnavailableColumns()
-        );
         return new RenderSurfaceResourceMapResult(
                 rendered.image(),
                 rendered.geometry(),
                 analysis,
-                compatibilitySurface,
                 surface,
                 rendered.report(),
                 mapChunkDiagnostics,

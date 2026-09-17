@@ -21,8 +21,10 @@ import cartographer.render.GeologySectionMarker;
 import cartographer.render.PngWriter;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
-import cartographer.scanner.SurfaceScanResult;
-import cartographer.scanner.SurfaceScanner;
+import cartographer.application.ReadSurfaceMapRequest;
+import cartographer.application.ReadSurfaceMapResult;
+import cartographer.application.ReadSurfaceMapUseCase;
+import cartographer.scanner.SurfaceMapScanResult;
 
 import java.awt.image.BufferedImage;
 import java.io.PrintStream;
@@ -64,7 +66,7 @@ public class GeologyCommand implements Command {
 
     private final PrintStream out;
     private final VcdbsReader reader;
-    private final SurfaceScanner surfaceScanner;
+    private final ReadSurfaceMapUseCase surfaceReader;
     private final GeologyAnalyzer geologyAnalyzer;
     private final GeologyCrossSectionAnalyzer crossSectionAnalyzer;
     private final GeologyCrossSectionRenderer crossSectionRenderer;
@@ -74,14 +76,12 @@ public class GeologyCommand implements Command {
     public GeologyCommand(
             PrintStream out,
             VcdbsReader reader,
-            SurfaceScanner surfaceScanner,
             GeologyAnalyzer geologyAnalyzer,
             String subcommand
     ) {
         this(
                 out,
                 reader,
-                surfaceScanner,
                 geologyAnalyzer,
                 new GeologyCrossSectionAnalyzer(),
                 new GeologyCrossSectionRenderer(),
@@ -93,7 +93,6 @@ public class GeologyCommand implements Command {
     public GeologyCommand(
             PrintStream out,
             VcdbsReader reader,
-            SurfaceScanner surfaceScanner,
             GeologyAnalyzer geologyAnalyzer,
             GeologyCrossSectionAnalyzer crossSectionAnalyzer,
             GeologyCrossSectionRenderer crossSectionRenderer,
@@ -102,7 +101,7 @@ public class GeologyCommand implements Command {
     ) {
         this.out = out;
         this.reader = reader;
-        this.surfaceScanner = surfaceScanner;
+        this.surfaceReader = new ReadSurfaceMapUseCase(reader, new WorldMetadataReader());
         this.geologyAnalyzer = geologyAnalyzer;
         this.crossSectionAnalyzer = crossSectionAnalyzer;
         this.crossSectionRenderer = crossSectionRenderer;
@@ -175,35 +174,14 @@ public class GeologyCommand implements Command {
                                 )
                 );
 
-        ReadDiagnostics diagnostics =
-                new ReadDiagnostics();
-
-        List<ParsedChunk> chunks =
-                reader.readChunksAround(
-                        savePath,
-                        center,
-                        radius,
-                        diagnostics,
-                        progress
-                );
-
-        Map<Integer, BlockInfo> registry =
-                reader.readBlockRegistry(
-                        savePath,
-                        progress
-                );
-
-        SurfaceScanResult surface =
-                surfaceScanner.scan(
-                        chunks,
-                        registry,
-                        true,
-                        progress
-                );
+        ReadSurfaceMapResult loaded = surfaceReader.execute(
+                new ReadSurfaceMapRequest(savePath, center, radius, true, true), progress);
+        SurfaceMapScanResult surface = loaded.surface();
+        ReadDiagnostics diagnostics = loaded.chunkDiagnostics();
 
         GeologyReport report =
                 geologyAnalyzer.analyze(
-                        surface.blocks()
+                surface
                 );
 
         out.println(

@@ -32,7 +32,9 @@ import cartographer.render.RenderedMap;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.render.ActualOreOverlayPainter;
 import cartographer.scanner.ActualBlockMapScanner;
-import cartographer.scanner.SurfaceScanResult;
+import cartographer.scanner.SurfaceMapScanResult;
+import cartographer.scanner.SurfaceTileAccumulator;
+import cartographer.scanner.SurfaceTileLayout;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.MapChunkStreamStats;
@@ -843,13 +845,7 @@ class MapCommandTest {
                             request.style(),
                             useCaseLayers(request)
                     ),
-                    new SurfaceScanResult(
-                            List.of(),
-                            0,
-                            0,
-                            0,
-                            0
-                    ),
+                    emptySurface(),
                     OverlayRenderReport.none(),
                     OverlayRenderReport.none(),
                     Optional.empty(),
@@ -857,8 +853,16 @@ class MapCommandTest {
                     new ReadDiagnostics(),
                     new ReadDiagnostics(),
                     new ReadDiagnostics(),
-                    0
+                    0,
+                    List.of()
             );
+        }
+
+        private SurfaceMapScanResult emptySurface() {
+            return new SurfaceMapScanResult(
+                    new SurfaceTileAccumulator(SurfaceTileLayout.forSurface(
+                            0, 0, 1, new WorldMetadata(1, 1, 1))).finish(),
+                    Map.of(), 0, 0, 0, 0);
         }
 
         private String useCaseLayers(RenderActualOreMapRequest request) {

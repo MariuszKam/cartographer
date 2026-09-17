@@ -1,6 +1,9 @@
 package cartographer.geology;
 
 import cartographer.model.SurfaceBlock;
+import cartographer.model.BlockInfo;
+import cartographer.scanner.SurfaceMapScanResult;
+import cartographer.scanner.SurfaceRegistryLookup;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -8,6 +11,29 @@ import java.util.Locale;
 import java.util.Map;
 
 public class GeologyAnalyzer {
+    public GeologyReport analyze(SurfaceMapScanResult surface) {
+        if (surface == null) throw new IllegalArgumentException("surface result is required");
+        Map<String, Integer> rockFamilies = new LinkedHashMap<>();
+        Map<String, Integer> materialTypes = new LinkedHashMap<>();
+        int[] geologicalSamples = {0};
+        int[] unknownSamples = {0};
+        int[] samples = {0};
+        SurfaceRegistryLookup lookup = new SurfaceRegistryLookup(surface.registry());
+        surface.map().forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
+            samples[0]++;
+            String material = lookup.materialType(blockId);
+            materialTypes.merge(material, 1, Integer::sum);
+            String family = lookup.rockFamily(blockId);
+            if ("unknown".equals(family)) unknownSamples[0]++;
+            if (isGeological(material, family)) {
+                geologicalSamples[0]++;
+                rockFamilies.merge(family, 1, Integer::sum);
+            }
+        });
+        return new GeologyReport(samples[0], geologicalSamples[0], unknownSamples[0],
+                Map.copyOf(rockFamilies), Map.copyOf(materialTypes));
+    }
+
     public GeologyReport analyze(List<SurfaceBlock> surfaceBlocks) {
         Map<String, Integer> rockFamilies = new LinkedHashMap<>();
         Map<String, Integer> materialTypes = new LinkedHashMap<>();

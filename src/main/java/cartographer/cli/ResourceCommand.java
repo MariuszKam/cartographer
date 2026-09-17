@@ -3,6 +3,9 @@ package cartographer.cli;
 import cartographer.application.InspectSurfaceObjectsRequest;
 import cartographer.application.InspectSurfaceObjectsResult;
 import cartographer.application.InspectSurfaceObjectsUseCase;
+import cartographer.application.ReadSurfaceMapRequest;
+import cartographer.application.ReadSurfaceMapResult;
+import cartographer.application.ReadSurfaceMapUseCase;
 import cartographer.application.SurfaceMaterialMatch;
 import cartographer.application.SurfaceMaterialPreset;
 import cartographer.model.BlockInfo;
@@ -34,8 +37,7 @@ import cartographer.resource.SurfaceMaterialDeposit;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
-import cartographer.scanner.SurfaceScanResult;
-import cartographer.scanner.SurfaceScanner;
+import cartographer.scanner.SurfaceMapScanResult;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
@@ -75,8 +77,7 @@ public class ResourceCommand implements Command {
     private final PngWriter pngWriter;
     private final InspectSurfaceObjectsUseCase surfaceObjectInspectionUseCase;
 
-    private final SurfaceScanner surfaceScanner =
-            new SurfaceScanner();
+    private final ReadSurfaceMapUseCase surfaceReader;
 
     private final SurfaceMaterialAnalyzer surfaceResourceAnalyzer =
             new SurfaceMaterialAnalyzer();
@@ -128,6 +129,7 @@ public class ResourceCommand implements Command {
                 reader,
                 metadataReader
         );
+        this.surfaceReader = new ReadSurfaceMapUseCase(reader, metadataReader);
         this.subcommand = subcommand;
     }
 
@@ -554,15 +556,7 @@ public class ResourceCommand implements Command {
                 );
 
         RenderedMap rendered =
-                mapRenderer.render(
-                        center,
-                        player,
-                        home,
-                        chunks,
-                        List.of(),
-                        renderOptions,
-                        progress
-                );
+                mapRenderer.render(center, player, home, chunks, renderOptions, progress);
 
         List<ResourceOverlayCell> overlayCells =
                 analyzer.overlayCells(
@@ -1003,18 +997,8 @@ public class ResourceCommand implements Command {
 
         RenderedMap rendered =
                 mapRenderer.render(
-                        loaded.center(),
-                        loaded.player(),
-                        home,
-                        mapChunks,
-                        List.of(),
-                        terrainRenderOptions(
-                                radius,
-                                scale,
-                                style
-                        ),
-                        progress
-                );
+                        loaded.center(), loaded.player(), home, mapChunks,
+                        terrainRenderOptions(radius, scale, style), progress);
 
         progress.start(
                 "Drawing surface resource overlay"
@@ -1140,43 +1124,17 @@ public class ResourceCommand implements Command {
                                 player
                         );
 
-        ReadDiagnostics diagnostics =
-                new ReadDiagnostics();
-
-        List<ParsedChunk> chunks =
-                reader.readChunksAround(
-                        savePath,
-                        center,
-                        radius,
-                        diagnostics,
-                        progress
-                );
-
-        Map<Integer, BlockInfo> registry =
-                reader.readBlockRegistry(
-                        savePath,
-                        progress
-                );
-
-        SurfaceScanResult surface =
-                surfaceScanner.scan(
-                        chunks,
-                        registry,
-                        true,
-                        progress
-                );
-
         SurfaceMaterialMatch surfaceMatch = surfaceMatch(match);
-        SurfaceMaterialAnalysis analysis = surfaceResourceAnalyzer.analyzeMatched(
-                surfaceMatch.displayName(),
-                surfaceMatch.matchingBlocks(surface.blocks()),
-                surface.columnsScanned()
-        );
+        ReadSurfaceMapResult loaded = surfaceReader.execute(
+                new ReadSurfaceMapRequest(savePath, center, radius, true, true), progress);
+        SurfaceMapScanResult surface = loaded.surface();
+        SurfaceMaterialAnalysis analysis = surfaceResourceAnalyzer.analyze(
+                surface, surfaceMatch, surfaceMatch.displayName());
 
         return new SurfaceResourceLoad(
                 player,
                 center,
-                diagnostics,
+                loaded.chunkDiagnostics(),
                 surface,
                 analysis
         );
@@ -1678,7 +1636,7 @@ public class ResourceCommand implements Command {
             WorldPosition player,
             WorldPosition center,
             ReadDiagnostics chunkDiagnostics,
-            SurfaceScanResult surface,
+            SurfaceMapScanResult surface,
             SurfaceMaterialAnalysis analysis
     ) {
     }

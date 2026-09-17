@@ -210,7 +210,7 @@ public class MapCommand implements Command {
                 result.mapChunkDiagnostics(),
                 result.chunkDiagnostics(),
                 result.mapRegionDiagnostics(),
-                result.compactSurface(),
+                result.surface(),
                 result.environmentOverlay(),
                 result.geologyOverlay(),
                 result.actualOreMap().orElse(null)

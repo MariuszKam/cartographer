@@ -27,23 +27,24 @@ final class SurfaceResourceAnalyzer {
         if (normalizedName.isBlank()) {
             throw new IllegalArgumentException("Surface resource display name is required");
         }
-        Set<Integer> matchingIds = new java.util.HashSet<>();
+        List<BlockInfo> matchingEntries = new ArrayList<>();
+        List<String> normalizedTokens = requiredTokens.stream().map(this::normalize).toList();
         for (Map.Entry<Integer, BlockInfo> entry : surface.registry().entrySet()) {
             String code = entry.getValue() == null ? "" : normalize(entry.getValue().code());
-            if (!code.isBlank() && requiredTokens.stream()
-                    .map(this::normalize)
-                    .allMatch(code::contains)) {
-                matchingIds.add(entry.getKey());
+            if (!code.isBlank() && normalizedTokens.stream().allMatch(code::contains)) {
+                matchingEntries.add(entry.getValue());
             }
         }
+        matchingEntries.sort(java.util.Comparator.comparingInt(BlockInfo::id));
+        int[] matchingIds = matchingEntries.stream().mapToInt(BlockInfo::id).toArray();
+        String[] matchingCodes = matchingEntries.stream().map(BlockInfo::code).toArray(String[]::new);
 
         PrimitiveMatches matches = new PrimitiveMatches();
         surface.map().forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
-            if (!matchingIds.contains(blockId)) {
-                return;
+            int matchIndex = java.util.Arrays.binarySearch(matchingIds, blockId);
+            if (matchIndex >= 0) {
+                matches.add(x, y, z, matchingCodes[matchIndex]);
             }
-            BlockInfo info = surface.registry().get(blockId);
-            matches.add(x, y, z, info == null ? BlockInfo.unknown(blockId).code() : info.code());
         });
         return new SurfaceResourceAnalysis(
                 normalizedName,

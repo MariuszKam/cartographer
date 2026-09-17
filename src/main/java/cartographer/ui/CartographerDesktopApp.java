@@ -879,7 +879,6 @@ public class CartographerDesktopApp extends Application {
                 new MarkerStore(config.resolve("markers.csv")),
                 new MapRenderer(),
                 new UserMarkerRenderer(),
-                new cartographer.scanner.SurfaceScanner(),
                 new SurfaceMaterialAnalyzer(),
                 new SurfaceResourceOverlayRenderer()
         );

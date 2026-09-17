@@ -25,7 +25,6 @@ import cartographer.save.SaveIndexReader;
 import cartographer.save.SaveInspector;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
-import cartographer.scanner.SurfaceScanner;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
@@ -248,7 +247,6 @@ public class CommandRouter {
                     new ScanCommand(
                             out,
                             reader,
-                            new SurfaceScanner(),
                             new BlockScanner(),
                             subcommand(
                                     args,
@@ -260,7 +258,6 @@ public class CommandRouter {
                     new GeologyCommand(
                             out,
                             reader,
-                            new SurfaceScanner(),
                             new GeologyAnalyzer(),
                             subcommand(
                                     args,

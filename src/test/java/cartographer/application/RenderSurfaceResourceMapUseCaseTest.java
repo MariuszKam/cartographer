@@ -318,8 +318,8 @@ class RenderSurfaceResourceMapUseCaseTest {
 
         RenderSurfaceResourceMapResult result = useCase(reader).execute(request(32, 0, 32));
 
-        assertTrue(result.surface().blocks().stream().anyMatch(block -> block.worldX() < 32));
-        assertTrue(result.surface().blocks().stream().anyMatch(block -> block.worldX() >= 32));
+        assertTrue(hasSurfaceXLessThan(result, 32));
+        assertTrue(hasSurfaceXAtLeast(result, 32));
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
     }
@@ -376,7 +376,7 @@ class RenderSurfaceResourceMapUseCaseTest {
                 },
                 new HomeStore(Path.of("build", "surface-test-home.properties")),
                 new MarkerStore(Path.of("build", "surface-test-markers.csv")),
-                new MapRenderer(), new UserMarkerRenderer(), new SurfaceScanner(),
+                new MapRenderer(), new UserMarkerRenderer(),
                 new SurfaceMaterialAnalyzer(), new SurfaceResourceOverlayRenderer()
         );
     }
@@ -386,6 +386,22 @@ class RenderSurfaceResourceMapUseCaseTest {
                 0, new BlockInfo(0, "air"),
                 1, new BlockInfo(1, "game:fire-clay-blue")
         );
+    }
+
+    private boolean hasSurfaceXLessThan(RenderSurfaceResourceMapResult result, int bound) {
+        int[] found = {0};
+        result.surface().map().forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
+            if (x < bound) found[0]++;
+        });
+        return found[0] != 0;
+    }
+
+    private boolean hasSurfaceXAtLeast(RenderSurfaceResourceMapResult result, int bound) {
+        int[] found = {0};
+        result.surface().map().forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
+            if (x >= bound) found[0]++;
+        });
+        return found[0] != 0;
     }
 
     private ParsedChunk surfaceChunk(ChunkCoordinate coordinate) {

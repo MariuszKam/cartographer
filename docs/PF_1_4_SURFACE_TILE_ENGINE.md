@@ -8,8 +8,12 @@ inventory, test plan, and review gates. Checkpoint B is implemented as the
 test-only characterization/oracle layer and compact tile/layout/result model.
 Checkpoints C, D, E, and F are implemented as the compact fast path, streaming
 fallback session, SurfaceMap render integration, and compact streaming Surface
-Object discovery respectively; all remain pending static review and runtime
-validation. This document contains no runtime evidence.
+Object discovery respectively. F received controller static review PASS at
+`9ed9e643feb2cd08438e15b561e8d9296ca8e1d6`. Checkpoint G removes remaining
+production legacy Surface callers, centralizes non-render Surface reading,
+removes fake legacy result boundaries, and uses registry-derived primitive
+lookups in the compact hot path. G is **IMPLEMENTED — STATIC REVIEW PENDING**.
+Runtime validation remains NOT RUN. This document contains no runtime evidence.
 
 PF-1.2 remains authoritative for bounded decode, completion-driven
 consumption, worker lifecycle, serialized consumer mutation, and backpressure.
@@ -147,6 +151,21 @@ SurfaceBlock adapters. The legacy planner, target, plan, batch scanner, and
 bulk scan result remain independent differential oracles with no migrated
 production callers; final legacy cleanup is G. F is **IMPLEMENTED — STATIC
 REVIEW PENDING**. F runtime evidence is **NOT RUN**.
+
+### Checkpoint G status
+
+G adds the reusable `ReadSurfaceMapUseCase` callback boundary for non-render
+Surface consumers and migrates `scan surface`, surface resource search/render,
+and `geology surface` to compact streaming reads. Render result records now
+carry only `SurfaceMapScanResult`; the compatibility conversion and unused
+SurfaceScanner wiring are removed. Terrain-only renderer calls bypass the
+legacy SurfaceBlock overload. `SurfaceRegistryLookup` precomputes sorted
+primitive registry metadata for compact Surface, soil, and classification
+hot loops; compact material matching uses primitive ID membership and the
+existing primitive clustering graph. Remaining legacy list/scanner classes
+are definitions retained as independent H or differential oracles, with no
+production callers. G is **IMPLEMENTED — STATIC REVIEW PENDING**. Runtime
+validation remains **NOT RUN**.
 
 ### Controller-review repair status
 
