@@ -9,14 +9,19 @@ import java.util.Objects;
 public record SurfaceRainHeightScanResult(
         SurfaceMap surface,
         List<MapChunkCoordinate> fallbackMapChunks,
+        /** Transitional fast-observation count; use {@link #diagnostics()} for final counters. */
         int resolvedColumns,
+        /** Transitional fast-observation count; use {@link #diagnostics()} for final counters. */
         int unresolvedColumns,
-        int liquidUnavailableColumns
+        /** Transitional fast missing-liquid count; use {@link #diagnostics()} for final counters. */
+        int liquidUnavailableColumns,
+        SurfaceRainHeightDiagnosticCounters diagnostics
 ) {
     public SurfaceRainHeightScanResult {
         Objects.requireNonNull(surface, "surface is required");
         fallbackMapChunks = List.copyOf(Objects.requireNonNull(
                 fallbackMapChunks, "fallback mapchunks are required"));
+        Objects.requireNonNull(diagnostics, "diagnostics are required");
         if (resolvedColumns < 0 || unresolvedColumns < 0 || liquidUnavailableColumns < 0) {
             throw new IllegalArgumentException("scan counters cannot be negative");
         }

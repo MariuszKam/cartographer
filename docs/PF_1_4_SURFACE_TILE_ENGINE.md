@@ -118,6 +118,25 @@ the working graph. Registry metadata remains outside the cells and is looked
 up only at the consumer boundary. E is **IMPLEMENTED — STATIC REVIEW
 PENDING**. E runtime evidence is **NOT RUN**.
 
+### Controller-review repair status
+
+The post-C/D/E controller review identified three integration defects: fallback
+promotion discovered during fast scanning was not guaranteed to be visible
+before finalization, `RenderActualOreMapUseCase` retained stale RainHeight type
+names/accessors, and E derived legacy diagnostics from clipped active cells.
+The repair keeps the lifecycle as `finishPlanning`, fast consumption, current
+fallback promotion discovery, fallback consumption, then `finish`. Missing
+server chunks are promoted before fallback planning as well.
+
+Fallback diagnostics now use bounded primitive byte flags per delivered
+horizontal server-chunk column domain. Considered, resolved, and
+liquid-unavailable flags are deduplicated across vertical chunks and include
+columns outside the clipped render circle, while `SurfaceMap` remains clipped.
+Final production counters are taken from this diagnostic state plus healthy
+fast-path targets; a fast missing-liquid event is not retained as final
+diagnostic evidence after fallback promotion. The repair is **STATIC REVIEW
+PENDING** and runtime evidence remains **NOT RUN**.
+
 ## 3. Current retention inventory
 
 The following is the characterization of the current `master` implementation

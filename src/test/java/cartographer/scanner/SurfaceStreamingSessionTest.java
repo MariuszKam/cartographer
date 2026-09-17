@@ -31,6 +31,10 @@ class SurfaceStreamingSessionTest {
                 new MapChunkCoordinate(0, 0), filled(100), new int[0]));
         session.finishPlanning();
         session.acceptFastChunk(airChunk(3));
+        assertEquals(
+                List.of(new MapChunkCoordinate(0, 0)),
+                session.fallbackMapChunks()
+        );
         session.acceptFallbackChunk(fallbackChunk(2, 95, 1));
 
         SurfaceRainHeightScanResult result = session.finish();
@@ -38,6 +42,63 @@ class SurfaceStreamingSessionTest {
         assertTrue(result.fallbackMapChunks().contains(new MapChunkCoordinate(0, 0)));
         assertTrue(result.surface().isResolved(1, 1));
         assertEquals(95, result.surface().surfaceYAt(1, 1));
+    }
+
+    @Test
+    void fastMissingLiquidPromotesBeforeFallbackAndDoesNotLeakFinalDiagnostic() {
+        SurfaceStreamingSession session = session(1);
+        session.acceptMapChunk(new MapChunk(
+                new MapChunkCoordinate(0, 0), filled(1), new int[0]));
+        session.finishPlanning();
+        session.acceptFastChunk(unavailableChunk(0));
+
+        assertTrue(session.fallbackMapChunks().contains(new MapChunkCoordinate(0, 0)));
+        session.acceptFallbackChunk(chunkFilled(0, 1, 1));
+
+        SurfaceRainHeightScanResult result = session.finish();
+
+        assertEquals(0, result.diagnostics().liquidUnavailableColumns());
+    }
+
+    @Test
+    void missingRequestedServerChunkPromotesBeforeFallbackScheduling() {
+        SurfaceStreamingSession session = session(1);
+        session.acceptMapChunk(new MapChunk(
+                new MapChunkCoordinate(0, 0), filled(1), new int[0]));
+        session.finishPlanning();
+
+        assertTrue(session.fallbackMapChunks().contains(new MapChunkCoordinate(0, 0)));
+    }
+
+    @Test
+    void fallbackDiagnosticsIncludeColumnsOutsidePartialCircleAndDeduplicateVerticalChunks() {
+        SurfaceStreamingSession session = SurfaceStreamingSession.begin(
+                WORLD, 1, 1, 1,
+                List.of(new MapChunkCoordinate(0, 0)), REGISTRY, true, true);
+        session.finishPlanning();
+        session.acceptFallbackChunk(chunkFilled(0, 1, 1));
+        session.acceptFallbackChunk(chunkFilled(1, 33, 1));
+
+        SurfaceRainHeightScanResult result = session.finish();
+
+        assertEquals(ChunkCoordinate.SIZE_BLOCKS * ChunkCoordinate.SIZE_BLOCKS,
+                result.diagnostics().columnsScanned());
+        assertEquals(0, result.diagnostics().emptyColumns());
+    }
+
+    @Test
+    void repeatedMissingLiquidVerticalChunksCountEachColumnOnce() {
+        SurfaceStreamingSession session = SurfaceStreamingSession.begin(
+                WORLD, 1, 1, 1,
+                List.of(new MapChunkCoordinate(0, 0)), REGISTRY, true, true);
+        session.finishPlanning();
+        session.acceptFallbackChunk(unavailableChunk(0));
+        session.acceptFallbackChunk(unavailableChunk(1));
+
+        SurfaceRainHeightScanResult result = session.finish();
+
+        assertEquals(ChunkCoordinate.SIZE_BLOCKS * ChunkCoordinate.SIZE_BLOCKS,
+                result.diagnostics().liquidUnavailableColumns());
     }
 
     @Test
@@ -111,6 +172,19 @@ class SurfaceStreamingSessionTest {
                 new ChunkCoordinate(0, sectionY, 0),
                 sectionY * ChunkCoordinate.SIZE_BLOCKS,
                 32, 32, 32, blocks
+        );
+    }
+
+    private ParsedChunk unavailableChunk(int sectionY) {
+        return new ParsedChunk(
+                new ChunkCoordinate(0, sectionY, 0),
+                sectionY * ChunkCoordinate.SIZE_BLOCKS,
+                32, 32, 32,
+                new int[32 * 32 * 32],
+                null,
+                0,
+                false,
+                "liquid layer missing"
         );
     }
 

@@ -30,6 +30,7 @@ import cartographer.scanner.SurfaceMap;
 import cartographer.scanner.SurfaceMapScanResult;
 import cartographer.scanner.SurfaceRainHeightPlan;
 import cartographer.scanner.SurfaceRainHeightScanResult;
+import cartographer.scanner.SurfaceRainHeightDiagnosticCounters;
 import cartographer.scanner.SurfaceStreamingSession;
 import cartographer.scanner.SurfaceScanResult;
 
@@ -199,9 +200,7 @@ public class RenderSurfaceResourceMapUseCase {
         }
         SurfaceRainHeightScanResult compact = surfaceSession.finish();
         SurfaceMap surfaceMap = compact.surface();
-        int resolvedColumns = countResolved(surfaceMap);
-        int consideredColumns = countConsidered(surfaceMap);
-        int liquidUnavailableColumns = countLiquidUnavailable(surfaceMap);
+        SurfaceRainHeightDiagnosticCounters diagnostics = compact.diagnostics();
         int chunksScanned = Math.addExact(
                 fastChunkStats.parsedChunks(),
                 fallbackChunkStats.parsedChunks()
@@ -210,9 +209,9 @@ public class RenderSurfaceResourceMapUseCase {
                 surfaceMap,
                 registry,
                 chunksScanned,
-                consideredColumns,
-                Math.max(0, consideredColumns - resolvedColumns),
-                Math.max(liquidUnavailableColumns, compact.liquidUnavailableColumns())
+                diagnostics.columnsScanned(),
+                diagnostics.emptyColumns(),
+                diagnostics.liquidUnavailableColumns()
         );
         SurfaceRenderAnalysis analysis;
         if (request.material().isPresent()) {
@@ -275,28 +274,6 @@ public class RenderSurfaceResourceMapUseCase {
                 chunkDiagnostics,
                 userMarkersDrawn
         );
-    }
-
-    private int countResolved(SurfaceMap map) {
-        int[] count = {0};
-        map.forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> count[0]++);
-        return count[0];
-    }
-
-    private int countConsidered(SurfaceMap map) {
-        int[] count = {0};
-        map.forEachCell((x, z, state, y, blockId, liquidId, surfaceClass) -> {
-            if ((state & cartographer.scanner.SurfaceTile.CONSIDERED) != 0) count[0]++;
-        });
-        return count[0];
-    }
-
-    private int countLiquidUnavailable(SurfaceMap map) {
-        int[] count = {0};
-        map.forEachCell((x, z, state, y, blockId, liquidId, surfaceClass) -> {
-            if ((state & cartographer.scanner.SurfaceTile.LIQUID_UNAVAILABLE) != 0) count[0]++;
-        });
-        return count[0];
     }
 
     private HomeState absoluteHome(

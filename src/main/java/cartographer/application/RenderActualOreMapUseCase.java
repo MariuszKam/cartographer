@@ -33,14 +33,14 @@ import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockMatchSpec;
 import cartographer.scanner.MultiActualBlockMapScanner;
-import cartographer.scanner.RainHeightSurfacePlan;
-import cartographer.scanner.RainHeightSurfaceScanResult;
+import cartographer.scanner.SurfaceRainHeightPlan;
+import cartographer.scanner.SurfaceRainHeightScanResult;
+import cartographer.scanner.SurfaceRainHeightDiagnosticCounters;
 import cartographer.scanner.SurfaceFallbackChunkPlanner;
 import cartographer.scanner.SurfaceMap;
 import cartographer.scanner.SurfaceMapScanResult;
 import cartographer.scanner.SurfaceScanResult;
 import cartographer.scanner.SurfaceStreamingSession;
-import cartographer.scanner.SurfaceTile;
 import cartographer.scanner.SurfaceTileAccumulator;
 import cartographer.scanner.SurfaceTileLayout;
 
@@ -400,7 +400,7 @@ public class RenderActualOreMapUseCase {
             ReadDiagnostics chunkDiagnostics,
             ProgressReporter progress
     ) {
-        RainHeightSurfacePlan rainPlan = surfaceSession.finishPlanning();
+        SurfaceRainHeightPlan rainPlan = surfaceSession.finishPlanning();
         ChunkStreamStats fastChunkStats = new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         if (!rainPlan.chunkPositions().isEmpty()) {
             fastChunkStats = reader.forEachChunkByPositionAdaptive(
@@ -426,19 +426,20 @@ public class RenderActualOreMapUseCase {
                     progress
             );
         }
-        RainHeightSurfaceScanResult result = surfaceSession.finish();
+        SurfaceRainHeightScanResult result = surfaceSession.finish();
         int chunksScanned = Math.addExact(
                 fastChunkStats.parsedChunks(),
                 fallbackChunkStats.parsedChunks()
         );
-        SurfaceMap map = result.map();
+        SurfaceMap map = result.surface();
+        SurfaceRainHeightDiagnosticCounters diagnostics = result.diagnostics();
         return new SurfaceMapScanResult(
                 map,
                 registry,
                 chunksScanned,
-                countConsidered(map),
-                countEmpty(map),
-                countLiquidUnavailable(map)
+                diagnostics.columnsScanned(),
+                diagnostics.emptyColumns(),
+                diagnostics.liquidUnavailableColumns()
         );
     }
 
@@ -464,37 +465,6 @@ public class RenderActualOreMapUseCase {
                 surface.emptyColumns(),
                 surface.liquidUnavailableColumns()
         );
-    }
-
-    private int countConsidered(SurfaceMap map) {
-        final int[] count = {0};
-        map.forEachCell((x, z, state, y, blockId, liquidBlockId, surfaceClass) -> {
-            if ((state & SurfaceTile.CONSIDERED) != 0) {
-                count[0] = Math.addExact(count[0], 1);
-            }
-        });
-        return count[0];
-    }
-
-    private int countEmpty(SurfaceMap map) {
-        final int[] count = {0};
-        map.forEachCell((x, z, state, y, blockId, liquidBlockId, surfaceClass) -> {
-            if ((state & SurfaceTile.ACTIVE) != 0
-                    && (state & SurfaceTile.RESOLVED) == 0) {
-                count[0] = Math.addExact(count[0], 1);
-            }
-        });
-        return count[0];
-    }
-
-    private int countLiquidUnavailable(SurfaceMap map) {
-        final int[] count = {0};
-        map.forEachCell((x, z, state, y, blockId, liquidBlockId, surfaceClass) -> {
-            if ((state & SurfaceTile.LIQUID_UNAVAILABLE) != 0) {
-                count[0] = Math.addExact(count[0], 1);
-            }
-        });
-        return count[0];
     }
 
     private List<ServerMapRegion> mapRegions(

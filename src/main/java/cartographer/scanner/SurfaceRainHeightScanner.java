@@ -40,6 +40,8 @@ public final class SurfaceRainHeightScanner {
         private final SurfaceClassifier classifier = new SurfaceClassifier();
         private final Set<ChunkPosition> delivered = new HashSet<>();
         private final Set<ChunkPosition> deliveredFallback = new HashSet<>();
+        private final SurfaceFallbackDiagnosticState fallbackDiagnostics =
+                new SurfaceFallbackDiagnosticState();
         private final boolean[] promoted;
         private boolean finished;
         private int resolved;
@@ -149,6 +151,7 @@ public final class SurfaceRainHeightScanner {
             if (!deliveredFallback.add(position)) {
                 return;
             }
+            fallbackDiagnostics.considerChunk(chunk);
             int tileIndex;
             try {
                 tileIndex = plan.layout().tileIndex(
@@ -159,20 +162,15 @@ public final class SurfaceRainHeightScanner {
             if (!promoted[tileIndex]) {
                 return;
             }
-            int tileX = plan.layout().tileXAt(tileIndex);
-            int tileZ = plan.layout().tileZAt(tileIndex);
-            int width = plan.layout().tileWidth(tileX);
-            int height = plan.layout().tileHeight(tileZ);
-            for (int localZ = 0; localZ < height; localZ++) {
-                for (int localX = 0; localX < width; localX++) {
-                    int worldX = plan.layout().worldXForTileLocal(tileX, localX);
-                    int worldZ = plan.layout().worldZForTileLocal(tileZ, localZ);
-                    if (!plan.layout().isActive(worldX, worldZ)) {
-                        continue;
-                    }
-                    accumulator.consider(worldX, worldZ);
-                    if (!chunk.liquidLayerAvailable()) {
-                        if (accumulator.markLiquidUnavailable(worldX, worldZ)) {
+            for (int localZ = 0; localZ < chunk.sizeZ(); localZ++) {
+                for (int localX = 0; localX < chunk.sizeX(); localX++) {
+                    int worldX = chunk.worldX(localX);
+                    int worldZ = chunk.worldZ(localZ);
+                    boolean active = plan.layout().isActive(worldX, worldZ);
+                    if (active) {
+                        accumulator.consider(worldX, worldZ);
+                        if (!chunk.liquidLayerAvailable()
+                                && accumulator.markLiquidUnavailable(worldX, worldZ)) {
                             liquidUnavailable++;
                         }
                     }
@@ -194,6 +192,10 @@ public final class SurfaceRainHeightScanner {
                                 || ignoreFoliage && blockInfo.isFoliage())) {
                             continue;
                         }
+                        fallbackDiagnostics.markResolved(chunk, localX, localZ);
+                        if (!active) {
+                            break;
+                        }
                         accumulator.recordSurface(
                                 worldX,
                                 worldZ,
@@ -206,6 +208,45 @@ public final class SurfaceRainHeightScanner {
                     }
                 }
             }
+        }
+
+        /** Promotes targets whose requested server chunk was not delivered. */
+        public void promoteUndeliveredTargets() {
+            ensureMutable();
+            for (ChunkPosition position : plan.chunkPositions()) {
+                if (delivered.contains(position)) {
+                    continue;
+                }
+                long[] ordinals = plan.cellOrdinalsFor(position);
+                if (ordinals == null) {
+                    continue;
+                }
+                for (long ordinal : ordinals) {
+                    promote((int) (ordinal >>> 32));
+                }
+            }
+        }
+
+        public int healthyFastColumns() {
+            int count = 0;
+            for (int tileIndex = 0; tileIndex < promoted.length; tileIndex++) {
+                if (promoted[tileIndex]) {
+                    continue;
+                }
+                int tileX = plan.layout().tileXAt(tileIndex);
+                int tileZ = plan.layout().tileZAt(tileIndex);
+                int width = plan.layout().tileWidth(tileX);
+                int height = plan.layout().tileHeight(tileZ);
+                for (int localZ = 0; localZ < height; localZ++) {
+                    for (int localX = 0; localX < width; localX++) {
+                        int cell = plan.layout().cellIndex(tileX, tileZ, localX, localZ);
+                        if (plan.hasCandidate(tileIndex, cell)) {
+                            count = Math.addExact(count, 1);
+                        }
+                    }
+                }
+            }
+            return count;
         }
 
         public SurfaceRainHeightScanResult finish() {
@@ -222,8 +263,15 @@ public final class SurfaceRainHeightScanner {
             fallback.sort(java.util.Comparator.comparingInt(
                             cartographer.model.MapChunkCoordinate::z)
                     .thenComparingInt(cartographer.model.MapChunkCoordinate::x));
+            SurfaceFallbackDiagnosticState.Summary fallbackSummary = fallbackDiagnostics.summary();
+            int healthyFast = healthyFastColumns();
             return new SurfaceRainHeightScanResult(
-                    accumulator.finish(), fallback, resolved, unresolved, liquidUnavailable);
+                    accumulator.finish(), fallback, resolved, unresolved, liquidUnavailable,
+                    new SurfaceRainHeightDiagnosticCounters(
+                            Math.addExact(healthyFast, fallbackSummary.consideredColumns()),
+                            fallbackSummary.emptyColumns(),
+                            fallbackSummary.liquidUnavailableColumns()
+                    ));
         }
 
         public java.util.List<MapChunkCoordinate> fallbackMapChunks() {

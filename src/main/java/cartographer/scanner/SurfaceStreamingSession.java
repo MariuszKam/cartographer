@@ -91,6 +91,7 @@ public final class SurfaceStreamingSession {
 
     public java.util.List<MapChunkCoordinate> fallbackMapChunks() {
         ensurePlanned();
+        scanner.promoteUndeliveredTargets();
         return scanner.fallbackMapChunks();
     }
 
