@@ -28,6 +28,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DiscoverObservedSurfaceResourcesUseCaseTest {
     @Test
@@ -48,6 +49,23 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
                 result.observedResources().observedQualifiedResourceKeys());
     }
 
+    @Test
+    void zeroSelectiveCallbacksMakePlannedTargetsUnavailable() {
+        FakeReader reader = new FakeReader();
+        reader.skipSelectiveCallbacks = true;
+        DiscoverObservedSurfaceResourcesUseCase useCase =
+                new DiscoverObservedSurfaceResourcesUseCase(reader, metadataReader());
+
+        var result = useCase.execute(new DiscoverObservedSurfaceResourcesRequest(
+                Path.of("world.vcdbs"), 1,
+                java.util.Optional.of(new WorldPosition(16, 0, 16))
+        ));
+
+        assertEquals(1, reader.selectiveScanCalls);
+        assertTrue(result.scan().unavailablePositions() > 0);
+        assertEquals(0, result.scan().observedTargets());
+    }
+
     private WorldMetadataReader metadataReader() {
         return new WorldMetadataReader(null, null) {
             @Override
@@ -60,6 +78,7 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
     private static final class FakeReader extends VcdbsReader {
         private int selectiveScanCalls;
         private int[] lastWantedIds = new int[0];
+        private boolean skipSelectiveCallbacks;
 
         private FakeReader() {
             super(new PlayerDataParser(), new MapChunkParser(),
@@ -104,6 +123,10 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
         ) {
             selectiveScanCalls++;
             lastWantedIds = Arrays.copyOf(wantedBlockIds, wantedBlockIds.length);
+            if (skipSelectiveCallbacks) {
+                return new SelectiveChunkStreamStats(
+                        positions.size(), 0, 0, 0, 0, 0, 0, 0);
+            }
             ParsedChunk chunk = chunkWithBlock(16, 6, 1);
             consumer.accept(SelectiveChunkVisit.decoded(
                     new ChunkPosition(0, 0, 0, 0), chunk
