@@ -63,7 +63,7 @@ public final class SurfaceRainHeightScanner {
             for (int tileIndex = 0; tileIndex < promoted.length; tileIndex++) {
                 if (plan.isPromoted(tileIndex)) {
                     promoted[tileIndex] = true;
-                    accumulator.clearResolvedForTile(
+                    accumulator.resetForFallbackTile(
                             plan.layout().tileXAt(tileIndex),
                             plan.layout().tileZAt(tileIndex)
                     );
@@ -290,7 +290,7 @@ public final class SurfaceRainHeightScanner {
         private void promote(int tileIndex) {
             if (!promoted[tileIndex]) {
                 promoted[tileIndex] = true;
-                accumulator.clearResolvedForTile(
+                accumulator.resetForFallbackTile(
                         plan.layout().tileXAt(tileIndex),
                         plan.layout().tileZAt(tileIndex)
                 );

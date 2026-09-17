@@ -515,7 +515,7 @@ public class MapCommand implements Command {
     }
 
     private void printTopUnknownSurfaceBlockCodes(
-            SurfaceScanResult result
+            SurfaceMapScanResult result
     ) {
         if (result.unknownSurfaceBlocks()
                 <= 0) {

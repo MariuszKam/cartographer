@@ -58,6 +58,25 @@ class SurfaceStreamingSessionTest {
         SurfaceRainHeightScanResult result = session.finish();
 
         assertEquals(0, result.diagnostics().liquidUnavailableColumns());
+        assertFalse(result.surface().isLiquidUnavailable(1, 1));
+        assertTrue(result.surface().isConsidered(1, 1));
+        assertTrue(result.surface().isResolved(1, 1));
+    }
+
+    @Test
+    void fallbackMissingLiquidRemainsVisibleInFinalCompactState() {
+        SurfaceStreamingSession session = SurfaceStreamingSession.begin(
+                WORLD, 1, 1, 1,
+                List.of(new MapChunkCoordinate(0, 0)), REGISTRY, true, true);
+        session.finishPlanning();
+        session.acceptFallbackChunk(unavailableChunk(0));
+
+        SurfaceRainHeightScanResult result = session.finish();
+
+        assertTrue(result.surface().isConsidered(1, 1));
+        assertTrue(result.surface().isLiquidUnavailable(1, 1));
+        assertEquals(ChunkCoordinate.SIZE_BLOCKS * ChunkCoordinate.SIZE_BLOCKS,
+                result.diagnostics().liquidUnavailableColumns());
     }
 
     @Test

@@ -113,6 +113,27 @@ class SurfaceTileAccumulatorTest {
     }
 
     @Test
+    void fallbackResetPreservesActiveButClearsTransientFastStateAndPayload() {
+        SurfaceTileAccumulator accumulator = new SurfaceTileAccumulator(layout);
+        accumulator.recordSurface(16, 16, 42, 7, 8, SurfaceClass.ROCK);
+        accumulator.markLiquidUnavailable(16, 16);
+
+        accumulator.resetForFallbackTile(0, 0);
+
+        accumulator.finish().forEachCell((x, z, state, y, blockId, liquidId, surfaceClass) -> {
+            if (x == 16 && z == 16) {
+                assertTrue((state & SurfaceTile.ACTIVE) != 0);
+                assertFalse((state & SurfaceTile.CONSIDERED) != 0);
+                assertFalse((state & SurfaceTile.RESOLVED) != 0);
+                assertFalse((state & SurfaceTile.LIQUID_UNAVAILABLE) != 0);
+                assertEquals(0, y);
+                assertEquals(0, blockId);
+                assertEquals(0, liquidId);
+            }
+        });
+    }
+
+    @Test
     void primitiveTraversalIsDeterministicAndDoesNotRequireSurfaceBlocks() {
         SurfaceTileAccumulator accumulator = new SurfaceTileAccumulator(layout);
         accumulator.recordSurface(16, 16, 42, 7, 8, SurfaceClass.WATER);

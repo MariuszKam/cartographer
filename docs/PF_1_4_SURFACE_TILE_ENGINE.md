@@ -137,6 +137,12 @@ fast-path targets; a fast missing-liquid event is not retained as final
 diagnostic evidence after fallback promotion. The repair is **STATIC REVIEW
 PENDING** and runtime evidence remains **NOT RUN**.
 
+A subsequent compile/static repair also restores the compact CLI diagnostic
+type boundary and makes promotion reset every transient fast cell bit and
+payload while preserving `ACTIVE`. Fallback then repopulates authoritative
+considered, resolved, and liquid-unavailable state. This remains a repair
+under review; it does not advance PF-1.4 to validation or start checkpoint F.
+
 ## 3. Current retention inventory
 
 The following is the characterization of the current `master` implementation

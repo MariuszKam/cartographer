@@ -8,6 +8,7 @@ import cartographer.model.ParsedChunk;
 import cartographer.model.WorldMetadata;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.Objects;
 
 /**

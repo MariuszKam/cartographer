@@ -2,6 +2,7 @@ package cartographer.scanner;
 
 import cartographer.model.SurfaceClass;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -115,12 +116,17 @@ public final class SurfaceTileAccumulator {
         return new SurfaceMap(layout, immutableTiles);
     }
 
-    void clearResolvedForTile(int tileX, int tileZ) {
+    /** Resets all transient fast-path state before fallback owns this tile. */
+    void resetForFallbackTile(int tileX, int tileZ) {
         ensureMutable();
         TileState tile = tiles[layout.tileIndex(tileX, tileZ)];
         for (int index = 0; index < tile.state.length; index++) {
-            tile.state[index] &= ~SurfaceTile.RESOLVED;
+            tile.state[index] &= SurfaceTile.ACTIVE;
         }
+        Arrays.fill(tile.surfaceY, 0);
+        Arrays.fill(tile.blockIds, 0);
+        Arrays.fill(tile.liquidBlockIds, 0);
+        Arrays.fill(tile.surfaceClasses, (byte) 0);
     }
 
     private void initializeActiveCells(int tileIndex, int tileX, int tileZ) {
