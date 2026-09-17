@@ -11,6 +11,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * Legacy AT_Y scanner retained solely as an independent semantic oracle for
+ * characterization and differential tests. Production ROCK rendering uses
+ * {@link RockStreamingSession}.
+ */
 public final class RockAtYScanner {
     public RockMap scan(
             Collection<ParsedChunk> chunks,

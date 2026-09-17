@@ -156,8 +156,11 @@ public final class RockMap {
         return Optional.of(materialize(index, worldX, worldZ));
     }
 
-    /** Transitional adapter: materializes samples on demand and never caches them. */
-    public List<RockColumnSample> columns() {
+    /**
+     * Test-oracle adapter: materializes samples on demand and never caches them.
+     * Production consumers must use compact indexed access instead.
+     */
+    List<RockColumnSample> columns() {
         List<RockColumnSample> result = new ArrayList<>();
         for (int row = 0; row < geometry.rowCount(); row++) {
             int z = geometry.worldZForRow(row);

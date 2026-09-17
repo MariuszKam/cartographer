@@ -1,7 +1,7 @@
-# PF-1.3 Streaming ROCK Engine — Checkpoint A Architecture Contract
+# PF-1.3 Streaming ROCK Engine — Architecture Contract and Implementation Plan
 
-**Status:** Architecture contract only. PF-1.3 is not implemented or
-validated. This checkpoint intentionally changes documentation only.
+**Status:** Implementation checkpoints complete through G. PF-1.3 runtime
+validation is pending; PF-1.3 is not validated or DONE.
 
 ## 1. Status and scope
 
@@ -9,9 +9,8 @@ PF-1.3 removes the ROCK operation's two retention points: input retention in
 the `List<ParsedChunk>` assembled by `RenderRockMapUseCase`, and
 output/object retention in the `List<RockColumnSample>` retained by `RockMap`.
 It defines the contracts for a
-future implementation; it does not change Java production code, tests, Gradle,
-SQLite access, decoding, parser behavior, save access, or PF-1.2 lifecycle
-behavior.
+implementation checkpoints; it does not change Gradle, SQLite access, decoding,
+parser behavior, save access, or PF-1.2 lifecycle behavior.
 
 The target is a streaming domain consumer:
 
@@ -45,14 +44,12 @@ silently treat PF-1.2's static review as runtime evidence.
 
 ## 3. Current architecture and problem statement
 
-The current `RenderRockMapUseCase` plans positions, calls
-`VcdbsReader.forEachChunkByPositionMatchingBlockIdsWithCoverage`, stores every
-decoded visit in `List<ParsedChunk>`, stores available positions separately,
-constructs `RockChunkCoverage`, and only then invokes a scanner. `RockColumnScanner`
-indexes chunks and coverage in boxed maps and creates one `RockColumnSample` per
-cell. `RockAtYScanner` indexes decoded chunks in a boxed map and creates the same
-object list. `RockMap` copies and retains that list. `RockMapRenderer` walks the
-objects, builds a boxed rock-count map, and writes a square `BufferedImage`.
+Before Checkpoints E/F, `RenderRockMapUseCase` retained decoded visits and
+invoked a legacy scanner; `RockMapRenderer` walked object samples and built a
+boxed rock-count map. The implemented path now feeds visits directly to
+`RockStreamingSession`, finalizes a compact `RockMap`, and renders primitive
+indexed cells. The legacy scanners and `RockChunkCoverage` remain only as
+independent test-oracle support until post-validation cleanup.
 
 This is not the desired memory model. Decoded input scales with the number and
 size of chunks, while the object result scales with approximately `PI*r^2`
@@ -68,11 +65,11 @@ The following inventory was established by searching `src/main` and
 | `RenderRockMapUseCase` | `RockCommand`, `CommandRouter`, `CartographerDesktopApp`, `MacroBaselineRunner` | Create one session before the reader call; feed visits directly; finish before rendering. |
 | `RenderRockMapResult` | `RockCommand`, `ResultInspectorPane`, macro runner and application tests | Preserve result-level counts/diagnostics/catalog semantics; map becomes compact. |
 | `RockMap` | `RockMapRenderer`, `AnalyzeProspectingAreaUseCase`, scanner tests, renderer tests | Replace list storage with immutable primitive cells and geometry; expose scalar access/iteration without bulk materialization. |
-| `RockMap.columns()` | `RockMapRenderer`, `AnalyzeProspectingAreaUseCase`, `RockColumnScannerTest`, `RockAtYScannerTest`, `RockMapRendererTest` | Renderer migration removes its production use in F; `AnalyzeProspectingAreaUseCase` migrates to compact aggregates in E. It cannot be restricted to test-only or removed until both production consumers have migrated. |
+| `RockMap.columns()` | ROCK characterization/oracle tests and compatibility fixtures | Production use was removed in E/F. It is now package-private and retained only as an on-demand test-oracle adapter; it is not canonical storage. |
 | `RockColumnSample` | Both scanners, renderer, prospecting geology aggregation, scanner/renderer tests | Retain as a single-cell compatibility/value facade if useful; never as production map storage. |
-| `RockColumnScanner` | Only `RenderRockMapUseCase` and its tests | Replace with streaming UPPER session; removable after differential tests and integration migration. |
-| `RockAtYScanner` | Only `RenderRockMapUseCase` and its tests | Replace with streaming AT_Y session; removable after differential tests and integration migration. |
-| `RockChunkCoverage` | Both scanners and scanner tests | Replace runtime use with primitive coverage state; retain temporarily as a test oracle/facade only if it does not reintroduce the production path. |
+| `RockColumnScanner` | Differential/characterization tests only | Retain unchanged as the independent UPPER semantic oracle through runtime validation; remove only in a later cleanup after reviewer approval. |
+| `RockAtYScanner` | Differential/characterization tests only | Retain unchanged as the independent AT_Y semantic oracle through runtime validation; remove only in a later cleanup after reviewer approval. |
+| `RockChunkCoverage` | Legacy scanners and characterization tests only | Retain unchanged for the legacy oracle; primitive streaming coverage remains the production path. |
 | `RockMapRenderer` | CLI, desktop UI, prospecting wiring, renderer tests | Decode packed cells directly and use finalization counts/ordinals. |
 | `RockCatalog` | Use case, CLI, both scanners, catalog tests | Keep domain catalog; add deterministic ordinal lookup for the packed representation. |
 | selective coverage reader APIs | `RenderRockMapUseCase`, reader tests | Keep `SelectiveChunkVisit` status and diagnostics contract; session consumes visits one at a time. |
@@ -370,7 +367,7 @@ The target API should provide primitive-friendly operations such as
 `cellAt(worldX,worldZ)`, `stateAt`, `rockOrdinalAt`, `rockYAt`, row-span access,
 and aggregate counts. `sampleAt(worldX,worldZ)` may materialize one
 `RockColumnSample` on demand for tests/UI compatibility. A bulk `columns()`
-adapter, if temporarily retained, must be marked compatibility/test-only and
+adapter, if temporarily retained, is package-private compatibility/test-only and
 must not be called by the production renderer or production prospecting
 analysis after their assigned migrations. It must not be a silent fallback to
 the old unbounded implementation. In particular, Checkpoint E migrates
@@ -378,8 +375,9 @@ the old unbounded implementation. In particular, Checkpoint E migrates
 aggregates: observed/no-rock/unavailable counts and the observed rock identity
 set or ordinal counts exposed by `RockMap`. It must not materialize or iterate
 `RockColumnSample` objects merely to reconstruct those values. `columns()`
-cannot be removed or restricted to test-only before that production migration
-and the renderer migration are complete.
+was restricted to test-oracle visibility after those production migrations
+completed; it remains only until the independent legacy oracle is retired after
+runtime review.
 
 `RenderRockMapResult` can continue to carry the map, render result, catalog,
 stats, diagnostics, center, and Y bounds while migration is staged. The
@@ -508,18 +506,16 @@ finish/accept lifecycle violations.
 
 ## 23. Legacy cleanup plan
 
-After B through F are reviewed, `RockColumnScanner` and `RockAtYScanner` can
-be removed from production if the differential oracle and integration tests
-cover their semantics. `RockChunkCoverage` can be removed from production
-when primitive coverage is integrated; a small test-only constructor/facade
-may survive temporarily if it does not retain decoded chunks in runtime code.
+After B through F are reviewed, `RockColumnScanner` and `RockAtYScanner` remain
+in production source solely as independent semantic oracles until H runtime
+review is complete; removing or moving them earlier would weaken differential
+evidence. `RockChunkCoverage` follows the same rule and remains only for the
+legacy scanner oracle. All three have zero production callers.
 `RockColumnSample` may survive as a single-cell compatibility facade, but its
-list-based production role must disappear. `RockMap.columns()` must not remain
-an unbounded production API after Checkpoint E migrates
-`AnalyzeProspectingAreaUseCase` to compact aggregates and Checkpoint F removes
-the renderer's bulk use; until then it is a temporary production compatibility
-surface, not permission to retain both representations. No legacy scanner may
-be selected as a hidden fallback for large radii or errors.
+list-based production role must disappear. `RockMap.columns()` is now a
+package-private test-oracle adapter with zero production callers; it is not
+permission to retain both representations. No legacy scanner may be selected
+as a hidden fallback for large radii or errors.
 
 ## 24. Remaining PF-1.3 checkpoint plan
 
@@ -534,7 +530,7 @@ G — legacy cleanup after reviewer gates
 H — runtime validation, profiling, and performance evidence
 ```
 
-No B-or-later work is included in this checkpoint.
+No H runtime validation or performance evidence is included in this checkpoint.
 
 ## 25. Benchmark and validation matrix
 
@@ -598,7 +594,7 @@ ROCK analysis becomes compact.
 
 ## 30. Definition of DONE and reviewer gates
 
-PF-1.3 is not DONE at Checkpoint A. Later completion requires: all planned
+PF-1.3 is not DONE at Checkpoint G. Later completion requires: all planned
 tests and differential/permutation tests green; no production whole-operation
 decoded or object-column retention; UPPER and AT_Y streaming integration;
 primitive renderer migration; legacy cleanup review; R1024 semantic/image
