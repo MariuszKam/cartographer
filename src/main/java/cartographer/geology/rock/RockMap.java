@@ -128,6 +128,19 @@ public final class RockMap {
     public long unavailableCount() { return unavailableCount; }
     public List<RockIdentity> ordinalTable() { return ordinalTable; }
     public long[] countsByOrdinal() { return countsByOrdinal.clone(); }
+    /** Returns whether the indexed cell was populated by the compatibility builder. */
+    public boolean isPopulatedAtIndex(int index) {
+        checkCellIndex(index);
+        return present(index);
+    }
+    /** Reads a cell state without exposing the packed backing storage. */
+    public RockColumnState stateAtIndex(int index) {
+        return layout.state(packedAtIndex(index));
+    }
+    /** Reads the observed ordinal without exposing the packed backing storage. */
+    public int rockOrdinalAtIndex(int index) {
+        return layout.rockOrdinal(packedAtIndex(index));
+    }
     public RockColumnState stateAt(int worldX, int worldZ) { return layout.state(packedAt(worldX, worldZ)); }
     public int rockOrdinalAt(int worldX, int worldZ) { return layout.rockOrdinal(packedAt(worldX, worldZ)); }
     public OptionalInt rockYAt(int worldX, int worldZ) {
@@ -162,6 +175,16 @@ public final class RockMap {
     }
 
     private boolean present(int index) { return (presentWords[index >>> 6] & (1L << (index & 63))) != 0; }
+    private long packedAtIndex(int index) {
+        checkCellIndex(index);
+        if (!present(index)) throw new IllegalStateException("ROCK cell has not been populated");
+        return layout.intBacked() ? intCells[index] & 0xFFFF_FFFFL : longCells[index];
+    }
+    private void checkCellIndex(int index) {
+        if (index < 0 || (long) index >= geometry.cellCount()) {
+            throw new IndexOutOfBoundsException("invalid rock circle cell index: " + index);
+        }
+    }
     private long packedAt(int worldX, int worldZ) {
         if (!geometry.contains(worldX, worldZ)) throw new IllegalArgumentException("coordinate is outside the rock circle");
         int index = geometry.cellIndex(worldX, worldZ);
