@@ -759,6 +759,18 @@ Before marking a milestone DONE:
 4. PNG output must be visually inspected when rendering is involved.
 5. No unrelated files should be changed in the implementation commit.
 
+## Test authoring rules
+
+- Concurrency tests must synchronize on explicit lifecycle events using mechanisms such as `CountDownLatch`, barriers, semaphores, futures, or callback handshakes. Do not infer correctness from scheduler timing.
+- Do not use `Thread.sleep(...)` or `TimeUnit.*.sleep(...)` to wait for another thread to "probably" reach a state. Real passage of time is appropriate only when time itself is the behavior under test.
+- Timed waits may prevent CI from hanging indefinitely, but they are deadlock guards only; they must not encode a finish-within-a-duration correctness assumption. Increasing a timeout alone is not a flaky-test fix.
+- Before calling `thread.interrupt()`, deterministically establish the intended blocking or lifecycle phase. Do not use `Thread.State` polling as synchronization.
+- Treat worker completion and callback/consumer completion as distinct phases unless the production contract explicitly guarantees their equivalence. Synchronize on the phase the assertion concerns.
+- Make concurrency-test cleanup failure-safe: release test-controlled blockers on failure paths, close owned resources, verify test-owned threads terminate, and do not leave live non-daemon threads behind.
+- Preserve semantic coverage. Do not remove assertions, disable tests, weaken ordering or concurrency contracts, or ignore missing callbacks or leaked threads to make a test pass.
+
+For CI evidence handling, flaky-test diagnosis, repeated validation, and review gates, follow `docs/CHATGPT_CONTROLLER_WORKFLOW.md`.
+
 ---
 
 # Current next step
