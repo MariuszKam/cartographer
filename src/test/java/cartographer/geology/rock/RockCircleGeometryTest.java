@@ -51,4 +51,10 @@ class RockCircleGeometryTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new RockCircleGeometry(Integer.MAX_VALUE, 0, 1));
     }
+
+    @Test
+    void rejectsCircleCellCapacityBeforeRowAllocation() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new RockCircleGeometry(0, 0, 32_768));
+    }
 }

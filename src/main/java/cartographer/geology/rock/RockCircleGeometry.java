@@ -18,7 +18,10 @@ public final class RockCircleGeometry {
         if (radius <= 0) {
             throw new IllegalArgumentException("radius must be positive");
         }
-        long rowCountLong = (long) radius * 2L + 1L;
+        long rowCountLong = Math.addExact(
+                Math.multiplyExact((long) radius, 2L),
+                1L
+        );
         if (rowCountLong > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("rock circle has too many rows");
         }
@@ -37,11 +40,11 @@ public final class RockCircleGeometry {
         this.centerZ = centerZ;
         this.radius = radius;
         int rowCount = Math.toIntExact(rowCountLong);
+        long radiusSquared = Math.multiplyExact((long) radius, radius);
+        long exactCellCount = preflightCellCount(radius, rowCount, radiusSquared);
         this.rowStartX = new int[rowCount];
         this.rowLength = new int[rowCount];
         this.rowOffset = new long[rowCount];
-
-        long radiusSquared = Math.multiplyExact((long) radius, radius);
         long offset = 0;
         for (int row = 0; row < rowCount; row++) {
             long dz = (long) row - radius;
@@ -58,7 +61,10 @@ public final class RockCircleGeometry {
             rowOffset[row] = offset;
             offset = Math.addExact(offset, length);
         }
-        this.cellCount = offset;
+        if (offset != exactCellCount) {
+            throw new IllegalStateException("circle geometry preflight mismatch");
+        }
+        this.cellCount = exactCellCount;
     }
 
     public static RockCircleGeometry from(WorldPosition center, int radius) {
@@ -166,5 +172,31 @@ public final class RockCircleGeometry {
             result--;
         }
         return result;
+    }
+
+    private static long preflightCellCount(int radius, int rowCount, long radiusSquared) {
+        long radiusPlusOne = Math.addExact((long) radius, 1L);
+        long diamondCells = Math.addExact(
+                1L,
+                Math.multiplyExact(2L, Math.multiplyExact((long) radius, radiusPlusOne))
+        );
+        if (diamondCells > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("rock circle exceeds supported cell capacity");
+        }
+
+        long cellCount = 0;
+        for (int row = 0; row < rowCount; row++) {
+            long dz = (long) row - radius;
+            long remaining = Math.subtractExact(radiusSquared, Math.multiplyExact(dz, dz));
+            long rowLength = Math.addExact(
+                    Math.multiplyExact(floorSqrt(remaining), 2L),
+                    1L
+            );
+            cellCount = Math.addExact(cellCount, rowLength);
+            if (cellCount > Integer.MAX_VALUE) {
+                throw new IllegalArgumentException("rock circle exceeds supported cell capacity");
+            }
+        }
+        return cellCount;
     }
 }
