@@ -108,12 +108,35 @@ public final class SurfaceMap {
         }
     }
 
+    /** Deterministic primitive traversal of resolved active cells only. */
+    public void forEachResolvedCell(ResolvedCellConsumer consumer) {
+        Objects.requireNonNull(consumer, "consumer is required");
+        forEachCell((worldX, worldZ, state, surfaceY, blockId, liquidBlockId, surfaceClass) -> {
+            if ((state & SurfaceTile.RESOLVED) != 0) {
+                consumer.accept(
+                        worldX, worldZ, surfaceY, blockId, liquidBlockId, surfaceClass);
+            }
+        });
+    }
+
     @FunctionalInterface
     public interface CellConsumer {
         void accept(
                 int worldX,
                 int worldZ,
                 byte state,
+                int surfaceY,
+                int blockId,
+                int liquidBlockId,
+                SurfaceClass surfaceClass
+        );
+    }
+
+    @FunctionalInterface
+    public interface ResolvedCellConsumer {
+        void accept(
+                int worldX,
+                int worldZ,
                 int surfaceY,
                 int blockId,
                 int liquidBlockId,

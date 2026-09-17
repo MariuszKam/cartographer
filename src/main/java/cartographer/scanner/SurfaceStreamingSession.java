@@ -89,6 +89,11 @@ public final class SurfaceStreamingSession {
         scanner.acceptFallback(chunk);
     }
 
+    public java.util.List<MapChunkCoordinate> fallbackMapChunks() {
+        ensurePlanned();
+        return scanner.fallbackMapChunks();
+    }
+
     public SurfaceRainHeightScanResult finish() {
         ensurePlanned();
         finished = true;

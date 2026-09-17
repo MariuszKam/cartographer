@@ -3,6 +3,8 @@ package cartographer.render;
 import cartographer.application.ProgressReporter;
 import cartographer.model.SurfaceBlock;
 import cartographer.model.SurfaceClass;
+import cartographer.model.BlockInfo;
+import cartographer.scanner.SurfaceMap;
 import cartographer.soil.SoilFertilityClassification;
 import cartographer.soil.SoilFertilityClassifier;
 import cartographer.soil.SoilFertilityTier;
@@ -12,6 +14,7 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.util.List;
+import java.util.Map;
 
 public final class SoilFertilityOverlayRenderer {
     private static final int LEGEND_MIN_WIDTH = 180;
@@ -114,6 +117,60 @@ public final class SoilFertilityOverlayRenderer {
 
         progress.done("Soil fertility drawn");
         return drawn;
+    }
+
+    public int draw(
+            BufferedImage image,
+            SurfaceMap surface,
+            Map<Integer, BlockInfo> registry,
+            int minX,
+            int minZ,
+            double scale,
+            ProgressReporter progress
+    ) {
+        if (image == null || surface == null || registry == null) {
+            throw new IllegalArgumentException("Image, SurfaceMap, and registry are required");
+        }
+        if (scale <= 0.0 || progress == null) {
+            throw new IllegalArgumentException("Scale and progress reporter are required");
+        }
+        progress.start("Drawing soil fertility");
+        int[] drawn = {0};
+        Graphics2D graphics = image.createGraphics();
+        try {
+            graphics.setComposite(java.awt.AlphaComposite.SrcOver);
+            surface.forEachResolvedCell((worldX, worldZ, y, blockId, liquidId, surfaceClass) -> {
+                if (surfaceClass == SurfaceClass.WATER || surfaceClass == SurfaceClass.SNOW) {
+                    return;
+                }
+                SoilFertilityClassification classification = classifier.classify(
+                        registry.getOrDefault(blockId, BlockInfo.unknown(blockId))).orElse(null);
+                if (classification == null) {
+                    return;
+                }
+                int startX = (int) Math.floor((worldX - minX) * scale);
+                int endX = Math.max(startX + 1, (int) Math.ceil((worldX + 1 - minX) * scale));
+                int startY = (int) Math.floor((worldZ - minZ) * scale);
+                int endY = Math.max(startY + 1, (int) Math.ceil((worldZ + 1 - minZ) * scale));
+                if (endX <= 0 || endY <= 0 || startX >= image.getWidth() || startY >= image.getHeight()) {
+                    return;
+                }
+                startX = Math.max(0, startX);
+                startY = Math.max(0, startY);
+                endX = Math.min(image.getWidth(), endX);
+                endY = Math.min(image.getHeight(), endY);
+                graphics.setColor(palette.color(classification.tier()));
+                graphics.fillRect(startX, startY, endX - startX, endY - startY);
+                drawn[0]++;
+            });
+            if (drawn[0] > 0) {
+                drawLegend(graphics, image);
+            }
+        } finally {
+            graphics.dispose();
+        }
+        progress.done("Soil fertility drawn");
+        return drawn[0];
     }
 
     private void drawLegend(Graphics2D graphics, BufferedImage image) {

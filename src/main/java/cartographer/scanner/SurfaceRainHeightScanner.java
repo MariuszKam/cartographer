@@ -107,7 +107,9 @@ public final class SurfaceRainHeightScanner {
                     continue;
                 }
                 if (requireLiquidLayer && !chunk.liquidLayerAvailable()) {
-                    liquidUnavailable++;
+                    if (accumulator.markLiquidUnavailable(worldX, worldZ)) {
+                        liquidUnavailable++;
+                    }
                     promote(tileIndex);
                     continue;
                 }
@@ -170,8 +172,9 @@ public final class SurfaceRainHeightScanner {
                     }
                     accumulator.consider(worldX, worldZ);
                     if (!chunk.liquidLayerAvailable()) {
-                        accumulator.markLiquidUnavailable(worldX, worldZ);
-                        liquidUnavailable++;
+                        if (accumulator.markLiquidUnavailable(worldX, worldZ)) {
+                            liquidUnavailable++;
+                        }
                     }
                     for (int localY = chunk.sizeY() - 1; localY >= 0; localY--) {
                         int blockId = chunk.blockIdAt(localX, localY, localZ);
@@ -221,6 +224,19 @@ public final class SurfaceRainHeightScanner {
                     .thenComparingInt(cartographer.model.MapChunkCoordinate::x));
             return new SurfaceRainHeightScanResult(
                     accumulator.finish(), fallback, resolved, unresolved, liquidUnavailable);
+        }
+
+        public java.util.List<MapChunkCoordinate> fallbackMapChunks() {
+            java.util.ArrayList<MapChunkCoordinate> fallback = new java.util.ArrayList<>();
+            for (int tileIndex = 0; tileIndex < promoted.length; tileIndex++) {
+                if (promoted[tileIndex]) {
+                    fallback.add(new MapChunkCoordinate(
+                            plan.layout().tileXAt(tileIndex), plan.layout().tileZAt(tileIndex)));
+                }
+            }
+            fallback.sort(java.util.Comparator.comparingInt(MapChunkCoordinate::z)
+                    .thenComparingInt(MapChunkCoordinate::x));
+            return java.util.List.copyOf(fallback);
         }
 
         private void promote(int tileIndex) {

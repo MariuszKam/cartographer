@@ -4,10 +4,12 @@
 
 This document is the normative architecture contract for PF-1.4 Surface Tile
 Engine. Checkpoint A defined the architecture, semantic inventory, caller
-inventory, test plan, and review gates. Checkpoint B is now implemented as the
-test-only characterization/oracle layer and compact tile/layout/result model;
-production Surface reading/scanning remains on the legacy pipeline. This
-document contains no runtime evidence.
+inventory, test plan, and review gates. Checkpoint B is implemented as the
+test-only characterization/oracle layer and compact tile/layout/result model.
+Checkpoints C, D, and E are implemented as the compact fast path, streaming
+fallback session, and SurfaceMap render integration respectively; all remain
+pending static review and runtime validation. This document contains no runtime
+evidence.
 
 PF-1.2 remains authoritative for bounded decode, completion-driven
 consumption, worker lifecycle, serialized consumer mutation, and backpressure.
@@ -16,9 +18,9 @@ validation is still pending. PF-1.4 must preserve both contracts.
 
 Checkpoint A changed only this document and the PF roadmap status. B adds the
 model and test-only characterization files listed in the implementation
-commit. No production use case, reader, scanner, renderer, material path,
-soil path, or cache is wired to the new model. No Gradle command, test,
-application run,
+commit. C/D add the compact session and streaming fallback. E wires the two
+Surface render pipelines and primitive consumers to the compact result. No
+Gradle command, test, application run,
 benchmark, JFR capture, real-save validation, or PNG inspection is performed
 in this checkpoint.
 
@@ -95,6 +97,26 @@ earlier fast result, so fallback is authoritative even when its Y is lower
 than the fast observation. Decoded fallback chunks are not retained, and the
 legacy `SurfaceFastPathMerger` is not called by this new session; it remains
 an independent oracle until G. D runtime evidence is **NOT RUN**.
+
+### Checkpoint E status
+
+Checkpoint E wires the C+D session into both production Surface render
+pipelines: `RenderSurfaceResourceMapUseCase` and
+`RenderActualOreMapUseCase`. Their reader callbacks consume decoded chunks
+directly, and the renderer, soil overlay, material matcher, CLI report, and
+workstation diagnostics consume `SurfaceMapScanResult`/`SurfaceMap` primitive
+iteration. The old `SurfaceScanResult` field remains only as an empty,
+counter-bearing compatibility view for APIs still transitioning in F/G; the
+new render paths do not call `blocks()`, `SurfaceFastPathMerger`, or retain
+fallback decoded chunks.
+
+`SurfaceResourceAnalyzer` uses primitive coordinate arrays, an open-addressed
+primitive occupancy index, and an integer flood-fill queue for material
+clustering. Final public deposit/point objects remain proportional to actual
+matches for compatibility with existing result and overlay APIs; they are not
+the working graph. Registry metadata remains outside the cells and is looked
+up only at the consumer boundary. E is **IMPLEMENTED — STATIC REVIEW
+PENDING**. E runtime evidence is **NOT RUN**.
 
 ## 3. Current retention inventory
 

@@ -21,7 +21,7 @@ import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockYFilter;
-import cartographer.scanner.SurfaceScanResult;
+import cartographer.scanner.SurfaceMapScanResult;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
@@ -210,7 +210,7 @@ public class MapCommand implements Command {
                 result.mapChunkDiagnostics(),
                 result.chunkDiagnostics(),
                 result.mapRegionDiagnostics(),
-                result.surface(),
+                result.compactSurface(),
                 result.environmentOverlay(),
                 result.geologyOverlay(),
                 result.actualOreMap().orElse(null)
@@ -238,7 +238,7 @@ public class MapCommand implements Command {
             ReadDiagnostics mapChunkDiagnostics,
             ReadDiagnostics chunkDiagnostics,
             ReadDiagnostics mapRegionDiagnostics,
-            SurfaceScanResult surface,
+            SurfaceMapScanResult surface,
             OverlayRenderReport environmentOverlay,
             OverlayRenderReport geologyOverlay,
             ActualBlockMap actualOreMap

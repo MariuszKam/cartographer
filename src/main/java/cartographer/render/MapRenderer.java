@@ -7,6 +7,8 @@ import cartographer.model.MapChunk;
 import cartographer.model.SurfaceBlock;
 import cartographer.model.SurfaceClass;
 import cartographer.model.WorldPosition;
+import cartographer.model.BlockInfo;
+import cartographer.scanner.SurfaceMap;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
@@ -16,6 +18,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class MapRenderer {
@@ -58,6 +61,53 @@ public class MapRenderer {
                 options,
                 ProgressReporter.NONE
         );
+    }
+
+    /** Compact SurfaceMap production path; does not materialize SurfaceBlock objects. */
+    public RenderedMap render(
+            WorldPosition center,
+            WorldPosition player,
+            HomeState home,
+            MapTerrainPreparation terrain,
+            SurfaceMap surfaceMap,
+            Map<Integer, BlockInfo> registry,
+            RenderOptions options,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(home, "Home state is required");
+        Objects.requireNonNull(terrain, "terrain preparation is required");
+        Objects.requireNonNull(surfaceMap, "surface map is required");
+        Objects.requireNonNull(registry, "registry is required");
+        int diameter = Math.clamp((long) options.radiusBlocks() * 2
+                        * options.pixelsPerBlock() + 1, 64, MAX_IMAGE_SIZE);
+        double scale = diameter / (double) (options.radiusBlocks() * 2);
+        BufferedImage image = new BufferedImage(diameter, diameter, BufferedImage.TYPE_INT_ARGB);
+        ArgbRaster raster = ArgbRaster.wrap(image);
+        prepareBackground(raster, options, progress);
+        int minX = (int) Math.floor(center.x()) - options.radiusBlocks();
+        int minZ = (int) Math.floor(center.z()) - options.radiusBlocks();
+        MapViewportGeometry geometry = MapViewportGeometry.fullImage(
+                image.getWidth(), image.getHeight(), minX, minZ,
+                minX + options.radiusBlocks() * 2.0,
+                minZ + options.radiusBlocks() * 2.0);
+        int tilesDrawn = options.layers().contains(RenderLayer.TERRAIN)
+                ? drawTerrain(raster, terrain.heights(), minX, minZ, scale, diameter, options, progress)
+                : 0;
+        if (options.layers().contains(RenderLayer.SURFACE)) {
+            drawSurfaceMap(raster, surfaceMap, terrain.heights(), minX, minZ, scale, diameter, progress);
+        }
+        if (options.layers().contains(RenderLayer.SOIL_FERTILITY)) {
+            soilFertilityRenderer.draw(image, surfaceMap, registry, minX, minZ, scale, progress);
+        }
+        if (options.layers().contains(RenderLayer.SURFACE)) {
+            drawLegend(image, surfaceMap);
+        }
+        int markerCount = drawMarkers(image, player, home, geometry, options, progress);
+        String layers = options.layers().stream().map(Enum::name).sorted()
+                .collect(Collectors.joining(","));
+        return new RenderedMap(image, new MapRenderReport(
+                diameter, diameter, terrain.mapChunkCount(), tilesDrawn, markerCount,
+                options.style(), layers), geometry);
     }
 
     public RenderedMap render(
@@ -566,6 +616,34 @@ public class MapRenderer {
         }
     }
 
+    private void drawSurfaceMap(
+            ArgbRaster raster,
+            SurfaceMap surfaceMap,
+            DenseHeightGrid samples,
+            int minX,
+            int minZ,
+            double scale,
+            int diameter,
+            ProgressReporter progress
+    ) {
+        progress.start("Drawing semantic surface");
+        surfaceMap.forEachResolvedCell((worldX, worldZ, y, blockId, liquidId, surfaceClass) -> {
+            int startX = (int) Math.floor((worldX - minX) * scale);
+            int endX = (int) Math.ceil((worldX + 1 - minX) * scale);
+            int startY = (int) Math.floor((worldZ - minZ) * scale);
+            int endY = (int) Math.ceil((worldZ + 1 - minZ) * scale);
+            if (endX <= 0 || endY <= 0 || startX >= diameter || startY >= diameter) return;
+            startX = Math.max(0, startX);
+            startY = Math.max(0, startY);
+            endX = Math.min(diameter, endX);
+            endY = Math.min(diameter, endY);
+            double shade = !samples.hasHeightAt(worldX, worldZ)
+                    ? 0.0 : hillshade(samples, worldX, worldZ);
+            raster.fillRect(startX, startY, endX, endY, semanticPalette.color(surfaceClass, shade));
+        });
+        progress.done("Semantic surface drawn");
+    }
+
     private int drawMarkers(
             BufferedImage image,
             WorldPosition player,
@@ -786,6 +864,39 @@ public class MapRenderer {
                 line++;
             }
 
+        } finally {
+            graphics.dispose();
+        }
+    }
+
+    private void drawLegend(BufferedImage image, SurfaceMap surfaceMap) {
+        if (image.getWidth() < MIN_LEGEND_WIDTH || image.getHeight() < MIN_LEGEND_HEIGHT) return;
+        Set<SurfaceClass> classes = EnumSet.noneOf(SurfaceClass.class);
+        surfaceMap.forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> classes.add(surfaceClass));
+        if (classes.isEmpty()) return;
+        Graphics2D graphics = image.createGraphics();
+        try {
+            graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                    RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            int lineHeight = 14;
+            int width = 160;
+            int titleHeight = 18;
+            int height = 8 + titleHeight + classes.size() * lineHeight;
+            int x = 8;
+            int y = Math.max(8, image.getHeight() - height - 8);
+            graphics.setColor(new Color(0, 0, 0, 145));
+            graphics.fillRect(x, y, width, height);
+            graphics.setColor(Color.WHITE);
+            graphics.drawString("Surface", x + 6, y + 13);
+            int line = 0;
+            for (SurfaceClass surfaceClass : SurfaceClass.values()) {
+                if (!classes.contains(surfaceClass)) continue;
+                int rowY = y + titleHeight + 4 + line++ * lineHeight;
+                graphics.setColor(new Color(semanticPalette.color(surfaceClass, 0.0), true));
+                graphics.fillRect(x + 6, rowY, 10, 10);
+                graphics.setColor(Color.WHITE);
+                graphics.drawString(surfaceClass.label(), x + 22, rowY + 10);
+            }
         } finally {
             graphics.dispose();
         }

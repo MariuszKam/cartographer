@@ -6,10 +6,14 @@ import java.util.Objects;
 
 /** Immutable primitive-backed mapchunk-sized Surface tile. */
 public final class SurfaceTile {
-    static final byte ACTIVE = 1;
-    static final byte CONSIDERED = 1 << 1;
-    static final byte RESOLVED = 1 << 2;
-    static final byte LIQUID_UNAVAILABLE = 1 << 3;
+    /** Public primitive state bit: the cell is inside the requested circle. */
+    public static final byte ACTIVE = 1;
+    /** Public primitive state bit: the column was considered by scanning. */
+    public static final byte CONSIDERED = 1 << 1;
+    /** Public primitive state bit: a surface observation was resolved. */
+    public static final byte RESOLVED = 1 << 2;
+    /** Public primitive state bit: liquid data was unavailable. */
+    public static final byte LIQUID_UNAVAILABLE = 1 << 3;
 
     private final int tileX;
     private final int tileZ;
