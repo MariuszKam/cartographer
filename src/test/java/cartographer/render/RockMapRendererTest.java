@@ -82,7 +82,28 @@ class RockMapRendererTest {
         RockMapRenderResult second = new RockMapRenderer().render(map);
 
         assertEquals(first.legend(), second.legend());
-        assertEquals("game:rock-shale", first.legend().get(0).rock().code());
+        assertEquals(
+                List.of(
+                        "game:rock-shale",
+                        "game:rock-granite",
+                        "geologymod:rock-gneiss"
+                ),
+                first.legend().stream()
+                        .map(entry -> entry.rock().code())
+                        .toList()
+        );
+        assertEquals(
+                List.of(2L, 1L, 1L),
+                first.legend().stream()
+                        .map(RockLegendEntry::observedCellCount)
+                        .toList()
+        );
+        assertEquals(
+                List.of(50.0, 25.0, 25.0),
+                first.legend().stream()
+                        .map(RockLegendEntry::observedPercentage)
+                        .toList()
+        );
         assertNotEquals(
                 new RockPalette().colorFor(GRANITE),
                 new RockPalette().colorFor(MODDED)
@@ -159,6 +180,30 @@ class RockMapRendererTest {
         assertEquals(1, result.unavailableCount());
         assertEquals(1, result.legend().size());
         assertEquals(100.0, result.legend().get(0).observedPercentage());
+    }
+
+    @Test
+    void preservesCircleBackgroundAndRendersBothUnavailableParityColors() {
+        RockMapRenderResult result = new RockMapRenderer().render(
+                map(
+                        0,
+                        0,
+                        2,
+                        RockColumnSample.observed(0, 0, GRANITE, 5),
+                        RockColumnSample.noRock(1, 0),
+                        RockColumnSample.unavailable(0, 1),
+                        RockColumnSample.unavailable(1, 1)
+                )
+        );
+
+        assertEquals(new RockPalette().colorFor(GRANITE), result.image().getRGB(2, 2));
+        assertEquals(0xFF4A4A4A, result.image().getRGB(3, 2));
+        assertEquals(0xFF707070, result.image().getRGB(2, 3));
+        assertEquals(0xFF888888, result.image().getRGB(3, 3));
+        assertEquals(0, result.image().getRGB(0, 0));
+        assertEquals(1, result.observedCount());
+        assertEquals(1, result.noRockCount());
+        assertEquals(2, result.unavailableCount());
     }
 
     private RockMap map(

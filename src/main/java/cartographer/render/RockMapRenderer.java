@@ -1,6 +1,5 @@
 package cartographer.render;
 
-import cartographer.geology.rock.RockColumnSample;
 import cartographer.geology.rock.RockColumnState;
 import cartographer.geology.rock.RockMap;
 import cartographer.geology.rock.RockIdentity;
@@ -8,9 +7,7 @@ import cartographer.geology.rock.RockIdentity;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 public final class RockMapRenderer {
@@ -52,59 +49,48 @@ public final class RockMapRenderer {
                 diameter, diameter, minX, minZ,
                 minX + diameter, minZ + diameter
         );
-        long radiusSquared = (long) radius * radius;
-        Map<RockIdentity, Long> rockCounts = new HashMap<>();
-        long observedCount = 0;
-        long noRockCount = 0;
-        long unavailableCount = 0;
-
-        for (RockColumnSample sample : rockMap.columns()) {
-            int localX = sample.worldX() - minX;
-            int localZ = sample.worldZ() - minZ;
-            long dx = (long) sample.worldX() - centerX;
-            long dz = (long) sample.worldZ() - centerZ;
-            if (localX < 0 || localX >= diameter
-                    || localZ < 0 || localZ >= diameter
-                    || dx * dx + dz * dz > radiusSquared) {
-                continue;
-            }
-
-            switch (sample.state()) {
-                case OBSERVED -> {
-                    image.setRGB(
+        for (int row = 0; row < rockMap.geometry().rowCount(); row++) {
+            int worldZ = rockMap.geometry().worldZForRow(row);
+            int rowStartX = rockMap.geometry().rowStartX(row);
+            long rowOffset = rockMap.geometry().rowOffset(row);
+            for (int offset = 0; offset < rockMap.geometry().rowLength(row); offset++) {
+                int index = Math.toIntExact(rowOffset + offset);
+                if (!rockMap.isPopulatedAtIndex(index)) continue;
+                int worldX = Math.addExact(rowStartX, offset);
+                int localX = Math.subtractExact(worldX, minX);
+                int localZ = Math.subtractExact(worldZ, minZ);
+                switch (rockMap.stateAtIndex(index)) {
+                    case OBSERVED -> {
+                        RockIdentity identity = rockMap.ordinalTable()
+                                .get(rockMap.rockOrdinalAtIndex(index) - 1);
+                        image.setRGB(localX, localZ, palette.colorFor(identity));
+                    }
+                    case NO_ROCK -> image.setRGB(localX, localZ, NO_ROCK_COLOR);
+                    case UNAVAILABLE -> image.setRGB(
                             localX,
                             localZ,
-                            palette.colorFor(sample.rock().orElseThrow())
+                            ((worldX + worldZ) & 1) == 0
+                                    ? UNAVAILABLE_LIGHT
+                                    : UNAVAILABLE_DARK
                     );
-                    rockCounts.merge(sample.rock().orElseThrow(), 1L, Long::sum);
-                    observedCount++;
-                }
-                case NO_ROCK -> {
-                    image.setRGB(localX, localZ, NO_ROCK_COLOR);
-                    noRockCount++;
-                }
-                case UNAVAILABLE -> {
-                    int color = ((sample.worldX() + sample.worldZ()) & 1) == 0
-                            ? UNAVAILABLE_LIGHT
-                            : UNAVAILABLE_DARK;
-                    image.setRGB(localX, localZ, color);
-                    unavailableCount++;
                 }
             }
         }
 
+        long observedCount = rockMap.observedCount();
         List<RockLegendEntry> legend = new ArrayList<>();
-        for (Map.Entry<RockIdentity, Long> entry : rockCounts.entrySet()) {
-            legend.add(
-                    new RockLegendEntry(
-                            entry.getKey(),
-                            palette.colorFor(entry.getKey()),
-                            entry.getValue(),
-                            observedCount == 0
-                                    ? 0.0
-                                    : entry.getValue() * 100.0 / observedCount
-                    )
-            );
+        long[] countsByOrdinal = rockMap.countsByOrdinal();
+        List<RockIdentity> ordinalTable = rockMap.ordinalTable();
+        for (int ordinal = 1; ordinal <= ordinalTable.size(); ordinal++) {
+            long count = countsByOrdinal[ordinal];
+            if (count <= 0) continue;
+            RockIdentity identity = ordinalTable.get(ordinal - 1);
+            legend.add(new RockLegendEntry(
+                    identity,
+                    palette.colorFor(identity),
+                    count,
+                    observedCount == 0 ? 0.0 : count * 100.0 / observedCount
+            ));
         }
         legend.sort(
                 Comparator.comparingLong(RockLegendEntry::observedCellCount)
@@ -117,8 +103,8 @@ public final class RockMapRenderer {
                 geometry,
                 legend,
                 observedCount,
-                noRockCount,
-                unavailableCount
+                rockMap.noRockCount(),
+                rockMap.unavailableCount()
         );
     }
 

@@ -90,6 +90,10 @@ class AnalyzeProspectingAreaUseCaseTest {
                 .toList());
         assertEquals(ProspectingRank.CONFIRMED, result.assessments().getFirst().rank());
         assertEquals(ProspectingRank.STRONG, result.assessments().get(1).rank());
+        assertEquals(List.of("game:rock-granite"), result.assessments().getFirst()
+                .candidate().evidence().observedHostRocks().stream()
+                .map(RockIdentity::code)
+                .toList());
     }
 
     private static final class TestReader extends VcdbsReader {
@@ -99,7 +103,10 @@ class AnalyzeProspectingAreaUseCaseTest {
 
         @Override
         public Map<Integer, BlockInfo> readBlockRegistry(Path savePath) {
-            return Map.of(7, new BlockInfo(7, "game:rock-granite"));
+            return Map.of(
+                    7, new BlockInfo(7, "game:rock-granite"),
+                    8, new BlockInfo(8, "game:rock-shale")
+            );
         }
 
         @Override

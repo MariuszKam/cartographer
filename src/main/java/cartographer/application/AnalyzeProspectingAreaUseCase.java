@@ -1,7 +1,7 @@
 package cartographer.application;
 
-import cartographer.geology.rock.RockColumnSample;
 import cartographer.geology.rock.RockColumnState;
+import cartographer.geology.rock.RockIdentity;
 import cartographer.geology.rock.RockMap;
 import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldPosition;
@@ -18,13 +18,10 @@ import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
-import java.util.Set;
-import java.util.TreeSet;
 
 public final class AnalyzeProspectingAreaUseCase {
     private final VcdbsReader reader;
@@ -174,22 +171,16 @@ public final class AnalyzeProspectingAreaUseCase {
     }
 
     private RockEvidence geology(RockMap map) {
-        Set<cartographer.geology.rock.RockIdentity> rocks = new TreeSet<>(
-                Comparator.comparing(cartographer.geology.rock.RockIdentity::code)
-        );
-        int observedColumns = 0;
-        int noRockColumns = 0;
-        int unavailableColumns = 0;
-        for (RockColumnSample sample : map.columns()) {
-            if (sample.state() == RockColumnState.UNAVAILABLE) {
-                unavailableColumns++;
-            } else if (sample.state() == RockColumnState.OBSERVED) {
-                observedColumns++;
-                sample.rock().ifPresent(rocks::add);
-            } else {
-                noRockColumns++;
-            }
+        int observedColumns = Math.toIntExact(map.observedCount());
+        int noRockColumns = Math.toIntExact(map.noRockCount());
+        int unavailableColumns = Math.toIntExact(map.unavailableCount());
+        long[] counts = map.countsByOrdinal();
+        List<RockIdentity> rocks = new ArrayList<>();
+        List<RockIdentity> ordinalTable = map.ordinalTable();
+        for (int ordinal = 1; ordinal <= ordinalTable.size(); ordinal++) {
+            if (counts[ordinal] > 0) rocks.add(ordinalTable.get(ordinal - 1));
         }
+        rocks.sort(java.util.Comparator.comparing(RockIdentity::code));
         RockColumnState state = observedColumns > 0
                 ? RockColumnState.OBSERVED
                 : unavailableColumns > 0

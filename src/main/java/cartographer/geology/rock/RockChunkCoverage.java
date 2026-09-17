@@ -9,6 +9,10 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
+/**
+ * Legacy object coverage facade retained solely by the legacy scanner oracle
+ * and its characterization tests. Streaming production coverage is primitive.
+ */
 public final class RockChunkCoverage {
     private final Set<ChunkCoordinate> availableChunks;
 

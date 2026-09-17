@@ -11,6 +11,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * Legacy AT_Y scanner retained solely as an independent semantic oracle for
+ * characterization and differential tests. Production ROCK rendering uses
+ * {@link RockStreamingSession}.
+ */
 public final class RockAtYScanner {
     public RockMap scan(
             Collection<ParsedChunk> chunks,
@@ -99,7 +104,10 @@ public final class RockAtYScanner {
             }
         }
 
-        return new RockMap(center, radius, samples);
+        return RockMap.fromLegacySamples(
+                center, radius, worldY, Math.addExact(worldY, 1),
+                RockMapMode.AT_Y, catalog, samples
+        );
     }
 
     private Map<ChunkCoordinate, ParsedChunk> indexChunks(

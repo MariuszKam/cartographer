@@ -1,25 +1,20 @@
 package cartographer.application;
 
-import cartographer.geology.rock.RockAtYScanner;
 import cartographer.geology.rock.RockCatalog;
-import cartographer.geology.rock.RockChunkCoverage;
-import cartographer.geology.rock.RockColumnScanner;
 import cartographer.geology.rock.RockMap;
 import cartographer.geology.rock.RockMapMode;
+import cartographer.geology.rock.RockStreamingSession;
 import cartographer.model.ChunkPosition;
-import cartographer.model.ParsedChunk;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.render.RockMapRenderResult;
 import cartographer.render.RockMapRenderer;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SelectiveChunkStreamStats;
-import cartographer.save.SelectiveChunkVisitStatus;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockYFilter;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -84,8 +79,21 @@ public final class RenderRockMapUseCase {
                 request.radius(),
                 new ActualBlockYFilter(minY, maxYExclusive - 1)
         );
-        List<ParsedChunk> chunks = new ArrayList<>();
-        List<ChunkPosition> available = new ArrayList<>();
+        int dimension = positions.isEmpty()
+                ? 0
+                : positions.getFirst().dimension();
+        if (positions.stream().anyMatch(position -> position.dimension() != dimension)) {
+            throw new IllegalArgumentException("planned ROCK positions use multiple dimensions");
+        }
+        RockStreamingSession session = RockStreamingSession.open(
+                center,
+                request.radius(),
+                minY,
+                maxYExclusive,
+                dimension,
+                request.mode(),
+                catalog
+        );
         ReadDiagnostics diagnostics = new ReadDiagnostics();
         SelectiveChunkStreamStats stats = reader
                 .forEachChunkByPositionMatchingBlockIdsWithCoverage(
@@ -95,37 +103,10 @@ public final class RenderRockMapUseCase {
                                 .mapToInt(Integer::intValue)
                                 .toArray(),
                         diagnostics,
-                        visit -> {
-                            if (visit.status() == SelectiveChunkVisitStatus.DECODED) {
-                                chunks.add(visit.chunk());
-                                available.add(visit.position());
-                            } else if (visit.status()
-                                    == SelectiveChunkVisitStatus.PALETTE_REJECTED) {
-                                available.add(visit.position());
-                            }
-                        },
+                        session::accept,
                         progress
                 );
-        RockChunkCoverage coverage = RockChunkCoverage.fromChunkPositions(available);
-        progress.start("Analyzing rock geology");
-        RockMap map = request.mode() == RockMapMode.AT_Y
-                ? new RockAtYScanner().scan(
-                        chunks,
-                        catalog,
-                        coverage,
-                        center,
-                        request.radius(),
-                        minY
-                )
-                : new RockColumnScanner().scan(
-                        chunks,
-                        catalog,
-                        center,
-                        request.radius(),
-                        minY,
-                        maxYExclusive,
-                        coverage
-                );
+        RockMap map = session.finish();
         progress.start("Rendering geology map");
         RockMapRenderResult rendered = renderer.render(map);
         return new RenderRockMapResult(

@@ -11,6 +11,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * Legacy UPPER scanner retained solely as an independent semantic oracle for
+ * characterization and differential tests. Production ROCK rendering uses
+ * {@link RockStreamingSession}.
+ */
 public final class RockColumnScanner {
 
     public RockMap scan(
@@ -106,7 +111,10 @@ public final class RockColumnScanner {
             }
         }
 
-        return new RockMap(center, radius, columns);
+        return RockMap.fromLegacySamples(
+                center, radius, minWorldY, maxWorldYExclusive,
+                RockMapMode.UPPER_ROCK, catalog, columns
+        );
     }
 
     private int floorBlockCoordinate(double coordinate) {
