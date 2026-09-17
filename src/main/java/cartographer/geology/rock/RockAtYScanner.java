@@ -99,7 +99,10 @@ public final class RockAtYScanner {
             }
         }
 
-        return new RockMap(center, radius, samples);
+        return RockMap.fromLegacySamples(
+                center, radius, worldY, Math.addExact(worldY, 1),
+                RockMapMode.AT_Y, catalog, samples
+        );
     }
 
     private Map<ChunkCoordinate, ParsedChunk> indexChunks(

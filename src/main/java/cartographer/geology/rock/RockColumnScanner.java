@@ -106,7 +106,10 @@ public final class RockColumnScanner {
             }
         }
 
-        return new RockMap(center, radius, columns);
+        return RockMap.fromLegacySamples(
+                center, radius, minWorldY, maxWorldYExclusive,
+                RockMapMode.UPPER_ROCK, catalog, columns
+        );
     }
 
     private int floorBlockCoordinate(double coordinate) {
