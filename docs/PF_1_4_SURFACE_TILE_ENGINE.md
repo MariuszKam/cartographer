@@ -167,6 +167,15 @@ are definitions retained as independent H or differential oracles, with no
 production callers. G is **IMPLEMENTED — STATIC REVIEW PENDING**. Runtime
 validation remains **NOT RUN**.
 
+The G repair closes the remaining integration gates: the compact reader
+records deduplicated liquid decode failures at the Surface boundary, fallback
+diagnostics resolve their chunk-scale primitive bucket once per delivered
+chunk, and registry-derived ID-zero/unknown semantics remain identical to the
+legacy classifier. Compact geology and unknown-code diagnostics aggregate with
+primitive counters before constructing bounded report output. Focused tests
+cover the compact reader, registry parity, primitive diagnostics, and
+compact/legacy geology parity.
+
 ### Controller-review repair status
 
 The post-C/D/E controller review identified three integration defects: fallback

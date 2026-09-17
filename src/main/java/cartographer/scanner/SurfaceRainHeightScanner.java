@@ -142,7 +142,7 @@ public final class SurfaceRainHeightScanner {
             if (!deliveredFallback.add(position)) {
                 return;
             }
-            fallbackDiagnostics.considerChunk(chunk);
+            byte[] diagnosticColumns = fallbackDiagnostics.considerChunk(chunk);
             int tileIndex;
             try {
                 tileIndex = plan.layout().tileIndex(
@@ -175,7 +175,7 @@ public final class SurfaceRainHeightScanner {
                                 || ignoreFoliage && registry.isFoliage(blockId))) {
                             continue;
                         }
-                        fallbackDiagnostics.markResolved(chunk, localX, localZ);
+                        fallbackDiagnostics.markResolved(diagnosticColumns, localX, localZ);
                         if (!active) {
                             break;
                         }

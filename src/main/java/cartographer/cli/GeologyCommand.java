@@ -21,6 +21,7 @@ import cartographer.render.GeologySectionMarker;
 import cartographer.render.PngWriter;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
+import cartographer.save.WorldMetadataReader;
 import cartographer.application.ReadSurfaceMapRequest;
 import cartographer.application.ReadSurfaceMapResult;
 import cartographer.application.ReadSurfaceMapUseCase;

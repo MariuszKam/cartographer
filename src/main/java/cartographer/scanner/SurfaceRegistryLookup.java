@@ -36,8 +36,10 @@ public final class SurfaceRegistryLookup {
         BlockInfo unknownLiquid = BlockInfo.unknown(0);
         for (int i = 0; i < entries.length; i++) {
             BlockInfo info = entries[i]; ids[i] = info.id(); air[i] = info.isAir(); foliage[i] = info.isFoliage();
-            water[i] = info.code() != null && info.code().toLowerCase(java.util.Locale.ROOT).contains("water");
-            classes[i] = classifier.classify(info, unknownLiquid);
+            water[i] = info.id() != 0 && info.code() != null
+                    && info.code().toLowerCase(java.util.Locale.ROOT).contains("water");
+            classes[i] = info.id() == 0
+                    ? SurfaceClass.UNKNOWN : classifier.classify(info, unknownLiquid);
             fertility[i] = fertilityClassifier.classify(info).orElse(null);
             codes[i] = info.code();
             materialTypes[i] = info.materialType();
@@ -45,7 +47,7 @@ public final class SurfaceRegistryLookup {
         }
     }
 
-    public boolean isAir(int id) { int i = index(id); return i >= 0 && air[i]; }
+    public boolean isAir(int id) { int i = index(id); return id == 0 || i >= 0 && air[i]; }
     public boolean isFoliage(int id) { int i = index(id); return i >= 0 && foliage[i]; }
     public boolean isWater(int id) { int i = index(id); return i >= 0 && water[i]; }
     public SurfaceClass classify(int blockId, int liquidId) {
@@ -66,13 +68,21 @@ public final class SurfaceRegistryLookup {
 
     public String materialType(int id) {
         int i = index(id);
-        return i < 0 ? "unknown" : materialTypes[i];
+        return i < 0 ? "solid" : materialTypes[i];
     }
 
     public String rockFamily(int id) {
         int i = index(id);
         return i < 0 ? "unknown" : rockFamilies[i];
     }
+
+    public int size() { return ids.length; }
+
+    public int slot(int id) { return index(id); }
+
+    public String materialTypeAt(int slot) { return materialTypes[slot]; }
+
+    public String rockFamilyAt(int slot) { return rockFamilies[slot]; }
 
     private int index(int id) { return Arrays.binarySearch(ids, id); }
 

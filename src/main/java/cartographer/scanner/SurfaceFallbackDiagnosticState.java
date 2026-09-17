@@ -19,7 +19,7 @@ final class SurfaceFallbackDiagnosticState {
 
     private final Map<ChunkPosition, byte[]> chunks = new HashMap<>();
 
-    void considerChunk(ParsedChunk chunk) {
+    byte[] considerChunk(ParsedChunk chunk) {
         ChunkPosition key = horizontalKey(chunk);
         byte[] columns = chunks.computeIfAbsent(
                 key,
@@ -34,12 +34,11 @@ final class SurfaceFallbackDiagnosticState {
                 }
             }
         }
+        return columns;
     }
 
-    void markResolved(ParsedChunk chunk, int localX, int localZ) {
-        byte[] columns = chunks.get(horizontalKey(chunk));
-        if (columns == null
-                || localX < 0 || localX >= ChunkCoordinate.SIZE_BLOCKS
+    void markResolved(byte[] columns, int localX, int localZ) {
+        if (columns == null || localX < 0 || localX >= ChunkCoordinate.SIZE_BLOCKS
                 || localZ < 0 || localZ >= ChunkCoordinate.SIZE_BLOCKS) {
             return;
         }

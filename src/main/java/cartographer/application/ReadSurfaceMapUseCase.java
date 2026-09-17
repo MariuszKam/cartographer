@@ -3,6 +3,7 @@ package cartographer.application;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkPosition;
 import cartographer.model.MapChunkCoordinate;
+import cartographer.model.ParsedChunk;
 import cartographer.model.WorldMetadata;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.ReadDiagnostics;
@@ -18,6 +19,9 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.function.Consumer;
 
 /** Shared callback-driven compact Surface reader for non-render consumers. */
 public final class ReadSurfaceMapUseCase {
@@ -54,17 +58,22 @@ public final class ReadSurfaceMapUseCase {
 
         SurfaceRainHeightPlan plan = session.finishPlanning();
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
+        Set<ChunkPosition> liquidFailureChunks = new HashSet<>();
         ChunkStreamStats fast = emptyChunkStats();
         if (!plan.chunkPositions().isEmpty()) {
             fast = reader.forEachChunkByPositionAdaptive(savePath, plan.chunkPositions(),
-                    chunkDiagnostics, session::acceptFastChunk, progress);
+                    chunkDiagnostics,
+                    chunk -> consumeSurfaceChunk(chunk, chunkDiagnostics, liquidFailureChunks,
+                            session::acceptFastChunk), progress);
         }
         List<MapChunkCoordinate> fallbackMapChunks = session.fallbackMapChunks();
         List<ChunkPosition> fallbackPositions = fallbackChunkPlanner.plan(metadata, fallbackMapChunks);
         ChunkStreamStats fallback = emptyChunkStats();
         if (!fallbackPositions.isEmpty()) {
             fallback = reader.forEachChunkByPositionAdaptive(savePath, fallbackPositions,
-                    chunkDiagnostics, session::acceptFallbackChunk, progress);
+                    chunkDiagnostics,
+                    chunk -> consumeSurfaceChunk(chunk, chunkDiagnostics, liquidFailureChunks,
+                            session::acceptFallbackChunk), progress);
         }
         SurfaceRainHeightScanResult scan = session.finish();
         SurfaceRainHeightDiagnosticCounters counters = scan.diagnostics();
@@ -73,6 +82,22 @@ public final class ReadSurfaceMapUseCase {
                 scan.surface(), registry, chunksScanned, counters.columnsScanned(),
                 counters.emptyColumns(), counters.liquidUnavailableColumns()),
                 mapDiagnostics, chunkDiagnostics);
+    }
+
+    private void consumeSurfaceChunk(
+            ParsedChunk chunk,
+            ReadDiagnostics diagnostics,
+            Set<ChunkPosition> liquidFailureChunks,
+            Consumer<ParsedChunk> consumer
+    ) {
+        if (!chunk.liquidLayerAvailable()) {
+            ChunkPosition position = new ChunkPosition(
+                    chunk.coordinate().x(), chunk.coordinate().y(), chunk.coordinate().z(), 0);
+            if (liquidFailureChunks.add(position)) {
+                diagnostics.recordLiquidDecodeFailure(chunk.liquidDecodeError());
+            }
+        }
+        consumer.accept(chunk);
     }
 
     private ChunkStreamStats emptyChunkStats() {

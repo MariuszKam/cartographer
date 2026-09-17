@@ -19,17 +19,40 @@ public class GeologyAnalyzer {
         int[] unknownSamples = {0};
         int[] samples = {0};
         SurfaceRegistryLookup lookup = new SurfaceRegistryLookup(surface.registry());
+        int[] materialCounts = new int[lookup.size()];
+        int[] rockFamilyCounts = new int[lookup.size()];
+        int[] missingMaterialCount = {0};
         surface.map().forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
             samples[0]++;
-            String material = lookup.materialType(blockId);
-            materialTypes.merge(material, 1, Integer::sum);
-            String family = lookup.rockFamily(blockId);
+            int slot = lookup.slot(blockId);
+            String material;
+            String family;
+            if (slot < 0) {
+                material = "solid";
+                family = "unknown";
+                missingMaterialCount[0]++;
+            } else {
+                material = lookup.materialTypeAt(slot);
+                family = lookup.rockFamilyAt(slot);
+                materialCounts[slot]++;
+            }
             if ("unknown".equals(family)) unknownSamples[0]++;
             if (isGeological(material, family)) {
                 geologicalSamples[0]++;
-                rockFamilies.merge(family, 1, Integer::sum);
+                if (slot >= 0) rockFamilyCounts[slot]++;
             }
         });
+        for (int slot = 0; slot < lookup.size(); slot++) {
+            if (materialCounts[slot] != 0) {
+                materialTypes.merge(lookup.materialTypeAt(slot), materialCounts[slot], Integer::sum);
+            }
+            if (rockFamilyCounts[slot] != 0) {
+                rockFamilies.merge(lookup.rockFamilyAt(slot), rockFamilyCounts[slot], Integer::sum);
+            }
+        }
+        if (missingMaterialCount[0] != 0) {
+            materialTypes.merge("solid", missingMaterialCount[0], Integer::sum);
+        }
         return new GeologyReport(samples[0], geologicalSamples[0], unknownSamples[0],
                 Map.copyOf(rockFamilies), Map.copyOf(materialTypes));
     }

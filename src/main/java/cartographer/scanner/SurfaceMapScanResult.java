@@ -53,14 +53,17 @@ public record SurfaceMapScanResult(
             return List.of();
         }
         SurfaceRegistryLookup lookup = new SurfaceRegistryLookup(registry);
-        Map<String, Long> counts = new LinkedHashMap<>();
+        PrimitiveIdCounts counts = new PrimitiveIdCounts();
         map.forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
             if (surfaceClass == SurfaceClass.UNKNOWN) {
-                String code = lookup.code(blockId);
-                counts.merge(code, 1L, Long::sum);
+                counts.increment(blockId);
             }
         });
-        return counts.entrySet().stream()
+        Map<String, Long> output = new LinkedHashMap<>();
+        for (int index = 0; index < counts.size; index++) {
+            output.put(lookup.code(counts.ids[index]), counts.counts[index]);
+        }
+        return output.entrySet().stream()
                 .sorted(Map.Entry.<String, Long>comparingByValue().reversed()
                         .thenComparing(Map.Entry.comparingByKey()))
                 .limit(limit)
@@ -73,12 +76,16 @@ public record SurfaceMapScanResult(
             return Set.of();
         }
         SurfaceRegistryLookup lookup = new SurfaceRegistryLookup(registry);
+        PrimitiveIdSet ids = new PrimitiveIdSet();
         Set<String> codes = new TreeSet<>();
         map.forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
             if (codes.size() < limit) {
-                codes.add(lookup.code(blockId));
+                ids.add(blockId);
             }
         });
+        for (int index = 0; index < ids.size && codes.size() < limit; index++) {
+            codes.add(lookup.code(ids.ids[index]));
+        }
         return Set.copyOf(codes);
     }
 
@@ -87,5 +94,42 @@ public record SurfaceMapScanResult(
 
     private static final class Counter {
         private long value;
+    }
+
+    private static final class PrimitiveIdCounts {
+        private int[] ids = new int[8];
+        private long[] counts = new long[8];
+        private int size;
+
+        private void increment(int id) {
+            for (int index = 0; index < size; index++) {
+                if (ids[index] == id) {
+                    counts[index]++;
+                    return;
+                }
+            }
+            if (size == ids.length) {
+                ids = java.util.Arrays.copyOf(ids, Math.multiplyExact(size, 2));
+                counts = java.util.Arrays.copyOf(counts, Math.multiplyExact(size, 2));
+            }
+            ids[size] = id;
+            counts[size] = 1;
+            size++;
+        }
+    }
+
+    private static final class PrimitiveIdSet {
+        private int[] ids = new int[8];
+        private int size;
+
+        private void add(int id) {
+            for (int index = 0; index < size; index++) {
+                if (ids[index] == id) return;
+            }
+            if (size == ids.length) {
+                ids = java.util.Arrays.copyOf(ids, Math.multiplyExact(size, 2));
+            }
+            ids[size++] = id;
+        }
     }
 }
