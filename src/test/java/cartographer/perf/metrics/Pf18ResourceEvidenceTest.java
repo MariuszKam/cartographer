@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.OptionalLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -30,9 +31,23 @@ class Pf18ResourceEvidenceTest {
         assertEquals(12, evidence.processCpuNanoseconds().getAsLong());
         assertEquals(34, evidence.peakHeapBytes().getAsLong());
         assertEquals("test GC", evidence.gcMethod());
-        assertTrue(evidence.heapMethod().contains("per-heap-pool"));
+        assertEquals("test heap", evidence.heapMethod());
         assertTrue(evidence.render("RSS", evidence.rssBytes(), evidence.rssMethod())
                 .contains("UNAVAILABLE"));
+    }
+
+    @Test
+    void samplerReportsItsProductionHeapMethodology() {
+        Pf18ResourceSampler.Measured<String> measured = new Pf18ResourceSampler()
+                .measure(() -> "sample");
+
+        if (measured.evidence().peakHeapBytes().isPresent()) {
+            assertTrue(measured.evidence().heapMethod().contains("aggregate per-heap-pool"));
+            assertFalse(measured.evidence().heapMethod()
+                    .contains("simultaneous process high-water mark"));
+        } else {
+            assertEquals("UNAVAILABLE", measured.evidence().heapMethod());
+        }
     }
 
     @Test

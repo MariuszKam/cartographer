@@ -314,13 +314,15 @@ class Pf18JfrRunnerTest {
 
     private Pf18MacroOperationFactory mapFactory(List<String> phases,
                                                   Pf18IterationEvidence cached) {
+        AtomicInteger cachedExecutions = new AtomicInteger();
         return new Pf18MacroOperationFactory() {
             @Override
             public Pf18MacroOperation create(Path save, Path cache,
                                               cartographer.perf.workload.WorkloadSpec workload) {
                 return () -> {
                     if (cache == null) return evidence(false, "semantic", "image");
-                    phases.add(phases.isEmpty() ? "preflight" : "recorded");
+                    phases.add(cachedExecutions.getAndIncrement() == 0
+                            ? "preflight" : "recorded");
                     return cached;
                 };
             }

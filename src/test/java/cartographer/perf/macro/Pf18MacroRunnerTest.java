@@ -61,14 +61,27 @@ class Pf18MacroRunnerTest {
     void cachePreparationIsOutsideMeasuredIterationsAndRequiresEvidence() throws Exception {
         Path save = save();
         List<String> phases = new java.util.ArrayList<>();
+        AtomicInteger cachedExecutions = new AtomicInteger();
         Pf18MacroOperationFactory factory = new Pf18MacroOperationFactory() {
             @Override
             public Pf18MacroOperation create(Path ignoredSave, Path ignoredCache,
                                               cartographer.perf.workload.WorkloadSpec ignoredWorkload) {
                 return () -> {
-                    phases.add("operation");
+                    phases.add(cachedExecutions.getAndIncrement() == 0
+                            ? "cached-preflight" : "measured");
                     return new Pf18IterationEvidence(Optional.of("semantic"), Optional.of("image"),
                             true, "cache hit");
+                };
+            }
+
+            @Override
+            public Pf18MacroOperation createAuthoritative(
+                    Path ignoredSave,
+                    cartographer.perf.workload.WorkloadSpec ignoredWorkload) {
+                return () -> {
+                    phases.add("authoritative");
+                    return new Pf18IterationEvidence(Optional.of("semantic"),
+                            Optional.of("image"), false, "source");
                 };
             }
 
@@ -89,10 +102,12 @@ class Pf18MacroRunnerTest {
                 ENVIRONMENT).run(save, temporaryDirectory.resolve("cache"), "MAP_R128", SHA,
                 ExecutionMode.CACHE_WARM, temporaryDirectory.resolve("cache-evidence"));
 
-        assertEquals("prepare", phases.getFirst());
+        assertTrue(phases.indexOf("authoritative") < phases.indexOf("prepare"));
+        assertTrue(phases.indexOf("prepare") < phases.indexOf("cached-preflight"));
+        assertTrue(phases.indexOf("cached-preflight") < phases.indexOf("measured"));
         assertTrue(report.cacheHitVerified());
         assertTrue(report.evidenceIsValid());
-        assertEquals(8, phases.size());
+        assertEquals(10, phases.size());
     }
 
     @Test
@@ -173,7 +188,7 @@ class Pf18MacroRunnerTest {
         AtomicInteger calls = new AtomicInteger();
         Pf18MacroOperationFactory factory = (a, b, c) -> () -> {
             int call = calls.getAndIncrement();
-            if (call == 3) throw new IllegalStateException("middle measured failure");
+            if (call == 4) throw new IllegalStateException("middle measured failure");
             return new Pf18IterationEvidence(Optional.of("semantic"), Optional.of("image"),
                     false, "source-" + call);
         };
@@ -186,7 +201,7 @@ class Pf18MacroRunnerTest {
         assertEquals(5, report.measuredEvidence().size());
         assertTrue(!report.measuredEvidence().get(1).successful());
         assertTrue(report.measuredEvidence().get(2).successful());
-        assertEquals("source-4", report.measuredEvidence().get(2).sourceWork().orElseThrow());
+        assertEquals("source-5", report.measuredEvidence().get(2).sourceWork().orElseThrow());
         assertTrue(report.measuredEvidence().get(1).resourceEvidence().isEmpty());
         assertTrue(report.measuredEvidence().get(2).resourceEvidence().isPresent());
         assertEquals(4, report.measuredWallClockNanoseconds().size());
