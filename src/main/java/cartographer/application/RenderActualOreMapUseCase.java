@@ -858,6 +858,11 @@ public class RenderActualOreMapUseCase {
             RenderDataCacheStore store = renderDataCacheStore.orElseThrow();
             RenderDataCacheRevision revision = store.observe(savePath);
             store.publish(revision);
+            if (store.find(revision).isEmpty()) {
+                return CacheContext.disabled(
+                        "render-data cache unavailable or incompatible manifest"
+                );
+            }
             return CacheContext.enabled(
                     new TerrainTileStore(store, revision),
                     new SurfaceTileStore(store, revision)
