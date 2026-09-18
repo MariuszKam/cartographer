@@ -96,6 +96,43 @@ Progress is hidden on both success and failure. No fake time-based or weighted p
 - Map rendering reuses the existing `RenderActualOreMapUseCase` and render pipeline.
 - No JavaFX dependency was introduced into application, render, scanner or save code.
 
+## Post-v1 extension — GUI-P13 final Workstation shell
+
+GUI-P13 is a presentation/interaction redesign on top of the accepted P1-P12
+performance architecture. It does not introduce a new source reader, cache,
+session lifecycle, renderer authority, or worker pool.
+
+The final shell is map-first:
+
+```text
+WorkstationView
+├── WorkstationWorldBar
+│   └── compact WorldPanel / save chooser
+├── ToolNavigationPane (persistent Tool Rail)
+├── workspace
+│   ├── collapsible Context Dock
+│   │   └── SearchPanel / source controls
+│   ├── MapPanel (primary expanding region)
+│   │   └── floating MapToolbar
+│   └── collapsible ResultInspectorPane
+│       ├── Inspect
+│       ├── Results
+│       ├── Layers
+│       └── Diagnostics
+└── WorkstationStatusBar
+    ├── operation / progress / cancel
+    └── viewport telemetry
+```
+
+The Layer panel is physically located in the Inspector dock because those
+controls are retained/local view state. Collapsing either dock only changes the
+JavaFX layout; it does not clear `MapFrame`, reopen the save, re-render the
+raster, or reset viewport zoom/pan.
+
+The source-control dock remains scoped by the P12 foreground/discovery rules.
+The map, inspector and retained local interactions remain available according
+to the existing responsive-operation contract.
+
 ## Important boundaries
 
 Do not move JavaFX types into parser, save, scanner, application or render code. Keep DISPLAY and ABSOLUTE coordinates distinct. Preserve the separation between parsing, scanning, analysis and rendering.
