@@ -10,6 +10,8 @@ import cartographer.model.WorldPosition;
 import cartographer.render.PngWriter;
 import cartographer.render.RockLegendEntry;
 import cartographer.render.RockMapRenderer;
+import cartographer.save.SaveSessionFactory;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 
@@ -38,6 +40,28 @@ public final class RockCommand implements Command {
             PngWriter pngWriter,
             String subcommand
     ) {
+        this(
+                out,
+                reader,
+                metadataReader,
+                renderer,
+                pngWriter,
+                subcommand,
+                new SaveSessionFactory(
+                        new SqliteSaveConnection(), reader, metadataReader
+                )
+        );
+    }
+
+    RockCommand(
+            PrintStream out,
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            RockMapRenderer renderer,
+            PngWriter pngWriter,
+            String subcommand,
+            SaveSessionFactory sessionFactory
+    ) {
         this.out = out;
         this.reader = reader;
         this.metadataReader = metadataReader;
@@ -46,7 +70,8 @@ public final class RockCommand implements Command {
                 : new RenderRockMapUseCase(
                         reader,
                         metadataReader,
-                        renderer
+                        renderer,
+                        sessionFactory
                 );
         this.pngWriter = pngWriter;
         this.subcommand = subcommand;
