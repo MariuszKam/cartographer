@@ -443,6 +443,9 @@ public final class WorkstationController {
                 result.actualOreOverlays(),
                 result.decorationState().orElseThrow(
                         () -> new IllegalStateException("ore result missing decoration state")
+                ),
+                result.mapRegionOverlayState().orElseThrow(
+                        () -> new IllegalStateException("ore result missing map-region overlay state")
                 )
         ));
         workstation.setMapGeometry(Optional.of(result.geometry()));
@@ -461,6 +464,9 @@ public final class WorkstationController {
                 ),
                 result.decorationState().orElseThrow(
                         () -> new IllegalStateException("map result missing decoration state")
+                ),
+                result.mapRegionOverlayState().orElseThrow(
+                        () -> new IllegalStateException("map result missing map-region overlay state")
                 )
         ));
         workstation.setMapGeometry(Optional.of(result.geometry()));
