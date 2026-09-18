@@ -314,12 +314,20 @@ public class RenderActualOreMapUseCase {
 
     public RenderActualOreMapResult executeRetained(
             RenderActualOreMapRequest request,
+            java.nio.file.Path retainedSavePath,
             PreparedMapData prepared,
             MapDecorationState decorations,
             Optional<MapRegionOverlayState> retainedMapRegionState,
             ProgressReporter progress
     ) {
         Objects.requireNonNull(request, "request is required");
+        Objects.requireNonNull(retainedSavePath, "retainedSavePath is required");
+        if (!request.savePath().toAbsolutePath().normalize().equals(
+                retainedSavePath.toAbsolutePath().normalize())) {
+            throw new IllegalArgumentException(
+                    "retained PreparedMapData belongs to a different save"
+            );
+        }
         Objects.requireNonNull(prepared, "prepared is required");
         Objects.requireNonNull(decorations, "decorations are required");
         Objects.requireNonNull(retainedMapRegionState, "retainedMapRegionState is required");
