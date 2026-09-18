@@ -1,38 +1,35 @@
 package cartographer.ui.workstation;
 
-import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 
 import java.util.List;
 
 public final class DiagnosticsPane extends VBox {
-    private final Button toggle = new Button("Show technical details");
-    private final VBox details = new VBox(3);
+    private final VBox details = new VBox(5);
 
     public DiagnosticsPane() {
-        super(5);
+        super(8);
         getStyleClass().add("diagnostics");
-        details.setVisible(false);
-        details.setManaged(false);
-        toggle.setOnAction(event -> {
-            boolean visible = !details.isVisible();
-            details.setVisible(visible);
-            details.setManaged(visible);
-            toggle.setText(visible ? "Hide technical details" : "Show technical details");
-        });
-        getChildren().addAll(toggle, details);
+        Label title = new Label("TECHNICAL DIAGNOSTICS");
+        title.getStyleClass().add("diagnostics-title");
+        getChildren().addAll(title, details);
+        show(List.of());
     }
 
     public void show(List<String> lines) {
-        details.getChildren().setAll(lines.stream().map(line -> {
+        List<String> safe = lines == null ? List.of() : List.copyOf(lines);
+        if (safe.isEmpty()) {
+            Label empty = new Label("No diagnostics for the current result.");
+            empty.getStyleClass().add("empty-state");
+            details.getChildren().setAll(empty);
+            return;
+        }
+        details.getChildren().setAll(safe.stream().map(line -> {
             Label label = new Label(line);
             label.setWrapText(true);
+            label.getStyleClass().add("diagnostic-line");
             return label;
         }).toList());
-        toggle.setDisable(lines.isEmpty());
-        details.setVisible(false);
-        details.setManaged(false);
-        toggle.setText("Show technical details");
     }
 }
