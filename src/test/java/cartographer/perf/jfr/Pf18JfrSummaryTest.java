@@ -34,9 +34,23 @@ class Pf18JfrSummaryTest {
         Pf18JfrCampaignIdentity identity = identity();
 
         assertEquals("a".repeat(40), identity.gitSha());
+        assertEquals("MAP_R1024", identity.workloadId());
+        assertEquals("MAP", identity.workloadFamily());
+        assertEquals(1024, identity.radius());
         assertEquals("CACHE_WARM", identity.declaredProfileState());
         assertEquals("profile", identity.jfrConfiguration());
+        assertEquals(256L * 1024 * 1024, identity.maxRecordingSizeBytes());
+        assertEquals(Path.of("world.vcdbs").toAbsolutePath().normalize(), identity.sourcePath());
+        assertEquals("PASS", identity.sourceSafetyStatus());
         assertEquals(Optional.of("b".repeat(64)), identity.semanticFingerprint());
+        assertEquals(Optional.of("c".repeat(64)), identity.imageFingerprint());
+        assertEquals(identity, summaryFor(identity).identity());
+        assertEquals(true, summaryFor(identity).diagnosticOnly());
+    }
+
+    private static Pf18JfrSummary summaryFor(Pf18JfrCampaignIdentity identity) {
+        return new Pf18JfrSummary(Path.of("recording.jfr"), Path.of("summary.txt"),
+                true, identity, List.of());
     }
 
     private static Pf18JfrCampaignIdentity identity() {

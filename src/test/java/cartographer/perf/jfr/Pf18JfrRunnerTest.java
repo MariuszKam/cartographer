@@ -9,6 +9,7 @@ import cartographer.perf.benchmark.BenchmarkRunResult;
 import cartographer.perf.fingerprint.ResultFingerprint;
 import cartographer.perf.macro.Pf18IterationEvidence;
 import cartographer.perf.macro.Pf18MacroOperationFactory;
+import cartographer.perf.metrics.ExecutionMode;
 import cartographer.perf.safety.SaveSafetyGate;
 import cartographer.perf.safety.SaveSafetySnapshot;
 import cartographer.perf.safety.SaveSafetySnapshotter;
@@ -224,7 +225,7 @@ class Pf18JfrRunnerTest {
     }
 
     @Test
-    void protectedOutputAndExistingEvidenceAreRejected() throws Exception {
+    void outputUnderProtectedSourceDirectoryIsRejected() throws Exception {
         Path save = save();
         Pf18JfrRunner runner = runner((a, b, c) -> () -> evidence(false,
                 Optional.empty(), Optional.of("image")), normalProfiler(),
@@ -232,14 +233,59 @@ class Pf18JfrRunnerTest {
                 new AtomicInteger());
         assertThrows(IllegalArgumentException.class, () -> runner.profile(save,
                 temp.resolve("cache"), SHA, "ROCK_UPPER_R128", save.getParent().resolve("out")));
+    }
 
+    @Test
+    void existingRecordingDestinationIsRejectedWithoutOverwrite() throws Exception {
+        Path save = save();
+        Pf18JfrRunner runner = runner((a, b, c) -> () -> evidence(false,
+                Optional.empty(), Optional.of("image")), normalProfiler(),
+                identity("MAP_R128", "MAP", "CACHE_WARM"), new AtomicInteger());
         Path output = temp.resolve("existing-output");
+        Files.createDirectories(output);
+        Files.createFile(output.resolve("MAP_R128.jfr"));
+        assertThrows(IllegalArgumentException.class, () -> runner.profile(save,
+                temp.resolve("recording-cache"), SHA, "MAP_R128", output));
+    }
+
+    @Test
+    void existingSummaryDestinationIsRejectedWithoutOverwrite() throws Exception {
+        Path save = save();
+        Pf18JfrRunner runner = runner((a, b, c) -> () -> evidence(false,
+                Optional.empty(), Optional.of("image")), normalProfiler(),
+                identity("MAP_R128", "MAP", "CACHE_WARM"), new AtomicInteger());
+        Path output = temp.resolve("existing-summary-output");
+        Files.createDirectories(output);
+        Files.createFile(output.resolve("MAP_R128-jfr-summary.txt"));
+        assertThrows(IllegalArgumentException.class, () -> runner.profile(save,
+                temp.resolve("summary-cache"), SHA,
+                "MAP_R128", output));
+    }
+
+    @Test
+    void existingMapCampaignCacheDestinationIsRejectedWithoutOverwrite() throws Exception {
+        Path save = save();
+        Pf18JfrRunner runner = runner((a, b, c) -> () -> evidence(false,
+                Optional.empty(), Optional.of("image")), normalProfiler(),
+                identity("MAP_R128", "MAP", "CACHE_WARM"), new AtomicInteger());
+        Path output = temp.resolve("existing-cache-output");
         Path cache = temp.resolve("existing-cache");
         Files.createDirectories(output);
         Files.createDirectories(cache.resolve("pf18-jfr-" + SHA + "-MAP_R128"));
-        Files.createFile(output.resolve("MAP_R128.jfr"));
         assertThrows(IllegalArgumentException.class, () -> runner.profile(save, cache, SHA,
                 "MAP_R128", output));
+    }
+
+    @Test
+    void successfulStatusCannotContainAMissingMeasuredFingerprint() {
+        BenchmarkPlan plan = new BenchmarkPlan(
+                new cartographer.perf.workload.MapWorkload(
+                        cartographer.perf.workload.RadiusProfile.R128),
+                ExecutionMode.JVM_WARM, 0, 1);
+        assertThrows(IllegalArgumentException.class, () -> new BenchmarkRunResult(
+                plan, List.of(), List.of(new BenchmarkIterationResult(
+                        0, 1, Optional.empty(), Optional.empty(), Optional.empty())),
+                BenchmarkExecutionStatus.SUCCESS));
     }
 
     private Pf18JfrRunner runner(Pf18MacroOperationFactory operations,

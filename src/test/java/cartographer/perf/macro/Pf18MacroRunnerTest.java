@@ -4,6 +4,9 @@ import cartographer.perf.metrics.ExecutionMode;
 import cartographer.perf.metrics.PerformanceEnvironment;
 import cartographer.perf.metrics.Pf18ResourceEvidence;
 import cartographer.perf.safety.SaveSafetySnapshotter;
+import cartographer.perf.safety.SaveSafetyGate;
+import cartographer.perf.safety.SaveSafetyStatus;
+import cartographer.perf.safety.SaveSafetyViolationType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -186,7 +189,55 @@ class Pf18MacroRunnerTest {
         assertEquals("source-4", report.measuredEvidence().get(2).sourceWork().orElseThrow());
         assertTrue(report.measuredEvidence().get(1).resourceEvidence().isEmpty());
         assertTrue(report.measuredEvidence().get(2).resourceEvidence().isPresent());
+        assertEquals(4, report.measuredWallClockNanoseconds().size());
+        assertEquals(4, report.resourceEvidence().size());
         assertFalse(report.evidenceIsValid());
+    }
+
+    @Test
+    void realSafetyMutationRemainsConcreteFail() throws Exception {
+        Path save = save();
+        SaveSafetySnapshotter snapshotter = new SaveSafetySnapshotter();
+        var before = snapshotter.capture(save);
+        Files.write(save, new byte[]{9, 8, 7, 6});
+
+        var result = new SaveSafetyGate().compare(before, snapshotter.capture(save));
+
+        assertEquals(SaveSafetyStatus.FAIL, result.status());
+        assertTrue(result.violations().stream().anyMatch(violation ->
+                violation.type() == SaveSafetyViolationType.SAVE_SIZE_CHANGED
+                        || violation.type() == SaveSafetyViolationType.SAVE_CONTENT_CHANGED));
+    }
+
+    @Test
+    void mapReportPersistsAndRendersWorkloadContract() throws Exception {
+        Path save = save();
+        Pf18MacroReport report = new Pf18MacroRunner(
+                fixedFactory(true, new AtomicInteger()),
+                (a, b, c, d, e) -> { throw new AssertionError(); }, ENVIRONMENT).run(
+                save, temporaryDirectory.resolve("map-cache"), "MAP_R128", SHA,
+                ExecutionMode.CACHE_WARM, temporaryDirectory.resolve("map-contract"));
+
+        assertTrue(report.workloadContract().contains("RenderActualOreMapUseCase"));
+        assertTrue(report.workloadContract().contains("style=TOPOGRAPHIC"));
+        assertTrue(report.workloadContract().contains("layers=TERRAIN,SURFACE"));
+        assertTrue(new Pf18MacroReportRenderer().render(report).contains(
+                "Workload contract: " + report.workloadContract()));
+    }
+
+    @Test
+    void rockReportPersistsAndRendersUpperRockContract() throws Exception {
+        Path save = save();
+        Pf18MacroReport report = new Pf18MacroRunner(
+                fixedFactory(false, new AtomicInteger()),
+                (a, b, c, d, e) -> { throw new AssertionError(); }, ENVIRONMENT).run(
+                save, temporaryDirectory.resolve("rock-cache"), "ROCK_UPPER_R128", SHA,
+                ExecutionMode.JVM_WARM, temporaryDirectory.resolve("rock-contract"));
+
+        assertTrue(report.workloadContract().contains("RenderRockMapUseCase"));
+        assertTrue(report.workloadContract().contains("mode=UPPER_ROCK"));
+        assertTrue(new Pf18MacroReportRenderer().render(report).contains(
+                "Workload contract: " + report.workloadContract()));
     }
 
     @Test

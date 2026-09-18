@@ -579,3 +579,18 @@ commit and push; later checkpoints require a new task instruction.
 * PF-1.8 runtime gates: **NOT RUN**.
 * PF-1.6/PF-1.7 runtime validation: **PENDING MANUAL VALIDATION**.
 * Performance conclusions: **NOT RUN**; no performance claim is made.
+
+## 12. Checkpoint I closure status
+
+Checkpoint I closes the implementation gate and supplies the authoritative
+reviewer procedure in `docs/PF_1_8_FINAL_VALIDATION_RUNBOOK.md`. It does not
+validate PF-1.8 and does not authorize Codex to accept any milestone.
+
+Status: **IMPLEMENTATION CLOSED — VALIDATION PENDING**.
+
+A–H implementation and static-review corrections are integrated, and the
+Checkpoint I reviewer runbook and final deterministic closure tests are
+implemented. Tests were **NOT RUN** by Codex; build was **NOT RUN**; real-save
+validation was **NOT RUN**; macro benchmarks were **NOT RUN**; JFR was **NOT
+RUN**; and PNG manual inspection was **NOT RUN**. PF-1.6 and PF-1.7 remain
+**IMPLEMENTED — VALIDATION PENDING**. PF-1.8 is not PASS, VALIDATED, or DONE.
