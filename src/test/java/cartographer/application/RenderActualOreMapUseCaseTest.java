@@ -478,10 +478,19 @@ class RenderActualOreMapUseCaseTest {
 
     @Test
     void terrainHitCanProvideSurfacePlanningAndPopulateSurfaceCache() throws Exception {
-        Path savePath = temporaryDirectory.resolve("cached-surface-save.vcdbs");
+        Path sourceDirectory = temporaryDirectory.resolve("source");
+        Path cacheRoot = temporaryDirectory.resolve("cache").resolve("render-data");
+        Files.createDirectories(sourceDirectory);
+        Files.createDirectories(cacheRoot.getParent());
+        Path savePath = sourceDirectory.resolve("cached-surface-save.vcdbs");
+        Path normalizedSourceDirectory = sourceDirectory.toAbsolutePath().normalize();
+        Path normalizedCacheRoot = cacheRoot.toAbsolutePath().normalize();
+        assertFalse(normalizedSourceDirectory.equals(normalizedCacheRoot));
+        assertFalse(normalizedCacheRoot.startsWith(normalizedSourceDirectory));
+        assertFalse(normalizedSourceDirectory.startsWith(normalizedCacheRoot));
         Files.write(savePath, new byte[]{1});
         RenderDataCacheStore cacheStore = new RenderDataCacheStore(
-                temporaryDirectory.resolve("render-data-cache")
+                cacheRoot
         );
         RenderDataCacheRevision revision = cacheStore.observe(savePath);
         cacheStore.publish(revision);
