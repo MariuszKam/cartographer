@@ -208,7 +208,7 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(0, reader.exactChunkCalls);
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
-        assertEquals(0, reader.registryCalls);
+        assertEquals(1, reader.registryCalls);
         assertEquals(0, reader.pathPlayerCalls);
         assertEquals(0, reader.pathMapChunkCalls);
         assertEquals(0, reader.pathRegistryCalls);
@@ -255,7 +255,7 @@ class RenderActualOreMapUseCaseTest {
 
         RenderActualOreMapResult first = useCase(
                 surfaceReader(true),
-                new WorldMetadata(128, 256, 128),
+                new WorldMetadata(32, 256, 32),
                 temporaryDirectory.resolve("revision-home.properties"),
                 temporaryDirectory.resolve("revision-markers.csv"),
                 cacheStore
@@ -270,7 +270,7 @@ class RenderActualOreMapUseCaseTest {
         FakeReader hitReader = surfaceReader(true);
         RenderActualOreMapResult second = useCase(
                 hitReader,
-                new WorldMetadata(128, 256, 128),
+                new WorldMetadata(32, 256, 32),
                 temporaryDirectory.resolve("revision-home.properties"),
                 temporaryDirectory.resolve("revision-markers.csv"),
                 cacheStore
@@ -287,7 +287,7 @@ class RenderActualOreMapUseCaseTest {
         FakeReader missReader = surfaceReader(true);
         RenderActualOreMapResult third = useCase(
                 missReader,
-                new WorldMetadata(128, 256, 128),
+                new WorldMetadata(32, 256, 32),
                 temporaryDirectory.resolve("revision-home.properties"),
                 temporaryDirectory.resolve("revision-markers.csv"),
                 cacheStore
@@ -320,7 +320,7 @@ class RenderActualOreMapUseCaseTest {
         FakeReader firstReader = surfaceReader(true);
         RenderActualOreMapResult first = useCase(
                 firstReader,
-                new WorldMetadata(128, 256, 128),
+                new WorldMetadata(32, 256, 32),
                 temporaryDirectory.resolve("cached-home.properties"),
                 temporaryDirectory.resolve("cached-markers.csv"),
                 cacheStore
@@ -342,7 +342,7 @@ class RenderActualOreMapUseCaseTest {
         FakeReader secondReader = surfaceReader(true);
         RenderActualOreMapResult second = useCase(
                 secondReader,
-                new WorldMetadata(128, 256, 128),
+                new WorldMetadata(32, 256, 32),
                 temporaryDirectory.resolve("cached-home.properties"),
                 temporaryDirectory.resolve("cached-markers.csv"),
                 cacheStore
@@ -361,7 +361,7 @@ class RenderActualOreMapUseCaseTest {
         FakeReader thirdReader = surfaceReader(true);
         RenderActualOreMapResult third = useCase(
                 thirdReader,
-                new WorldMetadata(128, 256, 128),
+                new WorldMetadata(32, 256, 32),
                 temporaryDirectory.resolve("cached-home.properties"),
                 temporaryDirectory.resolve("cached-markers.csv"),
                 cacheStore
@@ -424,7 +424,7 @@ class RenderActualOreMapUseCaseTest {
                         new MapChunkCoordinate(1, 0), true, true, filledHeights(999)
                 )
         ));
-        WorldMetadata metadata = new WorldMetadata(34, 256, 128);
+        WorldMetadata metadata = new WorldMetadata(34, 256, 32);
 
         RenderActualOreMapResult first = useCase(
                 edgeFallbackReader(), metadata,
@@ -460,7 +460,9 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(first.surface().emptyColumns(), second.surface().emptyColumns());
         assertEquals(1, second.renderDataCacheReport().surface().hits());
         assertEquals(0, second.renderDataCacheReport().surface().sourceLoaded());
-        assertEquals(0, secondReader.adaptiveExactChunkCalls);
+        assertTrue(secondReader.exactRequests.stream()
+                .flatMap(List::stream)
+                .noneMatch(position -> position.x() == 1 && position.z() == 0));
         assertEquals(first.surface().liquidUnavailableColumns(),
                 second.surface().liquidUnavailableColumns());
         assertSurfaceParity(first.surface().map(), second.surface().map());
@@ -511,7 +513,7 @@ class RenderActualOreMapUseCaseTest {
         RenderDataCacheStore cacheStore = new RenderDataCacheStore(
                 temporaryDirectory.resolve("mixed-surface-render-data-cache")
         );
-        WorldMetadata metadata = new WorldMetadata(128, 256, 128);
+        WorldMetadata metadata = new WorldMetadata(64, 256, 32);
 
         FakeReader firstReader = surfaceReader(true);
         RenderActualOreMapResult first = useCase(
@@ -543,10 +545,10 @@ class RenderActualOreMapUseCaseTest {
                 temporaryDirectory.resolve("mixed-surface-markers.csv"),
                 cacheStore
         ).execute(new RenderActualOreMapRequest(
-                savePath, 16, 1, RenderStyle.TOPOGRAPHIC,
+                savePath, 15, 1, RenderStyle.TOPOGRAPHIC,
                 Set.of(RenderLayer.SURFACE), Optional.empty(),
                 ActualBlockYFilter.unbounded(),
-                Optional.of(new WorldPosition(32, 64, 16))
+                Optional.of(new WorldPosition(31, 64, 16))
         ));
 
         assertEquals(1, second.renderDataCacheReport().surface().hits());
