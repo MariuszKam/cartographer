@@ -9,7 +9,10 @@ import cartographer.resource.ObservedSurfaceResourceCatalogBuilder;
 import cartographer.resource.SurfaceObjectCandidateCatalog;
 import cartographer.resource.SurfaceObjectCandidateCatalogBuilder;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
 import cartographer.save.SelectiveChunkStreamStats;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.SurfaceObjectCompactPlan;
@@ -23,7 +26,7 @@ import java.util.Map;
 /** Discovers observed loose surface objects with one combined selective scan. */
 public final class DiscoverObservedSurfaceResourcesUseCase {
     private final VcdbsReader reader;
-    private final WorldMetadataReader metadataReader;
+    private final SaveSessionFactory sessionFactory;
     private final MapChunkPositionPlanner mapChunkPositionPlanner =
             new MapChunkPositionPlanner();
     private final SurfaceObjectCompactPlanner planner = new SurfaceObjectCompactPlanner();
@@ -37,24 +40,72 @@ public final class DiscoverObservedSurfaceResourcesUseCase {
             VcdbsReader reader,
             WorldMetadataReader metadataReader
     ) {
-        this.reader = reader;
-        this.metadataReader = metadataReader;
+        this(
+                reader,
+                new SaveSessionFactory(
+                        new SqliteSaveConnection(),
+                        reader,
+                        metadataReader
+                )
+        );
+    }
+
+    public DiscoverObservedSurfaceResourcesUseCase(
+            VcdbsReader reader,
+            SaveSessionFactory sessionFactory
+    ) {
+        this.reader = java.util.Objects.requireNonNull(
+                reader,
+                "reader is required"
+        );
+        this.sessionFactory = java.util.Objects.requireNonNull(
+                sessionFactory,
+                "sessionFactory is required"
+        );
     }
 
     public DiscoverObservedSurfaceResourcesResult execute(
             DiscoverObservedSurfaceResourcesRequest request
     ) {
-        WorldMetadata metadata = metadataReader.read(request.savePath());
+        return execute(request, ProgressReporter.NONE);
+    }
+
+    public DiscoverObservedSurfaceResourcesResult execute(
+            DiscoverObservedSurfaceResourcesRequest request,
+            ProgressReporter progress
+    ) {
+        java.util.Objects.requireNonNull(request, "request is required");
+        java.util.Objects.requireNonNull(progress, "progress is required");
+        try (SaveSession session = sessionFactory.open(request.savePath())) {
+            return execute(session, request, progress);
+        }
+    }
+
+    public DiscoverObservedSurfaceResourcesResult execute(
+            SaveSession session,
+            DiscoverObservedSurfaceResourcesRequest request,
+            ProgressReporter progress
+    ) {
+        java.util.Objects.requireNonNull(session, "session is required");
+        java.util.Objects.requireNonNull(request, "request is required");
+        java.util.Objects.requireNonNull(progress, "progress is required");
+        session.requireSameSave(request.savePath());
+
+        WorldMetadata metadata = session.snapshot().metadata();
         WorldPosition center = request.center().orElseGet(
-                () -> reader.readPlayerPosition(request.savePath())
+                () -> reader.readPlayerPosition(session, progress)
         );
-        Map<Integer, BlockInfo> registry = reader.readBlockRegistry(request.savePath());
-        SurfaceObjectCandidateCatalog candidates = candidateBuilder.build(registry);
+        Map<Integer, BlockInfo> registry =
+                session.snapshot().blockRegistry();
+        SurfaceObjectCandidateCatalog candidates =
+                candidateBuilder.build(registry);
         ReadDiagnostics mapDiagnostics = new ReadDiagnostics();
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
         if (candidates.candidateBlockIds().isEmpty()) {
-            SurfaceObjectCompactPlan emptyPlan = SurfaceObjectCompactPlan.empty();
-            SurfaceObjectCompactScanResult emptyScan = SurfaceObjectCompactScanResult.empty();
+            SurfaceObjectCompactPlan emptyPlan =
+                    SurfaceObjectCompactPlan.empty();
+            SurfaceObjectCompactScanResult emptyScan =
+                    SurfaceObjectCompactScanResult.empty();
             return result(
                     center,
                     candidates,
@@ -68,30 +119,42 @@ public final class DiscoverObservedSurfaceResourcesUseCase {
 
         int centerX = (int) Math.floor(center.x());
         int centerZ = (int) Math.floor(center.z());
-        SurfaceObjectCompactPlanner.StreamingSession planning = planner.begin(
-                metadata, centerX, centerZ, request.radius()
-        );
-        List<MapChunkCoordinate> coordinates = mapChunkPositionPlanner.plan(
-                metadata, centerX, centerZ, request.radius()
-        );
+        SurfaceObjectCompactPlanner.StreamingSession planning =
+                planner.begin(
+                        metadata,
+                        centerX,
+                        centerZ,
+                        request.radius()
+                );
+        List<MapChunkCoordinate> coordinates =
+                mapChunkPositionPlanner.plan(
+                        metadata,
+                        centerX,
+                        centerZ,
+                        request.radius()
+                );
         reader.forEachMapChunkByCoordinate(
-                request.savePath(), coordinates, mapDiagnostics, planning::accept
+                session,
+                coordinates,
+                mapDiagnostics,
+                planning::accept,
+                progress
         );
         SurfaceObjectCompactPlan plan = planning.finish();
-        SurfaceObjectStreamingScanner.Session scanSession = scanner.begin(
-                plan,
-                candidates.candidateBlockIds().stream().mapToInt(Integer::intValue).toArray()
-        );
-        SelectiveChunkStreamStats stats = emptyStats();
         int[] wantedIds = candidates.candidateBlockIds().stream()
-                .mapToInt(Integer::intValue).toArray();
+                .mapToInt(Integer::intValue)
+                .toArray();
+        SurfaceObjectStreamingScanner.Session scanSession =
+                scanner.begin(plan, wantedIds);
+        SelectiveChunkStreamStats stats = emptyStats();
         if (!plan.chunkPositions().isEmpty()) {
             stats = reader.forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                    request.savePath(),
+                    session,
                     plan.chunkPositions(),
                     wantedIds,
                     chunkDiagnostics,
-                    scanSession::accept
+                    scanSession::accept,
+                    progress
             );
         }
         SurfaceObjectCompactScanResult scan = scanSession.finish();
