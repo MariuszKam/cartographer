@@ -785,6 +785,8 @@ public final class WorkstationController {
 
     private void invalidateSurfaceDiscovery() {
         surfaceDiscoveryGate.invalidate();
+        operationCoordinator.cancel(WorkstationOperationScope.DISCOVERY);
+        workstation.setDiscoveryBusy(false);
         surfaceDiscoveryCache.clear();
         surfaceDiscoveryCenter = Optional.empty();
         surfaceDiscoveryResult = null;
@@ -810,6 +812,7 @@ public final class WorkstationController {
                 surfaceSelectionKeys = workstation.selectedObservedSurfaceResources().stream()
                         .map(resource -> resource.candidate().qualifiedResourceKey())
                         .collect(java.util.stream.Collectors.toUnmodifiableSet());
+                workstation.setDiscoveryBusy(false);
                 applySurfaceDiscoveryResult(key, cached.orElseThrow());
                 return;
             }
@@ -830,8 +833,11 @@ public final class WorkstationController {
         workstation.clearObservedSurfaceResources();
         surfaceObjectDiscoveryState = SurfaceObjectDiscoveryState.SCANNING;
         workstation.setSurfaceObjectDiscoveryState(surfaceObjectDiscoveryState);
+        workstation.setDiscoveryBusy(true);
         surfaceDiscoveryTask = operationCoordinator.submit(
-                "cartographer-surface-object-discovery",
+                WorkstationOperationScope.DISCOVERY,
+                "surface-object-discovery",
+                "Surface discovery R" + key.radius(),
                 () -> surfaceDiscoveryUseCase.execute(
                         new DiscoverObservedSurfaceResourcesRequest(
                                 key.savePath(),
@@ -840,6 +846,7 @@ public final class WorkstationController {
                         )
                 ),
                 result -> {
+                    workstation.setDiscoveryBusy(false);
                     if (!SurfaceDiscoveryPolicy.shouldCacheCompletion(
                             surfaceDiscoveryGate.accepts(token, currentSurfaceDiscoveryKey()))) {
                         return;
@@ -848,12 +855,17 @@ public final class WorkstationController {
                         surfaceDiscoveryCenter = Optional.of(result.center());
                     }
                     surfaceDiscoveryCache.put(
-                            SurfaceDiscoveryCacheKey.of(key.savePath(), key.radius(), result.center()),
+                            SurfaceDiscoveryCacheKey.of(
+                                    key.savePath(),
+                                    key.radius(),
+                                    result.center()
+                            ),
                             result
                     );
                     applySurfaceDiscoveryResult(key, result);
                 },
                 failure -> {
+                    workstation.setDiscoveryBusy(false);
                     if (!surfaceDiscoveryGate.accepts(token, currentSurfaceDiscoveryKey())) {
                         return;
                     }
