@@ -90,8 +90,10 @@ public final class TerrainTileStore {
                 connection.setAutoCommit(false);
                 try {
                     try (PreparedStatement statement = connection.prepareStatement(
-                            "INSERT OR IGNORE INTO terrain_tile "
-                                    + "(mapchunk_x, mapchunk_z, payload) VALUES (?, ?, ?)"
+                            // A deterministic republish heals a corrupt row for this revision.
+                            "INSERT INTO terrain_tile "
+                                    + "(mapchunk_x, mapchunk_z, payload) VALUES (?, ?, ?) "
+                                    + "ON CONFLICT(mapchunk_x, mapchunk_z) DO UPDATE SET payload = excluded.payload"
                     )) {
                         for (TerrainHeightTile tile : tiles) {
                             Objects.requireNonNull(tile, "tiles cannot contain null");

@@ -133,6 +133,12 @@ class TerrainTileStoreTest {
                 TerrainTileLookup.Status.CORRUPT,
                 tileStore.read(List.of(coordinate)).get(coordinate).status()
         );
+
+        tileStore.publish(List.of(new TerrainHeightTile(coordinate, true, true, filled(9))));
+        assertEquals(
+                TerrainTileLookup.Status.HIT,
+                tileStore.read(List.of(coordinate)).get(coordinate).status()
+        );
     }
 
     @Test

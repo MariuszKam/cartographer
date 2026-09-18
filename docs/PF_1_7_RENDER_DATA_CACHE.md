@@ -2,10 +2,11 @@
 
 Status: **IMPLEMENTATION IN PROGRESS — VALIDATION PENDING**
 
-This document records the PF-1.7 A+B foundation plus the C+D implementation.
-It defines the persistent render-data cache namespace, compact terrain artifact
-contract, and main-render session lifecycle. The cache is still not consumed by
-the renderer; cache HIT/MISS integration is intentionally deferred.
+This document records the PF-1.7 A+B foundation plus the C+D, E and F
+implementation. It defines the persistent render-data cache namespace, compact
+terrain and full-mapchunk Surface artifact contracts, and main-render session
+lifecycle. The cache is still not consumed by the renderer; cache HIT/MISS
+integration is intentionally deferred.
 
 ## Motivation and boundary
 
@@ -155,9 +156,9 @@ not the game save database: it is writable cache data strictly beneath the
 injected cache root, and it never receives the `.vcdbs` path as its database
 target. It stores codec payloads in a coordinate-addressable primary-key table,
 reads requested coordinates in bounded batches, and publishes tile batches in
-a transaction with deterministic `INSERT OR IGNORE` conflict behavior: an
-existing coordinate is preserved and is not overwritten or repaired by a later
-publication. Missing
+a transaction with deterministic coordinate UPSERT behavior. A valid
+republish therefore replaces a corrupt or stale row for the same revision and
+coordinate without touching the source save. Missing
 databases, rows, malformed payloads, and SQL read failures are optional-cache
 miss/corrupt states; they do not alter or fail source-save analysis. A
 compatible published manifest is required before terrain artifacts are
@@ -168,6 +169,40 @@ reads, mix cached and uncached terrain, write from render callbacks, or report
 cache diagnostics. The production renderer still reads source mapchunks through
 its SaveSession.
 
+## Checkpoint E — reusable full-mapchunk Surface artifact
+
+`SurfaceCacheTile` is separate from PF-1.4 `SurfaceTile` and `SurfaceMap`.
+The latter are request-shaped and contain an `ACTIVE` circle mask; the former
+represents every valid local column of one mapchunk and never persists ACTIVE,
+center, radius, layout, pixels-per-block, render style, or render layers. A
+full tile can therefore be projected into multiple overlapping requests later.
+
+The cache tile owns primitive arrays for state, surface Y, block ID, liquid
+block ID, and the explicit stable `SurfaceClassCode` mapping. It records the
+whole-tile source mode (`RAIN_HEIGHT_FAST` or `FALLBACK`) and the final
+diagnostic summary (`columnsScanned`, `emptyColumns`, and
+`liquidUnavailableColumns`). State and unresolved payloads are validated and
+canonicalized by contract; decoded server chunks and registry metadata are
+never retained.
+
+`SurfaceCacheTileCodec` uses the independent `surface-render-v1` profile and a
+deterministic big-endian binary format. Invalid magic, versions, profile,
+dimensions, states, class codes, counters, cell counts, truncation, and
+trailing bytes are rejected. `SurfaceTileLookup` distinguishes HIT, MISS, and
+CORRUPT without exposing fabricated data.
+
+## Checkpoint F — persistent Surface store
+
+`SurfaceTileStore` is bound immutably to one `RenderDataCacheRevision` and
+stores codec payloads in `surface-cache.sqlite` below that revision directory.
+It is cache-local writable SQLite data, distinct from the read-only `.vcdbs`.
+Reads deduplicate coordinates in first-occurrence order and use bounded batches;
+publication uses one transaction per batch and deterministic SQLite UPSERT so a
+corrupt row can be healed by a valid republish. Missing databases/rows and
+invalid payloads remain optional-cache MISS/CORRUPT states for later fallback.
+No registry, request geometry, player, HOME, marker, connection, or session is
+persisted.
+
 ## Legacy cache compatibility
 
 PF-1.7 does not redefine or delete the existing `RenderCache`, `CacheKey`,
@@ -176,11 +211,12 @@ PF-1.7 does not redefine or delete the existing `RenderCache`, `CacheKey`,
 table-level facilities with their existing semantics. The PF-1.7 namespace and
 manifest are intentionally separate.
 
-## No renderer integration in A+B
+## No renderer integration in E+F
 
 `RenderSurfaceResourceMapUseCase` and other rendering paths still perform their
 existing source reads. The main `RenderActualOreMapUseCase` source path now
-uses the C SaveSession lifecycle, but no renderer consumes D cache artifacts.
+uses the C SaveSession lifecycle, but no renderer consumes terrain or Surface
+cache artifacts.
 No decoded input is retained by this foundation.
 
 ## Roadmap
@@ -190,7 +226,8 @@ The intended remaining implementation pairs are:
 * **A+B** — identity and manifest foundation;
 * **C** — main `RenderActualOreMapUseCase` SaveSession migration;
 * **D** — compact terrain/mapchunk cache model and persistent store (this work);
-* **E+F** — compact PF-1.4 Surface tile cache;
+* **E** — reusable full-mapchunk Surface artifact and codec;
+* **F** — persistent Surface store and cache-row healing;
 * **G+H** — production cache integration, mixed hit/miss behavior, and diagnostics;
 * **I+J** — invalidation, cleanup, static audit, and implementation closure.
 
