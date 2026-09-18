@@ -7,6 +7,7 @@ import javafx.scene.layout.VBox;
 
 import java.util.EnumSet;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public final class LayerPanel extends VBox {
     private final CheckBox terrain = new CheckBox("Terrain");
@@ -14,6 +15,7 @@ public final class LayerPanel extends VBox {
     private final CheckBox soilFertility = new CheckBox("Soil Fertility");
     private final CheckBox markers = new CheckBox("Markers");
     private boolean modeSupported = true;
+    private Consumer<Set<RenderLayer>> layersListener = ignored -> { };
 
     public LayerPanel() {
         super(4);
@@ -26,6 +28,21 @@ public final class LayerPanel extends VBox {
         terrain.setSelected(true);
         surface.setSelected(true);
         markers.setSelected(true);
+        for (CheckBox layer : java.util.List.of(
+                terrain,
+                surface,
+                soilFertility,
+                markers
+        )) {
+            layer.selectedProperty().addListener(
+                    (observable, oldValue, selected) ->
+                            layersListener.accept(selectedRenderLayers())
+            );
+        }
+    }
+
+    public void setOnLayersChanged(Consumer<Set<RenderLayer>> listener) {
+        layersListener = listener == null ? ignored -> { } : listener;
     }
 
     public Set<RenderLayer> selectedRenderLayers() {
