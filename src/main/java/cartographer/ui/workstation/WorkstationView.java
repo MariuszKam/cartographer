@@ -131,6 +131,7 @@ public final class WorkstationView {
 
     public void setDiscoveryBusy(boolean busy) {
         discoveryBusy = busy;
+        worldPanel.setBusy(busy);
         searchPanel.setDiscoveryBusy(busy);
         refreshOperationState();
     }
