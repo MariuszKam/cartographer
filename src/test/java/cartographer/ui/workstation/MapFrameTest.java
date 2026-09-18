@@ -94,6 +94,19 @@ class MapFrameTest {
         assertFalse(sparse.supportsLocalRecomposition(Set.of(RenderLayer.TERRAIN)));
         assertFalse(sparse.supportsLocalRecomposition(Set.of(RenderLayer.SURFACE)));
         assertFalse(sparse.supportsLocalRecomposition(Set.of(RenderLayer.SOIL_FERTILITY)));
+
+        MapFrame unavailableMarkers = MapFrame.map(
+                Path.of("markers-unavailable.vcdbs"),
+                geometry,
+                prepared(Set.of(RenderLayer.TERRAIN)),
+                new MapDecorationState(HomeState.absent(), List.of(), false)
+        );
+        assertTrue(unavailableMarkers.supportsLocalRecomposition(
+                Set.of(RenderLayer.TERRAIN)
+        ));
+        assertFalse(unavailableMarkers.supportsLocalRecomposition(
+                Set.of(RenderLayer.TERRAIN, RenderLayer.MARKERS)
+        ));
     }
 
     @Test
