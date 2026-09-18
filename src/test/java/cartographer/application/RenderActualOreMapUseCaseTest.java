@@ -15,6 +15,9 @@ import cartographer.perf.RenderDataCacheStore;
 import cartographer.perf.TerrainHeightTile;
 import cartographer.perf.TerrainTileStore;
 import cartographer.perf.SurfaceTileStore;
+import cartographer.perf.fingerprint.ImageFingerprinter;
+import cartographer.perf.fingerprint.RenderActualOreMapResultFingerprinter;
+import cartographer.perf.fingerprint.ResultFingerprint;
 import cartographer.render.ActualOreOverlayPainter;
 import cartographer.render.MapRenderer;
 import cartographer.render.RenderLayer;
@@ -23,6 +26,7 @@ import cartographer.render.UserMarkerRenderer;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
+import cartographer.save.SaveSessionLifecycleProbe;
 import cartographer.save.SelectiveChunkStreamStats;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.MapChunkStreamStats;
@@ -42,7 +46,9 @@ import java.nio.file.Files;
 import java.nio.file.attribute.FileTime;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.Base64;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -300,14 +306,191 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(0, third.renderDataCacheReport().terrain().hits());
         assertTrue(third.renderDataCacheReport().terrain().misses() >= 1);
         assertFalse(missReader.directMapChunkRequests.getLast().isEmpty());
+
+        Files.write(savePath, new byte[]{1, 2});
+        FakeReader sizeMissReader = surfaceReader(true);
+        RenderActualOreMapResult sizeChanged = useCase(
+                sizeMissReader,
+                new WorldMetadata(32, 256, 32),
+                temporaryDirectory.resolve("revision-home.properties"),
+                temporaryDirectory.resolve("revision-markers.csv"),
+                cacheStore
+        ).execute(new RenderActualOreMapRequest(
+                savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.TERRAIN), Optional.empty(),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(16, 64, 16))
+        ));
+        assertEquals(0, sizeChanged.renderDataCacheReport().terrain().hits());
+        assertTrue(sizeChanged.renderDataCacheReport().terrain().misses() >= 1);
+        assertFalse(sizeMissReader.directMapChunkRequests.getLast().isEmpty());
+    }
+
+    @Test
+    void terrainCorruptRowFallsBackHealsDeterministicallyAndThenHits() throws Exception {
+        Path savePath = temporaryDirectory.resolve("terrain-corrupt-save.vcdbs");
+        Files.write(savePath, new byte[]{1});
+        RenderDataCacheStore cacheStore = new RenderDataCacheStore(
+                temporaryDirectory.resolve("terrain-corrupt-cache")
+        );
+        WorldMetadata metadata = new WorldMetadata(32, 256, 32);
+        Path home = temporaryDirectory.resolve("terrain-corrupt-home.properties");
+        Path markers = temporaryDirectory.resolve("terrain-corrupt-markers.csv");
+        RenderActualOreMapRequest request = new RenderActualOreMapRequest(
+                savePath, 23, 1, RenderStyle.TOPOGRAPHIC, Set.of(RenderLayer.TERRAIN),
+                Optional.empty(), ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(16, 64, 16))
+        );
+
+        RenderActualOreMapResult first = useCase(
+                surfaceReader(true), metadata, home, markers, cacheStore
+        ).execute(request);
+        RenderDataCacheRevision revision = cacheStore.observe(savePath);
+        MapChunkCoordinate coordinate = new MapChunkCoordinate(0, 0);
+        byte[] expectedPayload = terrainPayload(cacheStore, revision, coordinate);
+
+        corruptTerrainRow(cacheStore, revision, coordinate);
+        FakeReader recoveryReader = surfaceReader(true);
+        RenderActualOreMapResult recovered = useCase(
+                recoveryReader, metadata, home, markers, cacheStore
+        ).execute(request);
+        assertEquals(1, recovered.renderDataCacheReport().terrain().corruptOrIncompatible());
+        assertEquals(1, recovered.renderDataCacheReport().terrain().published());
+        assertFalse(recoveryReader.directMapChunkRequests.getLast().isEmpty());
+        assertArrayEquals(expectedPayload, terrainPayload(cacheStore, revision, coordinate));
+
+        FakeReader hitReader = surfaceReader(true);
+        RenderActualOreMapResult hit = useCase(
+                hitReader, metadata, home, markers, cacheStore
+        ).execute(request);
+        assertEquals(1, hit.renderDataCacheReport().terrain().hits());
+        assertTrue(hitReader.directMapChunkRequests.getLast().isEmpty());
+        assertParity(first, recovered);
+        assertParity(first, hit);
+    }
+
+    @Test
+    void malformedManifestVariantsAndCachePreparationFailureRemainSourceOnly() throws Exception {
+        List<String> malformed = List.of(
+                "not-a-manifest\n",
+                "schemaVersion=render-data-v1\n"
+        );
+        for (int index = 0; index < malformed.size(); index++) {
+            Path savePath = temporaryDirectory.resolve("manifest-variant-" + index + ".vcdbs");
+            Files.write(savePath, new byte[]{1});
+            RenderDataCacheStore cacheStore = new RenderDataCacheStore(
+                    temporaryDirectory.resolve("manifest-variant-cache-" + index)
+            );
+            RenderDataCacheRevision revision = cacheStore.observe(savePath);
+            cacheStore.publish(revision);
+            Files.writeString(cacheStore.manifestPath(revision), malformed.get(index));
+            FakeReader reader = surfaceReader(true);
+            RenderActualOreMapResult source = useCase(
+                    surfaceReader(true), new WorldMetadata(32, 256, 32),
+                    temporaryDirectory.resolve("manifest-source-home-" + index + ".properties"),
+                    temporaryDirectory.resolve("manifest-source-markers-" + index + ".csv")
+            ).execute(new RenderActualOreMapRequest(
+                    savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
+                    Set.of(RenderLayer.TERRAIN), Optional.empty(),
+                    ActualBlockYFilter.unbounded(), Optional.of(new WorldPosition(16, 64, 16))
+            ));
+            RenderActualOreMapResult result = useCase(
+                    reader, new WorldMetadata(32, 256, 32),
+                    temporaryDirectory.resolve("manifest-variant-home-" + index + ".properties"),
+                    temporaryDirectory.resolve("manifest-variant-markers-" + index + ".csv"),
+                    cacheStore
+            ).execute(new RenderActualOreMapRequest(
+                    savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
+                    Set.of(RenderLayer.TERRAIN), Optional.empty(),
+                    ActualBlockYFilter.unbounded(), Optional.of(new WorldPosition(16, 64, 16))
+            ));
+            assertFalse(result.renderDataCacheReport().enabled());
+            assertFalse(reader.directMapChunkRequests.getLast().isEmpty());
+            assertParity(source, result);
+        }
+
+        String[] incompatibleSchemas = {"render-data-v99", "render-data-v1"};
+        String[] incompatibleParsers = {"parser-data-v1", "parser-data-v99"};
+        for (int index = 0; index < incompatibleSchemas.length; index++) {
+            Path incompatibleSave = temporaryDirectory.resolve("complete-manifest-" + index + ".vcdbs");
+            Files.write(incompatibleSave, new byte[]{1});
+            RenderDataCacheStore incompatibleCache = new RenderDataCacheStore(
+                    temporaryDirectory.resolve("complete-manifest-cache-" + index));
+            RenderDataCacheRevision incompatibleRevision = incompatibleCache.observe(incompatibleSave);
+            incompatibleCache.publish(incompatibleRevision);
+            Files.writeString(incompatibleCache.manifestPath(incompatibleRevision), completeManifest(
+                    incompatibleRevision, incompatibleSchemas[index], incompatibleParsers[index]));
+            FakeReader incompatibleReader = surfaceReader(true);
+            RenderActualOreMapResult incompatibleSource = useCase(
+                    surfaceReader(true), new WorldMetadata(32, 256, 32),
+                    temporaryDirectory.resolve("complete-manifest-source-home-" + index + ".properties"),
+                    temporaryDirectory.resolve("complete-manifest-source-markers-" + index + ".csv")
+            ).execute(new RenderActualOreMapRequest(
+                    incompatibleSave, 23, 1, RenderStyle.TOPOGRAPHIC,
+                    Set.of(RenderLayer.TERRAIN), Optional.empty(),
+                    ActualBlockYFilter.unbounded(), Optional.of(new WorldPosition(16, 64, 16))
+            ));
+            RenderActualOreMapResult incompatibleResult = useCase(
+                    incompatibleReader, new WorldMetadata(32, 256, 32),
+                    temporaryDirectory.resolve("complete-manifest-home-" + index + ".properties"),
+                    temporaryDirectory.resolve("complete-manifest-markers-" + index + ".csv"),
+                    incompatibleCache
+            ).execute(new RenderActualOreMapRequest(
+                    incompatibleSave, 23, 1, RenderStyle.TOPOGRAPHIC,
+                    Set.of(RenderLayer.TERRAIN), Optional.empty(),
+                    ActualBlockYFilter.unbounded(), Optional.of(new WorldPosition(16, 64, 16))
+            ));
+            assertFalse(incompatibleResult.renderDataCacheReport().enabled());
+            assertFalse(incompatibleReader.directMapChunkRequests.getLast().isEmpty());
+            assertParity(incompatibleSource, incompatibleResult);
+        }
+
+        Path savePath = temporaryDirectory.resolve("cache-preparation-failure.vcdbs");
+        Files.write(savePath, new byte[]{1});
+        Path cacheFile = temporaryDirectory.resolve("cache-root-is-file");
+        Files.write(cacheFile, new byte[]{1});
+        FakeReader reader = surfaceReader(true);
+        RenderActualOreMapResult source = useCase(
+                surfaceReader(true), new WorldMetadata(32, 256, 32),
+                temporaryDirectory.resolve("cache-failure-source-home.properties"),
+                temporaryDirectory.resolve("cache-failure-source-markers.csv")
+        ).execute(new RenderActualOreMapRequest(
+                savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.TERRAIN), Optional.empty(),
+                ActualBlockYFilter.unbounded(), Optional.of(new WorldPosition(16, 64, 16))
+        ));
+        RenderActualOreMapResult result = useCase(
+                reader, new WorldMetadata(32, 256, 32),
+                temporaryDirectory.resolve("cache-failure-home.properties"),
+                temporaryDirectory.resolve("cache-failure-markers.csv"),
+                new RenderDataCacheStore(cacheFile)
+        ).execute(new RenderActualOreMapRequest(
+                savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.TERRAIN), Optional.empty(),
+                ActualBlockYFilter.unbounded(), Optional.of(new WorldPosition(16, 64, 16))
+        ));
+        assertFalse(result.renderDataCacheReport().enabled());
+        assertFalse(reader.directMapChunkRequests.getLast().isEmpty());
+        assertParity(source, result);
+        assertFalse(Files.exists(savePath.resolveSibling("terrain-cache.sqlite")));
+        assertFalse(Files.exists(savePath.resolveSibling("surface-cache.sqlite")));
     }
 
     @Test
     void terrainHitCanProvideSurfacePlanningAndPopulateSurfaceCache() throws Exception {
-        Path savePath = temporaryDirectory.resolve("cached-surface-save.vcdbs");
+        Path sourceDirectory = temporaryDirectory.resolve("source");
+        Path cacheRoot = temporaryDirectory.resolve("cache").resolve("render-data");
+        Files.createDirectories(sourceDirectory);
+        Files.createDirectories(cacheRoot.getParent());
+        Path savePath = sourceDirectory.resolve("cached-surface-save.vcdbs");
+        Path normalizedSourceDirectory = sourceDirectory.toAbsolutePath().normalize();
+        Path normalizedCacheRoot = cacheRoot.toAbsolutePath().normalize();
+        assertFalse(normalizedSourceDirectory.equals(normalizedCacheRoot));
+        assertFalse(normalizedCacheRoot.startsWith(normalizedSourceDirectory));
+        assertFalse(normalizedSourceDirectory.startsWith(normalizedCacheRoot));
         Files.write(savePath, new byte[]{1});
         RenderDataCacheStore cacheStore = new RenderDataCacheStore(
-                temporaryDirectory.resolve("render-data-cache")
+                cacheRoot
         );
         RenderDataCacheRevision revision = cacheStore.observe(savePath);
         cacheStore.publish(revision);
@@ -332,10 +515,14 @@ class RenderActualOreMapUseCaseTest {
         ));
 
         assertTrue(first.renderDataCacheReport().terrain().hits() >= 1);
+        assertEquals(0, first.renderDataCacheReport().terrain().sourceLoaded());
         assertEquals(0, firstReader.directMapChunkRequests.getLast().size());
         assertEquals(1, firstReader.adaptiveExactChunkCalls);
         assertEquals(1, first.renderDataCacheReport().surface().published());
         assertEquals(1, first.renderDataCacheReport().surface().sourceLoaded());
+        byte[] expectedSurfacePayload = surfacePayload(cacheStore, revision,
+                new MapChunkCoordinate(0, 0));
+        assertExplicitCacheArtifactsContained(cacheStore, revision, savePath);
 
         corruptSurfaceRow(cacheStore, revision);
 
@@ -357,6 +544,9 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(1, second.renderDataCacheReport().surface().published());
         assertEquals(1, secondReader.adaptiveExactChunkCalls);
         assertEquals(0, secondReader.directMapChunkRequests.getLast().size());
+        assertArrayEquals(expectedSurfacePayload, surfacePayload(cacheStore, revision,
+                new MapChunkCoordinate(0, 0)));
+        assertParity(first, second);
 
         FakeReader thirdReader = surfaceReader(true);
         RenderActualOreMapResult third = useCase(
@@ -376,6 +566,10 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(0, third.renderDataCacheReport().surface().sourceLoaded());
         assertEquals(0, thirdReader.adaptiveExactChunkCalls);
         assertSurfaceParity(first.surface().map(), third.surface().map());
+        assertParity(first, third);
+        assertArrayEquals(expectedSurfacePayload, surfacePayload(cacheStore, revision,
+                new MapChunkCoordinate(0, 0)));
+        assertExplicitCacheArtifactsContained(cacheStore, revision, savePath);
     }
 
     @Test
@@ -504,6 +698,24 @@ class RenderActualOreMapUseCaseTest {
         assertTrue(requested.contains(missCoordinate));
         assertEquals(1, result.renderDataCacheReport().terrain().hits());
         assertTrue(result.renderDataCacheReport().terrain().sourceLoaded() >= 1);
+
+        FakeReader sourceReader = new FakeReader(fireClayRegistry());
+        sourceReader.mapChunks.put(hitCoordinate,
+                new MapChunk(hitCoordinate, filledHeights(), new int[0]));
+        sourceReader.mapChunks.put(missCoordinate,
+                new MapChunk(missCoordinate, filledHeights(7), new int[0]));
+        RenderActualOreMapResult source = useCase(
+                sourceReader,
+                new WorldMetadata(128, 256, 128),
+                temporaryDirectory.resolve("mixed-terrain-home-source.properties"),
+                temporaryDirectory.resolve("mixed-terrain-markers-source.csv")
+        ).execute(new RenderActualOreMapRequest(
+                savePath, 32, 1, RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.TERRAIN), Optional.empty(),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(32, 64, 32))
+        ));
+        assertParity(source, result);
     }
 
     @Test
@@ -584,6 +796,95 @@ class RenderActualOreMapUseCaseTest {
                         second.surface().map().surfaceClassAt(worldX, worldZ));
             }
         }
+    }
+
+    @Test
+    void sourceMissAndHitPreserveSemanticAndImageFingerprints() throws Exception {
+        Path savePath = temporaryDirectory.resolve("fingerprint-parity-save.vcdbs");
+        Files.write(savePath, new byte[]{1});
+        Path home = temporaryDirectory.resolve("fingerprint-parity-home.properties");
+        Path markers = temporaryDirectory.resolve("fingerprint-parity-markers.csv");
+        RenderActualOreMapRequest request = new RenderActualOreMapRequest(
+                savePath, 23, 1, RenderStyle.TOPOGRAPHIC, Set.of(RenderLayer.SURFACE),
+                Optional.empty(), ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(16, 64, 16))
+        );
+
+        RenderActualOreMapResult source = useCase(
+                surfaceReader(true), new WorldMetadata(32, 256, 32), home, markers
+        ).execute(request);
+        RenderDataCacheStore cacheStore = new RenderDataCacheStore(
+                temporaryDirectory.resolve("fingerprint-parity-cache")
+        );
+        RenderActualOreMapResult miss = useCase(
+                surfaceReader(true), new WorldMetadata(32, 256, 32), home, markers, cacheStore
+        ).execute(request);
+        RenderActualOreMapResult hit = useCase(
+                surfaceReader(true), new WorldMetadata(32, 256, 32), home, markers, cacheStore
+        ).execute(request);
+
+        assertParity(source, miss);
+        assertParity(source, hit);
+        assertTrue(miss.renderDataCacheReport().terrain().misses() > 0);
+        assertTrue(hit.renderDataCacheReport().terrain().hits() > 0);
+        assertTrue(hit.renderDataCacheReport().surface().hits() > 0);
+    }
+
+    @Test
+    void productionRenderUsesOneSourceConnectionAcrossMultipleReaderActions() {
+        SaveSessionLifecycleProbe probe = SaveSessionLifecycleProbe.recording();
+        FakeReader reader = surfaceReader(true);
+        RenderActualOreMapResult result = useCase(
+                reader, new WorldMetadata(32, 256, 32),
+                temporaryDirectory.resolve("lifecycle-home.properties"),
+                temporaryDirectory.resolve("lifecycle-markers.csv"), probe
+        ).execute(new RenderActualOreMapRequest(
+                temporaryDirectory.resolve("lifecycle-save.vcdbs"), 23, 1,
+                RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE, RenderLayer.ENVIRONMENT),
+                Optional.empty(), ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(16, 64, 16))
+        ));
+
+        assertTrue(result.surface().chunksScanned() >= 0);
+        assertTrue(reader.sessionMapRegionCalls > 0);
+        assertEquals(new SaveSessionLifecycleProbe.Snapshot(1, 1), probe.snapshot());
+    }
+
+    @Test
+    void separateProductionOperationsDoNotShareLifecycleState() {
+        SaveSessionLifecycleProbe firstProbe = SaveSessionLifecycleProbe.recording();
+        SaveSessionLifecycleProbe secondProbe = SaveSessionLifecycleProbe.recording();
+        RenderActualOreMapRequest request = new RenderActualOreMapRequest(
+                temporaryDirectory.resolve("isolated-save.vcdbs"), 23, 1,
+                RenderStyle.TOPOGRAPHIC, Set.of(RenderLayer.TERRAIN), Optional.empty(),
+                ActualBlockYFilter.unbounded(), Optional.of(new WorldPosition(16, 64, 16))
+        );
+
+        useCase(surfaceReader(true), new WorldMetadata(32, 256, 32),
+                temporaryDirectory.resolve("isolated-one-home.properties"),
+                temporaryDirectory.resolve("isolated-one-markers.csv"), firstProbe)
+                .execute(request);
+        useCase(surfaceReader(true), new WorldMetadata(32, 256, 32),
+                temporaryDirectory.resolve("isolated-two-home.properties"),
+                temporaryDirectory.resolve("isolated-two-markers.csv"), secondProbe)
+                .execute(request);
+
+        assertEquals(new SaveSessionLifecycleProbe.Snapshot(1, 1), firstProbe.snapshot());
+        assertEquals(new SaveSessionLifecycleProbe.Snapshot(1, 1), secondProbe.snapshot());
+    }
+
+    private static void assertParity(
+            RenderActualOreMapResult expected,
+            RenderActualOreMapResult actual
+    ) {
+        ResultFingerprint expectedSemantic =
+                RenderActualOreMapResultFingerprinter.fingerprint(expected);
+        ResultFingerprint actualSemantic =
+                RenderActualOreMapResultFingerprinter.fingerprint(actual);
+        assertEquals(expectedSemantic, actualSemantic);
+        assertEquals(ImageFingerprinter.fingerprint(expected.image()),
+                ImageFingerprinter.fingerprint(actual.image()));
     }
 
     @Test
@@ -984,6 +1285,33 @@ class RenderActualOreMapUseCaseTest {
         );
     }
 
+    private RenderActualOreMapUseCase useCase(
+            FakeReader reader,
+            WorldMetadata metadata,
+            Path homePath,
+            Path markerPath,
+            SaveSessionLifecycleProbe probe
+    ) {
+        WorldMetadataReader metadataReader = new WorldMetadataReader() {
+            @Override
+            public WorldMetadata read(Path savePath) {
+                return metadata;
+            }
+
+            @Override
+            protected WorldMetadata read(Connection connection, ProgressReporter progress) {
+                return metadata;
+            }
+        };
+        return new RenderActualOreMapUseCase(
+                reader, metadataReader, new HomeStore(homePath), new MarkerStore(markerPath),
+                new MapRenderer(), new UserMarkerRenderer(), new ActualBlockMapScanner(),
+                new ActualOreOverlayPainter(), new cartographer.scanner.MultiActualBlockMapScanner(),
+                new OreChunkPositionPlanner(),
+                new SaveSessionFactory(new TestConnectionFactory(), reader, metadataReader, probe)
+        );
+    }
+
     private static void assertSurfaceParity(
             cartographer.scanner.SurfaceMap expected,
             cartographer.scanner.SurfaceMap actual
@@ -1018,6 +1346,104 @@ class RenderActualOreMapUseCaseTest {
                 "jdbc:sqlite:" + database.toAbsolutePath().normalize());
              Statement statement = connection.createStatement()) {
             statement.executeUpdate("UPDATE surface_tile SET payload = X'00'");
+        }
+    }
+
+    private static void corruptTerrainRow(
+            RenderDataCacheStore cacheStore,
+            RenderDataCacheRevision revision,
+            MapChunkCoordinate coordinate
+    ) throws Exception {
+        Path database = new TerrainTileStore(cacheStore, revision).databasePath();
+        try (Connection connection = DriverManager.getConnection(
+                "jdbc:sqlite:" + database.toAbsolutePath().normalize());
+             Statement statement = connection.createStatement()) {
+            statement.executeUpdate("UPDATE terrain_tile SET payload = X'00' "
+                    + "WHERE mapchunk_x = " + coordinate.x()
+                    + " AND mapchunk_z = " + coordinate.z());
+        }
+    }
+
+    private static byte[] terrainPayload(
+            RenderDataCacheStore cacheStore,
+            RenderDataCacheRevision revision,
+            MapChunkCoordinate coordinate
+    ) throws Exception {
+        Path database = new TerrainTileStore(cacheStore, revision).databasePath();
+        try (Connection connection = DriverManager.getConnection(
+                "jdbc:sqlite:" + database.toAbsolutePath().normalize());
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(
+                     "SELECT payload FROM terrain_tile WHERE mapchunk_x = "
+                             + coordinate.x() + " AND mapchunk_z = " + coordinate.z())) {
+            assertTrue(resultSet.next());
+            return resultSet.getBytes("payload");
+        }
+    }
+
+    private static byte[] surfacePayload(
+            RenderDataCacheStore cacheStore,
+            RenderDataCacheRevision revision,
+            MapChunkCoordinate coordinate
+    ) throws Exception {
+        Path database = new SurfaceTileStore(cacheStore, revision).databasePath();
+        try (Connection connection = DriverManager.getConnection(
+                "jdbc:sqlite:" + database.toAbsolutePath().normalize());
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(
+                     "SELECT payload FROM surface_tile WHERE mapchunk_x = "
+                             + coordinate.x() + " AND mapchunk_z = " + coordinate.z())) {
+            assertTrue(resultSet.next());
+            return resultSet.getBytes("payload");
+        }
+    }
+
+    private static String completeManifest(
+            RenderDataCacheRevision revision,
+            String schemaVersion,
+            String compatibilityVersion
+    ) {
+        String encodedPath = Base64.getEncoder().encodeToString(
+                revision.identity().normalizedSavePath().toString().getBytes(
+                        java.nio.charset.StandardCharsets.UTF_8));
+        return "schemaVersion=" + schemaVersion + "\n"
+                + "normalizedSavePathBase64=" + encodedPath + "\n"
+                + "namespaceHash=" + revision.identity().namespaceHash() + "\n"
+                + "saveSize=" + revision.saveSize() + "\n"
+                + "saveModifiedMillis=" + revision.saveModifiedMillis() + "\n"
+                + "compatibilityVersion=" + compatibilityVersion + "\n";
+    }
+
+    private static void assertExplicitCacheArtifactsContained(
+            RenderDataCacheStore cacheStore,
+            RenderDataCacheRevision revision,
+            Path savePath
+    ) throws Exception {
+        Path root = cacheStore.cacheRoot().toAbsolutePath().normalize();
+        Path sourceDirectory = savePath.toAbsolutePath().normalize().getParent();
+        List<Path> artifacts = List.of(
+                cacheStore.manifestPath(revision),
+                new TerrainTileStore(cacheStore, revision).databasePath(),
+                new SurfaceTileStore(cacheStore, revision).databasePath()
+        );
+        for (Path artifact : artifacts) {
+            Path normalized = artifact.toAbsolutePath().normalize();
+            assertTrue(Files.isRegularFile(normalized),
+                    "expected PF-1.7 artifact is missing: " + normalized);
+            assertTrue(normalized.startsWith(root),
+                    "PF-1.7 artifact escaped cache root: " + normalized);
+            assertFalse(normalized.startsWith(sourceDirectory),
+                    "PF-1.7 artifact was placed beside the source save: " + normalized);
+        }
+        for (String name : List.of("manifest.properties", "terrain-cache.sqlite",
+                "surface-cache.sqlite")) {
+            assertFalse(Files.exists(savePath.resolveSibling(name)),
+                    "cache artifact appeared beside source save: " + name);
+        }
+        Path revisionDirectory = cacheStore.manifestPath(revision).getParent();
+        try (var paths = Files.list(revisionDirectory)) {
+            assertTrue(paths.noneMatch(path -> path.getFileName().toString().startsWith(".manifest-")),
+                    "temporary manifest publication file survived");
         }
     }
 
