@@ -331,7 +331,7 @@ If the save, workload input, or other comparison input changes, the old and
 new fingerprints are not directly comparable and timing deltas are not valid
 apples-to-apples evidence. Mark the comparison `INCONCLUSIVE` and establish a
 new baseline on the same immutable input if validation must continue. The
-measurement contract in `docs/PERFORMANCE_FOUNDATION.md` remains authoritative
+measurement contract in `docs/PERFORMANCE_ARCHITECTURE.md` remains authoritative
 for the complete methodology.
 
 ## Validation ownership
