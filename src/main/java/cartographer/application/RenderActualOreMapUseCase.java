@@ -337,8 +337,10 @@ public class RenderActualOreMapUseCase {
             );
         }
 
+        MapDecorationState decorations =
+                decorationState(request.savePath(), home, options);
         List<cartographer.marker.UserMarker> userMarkers =
-                markerStore.load(request.savePath());
+                decorations.userMarkers();
         int userMarkersDrawn = 0;
         if (options.layers().contains(RenderLayer.MARKERS)
                 && !userMarkers.isEmpty()) {
@@ -362,7 +364,7 @@ public class RenderActualOreMapUseCase {
                 actualOreDiagnostics, userMarkersDrawn, actualOreOverlays,
                 prepared.renderDataCacheReport(),
                 Optional.of(prepared),
-                Optional.of(new MapDecorationState(home, userMarkers))
+                Optional.of(decorations)
         );
     }
 
@@ -478,6 +480,25 @@ public class RenderActualOreMapUseCase {
     private boolean hasMapRegionOverlay(RenderOptions options) {
         return options.layers().contains(RenderLayer.ENVIRONMENT)
                 || options.layers().contains(RenderLayer.GEOLOGY);
+    }
+
+    private MapDecorationState decorationState(
+            java.nio.file.Path savePath,
+            HomeState home,
+            RenderOptions options
+    ) {
+        try {
+            return new MapDecorationState(
+                    home,
+                    markerStore.load(savePath),
+                    true
+            );
+        } catch (RuntimeException exception) {
+            if (options.layers().contains(RenderLayer.MARKERS)) {
+                throw exception;
+            }
+            return new MapDecorationState(home, List.of(), false);
+        }
     }
 
     private HomeState absoluteHome(
