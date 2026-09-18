@@ -35,6 +35,18 @@ class SaveSessionLifecycleProbeTest {
         assertEquals(new SaveSessionLifecycleProbe.Snapshot(1, 1), probe.snapshot());
     }
 
+    @Test
+    void sessionIdentityAndClosedStateAreEnforced() {
+        SaveSession session = factory(SaveSessionLifecycleProbe.recording(), false)
+                .open(Path.of("fixture.vcdbs"));
+        assertThrows(IllegalArgumentException.class,
+                () -> session.requireSameSave(Path.of("other.vcdbs")));
+        session.close();
+        assertThrows(IllegalStateException.class, session::snapshot);
+        assertThrows(IllegalStateException.class,
+                () -> session.requireSameSave(Path.of("fixture.vcdbs")));
+    }
+
     private static SaveSessionFactory factory(
             SaveSessionLifecycleProbe probe,
             boolean failMetadata

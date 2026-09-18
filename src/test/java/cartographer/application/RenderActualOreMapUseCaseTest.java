@@ -26,6 +26,7 @@ import cartographer.render.UserMarkerRenderer;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
+import cartographer.save.SaveSessionLifecycleProbe;
 import cartographer.save.SelectiveChunkStreamStats;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.MapChunkStreamStats;
@@ -505,6 +506,7 @@ class RenderActualOreMapUseCaseTest {
         ));
 
         assertTrue(first.renderDataCacheReport().terrain().hits() >= 1);
+        assertEquals(0, first.renderDataCacheReport().terrain().sourceLoaded());
         assertEquals(0, firstReader.directMapChunkRequests.getLast().size());
         assertEquals(1, firstReader.adaptiveExactChunkCalls);
         assertEquals(1, first.renderDataCacheReport().surface().published());
@@ -817,6 +819,50 @@ class RenderActualOreMapUseCaseTest {
         assertTrue(miss.renderDataCacheReport().terrain().misses() > 0);
         assertTrue(hit.renderDataCacheReport().terrain().hits() > 0);
         assertTrue(hit.renderDataCacheReport().surface().hits() > 0);
+    }
+
+    @Test
+    void productionRenderUsesOneSourceConnectionAcrossMultipleReaderActions() {
+        SaveSessionLifecycleProbe probe = SaveSessionLifecycleProbe.recording();
+        FakeReader reader = surfaceReader(true);
+        RenderActualOreMapResult result = useCase(
+                reader, new WorldMetadata(32, 256, 32),
+                temporaryDirectory.resolve("lifecycle-home.properties"),
+                temporaryDirectory.resolve("lifecycle-markers.csv"), probe
+        ).execute(new RenderActualOreMapRequest(
+                temporaryDirectory.resolve("lifecycle-save.vcdbs"), 23, 1,
+                RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE, RenderLayer.ENVIRONMENT),
+                Optional.empty(), ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(16, 64, 16))
+        ));
+
+        assertTrue(result.surface().chunksScanned() >= 0);
+        assertTrue(reader.sessionMapRegionCalls > 0);
+        assertEquals(new SaveSessionLifecycleProbe.Snapshot(1, 1), probe.snapshot());
+    }
+
+    @Test
+    void separateProductionOperationsDoNotShareLifecycleState() {
+        SaveSessionLifecycleProbe firstProbe = SaveSessionLifecycleProbe.recording();
+        SaveSessionLifecycleProbe secondProbe = SaveSessionLifecycleProbe.recording();
+        RenderActualOreMapRequest request = new RenderActualOreMapRequest(
+                temporaryDirectory.resolve("isolated-save.vcdbs"), 23, 1,
+                RenderStyle.TOPOGRAPHIC, Set.of(RenderLayer.TERRAIN), Optional.empty(),
+                ActualBlockYFilter.unbounded(), Optional.of(new WorldPosition(16, 64, 16))
+        );
+
+        useCase(surfaceReader(true), new WorldMetadata(32, 256, 32),
+                temporaryDirectory.resolve("isolated-one-home.properties"),
+                temporaryDirectory.resolve("isolated-one-markers.csv"), firstProbe)
+                .execute(request);
+        useCase(surfaceReader(true), new WorldMetadata(32, 256, 32),
+                temporaryDirectory.resolve("isolated-two-home.properties"),
+                temporaryDirectory.resolve("isolated-two-markers.csv"), secondProbe)
+                .execute(request);
+
+        assertEquals(new SaveSessionLifecycleProbe.Snapshot(1, 1), firstProbe.snapshot());
+        assertEquals(new SaveSessionLifecycleProbe.Snapshot(1, 1), secondProbe.snapshot());
     }
 
     private static void assertParity(
@@ -1227,6 +1273,33 @@ class RenderActualOreMapUseCaseTest {
                 new OreChunkPositionPlanner(),
                 new SaveSessionFactory(new TestConnectionFactory(), reader, metadataReader),
                 renderDataCacheStore
+        );
+    }
+
+    private RenderActualOreMapUseCase useCase(
+            FakeReader reader,
+            WorldMetadata metadata,
+            Path homePath,
+            Path markerPath,
+            SaveSessionLifecycleProbe probe
+    ) {
+        WorldMetadataReader metadataReader = new WorldMetadataReader() {
+            @Override
+            public WorldMetadata read(Path savePath) {
+                return metadata;
+            }
+
+            @Override
+            protected WorldMetadata read(Connection connection, ProgressReporter progress) {
+                return metadata;
+            }
+        };
+        return new RenderActualOreMapUseCase(
+                reader, metadataReader, new HomeStore(homePath), new MarkerStore(markerPath),
+                new MapRenderer(), new UserMarkerRenderer(), new ActualBlockMapScanner(),
+                new ActualOreOverlayPainter(), new cartographer.scanner.MultiActualBlockMapScanner(),
+                new OreChunkPositionPlanner(),
+                new SaveSessionFactory(new TestConnectionFactory(), reader, metadataReader, probe)
         );
     }
 

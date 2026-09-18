@@ -362,6 +362,12 @@ the only incompatibility; cache-preparation fallback checks source parity; and
 successful cache scenarios check normalized cache-root containment. Tests remain
 **NOT RUN** and PF-1.6/PF-1.7 remain **PENDING MANUAL VALIDATION**.
 
+Checkpoint E is implemented with production-render lifecycle tests using the
+operation-scoped SaveSession probe, isolated-operation/session-protection
+tests, and explicit terrain/Surface HIT and mixed HIT/MISS source-work
+avoidance assertions. Runtime tests are **NOT RUN** by Codex. PF-1.6 and
+PF-1.7 remain **PENDING MANUAL VALIDATION**.
+
 ## 10. Final evidence required for PF-1.6/PF-1.7 validation
 
 Before either PF-1.6 or PF-1.7 can be marked `VALIDATED`, the final PF-1.8
