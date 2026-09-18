@@ -281,7 +281,39 @@ public final class WorkstationController {
 
     private void renderMap() {
         RenderActualOreMapRequest request = mapRequestFromControls();
+        boolean requireSurfaceData =
+                request.layers().contains(cartographer.render.RenderLayer.SURFACE)
+                        || request.layers().contains(
+                        cartographer.render.RenderLayer.SOIL_FERTILITY
+                );
+        Optional<MapFrame> reusable = mapFrameState.current()
+                .filter(frame -> frame.canReusePreparedMap(
+                        request.savePath(),
+                        request.radius(),
+                        request.pixelsPerBlock(),
+                        request.style(),
+                        request.center(),
+                        requireSurfaceData
+                ));
         setBusy(true);
+        if (reusable.isPresent()) {
+            MapFrame frame = reusable.orElseThrow();
+            workstation.setStatus("Rendering map with retained base data...");
+            operationCoordinator.submitProgress(
+                    "cartographer-map-retained-render",
+                    progress -> useCase.executeRetained(
+                            request,
+                            frame.preparedMapData().orElseThrow(),
+                            frame.decorationState().orElseThrow(),
+                            frame.mapRegionOverlayState(),
+                            progress
+                    ),
+                    result -> showMapResult(result, request),
+                    this::showFailure
+            );
+            return;
+        }
+
         workstation.setStatus("Rendering map...");
         operationCoordinator.submitProgress(
                 "cartographer-map-render",
