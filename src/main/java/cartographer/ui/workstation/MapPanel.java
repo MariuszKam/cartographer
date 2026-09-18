@@ -3,6 +3,7 @@ package cartographer.ui.workstation;
 import cartographer.model.WorldPosition;
 import cartographer.render.MapViewportGeometry;
 import javafx.geometry.Bounds;
+import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.image.Image;
@@ -66,9 +67,18 @@ public final class MapPanel extends BorderPane {
                     imageBounds.getHeight()
             ));
         });
-        imageView.setOnMouseExited(event -> publishCursorPosition(Optional.empty()));
-        setTop(toolbar);
-        setCenter(preview);
+        imageView.setOnMouseExited(event ->
+                publishCursorPosition(Optional.empty()));
+
+        StackPane viewportChrome = new StackPane(preview, toolbar);
+        viewportChrome.getStyleClass().add("map-viewport-chrome");
+        StackPane.setAlignment(toolbar, Pos.TOP_LEFT);
+        StackPane.setMargin(toolbar, new Insets(12));
+        toolbar.setMaxSize(
+                javafx.scene.layout.Region.USE_PREF_SIZE,
+                javafx.scene.layout.Region.USE_PREF_SIZE
+        );
+        setCenter(viewportChrome);
     }
 
     public void show(BufferedImage image) {
