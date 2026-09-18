@@ -7,6 +7,8 @@ import cartographer.perf.macro.Pf18MacroRunner;
 import cartographer.perf.macro.Pf18ProductionOperationFactory;
 import cartographer.perf.metrics.ExecutionMode;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -123,6 +125,14 @@ public final class GuiMacroEvidenceMain {
         System.out.println(
                 "GUI-P14 macro: " + workload + " / " + mode
         );
+        writeAttempt(
+                macroRoot,
+                sha,
+                workload,
+                mode,
+                "STARTED",
+                ""
+        );
         try {
             Pf18MacroReport report = runner.run(
                     save,
@@ -131,6 +141,17 @@ public final class GuiMacroEvidenceMain {
                     sha,
                     mode,
                     macroRoot
+            );
+            String outcome = report.evidenceIsValid()
+                    ? "FACTUAL"
+                    : "INVALID";
+            writeAttempt(
+                    macroRoot,
+                    sha,
+                    workload,
+                    mode,
+                    outcome,
+                    report.outputPath().toString()
             );
             System.out.println(
                     "  report=" + report.outputPath()
@@ -142,6 +163,14 @@ public final class GuiMacroEvidenceMain {
                 );
             }
         } catch (OutOfMemoryError failure) {
+            writeAttempt(
+                    macroRoot,
+                    sha,
+                    workload,
+                    mode,
+                    "OUT_OF_MEMORY",
+                    failure.toString()
+            );
             System.out.println(
                     "  OUT_OF_MEMORY: " + failure
             );
@@ -151,6 +180,14 @@ public final class GuiMacroEvidenceMain {
                 );
             }
         } catch (RuntimeException failure) {
+            writeAttempt(
+                    macroRoot,
+                    sha,
+                    workload,
+                    mode,
+                    "FAILED",
+                    failure.toString()
+            );
             System.out.println(
                     "  FAILED: " + failure
             );
@@ -161,4 +198,42 @@ public final class GuiMacroEvidenceMain {
             }
         }
     }
+    private static void writeAttempt(
+            Path macroRoot,
+            String sha,
+            String workload,
+            ExecutionMode mode,
+            String outcome,
+            String detail
+    ) {
+        Path file = macroRoot.resolve("attempts")
+                .resolve(workload + "-" + mode.name().toLowerCase(
+                        java.util.Locale.ROOT
+                ) + ".properties");
+        try {
+            Files.createDirectories(file.getParent());
+            String text = "candidateSha=" + sha + "\n"
+                    + "workload=" + workload + "\n"
+                    + "mode=" + mode + "\n"
+                    + "outcome=" + outcome + "\n"
+                    + "detail=" + escape(detail) + "\n";
+            Files.writeString(
+                    file,
+                    text,
+                    StandardCharsets.UTF_8
+            );
+        } catch (IOException exception) {
+            throw new IllegalStateException(
+                    "Cannot write GUI macro attempt evidence: " + file,
+                    exception
+            );
+        }
+    }
+
+    private static String escape(String value) {
+        return value.replace("\\", "\\\\")
+                .replace("\n", "\\n")
+                .replace("\r", "");
+    }
+
 }
