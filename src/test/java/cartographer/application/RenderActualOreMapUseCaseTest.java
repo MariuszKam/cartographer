@@ -513,7 +513,7 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(1, first.renderDataCacheReport().surface().sourceLoaded());
         byte[] expectedSurfacePayload = surfacePayload(cacheStore, revision,
                 new MapChunkCoordinate(0, 0));
-        assertCacheArtifactsUnderRoot(cacheStore.cacheRoot());
+        assertExplicitCacheArtifactsContained(cacheStore, revision, savePath);
 
         corruptSurfaceRow(cacheStore, revision);
 
@@ -560,7 +560,7 @@ class RenderActualOreMapUseCaseTest {
         assertParity(first, third);
         assertArrayEquals(expectedSurfacePayload, surfacePayload(cacheStore, revision,
                 new MapChunkCoordinate(0, 0)));
-        assertCacheArtifactsUnderRoot(cacheStore.cacheRoot());
+        assertExplicitCacheArtifactsContained(cacheStore, revision, savePath);
     }
 
     @Test
@@ -1405,12 +1405,36 @@ class RenderActualOreMapUseCaseTest {
                 + "compatibilityVersion=" + compatibilityVersion + "\n";
     }
 
-    private static void assertCacheArtifactsUnderRoot(Path cacheRoot) throws Exception {
-        Path normalizedRoot = cacheRoot.toAbsolutePath().normalize();
-        try (var paths = Files.walk(normalizedRoot)) {
-            paths.filter(Files::isRegularFile).forEach(path ->
-                    assertTrue(path.toAbsolutePath().normalize().startsWith(normalizedRoot),
-                            "cache artifact escaped root: " + path));
+    private static void assertExplicitCacheArtifactsContained(
+            RenderDataCacheStore cacheStore,
+            RenderDataCacheRevision revision,
+            Path savePath
+    ) throws Exception {
+        Path root = cacheStore.cacheRoot().toAbsolutePath().normalize();
+        Path sourceDirectory = savePath.toAbsolutePath().normalize().getParent();
+        List<Path> artifacts = List.of(
+                cacheStore.manifestPath(revision),
+                new TerrainTileStore(cacheStore, revision).databasePath(),
+                new SurfaceTileStore(cacheStore, revision).databasePath()
+        );
+        for (Path artifact : artifacts) {
+            Path normalized = artifact.toAbsolutePath().normalize();
+            assertTrue(Files.isRegularFile(normalized),
+                    "expected PF-1.7 artifact is missing: " + normalized);
+            assertTrue(normalized.startsWith(root),
+                    "PF-1.7 artifact escaped cache root: " + normalized);
+            assertFalse(normalized.startsWith(sourceDirectory),
+                    "PF-1.7 artifact was placed beside the source save: " + normalized);
+        }
+        for (String name : List.of("manifest.properties", "terrain-cache.sqlite",
+                "surface-cache.sqlite")) {
+            assertFalse(Files.exists(savePath.resolveSibling(name)),
+                    "cache artifact appeared beside source save: " + name);
+        }
+        Path revisionDirectory = cacheStore.manifestPath(revision).getParent();
+        try (var paths = Files.list(revisionDirectory)) {
+            assertTrue(paths.noneMatch(path -> path.getFileName().toString().startsWith(".manifest-")),
+                    "temporary manifest publication file survived");
         }
     }
 

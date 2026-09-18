@@ -362,6 +362,13 @@ the only incompatibility; cache-preparation fallback checks source parity; and
 successful cache scenarios check normalized cache-root containment. Tests remain
 **NOT RUN** and PF-1.6/PF-1.7 remain **PENDING MANUAL VALIDATION**.
 
+D-FIX2 strengthens the cache containment evidence by asserting the exact
+manifest, terrain SQLite, and Surface SQLite paths produced by PF-1.7 are
+regular files under the normalized injected cache root, outside the source
+directory, and absent beside the source save. Temporary manifest publication
+files are also checked for cleanup. This is implementation evidence only;
+tests remain **NOT RUN**.
+
 Checkpoint E is implemented with production-render lifecycle tests using the
 operation-scoped SaveSession probe, isolated-operation/session-protection
 tests, and explicit terrain/Surface HIT and mixed HIT/MISS source-work
