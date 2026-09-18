@@ -349,12 +349,14 @@ class RenderActualOreMapUseCaseTest {
                 Optional.of(new WorldPosition(33, 64, 16))
         ));
 
-        assertEquals(32, first.surface().columnsScanned());
-        assertEquals(32, first.surface().liquidUnavailableColumns());
+        int fullChunkColumns = ChunkCoordinate.SIZE_BLOCKS * ChunkCoordinate.SIZE_BLOCKS;
+        assertEquals(fullChunkColumns, first.surface().columnsScanned());
+        assertEquals(fullChunkColumns, first.surface().liquidUnavailableColumns());
         assertEquals(1, first.renderDataCacheReport().surface().published());
 
+        FakeReader secondReader = edgeFallbackReader();
         RenderActualOreMapResult second = useCase(
-                edgeFallbackReader(), metadata,
+                secondReader, metadata,
                 temporaryDirectory.resolve("edge-home.properties"),
                 temporaryDirectory.resolve("edge-markers.csv"),
                 cacheStore
@@ -367,6 +369,9 @@ class RenderActualOreMapUseCaseTest {
 
         assertEquals(first.surface().columnsScanned(), second.surface().columnsScanned());
         assertEquals(first.surface().emptyColumns(), second.surface().emptyColumns());
+        assertEquals(1, second.renderDataCacheReport().surface().hits());
+        assertEquals(0, second.renderDataCacheReport().surface().sourceLoaded());
+        assertEquals(0, secondReader.adaptiveExactChunkCalls);
         assertEquals(first.surface().liquidUnavailableColumns(),
                 second.surface().liquidUnavailableColumns());
         assertSurfaceParity(first.surface().map(), second.surface().map());
@@ -408,6 +413,86 @@ class RenderActualOreMapUseCaseTest {
         assertTrue(requested.contains(missCoordinate));
         assertEquals(1, result.renderDataCacheReport().terrain().hits());
         assertTrue(result.renderDataCacheReport().terrain().sourceLoaded() >= 1);
+    }
+
+    @Test
+    void productionMixedSurfaceHitAndFallbackMissKeepsHitTileOutOfSourceWork() throws Exception {
+        Path savePath = temporaryDirectory.resolve("mixed-surface-save.vcdbs");
+        Files.write(savePath, new byte[]{1});
+        RenderDataCacheStore cacheStore = new RenderDataCacheStore(
+                temporaryDirectory.resolve("mixed-surface-render-data-cache")
+        );
+        WorldMetadata metadata = new WorldMetadata(128, 256, 128);
+
+        FakeReader firstReader = surfaceReader(true);
+        RenderActualOreMapResult first = useCase(
+                firstReader, metadata,
+                temporaryDirectory.resolve("mixed-surface-home.properties"),
+                temporaryDirectory.resolve("mixed-surface-markers.csv"),
+                cacheStore
+        ).execute(new RenderActualOreMapRequest(
+                savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.SURFACE), Optional.empty(),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(16, 64, 16))
+        ));
+        assertEquals(1, first.renderDataCacheReport().surface().published());
+
+        FakeReader secondReader = new FakeReader(fireClayRegistry());
+        MapChunkCoordinate fallbackCoordinate = new MapChunkCoordinate(1, 0);
+        secondReader.mapChunks.put(
+                fallbackCoordinate,
+                new MapChunk(fallbackCoordinate, filledHeights(999), new int[0])
+        );
+        secondReader.chunks.put(
+                new ChunkPosition(1, 0, 0, 0),
+                surfaceChunk(new ChunkCoordinate(1, 0, 0), true)
+        );
+        RenderActualOreMapResult second = useCase(
+                secondReader, metadata,
+                temporaryDirectory.resolve("mixed-surface-home.properties"),
+                temporaryDirectory.resolve("mixed-surface-markers.csv"),
+                cacheStore
+        ).execute(new RenderActualOreMapRequest(
+                savePath, 16, 1, RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.SURFACE), Optional.empty(),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(32, 64, 16))
+        ));
+
+        assertEquals(1, second.renderDataCacheReport().surface().hits());
+        assertEquals(1, second.renderDataCacheReport().surface().misses());
+        assertEquals(1, second.renderDataCacheReport().surface().sourceLoaded());
+        assertTrue(second.surface().map().isResolved(32, 16));
+        assertEquals(1, second.surface().map().blockIdAt(32, 16));
+        assertTrue(secondReader.directMapChunkRequests.getLast().contains(fallbackCoordinate));
+        assertTrue(secondReader.directMapChunkRequests.getLast().stream()
+                .allMatch(coordinate -> coordinate.equals(fallbackCoordinate)));
+        assertTrue(secondReader.exactRequests.stream()
+                .flatMap(List::stream)
+                .allMatch(position -> position.x() == fallbackCoordinate.x()));
+
+        for (int worldZ = 0; worldZ < 32; worldZ++) {
+            for (int worldX = 16; worldX < 32; worldX++) {
+                if (!second.surface().map().contains(worldX, worldZ)) {
+                    continue;
+                }
+                assertEquals(first.surface().map().isConsidered(worldX, worldZ),
+                        second.surface().map().isConsidered(worldX, worldZ));
+                assertEquals(first.surface().map().isResolved(worldX, worldZ),
+                        second.surface().map().isResolved(worldX, worldZ));
+                assertEquals(first.surface().map().isLiquidUnavailable(worldX, worldZ),
+                        second.surface().map().isLiquidUnavailable(worldX, worldZ));
+                assertEquals(first.surface().map().surfaceYAt(worldX, worldZ),
+                        second.surface().map().surfaceYAt(worldX, worldZ));
+                assertEquals(first.surface().map().blockIdAt(worldX, worldZ),
+                        second.surface().map().blockIdAt(worldX, worldZ));
+                assertEquals(first.surface().map().liquidBlockIdAt(worldX, worldZ),
+                        second.surface().map().liquidBlockIdAt(worldX, worldZ));
+                assertEquals(first.surface().map().surfaceClassAt(worldX, worldZ),
+                        second.surface().map().surfaceClassAt(worldX, worldZ));
+            }
+        }
     }
 
     @Test
