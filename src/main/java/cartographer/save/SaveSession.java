@@ -29,6 +29,27 @@ public final class SaveSession implements AutoCloseable {
         return savePath;
     }
 
+    /**
+     * Verifies that request-scoped save data belongs to this session.
+     * This is an identity check only; it performs no filesystem I/O.
+     */
+    public void requireSameSave(Path requestedSavePath) {
+        ensureOpen();
+        Path normalized = normalizeSavePath(requestedSavePath);
+        if (!savePath.equals(normalized)) {
+            throw new IllegalArgumentException(
+                    "Save session path does not match requested save path: "
+                            + savePath + " != " + normalized
+            );
+        }
+    }
+
+    static Path normalizeSavePath(Path savePath) {
+        return Objects.requireNonNull(savePath, "save path is required")
+                .toAbsolutePath()
+                .normalize();
+    }
+
     public SaveSnapshot snapshot() {
         ensureOpen();
         return snapshot;

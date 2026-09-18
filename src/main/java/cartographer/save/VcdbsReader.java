@@ -2222,6 +2222,9 @@ public class VcdbsReader {
             ReadDiagnostics diagnostics,
             ProgressReporter progress
     ) {
+        Objects.requireNonNull(savePath, "savePath is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(progress, "progress is required");
         progress.start(
                 "Opening save read-only"
         );
@@ -2235,22 +2238,7 @@ public class VcdbsReader {
                     "Save opened read-only"
             );
 
-            if (tableMissing(
-                    connection,
-                    SaveTable.MAPREGION.tableName()
-            )) {
-                diagnostics.missingTable(
-                        SaveTable.MAPREGION.tableName()
-                );
-
-                return List.of();
-            }
-
-            return readMapRegionsFromResultSet(
-                    connection,
-                    diagnostics,
-                    progress
-            );
+            return readMapRegions(connection, diagnostics, progress);
 
         } catch (SQLException exception) {
             throw new CommandException(
@@ -2259,6 +2247,44 @@ public class VcdbsReader {
                     exception
             );
         }
+    }
+
+    /** Reads mapregions from a borrowed session-owned connection. */
+    public List<ServerMapRegion> readMapRegions(
+            SaveSession session,
+            ReadDiagnostics diagnostics,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(session, "session is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(progress, "progress is required");
+        try {
+            return readMapRegions(session.connection(), diagnostics, progress);
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot read mapregion table: " + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
+    public List<ServerMapRegion> readMapRegions(
+            SaveSession session,
+            ReadDiagnostics diagnostics
+    ) {
+        return readMapRegions(session, diagnostics, ProgressReporter.NONE);
+    }
+
+    private List<ServerMapRegion> readMapRegions(
+            Connection connection,
+            ReadDiagnostics diagnostics,
+            ProgressReporter progress
+    ) throws SQLException {
+        if (tableMissing(connection, SaveTable.MAPREGION.tableName())) {
+            diagnostics.missingTable(SaveTable.MAPREGION.tableName());
+            return List.of();
+        }
+        return readMapRegionsFromResultSet(connection, diagnostics, progress);
     }
 
     /** Reads registry data from an already-open session-owned read-only connection. */

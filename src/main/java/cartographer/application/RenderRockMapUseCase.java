@@ -23,7 +23,6 @@ import java.util.Objects;
 
 public final class RenderRockMapUseCase {
     private final VcdbsReader reader;
-    private final WorldMetadataReader metadataReader;
     private final SaveSessionFactory sessionFactory;
     private final RockMapRenderer renderer;
     private final OreChunkPositionPlanner positionPlanner =
@@ -53,10 +52,7 @@ public final class RenderRockMapUseCase {
             SaveSessionFactory sessionFactory
     ) {
         this.reader = Objects.requireNonNull(reader, "reader is required");
-        this.metadataReader = Objects.requireNonNull(
-                metadataReader,
-                "metadata reader is required"
-        );
+        Objects.requireNonNull(metadataReader, "metadata reader is required");
         this.sessionFactory = Objects.requireNonNull(sessionFactory, "sessionFactory is required");
         this.renderer = Objects.requireNonNull(renderer, "renderer is required");
     }
@@ -84,6 +80,7 @@ public final class RenderRockMapUseCase {
         Objects.requireNonNull(saveSession, "session is required");
         Objects.requireNonNull(request, "rock map request is required");
         Objects.requireNonNull(progress, "progress is required");
+        saveSession.requireSameSave(request.savePath());
         WorldMetadata metadata = saveSession.snapshot().metadata();
         WorldPosition center = request.center().orElseGet(
                 () -> reader.readPlayerPosition(saveSession, progress)

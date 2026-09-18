@@ -48,7 +48,6 @@ import java.util.Set;
 public class RenderSurfaceResourceMapUseCase {
 
     private final VcdbsReader reader;
-    private final WorldMetadataReader metadataReader;
     private final SaveSessionFactory sessionFactory;
     private final HomeStore homeStore;
     private final MarkerStore markerStore;
@@ -100,7 +99,7 @@ public class RenderSurfaceResourceMapUseCase {
             SurfaceResourceOverlayRenderer overlayRenderer
     ) {
         this.reader = Objects.requireNonNull(reader, "reader is required");
-        this.metadataReader = Objects.requireNonNull(metadataReader, "metadataReader is required");
+        Objects.requireNonNull(metadataReader, "metadataReader is required");
         this.sessionFactory = Objects.requireNonNull(sessionFactory, "sessionFactory is required");
         this.homeStore = Objects.requireNonNull(homeStore, "homeStore is required");
         this.markerStore = Objects.requireNonNull(markerStore, "markerStore is required");
@@ -137,6 +136,7 @@ public class RenderSurfaceResourceMapUseCase {
         Objects.requireNonNull(session, "session is required");
         Objects.requireNonNull(request, "request is required");
         Objects.requireNonNull(progress, "progress is required");
+        session.requireSameSave(request.savePath());
 
         WorldMetadata metadata = session.snapshot().metadata();
         WorldPosition player = reader.readPlayerPosition(session, progress);

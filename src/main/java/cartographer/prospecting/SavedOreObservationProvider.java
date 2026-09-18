@@ -1,6 +1,7 @@
 package cartographer.prospecting;
 
 import cartographer.model.WorldPosition;
+import cartographer.save.SaveSession;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 
@@ -22,6 +23,16 @@ public final class SavedOreObservationProvider implements ActualOreObservationPr
                         "metadata reader is required"
                 )
         );
+    }
+
+    @Override
+    public FusedProspectingResult analyze(
+            SaveSession session,
+            WorldPosition center,
+            int radius,
+            List<String> resourceKeys
+    ) {
+        return fusedEngine.analyze(session, center, radius, resourceKeys);
     }
 
     @Override

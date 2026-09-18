@@ -128,10 +128,34 @@ connection lifecycle. Statements, result sets, decode workspaces, and bounded
 pipelines retain their existing ownership; only `SaveSession.close()` closes
 the session connection.
 
-## Remaining G-J work
+## Checkpoint G — end-to-end Prospecting migration
 
-G-J remain open for additional scoped migrations, characterization and
-lifecycle tests, diagnostics/progress review, save-safety validation, and
-final PF-1.6/PF-1.8 hardening. CLI-wide migration, global mapregion/resource
-access, caching, refresh, and connection pooling remain intentionally out of
-scope.
+`AnalyzeProspectingAreaUseCase` now owns one `SaveSession` for a path-based
+operation and delegates its business logic to a session execution seam. The
+session supplies the implicit player position, mapregion traversal, and fused
+Prospecting provider. The ROCK compatibility fallback also uses the existing
+session-aware ROCK execution seam. The saved fused provider delegates directly
+to `FusedProspectingEngine.analyze(SaveSession, ...)`, so the normal saved
+Prospecting path does not escape back to path-based SQLite access.
+
+`VcdbsReader` exposes a session-aware mapregion traversal that shares the
+existing parser/result-set implementation with the path API. Path callers own
+their connection; session callers borrow it, and the shared core never closes
+the connection.
+
+## Checkpoint H — save identity and lifecycle integrity
+
+`SaveSession.requireSameSave(path)` normalizes the requested path with the same
+absolute/normalized identity rules used by `SaveSessionFactory`, performs no
+filesystem I/O, and fails fast with `IllegalArgumentException` on mismatch.
+It also requires the session to remain open. The ROCK, Surface, and
+Prospecting session execution boundaries validate request identity before
+using session-backed data, keeping HOME and marker-store access aligned with
+the same requested save.
+
+## Remaining I-J work
+
+I-J remain open for additional characterization and lifecycle tests,
+diagnostics/progress review, save-safety validation, and final PF-1.6/PF-1.8
+hardening. CLI-wide migration, global mapregion/resource access, caching,
+refresh, and connection pooling remain intentionally out of scope.
