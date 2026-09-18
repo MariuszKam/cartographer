@@ -5,6 +5,8 @@ import cartographer.model.ChunkCoordinate;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParsedChunk;
+import cartographer.model.SurfaceClass;
+import cartographer.model.SurfaceClassCode;
 import cartographer.model.WorldMetadata;
 import org.junit.jupiter.api.Test;
 
