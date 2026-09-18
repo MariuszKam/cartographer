@@ -139,6 +139,7 @@ tasks.register<JavaExec>("pf18SourceSafety") {
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("cartographer.perf.safety.Pf18SourceSafetyMain")
     javaLauncher.set(jpackageJavaLauncher)
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
     doFirst {
         val save = project.findProperty("save")?.toString()
             ?: throw GradleException("pf18SourceSafety requires -Psave=<path>")

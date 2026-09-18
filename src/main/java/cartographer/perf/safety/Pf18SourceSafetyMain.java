@@ -19,7 +19,13 @@ public final class Pf18SourceSafetyMain {
         System.out.println("Cache root: " + report.cacheRoot());
         System.out.println("Workload: " + report.workload());
         System.out.println("Operation completed: " + report.operationCompleted());
-        System.out.println("Cache artifacts produced: " + report.cacheArtifactsProduced());
+        Pf18SourceSafetyReport.Pf18CacheEvidence evidence = report.cacheEvidence();
+        System.out.println("PF-1.7 manifest present: " + evidence.manifestPresent());
+        System.out.println("PF-1.7 manifest qualifying: " + evidence.qualifyingManifest());
+        System.out.println("Terrain cache present: " + evidence.terrainCachePresent());
+        System.out.println("Surface cache present: " + evidence.surfaceCachePresent());
+        System.out.println("PF-1.7 artifacts contained: " + evidence.contained());
+        evidence.artifactPaths().forEach(path -> System.out.println("Artifact: " + path));
         report.saveSafety().ifPresent(result -> {
             System.out.println("Source safety: " + result.status());
             if (result.violations().isEmpty()) {

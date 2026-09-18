@@ -13,8 +13,7 @@ public record Pf18SourceSafetyReport(
         Pf18SourceSafetyStatus status,
         Optional<SaveSafetyResult> saveSafety,
         boolean operationCompleted,
-        boolean cacheArtifactsProduced,
-        List<Path> cacheArtifacts,
+        Pf18CacheEvidence cacheEvidence,
         Optional<String> failure
 ) {
     public Pf18SourceSafetyReport {
@@ -25,19 +24,39 @@ public record Pf18SourceSafetyReport(
         workload = Objects.requireNonNull(workload, "workload is required");
         status = Objects.requireNonNull(status, "status is required");
         saveSafety = Objects.requireNonNull(saveSafety, "save safety is required");
-        cacheArtifacts = List.copyOf(Objects.requireNonNull(cacheArtifacts, "cache artifacts are required"));
+        cacheEvidence = Objects.requireNonNull(cacheEvidence, "cache evidence is required");
         failure = Objects.requireNonNull(failure, "failure is required");
         if (status == Pf18SourceSafetyStatus.PASS
                 && (!operationCompleted || saveSafety.isEmpty()
-                || saveSafety.orElseThrow().status() != SaveSafetyStatus.PASS)) {
+                || saveSafety.orElseThrow().status() != SaveSafetyStatus.PASS
+                || !cacheEvidence.qualifyingManifest()
+                || !cacheEvidence.contained())) {
             throw new IllegalArgumentException("PF-1.8 PASS requires completed safe operation");
-        }
-        if (cacheArtifactsProduced != !cacheArtifacts.isEmpty()) {
-            throw new IllegalArgumentException("cache artifact flag does not match artifact list");
         }
     }
 
     public boolean accepted() {
         return status == Pf18SourceSafetyStatus.PASS;
+    }
+
+    public record Pf18CacheEvidence(
+            boolean manifestPresent,
+            boolean qualifyingManifest,
+            boolean terrainCachePresent,
+            boolean surfaceCachePresent,
+            boolean contained,
+            List<Path> artifactPaths
+    ) {
+        public Pf18CacheEvidence {
+            artifactPaths = List.copyOf(Objects.requireNonNull(artifactPaths, "artifact paths are required"))
+                    .stream()
+                    .map(path -> Objects.requireNonNull(path, "artifact path is required")
+                            .toAbsolutePath().normalize())
+                    .toList();
+        }
+
+        public boolean cacheArtifactsProduced() {
+            return !artifactPaths.isEmpty();
+        }
     }
 }

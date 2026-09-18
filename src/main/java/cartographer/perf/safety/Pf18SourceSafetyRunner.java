@@ -5,6 +5,9 @@ import cartographer.application.RenderActualOreMapUseCase;
 import cartographer.marker.MarkerStore;
 import cartographer.navigation.HomeStore;
 import cartographer.perf.RenderDataCacheStore;
+import cartographer.perf.RenderDataCacheRevision;
+import cartographer.perf.TerrainTileStore;
+import cartographer.perf.SurfaceTileStore;
 import cartographer.render.ActualOreOverlayPainter;
 import cartographer.render.MapRenderer;
 import cartographer.render.RenderLayer;
@@ -63,18 +66,17 @@ public final class Pf18SourceSafetyRunner {
         );
         try {
             SaveSafetyResult safety = delegate.validate(save);
-            List<Path> artifacts = cacheArtifacts(cache);
-            return report(save, cache, safety,
-                    completed[0], artifacts, Optional.empty());
+            Pf18SourceSafetyReport.Pf18CacheEvidence evidence = cacheEvidence(save, cache);
+            return report(save, cache, safety, completed[0], evidence, Optional.empty());
         } catch (RealSaveValidationException failure) {
-            List<Path> artifacts = cacheArtifacts(cache);
+            Pf18SourceSafetyReport.Pf18CacheEvidence evidence = cacheEvidence(save, cache);
             Optional<SaveSafetyResult> safety = failure.safetyResult();
-            return report(save, cache, safety.orElse(null), completed[0], artifacts,
+            return report(save, cache, safety.orElse(null), completed[0], evidence,
                     Optional.ofNullable(failure.getCause() == null
                             ? failure.getMessage() : failure.getCause().toString()));
         } catch (RuntimeException failure) {
-            List<Path> artifacts = cacheArtifacts(cache);
-            return report(save, cache, null, completed[0], artifacts,
+            Pf18SourceSafetyReport.Pf18CacheEvidence evidence = cacheEvidence(save, cache);
+            return report(save, cache, null, completed[0], evidence,
                     Optional.of(failure.toString()));
         }
     }
@@ -84,7 +86,7 @@ public final class Pf18SourceSafetyRunner {
             Path cache,
             SaveSafetyResult safety,
             boolean completed,
-            List<Path> artifacts,
+            Pf18SourceSafetyReport.Pf18CacheEvidence evidence,
             Optional<String> failure
     ) {
         Pf18SourceSafetyStatus status;
@@ -93,14 +95,61 @@ public final class Pf18SourceSafetyRunner {
                     : Pf18SourceSafetyStatus.FAIL;
         } else if (safety == null) {
             status = Pf18SourceSafetyStatus.INCONCLUSIVE;
+        } else if (safety.status() == SaveSafetyStatus.FAIL) {
+            status = Pf18SourceSafetyStatus.FAIL;
+        } else if (!evidence.qualifyingManifest() || !evidence.contained()) {
+            status = Pf18SourceSafetyStatus.INCONCLUSIVE;
         } else {
-            status = safety.status() == SaveSafetyStatus.PASS
-                    ? Pf18SourceSafetyStatus.PASS : Pf18SourceSafetyStatus.FAIL;
+            status = Pf18SourceSafetyStatus.PASS;
         }
         return new Pf18SourceSafetyReport(
                 save, cache, WORKLOAD, status, Optional.ofNullable(safety), completed,
-                !artifacts.isEmpty(), artifacts, failure
+                evidence, failure
         );
+    }
+
+    private static Pf18SourceSafetyReport.Pf18CacheEvidence cacheEvidence(
+            Path save,
+            Path cacheRoot
+    ) {
+        RenderDataCacheStore store = new RenderDataCacheStore(cacheRoot);
+        RenderDataCacheRevision revision = store.observe(save);
+        Path manifest = store.manifestPath(revision);
+        Path terrain = new TerrainTileStore(store, revision).databasePath();
+        Path surface = new SurfaceTileStore(store, revision).databasePath();
+        List<Path> artifacts = new java.util.ArrayList<>();
+        boolean contained = true;
+        boolean manifestPresent = Files.isRegularFile(manifest);
+        boolean terrainPresent = Files.isRegularFile(terrain);
+        boolean surfacePresent = Files.isRegularFile(surface);
+        for (Path artifact : List.of(manifest, terrain, surface)) {
+            if (!Files.isRegularFile(artifact)) {
+                continue;
+            }
+            Path normalized = artifact.toAbsolutePath().normalize();
+            Path resolved;
+            try {
+                resolved = artifact.toRealPath().normalize();
+            } catch (IOException exception) {
+                contained = false;
+                continue;
+            }
+            if (!normalized.startsWith(cacheRoot)
+                    || !resolved.startsWith(cacheRoot)
+                    || normalized.equals(save)
+                    || resolved.equals(save)
+                    || normalized.startsWith(save.getParent())
+                    || resolved.startsWith(save.getParent())) {
+                contained = false;
+            }
+            artifacts.add(normalized);
+        }
+        boolean qualifyingManifest = manifestPresent
+                && contained
+                && store.find(revision).isPresent();
+        return new Pf18SourceSafetyReport.Pf18CacheEvidence(
+                manifestPresent, qualifyingManifest, terrainPresent, surfacePresent,
+                contained, artifacts);
     }
 
     private static void runProductionWorkload(Path savePath, Path cacheRoot) {
@@ -147,20 +196,6 @@ public final class Pf18SourceSafetyRunner {
             throw new IllegalArgumentException("cache root must be a directory: " + cache);
         }
         return cache;
-    }
-
-    private static List<Path> cacheArtifacts(Path cacheRoot) {
-        if (!Files.isDirectory(cacheRoot)) {
-            return List.of();
-        }
-        try (var paths = Files.walk(cacheRoot)) {
-            return paths.filter(Files::isRegularFile)
-                    .map(path -> path.toAbsolutePath().normalize())
-                    .sorted()
-                    .toList();
-        } catch (IOException exception) {
-            throw new IllegalStateException("Cannot inspect PF-1.8 cache root: " + cacheRoot, exception);
-        }
     }
 
     private static Path normalize(Path path, String name) {

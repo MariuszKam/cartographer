@@ -398,6 +398,14 @@ unchanged. Real-save safety validation, tests, builds, and benchmarks are
 **NOT RUN** by Codex. PF-1.6, PF-1.7, and PF-1.8 remain **PENDING MANUAL
 VALIDATION**.
 
+F-FIX hardens the source-safety PASS contract: protected source state must be
+unchanged and a valid PF-1.7 manifest for the executed save revision must be
+present under the explicit external cache root. Terrain and Surface cache
+presence are reported separately; arbitrary files under the cache root do not
+qualify. Missing or escaped qualifying cache evidence is `INCONCLUSIVE`, while
+source or sidecar mutation remains a safety `FAIL`. Tests and real-save
+validation remain **NOT RUN**.
+
 ## 10. Final evidence required for PF-1.6/PF-1.7 validation
 
 Before either PF-1.6 or PF-1.7 can be marked `VALIDATED`, the final PF-1.8
