@@ -252,7 +252,9 @@ public final class WorkstationController {
                 MapFrame frame = reusable.orElseThrow();
                 workstation.setStatus("Rendering ore map with retained base data...");
                 operationCoordinator.submitProgress(
-                        "cartographer-ore-retained-render",
+                        WorkstationOperationScope.FOREGROUND,
+                        "ore-retained-render",
+                        "Ore retained R" + request.radius(),
                         progress -> useCase.executeRetained(
                                 request,
                                 frame.savePath(),
@@ -267,7 +269,9 @@ public final class WorkstationController {
             } else {
                 workstation.setStatus("Rendering ore map...");
                 operationCoordinator.submitProgress(
-                        "cartographer-ore-map-render",
+                        WorkstationOperationScope.FOREGROUND,
+                        "ore-render",
+                        "Ore R" + request.radius(),
                         progress -> useCase.execute(request, progress),
                         result -> showResult(result, request),
                         this::showFailure
@@ -288,7 +292,9 @@ public final class WorkstationController {
         setBusy(true);
         workstation.setStatus("Rendering coverage...");
         operationCoordinator.submitProgress(
-                "cartographer-coverage-render",
+                WorkstationOperationScope.FOREGROUND,
+                "coverage-render",
+                "Coverage " + request.savePath().getFileName(),
                 progress -> coverageUseCase.execute(request, progress),
                 result -> showCoverageResult(result, request),
                 this::showFailure
@@ -319,7 +325,9 @@ public final class WorkstationController {
             MapFrame frame = reusable.orElseThrow();
             workstation.setStatus("Rendering map with retained base data...");
             operationCoordinator.submitProgress(
-                    "cartographer-map-retained-render",
+                    WorkstationOperationScope.FOREGROUND,
+                    "map-retained-render",
+                    "Map retained R" + request.radius(),
                     progress -> useCase.executeRetained(
                             request,
                             frame.savePath(),
@@ -336,7 +344,9 @@ public final class WorkstationController {
 
         workstation.setStatus("Rendering map...");
         operationCoordinator.submitProgress(
-                "cartographer-map-render",
+                WorkstationOperationScope.FOREGROUND,
+                "map-render",
+                "Map R" + request.radius(),
                 progress -> useCase.execute(request, progress),
                 result -> showMapResult(result, request),
                 this::showFailure
@@ -348,7 +358,9 @@ public final class WorkstationController {
         setBusy(true);
         workstation.setStatus("Rendering observed rock geology...");
         operationCoordinator.submitProgress(
-                "cartographer-rock-map-render",
+                WorkstationOperationScope.FOREGROUND,
+                "rock-render",
+                "Geology R" + request.radius(),
                 progress -> rockUseCase.execute(request, progress),
                 result -> showRockResult(result, request),
                 this::showFailure
@@ -375,7 +387,12 @@ public final class WorkstationController {
         setBusy(true);
         workstation.setStatus("Analyzing prospecting evidence...");
         operationCoordinator.submit(
-                "cartographer-prospecting-analysis",
+                WorkstationOperationScope.FOREGROUND,
+                "prospecting-analysis",
+                "Prospecting R" + request.radius()
+                        + " (" + (request.allResources()
+                        ? "all resources"
+                        : request.resources().size() + " selected") + ")",
                 () -> prospectingUseCase.execute(request),
                 result -> showProspectingResult(result, request),
                 this::showFailure
@@ -470,7 +487,9 @@ public final class WorkstationController {
             MapFrame frame = reusable.orElseThrow();
             workstation.setStatus("Rendering Surface from retained map data...");
             operationCoordinator.submitProgress(
-                    "cartographer-surface-retained-render",
+                    WorkstationOperationScope.FOREGROUND,
+                    "surface-retained-render",
+                    "Surface retained R" + request.radius(),
                     progress -> surfaceUseCase.executeRetained(
                             request,
                             frame.savePath(),
@@ -486,7 +505,9 @@ public final class WorkstationController {
 
         workstation.setStatus("Rendering surface resource...");
         operationCoordinator.submitProgress(
-                "cartographer-surface-resource-render",
+                WorkstationOperationScope.FOREGROUND,
+                "surface-render",
+                "Surface R" + request.radius(),
                 progress -> surfaceUseCase.execute(request, progress),
                 result -> showSurfaceResult(result, request),
                 this::showFailure
