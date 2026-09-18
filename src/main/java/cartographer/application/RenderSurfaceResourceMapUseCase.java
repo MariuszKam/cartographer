@@ -293,8 +293,10 @@ public class RenderSurfaceResourceMapUseCase {
             );
         }
 
+        MapDecorationState decorations =
+                decorationState(request.savePath(), home, options);
         List<cartographer.marker.UserMarker> userMarkers =
-                markerStore.load(request.savePath());
+                decorations.userMarkers();
         int userMarkersDrawn = 0;
         if (options.layers().contains(RenderLayer.MARKERS)
                 && !userMarkers.isEmpty()) {
@@ -318,8 +320,27 @@ public class RenderSurfaceResourceMapUseCase {
                 userMarkersDrawn,
                 prepared.renderDataCacheReport(),
                 Optional.of(prepared),
-                Optional.of(new MapDecorationState(home, userMarkers))
+                Optional.of(decorations)
         );
+    }
+
+    private MapDecorationState decorationState(
+            java.nio.file.Path savePath,
+            HomeState home,
+            RenderOptions options
+    ) {
+        try {
+            return new MapDecorationState(
+                    home,
+                    markerStore.load(savePath),
+                    true
+            );
+        } catch (RuntimeException exception) {
+            if (options.layers().contains(RenderLayer.MARKERS)) {
+                throw exception;
+            }
+            return new MapDecorationState(home, List.of(), false);
+        }
     }
 
     private HomeState absoluteHome(
