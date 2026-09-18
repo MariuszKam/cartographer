@@ -314,14 +314,22 @@ public class RenderActualOreMapUseCase {
                         saveSession, mapRegionDiagnostics, progress
                 )
                 : List.of();
+        MapRegionOverlayState mapRegionOverlayState =
+                interpretMapRegionOverlays(options, mapRegions);
         if (hasMapRegionOverlay(options)) {
             progress.start("Painting map-region overlays");
         }
         OverlayRenderReport environmentOverlay = drawEnvironmentOverlay(
-                rendered, center, request.radius(), options, mapRegions
+                rendered,
+                center,
+                request.radius(),
+                mapRegionOverlayState
         );
         OverlayRenderReport geologyOverlay = drawGeologyOverlay(
-                rendered, center, request.radius(), options, mapRegions
+                rendered,
+                center,
+                request.radius(),
+                mapRegionOverlayState
         );
 
         ReadDiagnostics actualOreDiagnostics = new ReadDiagnostics();
@@ -364,7 +372,8 @@ public class RenderActualOreMapUseCase {
                 actualOreDiagnostics, userMarkersDrawn, actualOreOverlays,
                 prepared.renderDataCacheReport(),
                 Optional.of(prepared),
-                Optional.of(decorations)
+                Optional.of(decorations),
+                Optional.of(mapRegionOverlayState)
         );
     }
 
@@ -444,37 +453,63 @@ public class RenderActualOreMapUseCase {
         return immutable;
     }
 
+    private MapRegionOverlayState interpretMapRegionOverlays(
+            RenderOptions options,
+            List<ServerMapRegion> regions
+    ) {
+        Optional<List<EnvironmentProfile>> environmentProfiles =
+                options.layers().contains(RenderLayer.ENVIRONMENT)
+                        ? Optional.of(
+                        regions.stream()
+                                .map(environmentInterpreter::interpret)
+                                .toList()
+                )
+                        : Optional.empty();
+        Optional<List<GeologicProvinceSummary>> geologySummaries =
+                options.layers().contains(RenderLayer.GEOLOGY)
+                        ? Optional.of(
+                        regions.stream()
+                                .map(geologicProvinceInterpreter::summarize)
+                                .flatMap(Optional::stream)
+                                .toList()
+                )
+                        : Optional.empty();
+        return new MapRegionOverlayState(
+                environmentProfiles,
+                geologySummaries
+        );
+    }
+
     private OverlayRenderReport drawEnvironmentOverlay(
             RenderedMap rendered,
             WorldPosition center,
             int radius,
-            RenderOptions options,
-            List<ServerMapRegion> regions
+            MapRegionOverlayState state
     ) {
-        if (!options.layers().contains(RenderLayer.ENVIRONMENT)) {
-            return OverlayRenderReport.none();
-        }
-        List<EnvironmentProfile> profiles = regions.stream()
-                .map(environmentInterpreter::interpret)
-                .toList();
-        return environmentOverlayRenderer.draw(rendered.image(), center, radius, profiles);
+        return state.environmentProfiles()
+                .map(profiles -> environmentOverlayRenderer.draw(
+                        rendered.image(),
+                        center,
+                        radius,
+                        profiles
+                ))
+                .orElseGet(OverlayRenderReport::none);
     }
 
     private OverlayRenderReport drawGeologyOverlay(
             RenderedMap rendered,
             WorldPosition center,
             int radius,
-            RenderOptions options,
-            List<ServerMapRegion> regions
+            MapRegionOverlayState state
     ) {
-        if (!options.layers().contains(RenderLayer.GEOLOGY)) {
-            return OverlayRenderReport.none();
-        }
-        List<GeologicProvinceSummary> summaries = regions.stream()
-                .map(geologicProvinceInterpreter::summarize)
-                .flatMap(Optional::stream)
-                .toList();
-        return geologyOverlayRenderer.draw(rendered.image(), center, radius, summaries);
+        return state.geologySummaries()
+                .map(summaries -> geologyOverlayRenderer.draw(
+                        rendered.image(),
+                        center,
+                        radius,
+                        summaries
+                ))
+                .orElseGet(OverlayRenderReport::none);
     }
 
     private boolean hasMapRegionOverlay(RenderOptions options) {
