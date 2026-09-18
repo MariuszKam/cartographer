@@ -62,7 +62,7 @@ public final class ToolNavigationPane extends VBox {
             case COVERAGE -> coverage.setSelected(true);
             case ORE -> ores.setSelected(true);
             case SURFACE -> surface.setSelected(true);
-            case ROCK -> geology.setSelected(true);
+            case GEOLOGY -> geology.setSelected(true);
             case PROSPECTING -> prospecting.setSelected(true);
         }
     }
