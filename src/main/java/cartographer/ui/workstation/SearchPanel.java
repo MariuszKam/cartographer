@@ -41,9 +41,8 @@ import java.util.EnumMap;
 import java.util.function.Consumer;
 
 public final class SearchPanel extends VBox {
-    public enum SearchMode { MAP, COVERAGE, ORE, SURFACE, ROCK, PROSPECTING }
     public enum SurfaceMode { OBJECTS, MATERIALS }
-    private SearchMode mode = SearchMode.ORE;
+    private WorkstationTool mode = WorkstationTool.ORE;
     private SurfaceMode surfaceMode = SurfaceMode.OBJECTS;
     private final ComboBox<OreResource> resourceBox = new ComboBox<>();
     private final ComboBox<ObservedSurfaceResource> surfaceResourceBox = new ComboBox<>();
@@ -259,22 +258,22 @@ public final class SearchPanel extends VBox {
         updateSurfaceObjectMode();
     }
 
-    public SearchMode selectedMode() { return mode; }
-    public void setMode(SearchMode selected) {
+    public WorkstationTool selectedMode() { return mode; }
+    public void setMode(WorkstationTool selected) {
         mode = selected;
         modeContent.getChildren().setAll(switch (selected) {
             case MAP -> mapContent;
             case COVERAGE -> coverageContent;
             case ORE -> oreContent;
             case SURFACE -> surfaceContent;
-            case ROCK -> rockContent;
+            case GEOLOGY -> rockContent;
             case PROSPECTING -> prospectingContent;
         });
-        yFilterContent.setManaged(selected == SearchMode.ORE);
-        yFilterContent.setVisible(selected == SearchMode.ORE);
-        radiusContent.setManaged(selected != SearchMode.COVERAGE);
-        radiusContent.setVisible(selected != SearchMode.COVERAGE);
-        renderButton.setText(selected == SearchMode.PROSPECTING ? "Analyze" : "Render");
+        yFilterContent.setManaged(selected == WorkstationTool.ORE);
+        yFilterContent.setVisible(selected == WorkstationTool.ORE);
+        radiusContent.setManaged(selected != WorkstationTool.COVERAGE);
+        radiusContent.setVisible(selected != WorkstationTool.COVERAGE);
+        renderButton.setText(selected == WorkstationTool.PROSPECTING ? "Analyze" : "Render");
         updateYFields();
         updateRockMode();
         updateResourceStatus();
@@ -462,8 +461,8 @@ public final class SearchPanel extends VBox {
         surfaceObjectChecks.values().forEach(check -> check.setDisable(busy));
         surfaceObjectFamilyFilters.values().forEach(filter -> filter.setDisable(busy));
         surfaceResourceBox.setDisable(busy || discoveryState != SurfaceObjectDiscoveryState.READY || surfaceResourceBox.getItems().isEmpty());
-        yMinField.setDisable(busy || allYButton.isSelected() || mode != SearchMode.ORE); yMaxField.setDisable(busy || allYButton.isSelected() || mode != SearchMode.ORE);
-        rockYField.setDisable(busy || !rockAtYButton.isSelected() || mode != SearchMode.ROCK);
+        yMinField.setDisable(busy || allYButton.isSelected() || mode != WorkstationTool.ORE); yMaxField.setDisable(busy || allYButton.isSelected() || mode != WorkstationTool.ORE);
+        rockYField.setDisable(busy || !rockAtYButton.isSelected() || mode != WorkstationTool.GEOLOGY);
         updateRenderAvailability();
     }
     public void setDiscoveryBusy(boolean busy) { globallyBusy = busy; renderButton.setDisable(busy); resourceBox.setDisable(busy); surfaceResourceBox.setDisable(busy || discoveryState != SurfaceObjectDiscoveryState.READY || surfaceResourceBox.getItems().isEmpty()); surfaceMaterialBox.setDisable(busy); surfaceObjectsButton.setDisable(busy); surfaceMaterialsButton.setDisable(busy); surfaceSingleObjectButton.setDisable(busy); surfaceMultipleObjectButton.setDisable(busy); selectVisibleSurfaceObjectsButton.setDisable(busy); clearVisibleSurfaceObjectsButton.setDisable(busy); clearAllSurfaceObjectsButton.setDisable(busy); resetSurfaceObjectFiltersButton.setDisable(busy); surfaceObjectSearchField.setDisable(busy); surfaceObjectFamilyFilters.values().forEach(filter -> filter.setDisable(busy)); prospectingResourceField.setDisable(busy); singleResourceButton.setDisable(busy); multipleResourcesButton.setDisable(busy); selectAllButton.setDisable(busy); clearAllButton.setDisable(busy); surfaceObjectChecks.values().forEach(check -> check.setDisable(busy)); updateRenderAvailability(); }
@@ -475,7 +474,7 @@ public final class SearchPanel extends VBox {
     }
 
     private void updateSurfaceResourceStatus() {
-        if (mode != SearchMode.SURFACE) return;
+        if (mode != WorkstationTool.SURFACE) return;
         if (discoveryState == SurfaceObjectDiscoveryState.READY) {
             List<ObservedSurfaceResource> selected = selectedObservedSurfaceResources();
             if (selected.size() > 1 || surfaceMultipleObjectButton.isSelected()) {
@@ -497,8 +496,8 @@ public final class SearchPanel extends VBox {
         return List.of(SurfaceMaterialPreset.FIRE_CLAY, SurfaceMaterialPreset.CLAY, SurfaceMaterialPreset.PEAT);
     }
 
-    private void updateYFields() { boolean disabled = allYButton.isSelected() || mode != SearchMode.ORE; yMinField.setDisable(disabled); yMaxField.setDisable(disabled); updateRockMode(); }
-    private void updateRockMode() { rockYField.setDisable(mode != SearchMode.ROCK || !rockAtYButton.isSelected()); }
+    private void updateYFields() { boolean disabled = allYButton.isSelected() || mode != WorkstationTool.ORE; yMinField.setDisable(disabled); yMaxField.setDisable(disabled); updateRockMode(); }
+    private void updateRockMode() { rockYField.setDisable(mode != WorkstationTool.ROCK || !rockAtYButton.isSelected()); }
     private void updateRadiusWarning() { boolean visible = radius1024Button.isSelected(); radiusWarningLabel.setVisible(visible); radiusWarningLabel.setManaged(visible); }
     private void updateResourceMode() {
         boolean multiple = multipleResourcesButton.isSelected();
@@ -516,7 +515,7 @@ public final class SearchPanel extends VBox {
         }
         updateResourceStatus();
     }
-    private void updateResourceStatus() { if (mode != SearchMode.ORE) return; Optional<OreResource> selected = resourceForDisplayName(resourceBox.getEditor().getText()); resourceStatusLabel.setText(selected.isEmpty() ? "Registry match: custom input" : selected.get().registryVerified() ? "Registry match: verified (" + selected.get().registryMatchCount() + " block codes)" : "Registry match: not verified - using \"" + selected.get().match() + "\" as custom match"); }
+    private void updateResourceStatus() { if (mode != WorkstationTool.ORE) return; Optional<OreResource> selected = resourceForDisplayName(resourceBox.getEditor().getText()); resourceStatusLabel.setText(selected.isEmpty() ? "Registry match: custom input" : selected.get().registryVerified() ? "Registry match: verified (" + selected.get().registryMatchCount() + " block codes)" : "Registry match: not verified - using \"" + selected.get().match() + "\" as custom match"); }
     private void updateSurfaceMode() {
         boolean objects = surfaceMode == SurfaceMode.OBJECTS;
         surfaceResourceBox.setVisible(objects); surfaceResourceBox.setManaged(objects);
@@ -537,7 +536,7 @@ public final class SearchPanel extends VBox {
     }
     private void updateRenderAvailability() {
         if (globallyBusy) { renderButton.setDisable(true); return; }
-        if (mode != SearchMode.SURFACE) { renderButton.setDisable(false); return; }
+        if (mode != WorkstationTool.SURFACE) { renderButton.setDisable(false); return; }
         boolean valid = surfaceMode == SurfaceMode.MATERIALS
                 ? surfaceMaterialBox.getValue() != null
                 : discoveryState.allowsRender(globallyBusy, !selectedObservedSurfaceResources().isEmpty());
