@@ -11,8 +11,11 @@ import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.render.PngWriter;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
 import cartographer.save.SelectiveChunkStreamStats;
 import cartographer.save.SelectiveChunkVisit;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import org.junit.jupiter.api.Test;
@@ -20,7 +23,9 @@ import org.junit.jupiter.api.Test;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.lang.reflect.Proxy;
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -67,7 +72,10 @@ class RockCommandTest {
                 new FakeMetadataReader(),
                 new cartographer.render.RockMapRenderer(),
                 pngWriter,
-                "render"
+                "render",
+                new SaveSessionFactory(
+                        new TestConnectionFactory(), reader, new FakeMetadataReader()
+                )
         ).run(new String[]{
                 "world.vcdbs",
                 "--center-x", "1",
@@ -120,6 +128,11 @@ class RockCommandTest {
         }
 
         @Override
+        protected Map<Integer, BlockInfo> readBlockRegistry(Connection connection) {
+            return registry;
+        }
+
+        @Override
         public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
                 Path savePath,
                 java.util.Collection<ChunkPosition> positions,
@@ -147,12 +160,34 @@ class RockCommandTest {
             );
             return new SelectiveChunkStreamStats(positions.size(), 1, 1, 1, 0, 1, 0, 1);
         }
+
+        @Override
+        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                SaveSession session,
+                java.util.Collection<ChunkPosition> positions,
+                int[] wantedBlockIds,
+                ReadDiagnostics diagnostics,
+                Consumer<SelectiveChunkVisit> consumer,
+                cartographer.application.ProgressReporter progress
+        ) {
+            return forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                    (Path) null, positions, wantedBlockIds, diagnostics, consumer, progress
+            );
+        }
     }
 
     private static final class FakeMetadataReader extends WorldMetadataReader {
         @Override
         public WorldMetadata read(Path savePath, cartographer.application.ProgressReporter progress) {
             return new WorldMetadata(32, 32, 32);
+        }
+
+        @Override
+        protected WorldMetadata read(
+                Connection connection,
+                cartographer.application.ProgressReporter progress
+        ) {
+            return read((Path) null, progress);
         }
     }
 
@@ -162,6 +197,17 @@ class RockCommandTest {
         @Override
         public void write(BufferedImage image, Path output) {
             this.image = image;
+        }
+    }
+
+    private static final class TestConnectionFactory extends SqliteSaveConnection {
+        @Override
+        public Connection openReadOnly(Path savePath) {
+            return (Connection) Proxy.newProxyInstance(
+                    Connection.class.getClassLoader(),
+                    new Class<?>[]{Connection.class},
+                    (proxy, method, args) -> null
+            );
         }
     }
 }

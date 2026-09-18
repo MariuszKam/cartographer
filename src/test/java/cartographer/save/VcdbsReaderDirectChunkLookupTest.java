@@ -102,7 +102,7 @@ class VcdbsReaderDirectChunkLookupTest {
         assertEquals(257, stats.rowsFound());
         assertEquals(257, stats.parsedChunks());
         assertEquals(2, stats.batchesExecuted());
-        assertEquals(2, connections.openCount());
+        assertEquals(1, connections.openCount());
     }
 
     @Test
@@ -121,7 +121,7 @@ class VcdbsReaderDirectChunkLookupTest {
         assertEquals(300, stats.parsedChunks());
         assertEquals(0, stats.failedChunks());
         assertEquals(1, stats.batchesExecuted());
-        assertEquals(2, connections.openCount());
+        assertEquals(1, connections.openCount());
     }
 
     @Test
