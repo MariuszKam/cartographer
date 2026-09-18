@@ -834,16 +834,17 @@ public final class WorkstationController {
         surfaceObjectDiscoveryState = SurfaceObjectDiscoveryState.SCANNING;
         workstation.setSurfaceObjectDiscoveryState(surfaceObjectDiscoveryState);
         workstation.setDiscoveryBusy(true);
-        surfaceDiscoveryTask = operationCoordinator.submit(
+        surfaceDiscoveryTask = operationCoordinator.submitProgress(
                 WorkstationOperationScope.DISCOVERY,
                 "surface-object-discovery",
                 "Surface discovery R" + key.radius(),
-                () -> surfaceDiscoveryUseCase.execute(
+                progress -> surfaceDiscoveryUseCase.execute(
                         new DiscoverObservedSurfaceResourcesRequest(
                                 key.savePath(),
                                 key.radius(),
                                 surfaceDiscoveryCenter
-                        )
+                        ),
+                        progress
                 ),
                 result -> {
                     workstation.setDiscoveryBusy(false);
