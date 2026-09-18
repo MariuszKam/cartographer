@@ -9,8 +9,16 @@ import java.util.Objects;
 /** Bounded non-save decorations retained for local Workstation recomposition. */
 public record MapDecorationState(
         HomeState home,
-        List<UserMarker> userMarkers
+        List<UserMarker> userMarkers,
+        boolean userMarkersAvailable
 ) {
+    public MapDecorationState(
+            HomeState home,
+            List<UserMarker> userMarkers
+    ) {
+        this(home, userMarkers, true);
+    }
+
     public MapDecorationState {
         home = Objects.requireNonNull(home, "home is required");
         userMarkers = List.copyOf(
