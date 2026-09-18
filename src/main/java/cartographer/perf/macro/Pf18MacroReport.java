@@ -2,6 +2,7 @@ package cartographer.perf.macro;
 
 import cartographer.perf.metrics.ExecutionMode;
 import cartographer.perf.metrics.PerformanceEnvironment;
+import cartographer.perf.metrics.Pf18ResourceEvidence;
 import cartographer.perf.safety.SaveSafetyResult;
 
 import java.nio.file.Path;
@@ -23,6 +24,7 @@ public record Pf18MacroReport(
         int measuredCount,
         Optional<String> semanticFingerprint,
         Optional<String> imageFingerprint,
+        List<Pf18ResourceEvidence> resourceEvidence,
         List<Long> measuredWallClockNanoseconds,
         long minNanoseconds,
         long p50Nanoseconds,
@@ -53,6 +55,8 @@ public record Pf18MacroReport(
                 "semantic fingerprint is required");
         imageFingerprint = Objects.requireNonNull(imageFingerprint,
                 "image fingerprint is required");
+        resourceEvidence = List.copyOf(Objects.requireNonNull(resourceEvidence,
+                "resource evidence is required"));
         failures = List.copyOf(Objects.requireNonNull(failures, "failures are required"));
         cacheEvidence = List.copyOf(Objects.requireNonNull(cacheEvidence,
                 "cache evidence is required"));

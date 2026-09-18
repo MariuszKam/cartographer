@@ -435,6 +435,30 @@ The command does not invent thresholds or throughput claims. Runtime macro
 evidence, tests, and real-save validation are **NOT RUN** by Codex. PF-1.6,
 PF-1.7, and PF-1.8 remain **PENDING MANUAL VALIDATION**.
 
+Checkpoint H is implemented as a separate resource and profiling evidence
+layer. Normal macro operations can report process CPU, heap-pool peak usage,
+GC deltas, and explicit `UNAVAILABLE` values for whole-process allocation or
+RSS when a reliable low-overhead implementation is not available. PROCESS_COLD
+child JVMs record their own resource evidence. JFR uses the existing
+`JfrBenchmarkProfiler` lifecycle, a bounded `profile` recording, and a
+separate deterministic summary based on supported JFR event types. JFR output
+is diagnostic/profiling evidence and is never merged into normal timing
+percentiles. The reviewer command is:
+
+```powershell
+.\gradlew.bat pf18Jfr `
+  -Psave="C:\path\world.vcdbs" `
+  -PcacheRoot="C:\path\pf18-cache" `
+  -PgitSha="<40-char-sha>" `
+  -Pworkload="MAP_R1024" `
+  -Poutput="C:\path\pf18-evidence"
+```
+
+The JFR destination and summary are dedicated and existing evidence is not
+overwritten. Resource evidence, JFR recording, JFR analysis, tests, and
+real-save validation are **NOT RUN** by Codex. PF-1.6, PF-1.7, and PF-1.8
+remain **PENDING MANUAL VALIDATION**.
+
 ## 10. Final evidence required for PF-1.6/PF-1.7 validation
 
 Before either PF-1.6 or PF-1.7 can be marked `VALIDATED`, the final PF-1.8

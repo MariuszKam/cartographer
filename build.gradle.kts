@@ -208,6 +208,29 @@ tasks.register<JavaExec>("pf18Macro") {
     }
 }
 
+tasks.register<JavaExec>("pf18Jfr") {
+    group = "verification"
+    description = "Runs an opt-in PF-1.8 diagnostic JFR campaign"
+    dependsOn("classes")
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("cartographer.perf.jfr.Pf18JfrMain")
+    javaLauncher.set(jpackageJavaLauncher)
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    doFirst {
+        val save = project.findProperty("save")?.toString()
+            ?: throw GradleException("pf18Jfr requires -Psave=<path>")
+        val cacheRoot = project.findProperty("cacheRoot")?.toString()
+            ?: throw GradleException("pf18Jfr requires -PcacheRoot=<path>")
+        val gitSha = project.findProperty("gitSha")?.toString()
+            ?: throw GradleException("pf18Jfr requires -PgitSha=<40-character-sha>")
+        val workload = project.findProperty("workload")?.toString()
+            ?: throw GradleException("pf18Jfr requires -Pworkload=MAP_R1024|ROCK_UPPER_R1024")
+        val output = project.findProperty("output")?.toString()
+            ?: throw GradleException("pf18Jfr requires -Poutput=<evidence-directory>")
+        args(save, cacheRoot, gitSha, workload, output)
+    }
+}
+
 tasks.register<JavaExec>("runGui") {
     group = "application"
     description = "Launches the VS Cartographer desktop UI"

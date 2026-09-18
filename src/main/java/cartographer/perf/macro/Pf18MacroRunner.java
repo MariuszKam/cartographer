@@ -7,6 +7,8 @@ import cartographer.perf.benchmark.BenchmarkRunner;
 import cartographer.perf.fingerprint.ResultFingerprint;
 import cartographer.perf.metrics.ExecutionMode;
 import cartographer.perf.metrics.PerformanceEnvironment;
+import cartographer.perf.metrics.Pf18ResourceEvidence;
+import cartographer.perf.metrics.Pf18ResourceSampler;
 import cartographer.perf.safety.SaveSafetyGate;
 import cartographer.perf.safety.SaveSafetyResult;
 import cartographer.perf.safety.SaveSafetySnapshot;
@@ -21,12 +23,10 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Reviewer-controlled PF-1.8 macro campaign orchestration. */
@@ -40,6 +40,7 @@ public final class Pf18MacroRunner {
     private final SaveSafetySnapshotter snapshotter;
     private final SaveSafetyGate safetyGate;
     private final PerformanceEnvironment environment;
+    private final Pf18ResourceSampler resourceSampler = new Pf18ResourceSampler();
 
     public Pf18MacroRunner(Pf18MacroOperationFactory operationFactory,
                            Pf18ProcessLauncher processLauncher,
@@ -90,6 +91,7 @@ public final class Pf18MacroRunner {
                 .createAuthoritative(save, workload).execute();
         List<String> cacheEvidence = List.of();
         List<Long> samples = new ArrayList<>();
+        List<Pf18ResourceEvidence> resourceEvidence = new ArrayList<>();
         List<String> failures = new ArrayList<>();
         AtomicBoolean cacheHit = new AtomicBoolean(mode != ExecutionMode.CACHE_WARM);
         String preparation;
@@ -119,6 +121,7 @@ public final class Pf18MacroRunner {
                     assertParity(authoritative, result.evidence(), "PROCESS_COLD sample " + index);
                     cacheHit.set(cacheHit.get() && result.evidence().cacheHit());
                     samples.add(result.parentElapsedNanoseconds());
+                    resourceEvidence.add(result.resourceEvidence());
                 } catch (Exception failure) {
                     failures.add("PROCESS_COLD sample " + index + ": " + failure);
                 }
@@ -127,11 +130,18 @@ public final class Pf18MacroRunner {
             Pf18MacroOperationFactory.Pf18MacroOperation operation =
                     operationFactory.create(save, mode == ExecutionMode.CACHE_WARM ? cache : null,
                             workload);
+            java.util.concurrent.atomic.AtomicInteger operationCount =
+                    new java.util.concurrent.atomic.AtomicInteger();
             BenchmarkRunResult result = benchmarkRunner.run(
                     new BenchmarkPlan(workload, mode == ExecutionMode.CACHE_WARM
                             ? ExecutionMode.JVM_WARM : mode, WARMUP_COUNT, MEASURED_COUNT),
                     ignored -> {
-                        Pf18IterationEvidence evidence = operation.execute();
+                        Pf18ResourceSampler.Measured<Pf18IterationEvidence> measured =
+                                resourceSampler.measure(operation::execute);
+                        Pf18IterationEvidence evidence = measured.result();
+                        if (operationCount.getAndIncrement() >= WARMUP_COUNT) {
+                            resourceEvidence.add(measured.evidence());
+                        }
                         assertParity(authoritative, evidence, "measured iteration");
                         cacheHit.set(cacheHit.get() && evidence.cacheHit());
                         return BenchmarkOperationResult.success(
@@ -168,7 +178,7 @@ public final class Pf18MacroRunner {
                 workload.radius().blocks(), mode, preparation, environment,
                 mode == ExecutionMode.PROCESS_COLD ? 0 : WARMUP_COUNT,
                 MEASURED_COUNT, authoritative.semanticFingerprint(),
-                authoritative.imageFingerprint(), samples,
+                authoritative.imageFingerprint(), resourceEvidence, samples,
                 percentile(samples, 0), percentile(samples, 50),
                 percentile(samples, 95), percentile(samples, 100), failures,
                 safety, cacheHit.get(), cacheEvidence, reportPath);

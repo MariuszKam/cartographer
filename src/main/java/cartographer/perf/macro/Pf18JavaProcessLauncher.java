@@ -42,6 +42,7 @@ public final class Pf18JavaProcessLauncher implements Pf18ProcessLauncher {
             throw new IOException("PF-1.8 child evidence is missing: " + evidence);
         }
         return new Pf18ProcessResult(Pf18MacroChildMain.readEvidence(evidence),
-                System.nanoTime() - started);
+                System.nanoTime() - started,
+                Pf18MacroChildMain.readResourceEvidence(evidence));
     }
 }

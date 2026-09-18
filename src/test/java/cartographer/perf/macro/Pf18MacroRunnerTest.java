@@ -2,6 +2,7 @@ package cartographer.perf.macro;
 
 import cartographer.perf.metrics.ExecutionMode;
 import cartographer.perf.metrics.PerformanceEnvironment;
+import cartographer.perf.metrics.Pf18ResourceEvidence;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -33,7 +34,7 @@ class Pf18MacroRunnerTest {
             launches.incrementAndGet();
             return new Pf18ProcessLauncher.Pf18ProcessResult(
                     new Pf18IterationEvidence(Optional.of("semantic"), Optional.of("image"),
-                            false, "source"), 10);
+                            false, "source"), 10, Pf18ResourceEvidence.unavailable());
         };
 
         Pf18MacroReport report = new Pf18MacroRunner(factory, launcher, ENVIRONMENT).run(
