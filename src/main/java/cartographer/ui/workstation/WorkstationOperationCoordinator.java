@@ -189,6 +189,10 @@ public final class WorkstationOperationCoordinator {
             previous = active.put(operation.scope(), operation);
         }
         if (previous != null && !previous.terminal()) {
+            previous.state = WorkstationOperationState.CANCEL_REQUESTED;
+            synchronized (this) {
+                last.put(previous.scope(), previous.snapshot());
+            }
             interrupt(previous);
         }
     }
@@ -206,20 +210,57 @@ public final class WorkstationOperationCoordinator {
             wireProgress(operation);
         }
         task.setOnSucceeded(event -> {
-            if (!complete(operation, WorkstationOperationState.SUCCEEDED, null, true)) {
+            if (operation.cancelRequested()) {
+                if (complete(
+                        operation,
+                        WorkstationOperationState.CANCELLED,
+                        null,
+                        false
+                )) {
+                    cancelledListener.accept(operation.scope());
+                }
+                return;
+            }
+            if (!complete(
+                    operation,
+                    WorkstationOperationState.SUCCEEDED,
+                    null,
+                    true
+            )) {
                 return;
             }
             success.accept(task.getValue());
         });
         task.setOnFailed(event -> {
             Throwable problem = task.getException();
-            if (!complete(operation, WorkstationOperationState.FAILED, problem, false)) {
+            if (operation.cancelRequested()) {
+                if (complete(
+                        operation,
+                        WorkstationOperationState.CANCELLED,
+                        problem,
+                        false
+                )) {
+                    cancelledListener.accept(operation.scope());
+                }
+                return;
+            }
+            if (!complete(
+                    operation,
+                    WorkstationOperationState.FAILED,
+                    problem,
+                    false
+            )) {
                 return;
             }
             failure.accept(problem);
         });
         task.setOnCancelled(event -> {
-            if (!complete(operation, WorkstationOperationState.CANCELLED, null, false)) {
+            if (!complete(
+                    operation,
+                    WorkstationOperationState.CANCELLED,
+                    null,
+                    false
+            )) {
                 return;
             }
             cancelledListener.accept(operation.scope());
@@ -350,13 +391,21 @@ public final class WorkstationOperationCoordinator {
                     && operation.generation() == token
                     && operation.task() == task;
         }
-        if (!current || task.isCancelled() || Thread.currentThread().isInterrupted()) {
-            throw new CancellationException("workstation operation cancelled or superseded");
+        ActiveOperation<?> operation;
+        synchronized (this) {
+            operation = active.get(scope);
+        }
+        if (!current
+                || (operation != null && operation.cancelRequested())
+                || task.isCancelled()
+                || Thread.currentThread().isInterrupted()) {
+            throw new CancellationException(
+                    "workstation operation cancelled or superseded"
+            );
         }
     }
 
     private void interrupt(ActiveOperation<?> operation) {
-        operation.task().cancel(true);
         Thread worker = operation.worker;
         if (worker != null) {
             worker.interrupt();
@@ -406,6 +455,10 @@ public final class WorkstationOperationCoordinator {
         WorkstationOperationScope scope() { return scope; }
         String type() { return type; }
         Task<T> task() { return task; }
+
+        boolean cancelRequested() {
+            return state == WorkstationOperationState.CANCEL_REQUESTED;
+        }
 
         boolean terminal() {
             return state == WorkstationOperationState.SUCCEEDED
