@@ -37,7 +37,9 @@ import cartographer.ui.workstation.MapPanel;
 import cartographer.ui.workstation.ResultInspectorPane;
 import cartographer.ui.workstation.SearchPanel;
 import cartographer.ui.workstation.SurfaceObjectDiscoveryState;
+import cartographer.ui.workstation.SurfaceToolMode;
 import cartographer.ui.workstation.WorkstationOperationCoordinator;
+import cartographer.ui.workstation.WorkstationTool;
 import cartographer.ui.workstation.WorkstationView;
 import cartographer.ui.workstation.WorldPanel;
 import javafx.concurrent.Task;
@@ -187,23 +189,23 @@ public final class WorkstationController {
 
     private void render() {
         try {
-            if (searchPanel.selectedMode() == SearchPanel.SearchMode.PROSPECTING) {
+            if (searchPanel.selectedMode() == WorkstationTool.PROSPECTING) {
                 analyzeProspectingArea();
                 return;
             }
-            if (searchPanel.selectedMode() == SearchPanel.SearchMode.COVERAGE) {
+            if (searchPanel.selectedMode() == WorkstationTool.COVERAGE) {
                 renderCoverage();
                 return;
             }
-            if (searchPanel.selectedMode() == SearchPanel.SearchMode.ROCK) {
+            if (searchPanel.selectedMode() == WorkstationTool.GEOLOGY) {
                 renderRockMap();
                 return;
             }
-            if (searchPanel.selectedMode() == SearchPanel.SearchMode.SURFACE) {
+            if (searchPanel.selectedMode() == WorkstationTool.SURFACE) {
                 renderSurfaceResource();
                 return;
             }
-            if (searchPanel.selectedMode() == SearchPanel.SearchMode.MAP) {
+            if (searchPanel.selectedMode() == WorkstationTool.MAP) {
                 renderMap();
                 return;
             }
@@ -308,7 +310,7 @@ public final class WorkstationController {
     }
 
     private void renderSurfaceResource() {
-        if (searchPanel.selectedSurfaceMode() == SearchPanel.SurfaceMode.MATERIALS) {
+        if (searchPanel.selectedSurfaceMode() == SurfaceToolMode.MATERIALS) {
             renderSurfaceMaterial();
             return;
         }
@@ -466,9 +468,9 @@ public final class WorkstationController {
         return selected;
     }
 
-    private void handleModeChanged(SearchPanel.SearchMode mode) {
-        if (mode == SearchPanel.SearchMode.SURFACE
-                && searchPanel.selectedSurfaceMode() == SearchPanel.SurfaceMode.OBJECTS
+    private void handleModeChanged(WorkstationTool mode) {
+        if (mode == WorkstationTool.SURFACE
+                && searchPanel.selectedSurfaceMode() == SurfaceToolMode.OBJECTS
                 && !worldPanel.savePathText().isBlank()) {
             SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey currentKey = currentSurfaceDiscoveryKey();
             if (!surfaceObjectDiscoveryState.isCurrentFor(
@@ -478,9 +480,9 @@ public final class WorkstationController {
         }
     }
 
-    private void handleSurfaceModeChanged(SearchPanel.SurfaceMode mode) {
-        if (mode == SearchPanel.SurfaceMode.OBJECTS
-                && searchPanel.selectedMode() == SearchPanel.SearchMode.SURFACE
+    private void handleSurfaceModeChanged(SurfaceToolMode mode) {
+        if (mode == SurfaceToolMode.OBJECTS
+                && searchPanel.selectedMode() == WorkstationTool.SURFACE
                 && !worldPanel.savePathText().isBlank()
                 && !surfaceObjectDiscoveryState.isCurrentFor(
                         surfaceDiscoveryTaskKey != null

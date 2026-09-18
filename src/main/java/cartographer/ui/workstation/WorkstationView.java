@@ -30,7 +30,7 @@ public final class WorkstationView {
     private final VBox rightContent;
     private final Button leftToggle = new Button("Hide tools");
     private final Button rightToggle = new Button("Hide inspector");
-    private Consumer<SearchPanel.SearchMode> modeListener = ignored -> { };
+    private Consumer<WorkstationTool> modeListener = ignored -> { };
     private Consumer<Integer> radiusListener = ignored -> { };
 
     public WorkstationView(Runnable onBrowse, Runnable onRender) {
@@ -40,7 +40,7 @@ public final class WorkstationView {
         toolNavigationPane = new ToolNavigationPane(this::setMode);
         layerPanel = new LayerPanel();
         resultInspectorPane = new ResultInspectorPane();
-        setMode(SearchPanel.SearchMode.ORE);
+        setMode(WorkstationTool.ORE);
         searchPanel.setOnRadiusChanged(this::handleRadiusChanged);
         mapPanel.setOnZoomChanged(statusBar::setZoomFactor);
 
@@ -83,18 +83,18 @@ public final class WorkstationView {
         return toolNavigationPane;
     }
 
-    private void setMode(SearchPanel.SearchMode mode) {
+    private void setMode(WorkstationTool mode) {
         toolNavigationPane.setMode(mode);
         searchPanel.setMode(mode);
         layerPanel.setMode(mode);
-        boolean layersVisible = mode != SearchPanel.SearchMode.COVERAGE;
+        boolean layersVisible = mode != WorkstationTool.COVERAGE;
         layerPanel.setVisible(layersVisible);
         layerPanel.setManaged(layersVisible);
-        statusBar.setRadiusVisible(mode != SearchPanel.SearchMode.COVERAGE);
+        statusBar.setRadiusVisible(mode != WorkstationTool.COVERAGE);
         modeListener.accept(mode);
     }
 
-    public void setOnModeChanged(Consumer<SearchPanel.SearchMode> listener) {
+    public void setOnModeChanged(Consumer<WorkstationTool> listener) {
         modeListener = listener == null ? ignored -> { } : listener;
     }
 
@@ -103,7 +103,7 @@ public final class WorkstationView {
         radiusListener.accept(searchPanel.selectedRadius());
     }
 
-    public void setOnSurfaceModeChanged(Consumer<SearchPanel.SurfaceMode> listener) {
+    public void setOnSurfaceModeChanged(Consumer<SurfaceToolMode> listener) {
         searchPanel.setOnSurfaceModeChanged(listener);
     }
 

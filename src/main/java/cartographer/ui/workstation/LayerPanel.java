@@ -37,10 +37,10 @@ public final class LayerPanel extends VBox {
         return layers.isEmpty() ? Set.of() : EnumSet.copyOf(layers);
     }
 
-    public void setMode(SearchPanel.SearchMode mode) {
-        boolean supported = mode == SearchPanel.SearchMode.MAP
-                || mode == SearchPanel.SearchMode.ORE
-                || mode == SearchPanel.SearchMode.SURFACE;
+    public void setMode(WorkstationTool mode) {
+        boolean supported = mode == WorkstationTool.MAP
+                || mode == WorkstationTool.ORE
+                || mode == WorkstationTool.SURFACE;
         modeSupported = supported;
         applyDisabledState();
     }

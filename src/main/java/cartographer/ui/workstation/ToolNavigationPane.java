@@ -16,7 +16,7 @@ public final class ToolNavigationPane extends VBox {
     private final ToggleButton prospecting = new ToggleButton("Prospecting");
     private final ToggleGroup group = new ToggleGroup();
 
-    public ToolNavigationPane(Consumer<SearchPanel.SearchMode> onModeChanged) {
+    public ToolNavigationPane(Consumer<WorkstationTool> onModeChanged) {
         super(4);
         getStyleClass().add("tool-navigation");
         map.getStyleClass().add("tool-nav-item");
@@ -33,36 +33,36 @@ public final class ToolNavigationPane extends VBox {
         surface.setToggleGroup(group);
         geology.setToggleGroup(group);
         prospecting.setToggleGroup(group);
-        map.setOnAction(event -> select(SearchPanel.SearchMode.MAP, onModeChanged));
-        coverage.setOnAction(event -> select(SearchPanel.SearchMode.COVERAGE, onModeChanged));
-        ores.setOnAction(event -> select(SearchPanel.SearchMode.ORE, onModeChanged));
-        surface.setOnAction(event -> select(SearchPanel.SearchMode.SURFACE, onModeChanged));
-        geology.setOnAction(event -> select(SearchPanel.SearchMode.ROCK, onModeChanged));
-        prospecting.setOnAction(event -> select(SearchPanel.SearchMode.PROSPECTING, onModeChanged));
-        setMode(SearchPanel.SearchMode.ORE);
+        map.setOnAction(event -> select(WorkstationTool.MAP, onModeChanged));
+        coverage.setOnAction(event -> select(WorkstationTool.COVERAGE, onModeChanged));
+        ores.setOnAction(event -> select(WorkstationTool.ORE, onModeChanged));
+        surface.setOnAction(event -> select(WorkstationTool.SURFACE, onModeChanged));
+        geology.setOnAction(event -> select(WorkstationTool.GEOLOGY, onModeChanged));
+        prospecting.setOnAction(event -> select(WorkstationTool.PROSPECTING, onModeChanged));
+        setMode(WorkstationTool.ORE);
     }
 
-    private void select(SearchPanel.SearchMode mode, Consumer<SearchPanel.SearchMode> onModeChanged) {
+    private void select(WorkstationTool mode, Consumer<WorkstationTool> onModeChanged) {
         setMode(mode);
         onModeChanged.accept(mode);
     }
 
-    public SearchPanel.SearchMode selectedMode() {
-        if (group.getSelectedToggle() == map) return SearchPanel.SearchMode.MAP;
-        if (group.getSelectedToggle() == coverage) return SearchPanel.SearchMode.COVERAGE;
-        if (group.getSelectedToggle() == surface) return SearchPanel.SearchMode.SURFACE;
-        if (group.getSelectedToggle() == geology) return SearchPanel.SearchMode.ROCK;
-        if (group.getSelectedToggle() == prospecting) return SearchPanel.SearchMode.PROSPECTING;
-        return SearchPanel.SearchMode.ORE;
+    public WorkstationTool selectedMode() {
+        if (group.getSelectedToggle() == map) return WorkstationTool.MAP;
+        if (group.getSelectedToggle() == coverage) return WorkstationTool.COVERAGE;
+        if (group.getSelectedToggle() == surface) return WorkstationTool.SURFACE;
+        if (group.getSelectedToggle() == geology) return WorkstationTool.GEOLOGY;
+        if (group.getSelectedToggle() == prospecting) return WorkstationTool.PROSPECTING;
+        return WorkstationTool.ORE;
     }
 
-    public void setMode(SearchPanel.SearchMode mode) {
+    public void setMode(WorkstationTool mode) {
         switch (mode) {
             case MAP -> map.setSelected(true);
             case COVERAGE -> coverage.setSelected(true);
             case ORE -> ores.setSelected(true);
             case SURFACE -> surface.setSelected(true);
-            case ROCK -> geology.setSelected(true);
+            case GEOLOGY -> geology.setSelected(true);
             case PROSPECTING -> prospecting.setSelected(true);
         }
     }
