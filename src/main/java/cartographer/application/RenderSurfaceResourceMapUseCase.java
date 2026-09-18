@@ -298,7 +298,8 @@ public class RenderSurfaceResourceMapUseCase {
                 prepared.mapChunkDiagnostics(),
                 prepared.chunkDiagnostics(),
                 userMarkersDrawn,
-                prepared.renderDataCacheReport()
+                prepared.renderDataCacheReport(),
+                Optional.of(prepared)
         );
     }
 
