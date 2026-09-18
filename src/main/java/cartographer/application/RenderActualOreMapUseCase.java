@@ -356,7 +356,8 @@ public class RenderActualOreMapUseCase {
                         : Optional.of(actualOreOverlays.getFirst().map()),
                 mapChunkDiagnostics, chunkDiagnostics, mapRegionDiagnostics,
                 actualOreDiagnostics, userMarkersDrawn, actualOreOverlays,
-                prepared.renderDataCacheReport()
+                prepared.renderDataCacheReport(),
+                Optional.of(prepared)
         );
     }
 
