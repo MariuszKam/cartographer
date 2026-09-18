@@ -129,6 +129,7 @@ class RenderActualOreMapUseCaseTest {
         assertArrayEquals(new int[]{1}, reader.lastWantedBlockIds);
         assertFalse(reader.lastPositions.isEmpty());
         assertEquals(1, result.actualOreOverlays().getFirst().map().matchingBlocks());
+        assertTrue(result.preparedMapData().isPresent());
         assertFalse(result.renderDataCacheReport().enabled());
         assertEquals(64, result.geometry().imageWidth());
         assertEquals(48.0, result.geometry().worldMinX());

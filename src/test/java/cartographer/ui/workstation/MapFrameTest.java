@@ -1,0 +1,116 @@
+package cartographer.ui.workstation;
+
+import cartographer.application.PreparedMapData;
+import cartographer.application.ProgressReporter;
+import cartographer.application.RenderDataCacheReport;
+import cartographer.model.WorldMetadata;
+import cartographer.model.WorldPosition;
+import cartographer.render.MapTerrainPreparation;
+import cartographer.render.MapViewportGeometry;
+import cartographer.render.RenderOptions;
+import cartographer.render.RenderStyle;
+import cartographer.save.ReadDiagnostics;
+import cartographer.scanner.SurfaceMapScanResult;
+import cartographer.scanner.SurfaceTileAccumulator;
+import cartographer.scanner.SurfaceTileLayout;
+import org.junit.jupiter.api.Test;
+
+import java.awt.image.BufferedImage;
+import java.nio.file.Path;
+import java.sql.Connection;
+import java.util.Map;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class MapFrameTest {
+
+    @Test
+    void retainedMapFrameKeepsCompactStateWithoutRasterOrSourceResources() {
+        PreparedMapData prepared = prepared();
+        MapViewportGeometry geometry = MapViewportGeometry.fullImage(
+                64, 64, 0, 0, 64, 64
+        );
+
+        MapFrame frame = MapFrame.map(
+                Path.of("world.vcdbs"),
+                geometry,
+                prepared
+        );
+
+        assertEquals(WorkstationTool.MAP, frame.tool());
+        assertSame(prepared, frame.preparedMapData().orElseThrow());
+        assertTrue(frame.actualOreOverlays().isEmpty());
+        assertTrue(frame.surfaceAnalysis().isEmpty());
+        assertTrue(frame.rockMap().isEmpty());
+
+        Set<Class<?>> forbidden = Set.of(
+                BufferedImage.class,
+                Connection.class,
+                cartographer.save.SaveSession.class,
+                cartographer.model.ParsedChunk.class
+        );
+        for (var component : MapFrame.class.getRecordComponents()) {
+            assertFalse(
+                    forbidden.stream().anyMatch(type ->
+                            type.isAssignableFrom(component.getType())),
+                    "MapFrame must not directly retain " + component.getType().getName()
+            );
+        }
+    }
+
+    @Test
+    void stateReplacesAndInvalidatesCurrentFrame() {
+        MapFrameState state = new MapFrameState();
+        MapFrame first = MapFrame.map(
+                Path.of("first.vcdbs"),
+                MapViewportGeometry.fullImage(64, 64, 0, 0, 64, 64),
+                prepared()
+        );
+        MapFrame second = MapFrame.coverage(
+                Path.of("second.vcdbs"),
+                MapViewportGeometry.fullImage(32, 32, 0, 0, 32, 32)
+        );
+
+        assertTrue(state.current().isEmpty());
+        state.retain(first);
+        assertSame(first, state.current().orElseThrow());
+        state.retain(second);
+        assertSame(second, state.current().orElseThrow());
+        state.clear();
+        assertTrue(state.current().isEmpty());
+    }
+
+    private PreparedMapData prepared() {
+        WorldMetadata metadata = new WorldMetadata(64, 256, 64);
+        WorldPosition center = new WorldPosition(32, 64, 32);
+        RenderOptions options = new RenderOptions(
+                16,
+                1,
+                RenderStyle.TOPOGRAPHIC,
+                Set.of()
+        );
+        SurfaceTileLayout layout = SurfaceTileLayout.forSurface(
+                center.x(), center.z(), 16, metadata
+        );
+        SurfaceMapScanResult surface = new SurfaceMapScanResult(
+                new SurfaceTileAccumulator(layout).finish(),
+                Map.of(),
+                0, 0, 0, 0
+        );
+        return new PreparedMapData(
+                metadata,
+                center,
+                center,
+                options,
+                MapTerrainPreparation.builder(
+                        center, options, 0, ProgressReporter.NONE
+                ).finish(),
+                surface,
+                Map.of(),
+                new ReadDiagnostics(),
+                new ReadDiagnostics(),
+                RenderDataCacheReport.disabled("test")
+        );
+    }
+}
