@@ -400,12 +400,14 @@ public class RenderActualOreMapUseCase {
                 rendered,
                 center,
                 request.radius(),
+                options,
                 mapRegionOverlayState
         );
         OverlayRenderReport geologyOverlay = drawGeologyOverlay(
                 rendered,
                 center,
                 request.radius(),
+                options,
                 mapRegionOverlayState
         );
 
@@ -478,13 +480,6 @@ public class RenderActualOreMapUseCase {
                 options.layers().contains(RenderLayer.ENVIRONMENT);
         boolean geologyRequested =
                 options.layers().contains(RenderLayer.GEOLOGY);
-        if (!environmentRequested && !geologyRequested) {
-            return new MapRegionOverlayState(
-                    Optional.empty(),
-                    Optional.empty()
-            );
-        }
-
         Optional<List<EnvironmentProfile>> retainedEnvironment =
                 retainedState.flatMap(MapRegionOverlayState::environmentProfiles);
         Optional<List<GeologicProvinceSummary>> retainedGeology =
@@ -504,24 +499,24 @@ public class RenderActualOreMapUseCase {
                         : List.of();
 
         Optional<List<EnvironmentProfile>> environmentProfiles =
-                environmentRequested
+                retainedEnvironment.isPresent()
+                        ? retainedEnvironment
+                        : environmentRequested
                         ? Optional.of(
-                        retainedEnvironment.orElseGet(
-                                () -> regions.stream()
-                                        .map(environmentInterpreter::interpret)
-                                        .toList()
-                        )
+                        regions.stream()
+                                .map(environmentInterpreter::interpret)
+                                .toList()
                 )
                         : Optional.empty();
         Optional<List<GeologicProvinceSummary>> geologySummaries =
-                geologyRequested
+                retainedGeology.isPresent()
+                        ? retainedGeology
+                        : geologyRequested
                         ? Optional.of(
-                        retainedGeology.orElseGet(
-                                () -> regions.stream()
-                                        .map(geologicProvinceInterpreter::summarize)
-                                        .flatMap(Optional::stream)
-                                        .toList()
-                        )
+                        regions.stream()
+                                .map(geologicProvinceInterpreter::summarize)
+                                .flatMap(Optional::stream)
+                                .toList()
                 )
                         : Optional.empty();
 
@@ -631,8 +626,12 @@ public class RenderActualOreMapUseCase {
             RenderedMap rendered,
             WorldPosition center,
             int radius,
+            RenderOptions options,
             MapRegionOverlayState state
     ) {
+        if (!options.layers().contains(RenderLayer.ENVIRONMENT)) {
+            return OverlayRenderReport.none();
+        }
         return state.environmentProfiles()
                 .map(profiles -> environmentOverlayRenderer.draw(
                         rendered.image(),
@@ -647,8 +646,12 @@ public class RenderActualOreMapUseCase {
             RenderedMap rendered,
             WorldPosition center,
             int radius,
+            RenderOptions options,
             MapRegionOverlayState state
     ) {
+        if (!options.layers().contains(RenderLayer.GEOLOGY)) {
+            return OverlayRenderReport.none();
+        }
         return state.geologySummaries()
                 .map(summaries -> geologyOverlayRenderer.draw(
                         rendered.image(),
