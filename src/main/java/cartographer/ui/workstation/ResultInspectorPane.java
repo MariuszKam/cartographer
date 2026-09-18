@@ -235,17 +235,50 @@ public final class ResultInspectorPane extends VBox {
     }
 
     private List<String> oreDiagnostics(RenderActualOreMapResult result) {
-        return diagnostics(result.mapChunkDiagnostics(), result.chunkDiagnostics(), result.mapRegionDiagnostics(), result.actualOreDiagnostics());
+        List<String> lines = new ArrayList<>(diagnostics(
+                result.mapChunkDiagnostics(),
+                result.chunkDiagnostics(),
+                result.mapRegionDiagnostics(),
+                result.actualOreDiagnostics()
+        ));
+        lines.addAll(renderDataCacheDiagnostics(result.renderDataCacheReport()));
+        return lines;
     }
 
     private List<String> mapDiagnostics(
             RenderActualOreMapResult result,
             RenderActualOreMapRequest request
     ) {
-        if (requiresSurfaceData(request)) {
-            return diagnostics(result.mapChunkDiagnostics(), result.chunkDiagnostics());
+        List<String> lines = new ArrayList<>(requiresSurfaceData(request)
+                ? diagnostics(result.mapChunkDiagnostics(), result.chunkDiagnostics())
+                : diagnostics(result.mapChunkDiagnostics()));
+        lines.addAll(renderDataCacheDiagnostics(result.renderDataCacheReport()));
+        return lines;
+    }
+
+    private List<String> renderDataCacheDiagnostics(RenderDataCacheReport report) {
+        List<String> lines = new ArrayList<>();
+        lines.add("Render-data cache: " + (report.enabled() ? "enabled" : "disabled"));
+        if (report.enabled()) {
+            lines.add(cacheArtifactDiagnostics("Terrain", report.terrain()));
+            lines.add(cacheArtifactDiagnostics("Surface", report.surface()));
         }
-        return diagnostics(result.mapChunkDiagnostics());
+        lines.addAll(report.notes());
+        return lines;
+    }
+
+    private String cacheArtifactDiagnostics(
+            String label,
+            RenderDataCacheReport.ArtifactStats stats
+    ) {
+        return label + " cache: requested " + stats.requested()
+                + ", hit " + stats.hits()
+                + ", miss " + stats.misses()
+                + ", corrupt/incompatible " + stats.corruptOrIncompatible()
+                + ", source " + stats.sourceLoaded()
+                + ", published " + stats.published()
+                + ", skipped incomplete " + stats.skippedIncompleteForPublish()
+                + ", world mismatch " + stats.worldMismatches();
     }
 
     private boolean requiresSurfaceData(RenderActualOreMapRequest request) {

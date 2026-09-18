@@ -33,6 +33,7 @@ import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
+import cartographer.perf.RenderDataCacheStore;
 import cartographer.render.ActualOreOverlayPainter;
 import cartographer.coverage.RegionCoverageAnalyzer;
 import cartographer.coverage.RegionCoverageRenderer;
@@ -863,7 +864,8 @@ public class CartographerDesktopApp extends Application {
                 new MapRenderer(),
                 new UserMarkerRenderer(),
                 new ActualBlockMapScanner(),
-                new ActualOreOverlayPainter()
+                new ActualOreOverlayPainter(),
+                new RenderDataCacheStore(config.resolve("cache").resolve("render-data"))
         );
     }
 
