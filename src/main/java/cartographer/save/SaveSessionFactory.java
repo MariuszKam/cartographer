@@ -64,7 +64,7 @@ public final class SaveSessionFactory {
     }
 
     private Path normalize(Path savePath) {
-        return SaveSession.normalizeSavePath(savePath);
+        return SavePathIdentity.normalize(savePath);
     }
 
     private void closeAfterFailedOpen(Connection connection, RuntimeException failure) {

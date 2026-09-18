@@ -45,9 +45,7 @@ public final class SaveSession implements AutoCloseable {
     }
 
     static Path normalizeSavePath(Path savePath) {
-        return Objects.requireNonNull(savePath, "save path is required")
-                .toAbsolutePath()
-                .normalize();
+        return SavePathIdentity.normalize(savePath);
     }
 
     public SaveSnapshot snapshot() {
