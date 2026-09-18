@@ -368,6 +368,23 @@ tests, and explicit terrain/Surface HIT and mixed HIT/MISS source-work
 avoidance assertions. Runtime tests are **NOT RUN** by Codex. PF-1.6 and
 PF-1.7 remain **PENDING MANUAL VALIDATION**.
 
+Checkpoint F is implemented as an opt-in source-safety runner composed with
+the existing before/after `SaveSafetySnapshotter` and `SaveSafetyGate`. It
+executes a small production main-render workload with an explicit normalized
+cache root outside the source save directory and reports factual safety,
+operation, artifact, and failure state. Reviewer command syntax is:
+
+```powershell
+.\gradlew.bat pf18SourceSafety `
+  -Psave="C:\path\world.vcdbs" `
+  -PcacheRoot="C:\path\pf18-cache"
+```
+
+The existing `realSaveValidation` narrow SQLite smoke command remains
+unchanged. Real-save safety validation, tests, builds, and benchmarks are
+**NOT RUN** by Codex. PF-1.6, PF-1.7, and PF-1.8 remain **PENDING MANUAL
+VALIDATION**.
+
 ## 10. Final evidence required for PF-1.6/PF-1.7 validation
 
 Before either PF-1.6 or PF-1.7 can be marked `VALIDATED`, the final PF-1.8

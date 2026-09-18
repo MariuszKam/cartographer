@@ -132,6 +132,22 @@ tasks.register<JavaExec>("realSaveValidation") {
     }
 }
 
+tasks.register<JavaExec>("pf18SourceSafety") {
+    group = "verification"
+    description = "Runs the opt-in PF-1.8 source-safety render workload"
+    dependsOn("classes")
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("cartographer.perf.safety.Pf18SourceSafetyMain")
+    javaLauncher.set(jpackageJavaLauncher)
+    doFirst {
+        val save = project.findProperty("save")?.toString()
+            ?: throw GradleException("pf18SourceSafety requires -Psave=<path>")
+        val cacheRoot = project.findProperty("cacheRoot")?.toString()
+            ?: throw GradleException("pf18SourceSafety requires -PcacheRoot=<path>")
+        args(save, cacheRoot)
+    }
+}
+
 tasks.register<JavaExec>("perfBaseline") {
     group = "verification"
     description = "Runs opt-in real-save ROCK macro baseline evidence"
