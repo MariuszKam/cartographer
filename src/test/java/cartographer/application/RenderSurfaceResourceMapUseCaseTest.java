@@ -10,6 +10,7 @@ import cartographer.model.ParsedChunk;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
+import cartographer.perf.RenderDataCacheStore;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
@@ -34,7 +35,9 @@ import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.SurfaceScanner;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;
@@ -53,6 +56,59 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RenderSurfaceResourceMapUseCaseTest {
+
+    @TempDir
+    Path temporaryDirectory;
+
+    @Test
+    void surfaceToolUsesSharedPersistentTerrainAndSurfaceCache() throws Exception {
+        Path savePath = temporaryDirectory.resolve("surface-cache-save.vcdbs");
+        Files.write(savePath, new byte[]{1});
+        MapChunkCoordinate mapChunkCoordinate = new MapChunkCoordinate(0, 0);
+        ChunkPosition exactPosition = new ChunkPosition(0, 0, 0, 0);
+        FakeReader reader = new FakeReader(
+                List.of(mapChunkCoordinate),
+                Map.of(exactPosition, surfaceChunk(new ChunkCoordinate(0, 0, 0))),
+                fireClayRegistry()
+        );
+        WorldMetadata metadata = new WorldMetadata(32, 256, 32);
+        WorldMetadataReader metadataReader = metadataReader(metadata);
+        RenderDataCacheStore cacheStore = new RenderDataCacheStore(
+                temporaryDirectory.resolve("surface-render-data-cache")
+        );
+        RenderSurfaceResourceMapUseCase useCase = new RenderSurfaceResourceMapUseCase(
+                reader,
+                metadataReader,
+                new SaveSessionFactory(new TestConnectionFactory(), reader, metadataReader),
+                new HomeStore(temporaryDirectory.resolve("surface-cache-home.properties")),
+                new MarkerStore(temporaryDirectory.resolve("surface-cache-markers.csv")),
+                new MapRenderer(),
+                new UserMarkerRenderer(),
+                new SurfaceMaterialAnalyzer(),
+                new SurfaceResourceOverlayRenderer(),
+                cacheStore
+        );
+        RenderSurfaceResourceMapRequest request = new RenderSurfaceResourceMapRequest(
+                savePath,
+                23,
+                1,
+                RenderStyle.TOPOGRAPHIC,
+                EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
+                new SurfaceMaterialMatch("Fire Clay", List.of("fire", "clay")),
+                Optional.of(new WorldPosition(16, 100, 16))
+        );
+
+        RenderSurfaceResourceMapResult first = useCase.execute(request);
+        RenderSurfaceResourceMapResult second = useCase.execute(request);
+
+        assertTrue(first.renderDataCacheReport().enabled());
+        assertTrue(first.renderDataCacheReport().terrain().published() >= 1);
+        assertTrue(first.renderDataCacheReport().surface().published() >= 1);
+        assertTrue(second.renderDataCacheReport().terrain().hits() >= 1);
+        assertTrue(second.renderDataCacheReport().surface().hits() >= 1);
+        assertEquals(0, second.renderDataCacheReport().terrain().sourceLoaded());
+        assertEquals(0, second.renderDataCacheReport().surface().sourceLoaded());
+    }
 
     @Test
     void healthyRainHeightPathUsesDirectReadersWithoutFallback() {

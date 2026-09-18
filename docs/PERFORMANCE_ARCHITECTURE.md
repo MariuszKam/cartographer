@@ -64,9 +64,11 @@ compact render/analysis state
 renderer, overlay, or analysis result
 ```
 
-The cache is integrated into the main actual-ore map render path. It does not
-replace the source session and does not cache dynamic player, HOME, marker,
-mapregion, or actual-ore analysis state as if it were static tile data.
+The cache-backed map-data preparation pipeline is shared by the main
+actual-ore/base-map render path and the Workstation Surface render path. It
+does not replace the source session and does not cache dynamic player, HOME,
+marker, mapregion, actual-ore analysis state, or Surface resource-analysis
+results as if they were static tile data.
 
 ## 4. Source access and operation lifecycle
 
@@ -199,7 +201,8 @@ without changing coordinate, missing-data, or diagnostic meaning.
 ## 9. Persistent render-data cache
 
 The optional render-data cache is external, revision-scoped derived data used
-by the main actual-ore map render.
+by the shared terrain/Surface preparation pipeline. The main actual-ore/base
+map render and the Workstation Surface render both use that preparation path.
 
 ### Identity and revision
 
@@ -244,10 +247,12 @@ a reusable full tile.
 
 ### Production integration and HIT/MISS meaning
 
-The main render still opens one operation-scoped source `SaveSession` even when
-one or both heavy render layers hit cache. The render first plans the relevant
-mapchunk coordinates, looks up Surface and terrain artifacts, and records
-separate requested/HIT/MISS/CORRUPT/source-loaded/published diagnostics.
+`PrepareMapDataUseCase` still operates inside one operation-scoped source
+`SaveSession` even when one or both heavy render layers hit cache. It plans
+the relevant mapchunk coordinates, looks up Surface and terrain artifacts, and
+records separate requested/HIT/MISS/CORRUPT/source-loaded/published diagnostics.
+Render use cases retain ownership of their session and reuse the prepared
+compact result for painting and analysis.
 
 - A terrain `HIT` can remove the corresponding mapchunk from source terrain
   work. Its source mapchunk request and source-loaded count are absent/zero for
@@ -406,8 +411,8 @@ mark PF-1.6, PF-1.7, PF-1.8, or the performance foundation `VALIDATED` or
 - There is no background cache refresher or filesystem watcher.
 - The render-data cache is not a replacement for source authority.
 - Unrelated render paths may retain their own source-read architecture; the
-  integrated render-data cache contract applies to the main actual-ore map
-  render path.
+  integrated render-data cache contract applies to render paths that delegate
+  terrain/Surface preparation to `PrepareMapDataUseCase`.
 - Complete real incremental rendering is not claimed merely because legacy
   cache/incremental commands exist.
 - This architecture does not justify GC tuning, thread-count tuning, off-heap

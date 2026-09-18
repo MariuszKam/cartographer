@@ -4,14 +4,12 @@ import cartographer.marker.MarkerStore;
 import cartographer.model.DisplayPosition;
 import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
-import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
-import cartographer.model.ChunkPosition;
 import cartographer.model.BlockInfo;
 import cartographer.navigation.HomeStore;
+import cartographer.perf.RenderDataCacheStore;
 import cartographer.render.MapRenderer;
-import cartographer.render.MapTerrainPreparation;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderOptions;
 import cartographer.render.RenderedMap;
@@ -22,28 +20,17 @@ import cartographer.resource.SurfaceMaterialAnalyzer;
 import cartographer.resource.SurfaceObjectSelectionAnalysis;
 import cartographer.resource.SurfaceObjectAnalyzer;
 import cartographer.resource.SurfaceRenderAnalysis;
-import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
-import cartographer.save.ChunkStreamStats;
 import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
-import cartographer.scanner.SurfaceMap;
 import cartographer.scanner.SurfaceMapScanResult;
-import cartographer.scanner.SurfaceRainHeightPlan;
-import cartographer.scanner.SurfaceRainHeightScanResult;
-import cartographer.scanner.SurfaceRainHeightDiagnosticCounters;
-import cartographer.scanner.SurfaceStreamingSession;
 
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 public class RenderSurfaceResourceMapUseCase {
 
@@ -56,9 +43,7 @@ public class RenderSurfaceResourceMapUseCase {
     private final SurfaceMaterialAnalyzer surfaceMaterialAnalyzer;
     private final SurfaceObjectAnalyzer surfaceObjectAnalyzer;
     private final SurfaceResourceOverlayRenderer overlayRenderer;
-    private final MapChunkRenderWindowPlanner mapChunkRenderWindowPlanner =
-            new MapChunkRenderWindowPlanner();
-    private final MapChunkPositionPlanner mapChunkPositionPlanner = new MapChunkPositionPlanner();
+    private final PrepareMapDataUseCase mapDataUseCase;
 
     public RenderSurfaceResourceMapUseCase(
             VcdbsReader reader,
@@ -83,7 +68,40 @@ public class RenderSurfaceResourceMapUseCase {
                 renderer,
                 userMarkerRenderer,
                 surfaceMaterialAnalyzer,
-                overlayRenderer
+                overlayRenderer,
+                Optional.empty()
+        );
+    }
+
+    public RenderSurfaceResourceMapUseCase(
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            HomeStore homeStore,
+            MarkerStore markerStore,
+            MapRenderer renderer,
+            UserMarkerRenderer userMarkerRenderer,
+            SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
+            SurfaceResourceOverlayRenderer overlayRenderer,
+            RenderDataCacheStore renderDataCacheStore
+    ) {
+        this(
+                reader,
+                metadataReader,
+                new SaveSessionFactory(
+                        new SqliteSaveConnection(),
+                        reader,
+                        metadataReader
+                ),
+                homeStore,
+                markerStore,
+                renderer,
+                userMarkerRenderer,
+                surfaceMaterialAnalyzer,
+                overlayRenderer,
+                Optional.of(Objects.requireNonNull(
+                        renderDataCacheStore,
+                        "render data cache store is required"
+                ))
         );
     }
 
@@ -98,19 +116,88 @@ public class RenderSurfaceResourceMapUseCase {
             SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
             SurfaceResourceOverlayRenderer overlayRenderer
     ) {
+        this(
+                reader,
+                metadataReader,
+                sessionFactory,
+                homeStore,
+                markerStore,
+                renderer,
+                userMarkerRenderer,
+                surfaceMaterialAnalyzer,
+                overlayRenderer,
+                Optional.empty()
+        );
+    }
+
+    public RenderSurfaceResourceMapUseCase(
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            SaveSessionFactory sessionFactory,
+            HomeStore homeStore,
+            MarkerStore markerStore,
+            MapRenderer renderer,
+            UserMarkerRenderer userMarkerRenderer,
+            SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
+            SurfaceResourceOverlayRenderer overlayRenderer,
+            RenderDataCacheStore renderDataCacheStore
+    ) {
+        this(
+                reader,
+                metadataReader,
+                sessionFactory,
+                homeStore,
+                markerStore,
+                renderer,
+                userMarkerRenderer,
+                surfaceMaterialAnalyzer,
+                overlayRenderer,
+                Optional.of(Objects.requireNonNull(
+                        renderDataCacheStore,
+                        "render data cache store is required"
+                ))
+        );
+    }
+
+    private RenderSurfaceResourceMapUseCase(
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            SaveSessionFactory sessionFactory,
+            HomeStore homeStore,
+            MarkerStore markerStore,
+            MapRenderer renderer,
+            UserMarkerRenderer userMarkerRenderer,
+            SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
+            SurfaceResourceOverlayRenderer overlayRenderer,
+            Optional<RenderDataCacheStore> renderDataCacheStore
+    ) {
         this.reader = Objects.requireNonNull(reader, "reader is required");
         Objects.requireNonNull(metadataReader, "metadataReader is required");
         this.sessionFactory = Objects.requireNonNull(sessionFactory, "sessionFactory is required");
         this.homeStore = Objects.requireNonNull(homeStore, "homeStore is required");
         this.markerStore = Objects.requireNonNull(markerStore, "markerStore is required");
         this.renderer = Objects.requireNonNull(renderer, "renderer is required");
-        this.userMarkerRenderer = Objects.requireNonNull(userMarkerRenderer, "userMarkerRenderer is required");
+        this.userMarkerRenderer = Objects.requireNonNull(
+                userMarkerRenderer,
+                "userMarkerRenderer is required"
+        );
         this.surfaceMaterialAnalyzer = Objects.requireNonNull(
                 surfaceMaterialAnalyzer,
                 "surfaceMaterialAnalyzer is required"
         );
         this.surfaceObjectAnalyzer = new SurfaceObjectAnalyzer();
-        this.overlayRenderer = Objects.requireNonNull(overlayRenderer, "overlayRenderer is required");
+        this.overlayRenderer = Objects.requireNonNull(
+                overlayRenderer,
+                "overlayRenderer is required"
+        );
+        this.mapDataUseCase = new PrepareMapDataUseCase(
+                reader,
+                sessionFactory,
+                Objects.requireNonNull(
+                        renderDataCacheStore,
+                        "render data cache option is required"
+                )
+        );
     }
 
     public RenderSurfaceResourceMapResult execute(RenderSurfaceResourceMapRequest request) {
@@ -138,124 +225,27 @@ public class RenderSurfaceResourceMapUseCase {
         Objects.requireNonNull(progress, "progress is required");
         session.requireSameSave(request.savePath());
 
-        WorldMetadata metadata = session.snapshot().metadata();
-        WorldPosition player = reader.readPlayerPosition(session, progress);
-        WorldPosition center = request.center().orElse(player);
-        int centerWorldX = (int) Math.round(center.x());
-        int centerWorldZ = (int) Math.round(center.z());
-        RenderOptions options = new RenderOptions(
-                request.radius(),
-                request.pixelsPerBlock(),
-                request.style(),
-                request.layers()
-        );
-
-        HomeState home = absoluteHome(request.savePath(), metadata);
-        ReadDiagnostics mapChunkDiagnostics = new ReadDiagnostics();
-        List<MapChunkCoordinate> renderMapChunkCoordinates =
-                mapChunkRenderWindowPlanner.plan(
-                        metadata,
-                        center,
-                        request.radius()
-                );
-        List<MapChunkCoordinate> surfaceMapChunkCoordinates =
-                mapChunkPositionPlanner.plan(
-                        metadata,
-                        centerWorldX,
-                        centerWorldZ,
-                        request.radius()
-                );
-        Set<MapChunkCoordinate> surfaceSearchSet =
-                new HashSet<>(surfaceMapChunkCoordinates);
-        Set<MapChunkCoordinate> renderMapChunkSet =
-                new HashSet<>(renderMapChunkCoordinates);
-        Set<MapChunkCoordinate> directReadSet =
-                new LinkedHashSet<>(renderMapChunkCoordinates);
-        directReadSet.addAll(surfaceMapChunkCoordinates);
-        List<MapChunkCoordinate> directReadCoordinates = directReadSet.stream()
-                .sorted(
-                        Comparator.comparingInt(MapChunkCoordinate::z)
-                                .thenComparingInt(MapChunkCoordinate::x)
-                )
-                .toList();
-        Map<Integer, BlockInfo> registry = session.snapshot().blockRegistry();
-        SurfaceStreamingSession surfaceSession = SurfaceStreamingSession.begin(
-                metadata,
-                centerWorldX,
-                centerWorldZ,
-                request.radius(),
-                surfaceMapChunkCoordinates,
-                registry,
-                true,
-                true
-        );
-        Set<MapChunkCoordinate> deliveredSurfaceMapChunks =
-                new HashSet<>();
-        MapTerrainPreparation.Builder terrainBuilder =
-                MapTerrainPreparation.builder(
-                        center,
-                        options,
-                        renderMapChunkCoordinates.size(),
-                        progress
-                );
-        reader.forEachMapChunkByCoordinate(
+        PreparedMapData prepared = mapDataUseCase.execute(
                 session,
-                directReadCoordinates,
-                mapChunkDiagnostics,
-                mapChunk -> {
-                    if (renderMapChunkSet.contains(mapChunk.coordinate())) {
-                        terrainBuilder.accept(mapChunk);
-                    }
-                    if (surfaceSearchSet.contains(mapChunk.coordinate())) {
-                        deliveredSurfaceMapChunks.add(mapChunk.coordinate());
-                        surfaceSession.acceptMapChunk(mapChunk);
-                    }
-                },
+                new PrepareMapDataRequest(
+                        request.savePath(),
+                        request.radius(),
+                        request.pixelsPerBlock(),
+                        request.style(),
+                        request.layers(),
+                        request.center(),
+                        true
+                ),
                 progress
         );
-        MapTerrainPreparation terrain = terrainBuilder.finish();
-        ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
-        SurfaceRainHeightPlan rainPlan = surfaceSession.finishPlanning();
-        ChunkStreamStats fastChunkStats = new ChunkStreamStats(0, 0, 0, 0, 0, 0);
-        if (!rainPlan.chunkPositions().isEmpty()) {
-            fastChunkStats = reader.forEachChunkByPositionAdaptive(
-                    session,
-                    rainPlan.chunkPositions(),
-                    chunkDiagnostics,
-                    surfaceSession::acceptFastChunk,
-                    progress
-            );
-        }
-        List<MapChunkCoordinate> fallbackMapChunks = surfaceSession.fallbackMapChunks();
-        List<ChunkPosition> fallbackChunkPositions = new cartographer.scanner.SurfaceFallbackChunkPlanner().plan(
-                metadata,
-                fallbackMapChunks
-        );
-        ChunkStreamStats fallbackChunkStats = new ChunkStreamStats(0, 0, 0, 0, 0, 0);
-        if (!fallbackChunkPositions.isEmpty()) {
-            fallbackChunkStats = reader.forEachChunkByPositionAdaptive(
-                    session,
-                    fallbackChunkPositions,
-                    chunkDiagnostics,
-                    surfaceSession::acceptFallbackChunk,
-                    progress
-            );
-        }
-        SurfaceRainHeightScanResult compact = surfaceSession.finish();
-        SurfaceMap surfaceMap = compact.surface();
-        SurfaceRainHeightDiagnosticCounters diagnostics = compact.diagnostics();
-        int chunksScanned = Math.addExact(
-                fastChunkStats.parsedChunks(),
-                fallbackChunkStats.parsedChunks()
-        );
-        SurfaceMapScanResult surface = new SurfaceMapScanResult(
-                surfaceMap,
-                registry,
-                chunksScanned,
-                diagnostics.columnsScanned(),
-                diagnostics.emptyColumns(),
-                diagnostics.liquidUnavailableColumns()
-        );
+        WorldMetadata metadata = prepared.metadata();
+        WorldPosition player = prepared.player();
+        WorldPosition center = prepared.center();
+        RenderOptions options = prepared.options();
+        HomeState home = absoluteHome(request.savePath(), metadata);
+        Map<Integer, BlockInfo> registry = prepared.registry();
+        SurfaceMapScanResult surface = prepared.surface();
+
         SurfaceRenderAnalysis analysis;
         if (request.material().isPresent()) {
             analysis = surfaceMaterialAnalyzer.analyze(
@@ -273,7 +263,7 @@ public class RenderSurfaceResourceMapUseCase {
                 center,
                 player,
                 home,
-                terrain,
+                prepared.terrain(),
                 surface.map(),
                 registry,
                 options,
@@ -305,9 +295,10 @@ public class RenderSurfaceResourceMapUseCase {
                 analysis,
                 surface,
                 rendered.report(),
-                mapChunkDiagnostics,
-                chunkDiagnostics,
-                userMarkersDrawn
+                prepared.mapChunkDiagnostics(),
+                prepared.chunkDiagnostics(),
+                userMarkersDrawn,
+                prepared.renderDataCacheReport()
         );
     }
 
