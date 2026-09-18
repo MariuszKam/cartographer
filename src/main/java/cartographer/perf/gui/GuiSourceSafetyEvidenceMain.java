@@ -38,9 +38,9 @@ public final class GuiSourceSafetyEvidenceMain {
                     new RealSaveValidationRunner().validate(save);
             realStatus = real.status();
         } catch (RealSaveValidationException failure) {
-            realStatus = failure.safetyResult()
-                    .map(SaveSafetyResult::status)
-                    .orElse(SaveSafetyStatus.FAIL);
+            // The protected save may be unchanged, but a failed smoke
+            // operation is not successful real-save validation.
+            realStatus = SaveSafetyStatus.FAIL;
             realFailure = Optional.of(failure.toString());
         } catch (RuntimeException failure) {
             realFailure = Optional.of(failure.toString());
