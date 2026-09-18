@@ -1,12 +1,10 @@
-# GUI Performance Redesign Validation
+# GUI P1–P14 Integrated Validation
 
 ## Purpose
 
-This is the acceptance gate for GUI-P1 through GUI-P10. It separates
-automated correctness evidence from manual/real-save runtime evidence.
+This is the final acceptance contract for GUI-P1 through GUI-P14. The validation tooling is implemented, but the redesign remains **VALIDATION PENDING** until the reviewer executes the workflow on the exact accepted candidate SHA and `guiReleaseGate` returns PASS.
 
-A green unit-test suite is required but is not sufficient to claim real-save
-4K performance or end-to-end source safety.
+A green unit-test suite alone is not sufficient. R4096 is stretch/headroom evidence: a real attempt and its factual outcome are required, but no invented timing or memory threshold is imposed.
 
 ## Automated gate
 
@@ -189,3 +187,91 @@ Do not mark GUI-P10 complete until:
 
 If R4096 is impractically slow or memory-heavy, record that result. The 4K
 raster contract is a correctness/memory bound, not a performance guarantee.
+
+## GUI-P14 executable evidence workflow
+
+Use a cache root and evidence root outside the protected Vintage Story save directory. The declared `-PgitSha` is evidence metadata; independently verify that the local checkout being executed is that exact SHA.
+
+### 1. Initialize evidence
+
+```powershell
+.\gradlew.bat guiValidationInit -PgitSha=<sha> -PevidenceRoot=<evidence>
+```
+
+This creates `manual-validation.properties` with every manual check set to `PENDING`.
+
+### 2. Automated preflight
+
+```powershell
+.\gradlew.bat guiValidationPreflight -PgitSha=<sha> -PevidenceRoot=<evidence>
+```
+
+The task depends on the full JUnit suite and writes `preflight.properties` only after tests pass.
+
+### 3. Real-save source safety
+
+```powershell
+.\gradlew.bat guiSourceSafetyEvidence -Psave=<save> -PcacheRoot=<cache> -PgitSha=<sha> -PevidenceRoot=<evidence>
+```
+
+The final gate requires the narrow real-save safety smoke and PF-1.8 production render/cache safety workload to PASS, with a qualifying external cache manifest and contained artifacts.
+
+### 4. Integrated macro evidence
+
+```powershell
+.\gradlew.bat guiMacroEvidence -Psave=<save> -PcacheRoot=<cache> -PgitSha=<sha> -PevidenceRoot=<evidence>
+```
+
+Mandatory factual R2048 evidence:
+
+- `MAP_R2048 / JVM_WARM`;
+- `MAP_R2048 / CACHE_WARM`, including verified cache HITs;
+- `ROCK_UPPER_R2048 / JVM_WARM`.
+
+Stretch R4096 evidence:
+
+- `MAP_R4096 / JVM_WARM`;
+- `ROCK_UPPER_R4096 / JVM_WARM`.
+
+R4096 may complete factually, fail, or run out of memory. P14 records a terminal attempt marker when a full macro report cannot be produced. That marker proves an attempt occurred; it is never relabeled as factual performance evidence.
+
+### 5. Manual Workstation checks
+
+Set every required key in `manual-validation.properties` to `PASS` only after performing the check:
+
+```text
+check.WORKSTATION_REAL_SAVE_SMOKE=PASS
+check.R2048_VISUAL=PASS
+check.R4096_ATTEMPT_RECORDED=PASS
+check.CACHE_COLD_WARM_CORRUPT_HEAL=PASS
+check.LOCAL_RECOMPOSITION=PASS
+check.FUSED_PROSPECTING=PASS
+check.RESPONSIVE_CANCELLATION=PASS
+check.SOURCE_SAFETY_AFTER_CANCEL=PASS
+check.P13_DOCK_AND_VIEWPORT_UX=PASS
+```
+
+Also fill `r4096Outcome` with the actual observed outcome.
+
+The P13 UX check requires that Tool Rail, Context Controls and Inspector work at the supported minimum window size; the two docks collapse independently; dock changes do not open the save, rerender the raster, or reset zoom/pan; Inspector tabs separate Inspect / Results / Layers / Diagnostics; the floating map toolbar and operation/telemetry bar remain usable.
+
+The P12 cancellation check requires that a heavy R2048/R4096 operation can be cancelled without surfacing a false analysis ERROR, the previous valid frame remains visible, no stale result arrives later, and a subsequent smaller operation succeeds. Re-run source-safety after cancellation.
+
+### 6. Final release gate
+
+```powershell
+.\gradlew.bat guiReleaseGate -PgitSha=<sha> -PevidenceRoot=<evidence>
+```
+
+The gate writes `release-gate-report.txt` and returns PASS only when automated preflight, source safety, mandatory R2048 factual evidence, R4096 terminal attempts, cache-warm HIT evidence, and all manual checks belong to the same candidate SHA and are complete.
+
+Missing, malformed, stale or SHA-mismatched evidence is a failure, not an implicit pass.
+
+## Final completion rule
+
+GUI-P14 and the P1–P14 redesign may be called **DONE / VALIDATED** only after `guiReleaseGate` returns PASS on the exact accepted candidate SHA. Until then the factual status is:
+
+```text
+IMPLEMENTATION COMPLETE
+VALIDATION PENDING
+```
