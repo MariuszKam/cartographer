@@ -221,6 +221,7 @@ public final class SearchPanel extends VBox {
     public void setDiscoveryBusy(boolean busy) {
         discoveryBusy = busy;
         surfacePane.setDiscoveryBusy(busy);
+        radiusPane.setDiscoveryBusy(busy);
         updateRenderAvailability();
     }
 
@@ -245,7 +246,7 @@ public final class SearchPanel extends VBox {
     }
 
     private void updateRenderAvailability() {
-        if (foregroundBusy) {
+        if (foregroundBusy || discoveryBusy) {
             renderButton.setDisable(true);
             return;
         }
