@@ -122,17 +122,17 @@ public final class WorkstationView {
 
     public void setBusy(boolean busy) {
         foregroundBusy = busy;
-        worldPanel.setBusy(busy);
-        toolNavigationPane.setBusy(busy);
-        searchPanel.setBusy(busy);
+        worldPanel.setBusy(foregroundBusy || discoveryBusy);
+        toolNavigationPane.setBusy(foregroundBusy);
+        searchPanel.setBusy(foregroundBusy);
         // Layer toggles remain interactive against the previously retained frame.
         refreshOperationState();
     }
 
     public void setDiscoveryBusy(boolean busy) {
         discoveryBusy = busy;
-        worldPanel.setBusy(busy);
-        searchPanel.setDiscoveryBusy(busy);
+        worldPanel.setBusy(foregroundBusy || discoveryBusy);
+        searchPanel.setDiscoveryBusy(discoveryBusy);
         refreshOperationState();
     }
 
