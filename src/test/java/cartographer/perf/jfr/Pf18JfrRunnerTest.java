@@ -146,8 +146,9 @@ class Pf18JfrRunnerTest {
                 BenchmarkExecutionStatus.NONDETERMINISTIC)) {
             Path save = save();
             AtomicInteger analyzerCalls = new AtomicInteger();
-            Pf18JfrProfilerInvoker profiler = (plan, ignored, operation) ->
-                    new JfrRecordingResult(resultFor(status, plan), Path.of(plan.workload().id() + ".jfr"),
+            Pf18JfrProfilerInvoker profiler = (recordingPlan, benchmarkPlan, operation) ->
+                    new JfrRecordingResult(resultFor(status, benchmarkPlan),
+                            recordingPlan.destination(),
                             1, JfrConfiguration.PROFILE);
             assertThrows(RuntimeException.class, () -> runner(
                     (a, b, c) -> () -> evidence(false, Optional.empty(), Optional.of("image")),
