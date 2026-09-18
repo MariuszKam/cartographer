@@ -34,6 +34,7 @@ import cartographer.resource.ObservedSurfaceResource;
 import cartographer.scanner.ActualBlockYFilter;
 import cartographer.ui.workstation.MapCursorPosition;
 import cartographer.ui.workstation.MapFrame;
+import cartographer.ui.workstation.MapFrameCompositor;
 import cartographer.ui.workstation.MapFrameState;
 import cartographer.ui.workstation.MapPanel;
 import cartographer.ui.workstation.ResultInspectorPane;
@@ -71,6 +72,7 @@ public final class WorkstationController {
     private final ResultInspectorPane resultInspector;
     private final WorkstationOperationCoordinator operationCoordinator;
     private final MapFrameState mapFrameState = new MapFrameState();
+    private final MapFrameCompositor mapFrameCompositor = new MapFrameCompositor();
 
     private final RenderActualOreMapUseCase useCase;
     private final RenderCoverageMapUseCase coverageUseCase;
@@ -128,6 +130,7 @@ public final class WorkstationController {
         workstation.setOnModeChanged(this::handleModeChanged);
         workstation.setOnRadiusChanged(this::handleRadiusChanged);
         workstation.setOnSurfaceModeChanged(this::handleSurfaceModeChanged);
+        workstation.setOnRenderLayersChanged(this::handleRenderLayersChanged);
     }
 
     public Parent root() {
@@ -437,7 +440,10 @@ public final class WorkstationController {
                 result.preparedMapData().orElseThrow(
                         () -> new IllegalStateException("ore result missing prepared map data")
                 ),
-                result.actualOreOverlays()
+                result.actualOreOverlays(),
+                result.decorationState().orElseThrow(
+                        () -> new IllegalStateException("ore result missing decoration state")
+                )
         ));
         workstation.setMapGeometry(Optional.of(result.geometry()));
         resultInspector.showOreResult(result, request);
@@ -452,6 +458,9 @@ public final class WorkstationController {
                 result.geometry(),
                 result.preparedMapData().orElseThrow(
                         () -> new IllegalStateException("map result missing prepared map data")
+                ),
+                result.decorationState().orElseThrow(
+                        () -> new IllegalStateException("map result missing decoration state")
                 )
         ));
         workstation.setMapGeometry(Optional.of(result.geometry()));
@@ -485,7 +494,10 @@ public final class WorkstationController {
                 result.preparedMapData().orElseThrow(
                         () -> new IllegalStateException("surface result missing prepared map data")
                 ),
-                result.analysis()
+                result.analysis(),
+                result.decorationState().orElseThrow(
+                        () -> new IllegalStateException("surface result missing decoration state")
+                )
         ));
         workstation.setMapGeometry(Optional.of(result.geometry()));
         resultInspector.showSurfaceResult(result, request);
@@ -527,6 +539,55 @@ public final class WorkstationController {
                                 && surfaceDiscoveryTaskKey.equals(currentSurfaceDiscoveryKey()))) {
             startSurfaceDiscovery(Path.of(worldPanel.savePathText()));
         }
+    }
+
+    private void handleRenderLayersChanged(Set<cartographer.render.RenderLayer> layers) {
+        Optional<MapFrame> current = mapFrameState.current();
+        if (current.isEmpty()) {
+            return;
+        }
+        MapFrame frame = current.orElseThrow();
+        if (!frame.supportsLocalRecomposition(layers)) {
+            if (frame.tool() == WorkstationTool.MAP
+                    || frame.tool() == WorkstationTool.ORE
+                    || frame.tool() == WorkstationTool.SURFACE) {
+                workstation.setStatus(
+                        "Selected layers need data not retained in this frame; press Render."
+                );
+            }
+            return;
+        }
+
+        if (worldPanel.savePathText().isBlank()
+                || !Path.of(worldPanel.savePathText())
+                .toAbsolutePath()
+                .normalize()
+                .equals(frame.savePath())) {
+            return;
+        }
+
+        setBusy(true);
+        workstation.setStatus("Recomposing layers locally...");
+        operationCoordinator.submitProgress(
+                "cartographer-local-layer-recompose",
+                progress -> mapFrameCompositor.recompose(frame, layers, progress),
+                image -> {
+                    if (mapFrameState.current().filter(frame::equals).isEmpty()) {
+                        setBusy(false);
+                        return;
+                    }
+                    mapPanel.replaceImage(
+                            image,
+                            Optional.of(frame.geometry()),
+                            loadedPlayerAbsolute
+                    );
+                    workstation.setStatus(
+                            "Layers recomposed locally (no save read)."
+                    );
+                    setBusy(false);
+                },
+                this::showFailure
+        );
     }
 
     private void handleRadiusChanged(int radius) {
