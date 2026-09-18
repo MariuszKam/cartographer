@@ -261,9 +261,16 @@ back to the source path and can be repaired by deterministic republish.
 statistics. The report contains no timing or performance claim. Mapregions,
 actual-ore results, player position, HOME, and user markers remain dynamic and
 are not cached. `terrain.sourceLoaded` counts terrain-miss coordinates actually
-delivered by the source mapchunk reader. `surface.sourceLoaded` counts Surface
-cache-miss coordinates whose result was sourced/computed during this operation;
-it is not a raw cache-miss count for an unavailable result.
+delivered by the source mapchunk reader. `surface.sourceLoaded` counts distinct
+Surface-miss mapchunks for which at least one source Surface server-chunk
+contribution was actually delivered during this operation; cached tiles and
+misses with no delivered source contribution count as zero.
+
+For a source FALLBACK result, the persisted diagnostic summary is captured from
+the PF-1.4 `SurfaceFallbackDiagnosticState` per mapchunk. It is not
+reconstructed from the request-shaped, circle-clipped `SurfaceTile`. This
+preserves diagnostics for world-edge mapchunks where a 32-column fallback
+server chunk is wider than the valid Surface tile domain.
 
 ## Legacy cache compatibility
 

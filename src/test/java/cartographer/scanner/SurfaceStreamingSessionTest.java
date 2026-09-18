@@ -153,6 +153,40 @@ class SurfaceStreamingSessionTest {
         assertFalse(result.surface().isLiquidUnavailable(1, 1));
     }
 
+    @Test
+    void cachedTileSurvivesFallbackProcessingForNeighboringMiss() {
+        MapChunkCoordinate cachedCoordinate = new MapChunkCoordinate(0, 0);
+        MapChunkCoordinate fallbackCoordinate = new MapChunkCoordinate(1, 0);
+        SurfaceStreamingSession session = SurfaceStreamingSession.begin(
+                WORLD, 32, 16, 32,
+                List.of(fallbackCoordinate), REGISTRY, true, true
+        );
+        session.finishPlanning();
+
+        int cells = MapChunk.SIZE * MapChunk.SIZE;
+        byte[] state = new byte[cells];
+        Arrays.fill(state, (byte) (SurfaceTile.CONSIDERED | SurfaceTile.RESOLVED));
+        int[] surfaceY = new int[cells];
+        int[] blockIds = new int[cells];
+        int[] liquidIds = new int[cells];
+        Arrays.fill(surfaceY, 12);
+        Arrays.fill(blockIds, 1);
+        byte[] classes = new byte[cells];
+        Arrays.fill(classes, SurfaceClassCode.encode(SurfaceClass.SOIL));
+        session.acceptCachedTile(
+                cachedCoordinate, 32, 32, state, surfaceY, blockIds, liquidIds,
+                classes, false, cells, 0, 0
+        );
+        session.acceptFallbackChunk(chunkFilledAt(1, 0, 0, 2));
+
+        SurfaceRainHeightScanResult result = session.finish();
+
+        assertTrue(result.fallbackMapChunks().contains(fallbackCoordinate));
+        assertTrue(result.surface().isResolved(1, 16));
+        assertEquals(1, result.surface().blockIdAt(1, 16));
+        assertEquals(12, result.surface().surfaceYAt(1, 16));
+    }
+
     private SurfaceStreamingSession session(int rainHeight) {
         return SurfaceStreamingSession.begin(
                 WORLD, 1, 1, 2,
@@ -162,10 +196,14 @@ class SurfaceStreamingSessionTest {
     }
 
     private ParsedChunk chunkFilled(int sectionY, int worldY, int blockId) {
+        return chunkFilledAt(0, sectionY, worldY, blockId);
+    }
+
+    private ParsedChunk chunkFilledAt(int chunkX, int sectionY, int worldY, int blockId) {
         int[] blocks = new int[32 * 32 * 32];
         Arrays.fill(blocks, blockId);
         return new ParsedChunk(
-                new ChunkCoordinate(0, sectionY, 0),
+                new ChunkCoordinate(chunkX, sectionY, 0),
                 sectionY * ChunkCoordinate.SIZE_BLOCKS,
                 32, 32, 32, blocks
         );

@@ -40,6 +40,7 @@ public final class SurfaceRainHeightScanner {
         private final SurfaceTileAccumulator accumulator;
         private final Set<ChunkPosition> delivered = new HashSet<>();
         private final Set<ChunkPosition> deliveredFallback = new HashSet<>();
+        private final Set<MapChunkCoordinate> sourceMapChunksLoaded = new HashSet<>();
         private final SurfaceFallbackDiagnosticState fallbackDiagnostics =
                 new SurfaceFallbackDiagnosticState();
         private final Set<MapChunkCoordinate> cachedTiles = new HashSet<>();
@@ -91,6 +92,8 @@ public final class SurfaceRainHeightScanner {
             if (ordinals == null) {
                 return;
             }
+            sourceMapChunksLoaded.add(new MapChunkCoordinate(
+                    chunk.coordinate().x(), chunk.coordinate().z()));
             for (long ordinal : ordinals) {
                 int tileIndex = (int) (ordinal >>> 32);
                 int cellIndex = (int) ordinal;
@@ -158,6 +161,8 @@ public final class SurfaceRainHeightScanner {
             if (!promoted[tileIndex]) {
                 return;
             }
+            sourceMapChunksLoaded.add(new MapChunkCoordinate(
+                    chunk.coordinate().x(), chunk.coordinate().z()));
             for (int localZ = 0; localZ < chunk.sizeZ(); localZ++) {
                 for (int localX = 0; localX < chunk.sizeX(); localX++) {
                     int worldX = chunk.worldX(localX);
@@ -324,8 +329,10 @@ public final class SurfaceRainHeightScanner {
                                     cachedColumns),
                             Math.addExact(fallbackSummary.emptyColumns(), cachedEmptyColumns),
                             Math.addExact(fallbackSummary.liquidUnavailableColumns(),
-                                    cachedLiquidUnavailable)
-                    ));
+                                    cachedLiquidUnavailable)),
+                    fallbackDiagnostics.summariesByMapChunk(),
+                    sourceMapChunksLoaded.size()
+            );
         }
 
         public java.util.List<MapChunkCoordinate> fallbackMapChunks() {

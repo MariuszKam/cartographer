@@ -53,6 +53,7 @@ import cartographer.scanner.SurfaceMapScanResult;
 import cartographer.scanner.SurfaceStreamingSession;
 import cartographer.scanner.SurfaceTile;
 import cartographer.scanner.SurfaceTileAccumulator;
+import cartographer.scanner.SurfaceTileDiagnosticSummary;
 import cartographer.scanner.SurfaceTileLayout;
 
 import java.nio.file.Path;
@@ -573,7 +574,6 @@ public class RenderActualOreMapUseCase {
                     tile.diagnosticLiquidUnavailableColumns()
             );
         }
-        cache.surface.sourceLoaded = Math.addExact(cache.surface.sourceLoaded, surfaceMisses.size());
         ChunkStreamStats fastChunkStats = new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         if (!rainPlan.chunkPositions().isEmpty()) {
             fastChunkStats = reader.forEachChunkByPositionAdaptive(
@@ -600,6 +600,8 @@ public class RenderActualOreMapUseCase {
             );
         }
         SurfaceRainHeightScanResult result = surfaceSession.finish();
+        cache.surface.sourceLoaded = Math.addExact(
+                cache.surface.sourceLoaded, result.sourceMapChunksLoaded());
         int chunksScanned = Math.addExact(
                 fastChunkStats.parsedChunks(),
                 fallbackChunkStats.parsedChunks()
@@ -712,18 +714,24 @@ public class RenderActualOreMapUseCase {
             }
             try {
                 SurfaceTile tile = map.tileAt(map.layout().tileIndex(coordinate.x(), coordinate.z()));
+                boolean fallbackMode = fallback.contains(coordinate);
+                SurfaceTileDiagnosticSummary fallbackSummary = fallbackMode
+                        ? result.fallbackDiagnosticsByMapChunk().get(coordinate)
+                        : null;
+                if (fallbackMode && fallbackSummary == null) {
+                    cache.surface.skippedIncompleteForPublish++;
+                    continue;
+                }
                 SurfaceCacheTile cached = SurfaceCacheTile.fromComplete(
                         tile, metadata,
-                        fallback.contains(coordinate)
+                        fallbackMode
                                 ? SurfaceCacheTile.SourceMode.FALLBACK
                                 : SurfaceCacheTile.SourceMode.RAIN_HEIGHT_FAST,
-                        fallback.contains(coordinate)
-                                ? fallbackDiagnostics(tile).columnsScanned()
+                        fallbackMode
+                                ? fallbackSummary.columnsScanned()
                                 : countActiveConsidered(tile),
-                        fallback.contains(coordinate)
-                                ? fallbackDiagnostics(tile).emptyColumns() : 0,
-                        fallback.contains(coordinate)
-                                ? fallbackDiagnostics(tile).liquidUnavailableColumns() : 0
+                        fallbackMode ? fallbackSummary.emptyColumns() : 0,
+                        fallbackMode ? fallbackSummary.liquidUnavailableColumns() : 0
                 );
                 buffer.add(cached);
                 if (buffer.size() >= CACHE_WRITE_BATCH_SIZE) {
@@ -757,21 +765,6 @@ public class RenderActualOreMapUseCase {
             }
         }
         return count;
-    }
-
-    private static CacheTileDiagnostics fallbackDiagnostics(SurfaceTile tile) {
-        int scanned = 0;
-        int empty = 0;
-        int unavailable = 0;
-        for (int localZ = 0; localZ < tile.height(); localZ++) {
-            for (int localX = 0; localX < tile.width(); localX++) {
-                if (!tile.isConsidered(localX, localZ)) continue;
-                scanned++;
-                if (!tile.isResolved(localX, localZ)) empty++;
-                if (tile.isLiquidUnavailable(localX, localZ)) unavailable++;
-            }
-        }
-        return new CacheTileDiagnostics(scanned, empty, unavailable);
     }
 
     private static Map<MapChunkCoordinate, TerrainTileLookup> misses(
@@ -925,10 +918,6 @@ public class RenderActualOreMapUseCase {
                     corruptOrIncompatible, sourceLoaded, published,
                     skippedIncompleteForPublish, worldMismatches);
         }
-    }
-
-    private record CacheTileDiagnostics(int columnsScanned, int emptyColumns,
-                                        int liquidUnavailableColumns) {
     }
 
 }
