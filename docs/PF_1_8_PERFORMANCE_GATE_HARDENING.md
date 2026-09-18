@@ -347,6 +347,14 @@ cache work counters remain operational evidence rather than fingerprint input.
 Tests and runtime validation are **NOT RUN** by Codex. PF-1.6 and PF-1.7 remain
 **PENDING MANUAL VALIDATION**.
 
+Checkpoint D is implemented with deterministic integrated hardening gates for
+terrain and Surface corrupt-row recovery, byte-level terrain healing,
+size/mtime revision invalidation, representative malformed/incompatible
+manifest fail-closed cases, cache-preparation failure fallback, and source
+cache-root containment. Automated tests, real-save validation, and performance
+measurement are **NOT RUN** by Codex. PF-1.6 and PF-1.7 remain **PENDING
+MANUAL VALIDATION**.
+
 ## 10. Final evidence required for PF-1.6/PF-1.7 validation
 
 Before either PF-1.6 or PF-1.7 can be marked `VALIDATED`, the final PF-1.8
