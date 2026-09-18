@@ -1,4 +1,4 @@
-package cartographer.save;
+package cartographer.prospecting;
 
 import cartographer.application.ProgressReporter;
 import cartographer.model.BlockInfo;
@@ -11,13 +11,18 @@ import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
-import cartographer.prospecting.ActualOreObservation;
-import cartographer.prospecting.FusedProspectingEngine;
-import cartographer.prospecting.FusedProspectingResult;
+import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
+import cartographer.save.SelectiveChunkStreamStats;
+import cartographer.save.SelectiveChunkVisit;
+import cartographer.save.SqliteSaveConnection;
+import cartographer.save.VcdbsReader;
+import cartographer.save.WorldMetadataReader;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Path;
 import java.lang.reflect.Proxy;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -25,7 +30,7 @@ import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class FusedProspectingEngineTest {
+class FusedProspectingEngineSaveSessionTest {
     @Test
     void scansOneDecodedStreamForOverlappingResources() {
         CountingReader reader = new CountingReader();
@@ -37,9 +42,12 @@ class FusedProspectingEngineTest {
                         reader,
                         metadataReader
                 )
-        )
-                .analyze(Path.of("fixture.vcdbs"), new WorldPosition(16, 0, 16), 16,
-                        java.util.List.of("copper", "native"));
+        ).analyze(
+                Path.of("fixture.vcdbs"),
+                new WorldPosition(16, 0, 16),
+                16,
+                java.util.List.of("copper", "native")
+        );
 
         assertEquals(1, reader.calls.get());
         assertEquals(reader.visits, reader.decodedChunks,
@@ -58,7 +66,7 @@ class FusedProspectingEngineTest {
         }
 
         @Override
-        Map<Integer, BlockInfo> readBlockRegistry(Connection connection) {
+        protected Map<Integer, BlockInfo> readBlockRegistry(Connection connection) {
             return Map.of(
                     7, new BlockInfo(7, "game:rock-granite"),
                     9, new BlockInfo(9, "game:ore-copper-native")
@@ -87,7 +95,7 @@ class FusedProspectingEngineTest {
 
     private static final class TestMetadataReader extends WorldMetadataReader {
         @Override
-        WorldMetadata read(Connection connection, ProgressReporter progress) {
+        protected WorldMetadata read(Connection connection, ProgressReporter progress) {
             return new WorldMetadata(64, 64, 64);
         }
     }

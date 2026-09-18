@@ -15,7 +15,7 @@ public record SaveSnapshot(
         Map<Integer, BlockInfo> blockRegistry
 ) {
     public SaveSnapshot {
-        savePath = Objects.requireNonNull(savePath, "save path is required");
+        savePath = SaveSession.normalizeSavePath(savePath);
         metadata = Objects.requireNonNull(metadata, "world metadata is required");
         Map<Integer, BlockInfo> copied = new LinkedHashMap<>(
                 Objects.requireNonNull(blockRegistry, "block registry is required")

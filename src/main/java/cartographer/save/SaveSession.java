@@ -20,7 +20,7 @@ public final class SaveSession implements AutoCloseable {
     private boolean closed;
 
     SaveSession(Path savePath, Connection connection, SaveSnapshot snapshot) {
-        this.savePath = Objects.requireNonNull(savePath, "save path is required");
+        this.savePath = normalizeSavePath(savePath);
         this.connection = Objects.requireNonNull(connection, "connection is required");
         this.snapshot = Objects.requireNonNull(snapshot, "snapshot is required");
     }
@@ -60,8 +60,8 @@ public final class SaveSession implements AutoCloseable {
     }
 
     /**
-     * Package-private seam for future save-package reader migration. The
-     * returned connection is borrowed; only this session may close it.
+     * Package-private seam for session-aware save readers. The returned
+     * connection is borrowed; only this session may close it.
      */
     Connection connection() {
         ensureOpen();
