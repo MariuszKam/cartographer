@@ -7,6 +7,8 @@ import cartographer.application.PreparedMapData;
 import cartographer.geology.rock.RockMap;
 import cartographer.render.MapViewportGeometry;
 import cartographer.render.RenderLayer;
+import cartographer.render.RenderStyle;
+import cartographer.model.WorldPosition;
 import cartographer.resource.SurfaceRenderAnalysis;
 
 import java.nio.file.Path;
@@ -340,6 +342,48 @@ public record MapFrame(
                 Optional.empty(),
                 Optional.empty()
         );
+    }
+
+    public boolean canReusePreparedMap(
+            Path requestedSavePath,
+            int radius,
+            int pixelsPerBlock,
+            RenderStyle style,
+            Optional<WorldPosition> requestedCenter,
+            boolean requireSurfaceData
+    ) {
+        Objects.requireNonNull(requestedSavePath, "requestedSavePath is required");
+        Objects.requireNonNull(style, "style is required");
+        Objects.requireNonNull(requestedCenter, "requestedCenter is required");
+        if (preparedMapData.isEmpty() || decorationState.isEmpty()) {
+            return false;
+        }
+        if (!savePath.equals(requestedSavePath.toAbsolutePath().normalize())) {
+            return false;
+        }
+        PreparedMapData prepared = preparedMapData.orElseThrow();
+        if (prepared.options().radiusBlocks() != radius
+                || prepared.options().pixelsPerBlock() != pixelsPerBlock
+                || prepared.options().style() != style) {
+            return false;
+        }
+        if (requestedCenter.isPresent()
+                && !requestedCenter.orElseThrow().equals(prepared.center())) {
+            return false;
+        }
+        return !requireSurfaceData || surfaceDataPrepared();
+    }
+
+    public boolean surfaceDataPrepared() {
+        if (preparedMapData.isEmpty()) {
+            return false;
+        }
+        if (tool == WorkstationTool.SURFACE) {
+            return true;
+        }
+        Set<RenderLayer> initial = preparedMapData.orElseThrow().options().layers();
+        return initial.contains(RenderLayer.SURFACE)
+                || initial.contains(RenderLayer.SOIL_FERTILITY);
     }
 
     public boolean supportsLocalRecomposition(Set<RenderLayer> layers) {
