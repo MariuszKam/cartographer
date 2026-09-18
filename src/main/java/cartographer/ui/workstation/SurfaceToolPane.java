@@ -61,6 +61,7 @@ final class SurfaceToolPane extends VBox {
     private SurfaceObjectDiscoveryState discoveryState = SurfaceObjectDiscoveryState.NOT_SCANNED;
     private Consumer<SurfaceToolMode> modeListener = ignored -> { };
     private boolean busy;
+    private boolean discoveryBusy;
     private boolean initialized;
 
     SurfaceToolPane(Runnable availabilityChanged) {
@@ -247,14 +248,47 @@ final class SurfaceToolPane extends VBox {
         objectChecks.values().forEach(check -> check.setDisable(busy));
         familyFilters.values().forEach(filter -> filter.setDisable(busy));
         surfaceResourceBox.setDisable(
-                busy || discoveryState != SurfaceObjectDiscoveryState.READY
+                busy || discoveryBusy
+                        || discoveryState != SurfaceObjectDiscoveryState.READY
                         || surfaceResourceBox.getItems().isEmpty()
         );
+        if (!busy && discoveryBusy) {
+            setDiscoveryBusy(true);
+            return;
+        }
         notifyAvailabilityChanged();
     }
 
-    void setDiscoveryBusy(boolean busy) {
-        setBusy(busy);
+    void setDiscoveryBusy(boolean discoveryBusy) {
+        this.discoveryBusy = discoveryBusy;
+        boolean objectBusy = busy || discoveryBusy;
+        for (javafx.scene.control.Control control : List.of(
+                selectVisibleButton,
+                clearVisibleButton,
+                clearAllButton,
+                resetFiltersButton,
+                objectSearchField,
+                singleObjectButton,
+                multipleObjectButton,
+                surfaceResourceBox
+        )) {
+            control.setDisable(objectBusy);
+        }
+        objectChecks.values().forEach(check ->
+                check.setDisable(
+                        objectBusy
+                                || discoveryState != SurfaceObjectDiscoveryState.READY
+                ));
+        familyFilters.values().forEach(filter -> filter.setDisable(objectBusy));
+        surfaceResourceBox.setDisable(
+                objectBusy
+                        || discoveryState != SurfaceObjectDiscoveryState.READY
+                        || surfaceResourceBox.getItems().isEmpty()
+        );
+        objectsButton.setDisable(busy);
+        materialsButton.setDisable(busy);
+        surfaceMaterialBox.setDisable(busy);
+        notifyAvailabilityChanged();
     }
 
     static List<SurfaceMaterialPreset> surfaceMaterials() {
