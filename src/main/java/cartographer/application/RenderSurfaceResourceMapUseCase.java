@@ -4,15 +4,12 @@ import cartographer.marker.MarkerStore;
 import cartographer.model.DisplayPosition;
 import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
-import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
-import cartographer.model.ChunkPosition;
 import cartographer.model.BlockInfo;
 import cartographer.navigation.HomeStore;
 import cartographer.perf.RenderDataCacheStore;
 import cartographer.render.MapRenderer;
-import cartographer.render.MapTerrainPreparation;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderOptions;
 import cartographer.render.RenderedMap;
@@ -23,28 +20,17 @@ import cartographer.resource.SurfaceMaterialAnalyzer;
 import cartographer.resource.SurfaceObjectSelectionAnalysis;
 import cartographer.resource.SurfaceObjectAnalyzer;
 import cartographer.resource.SurfaceRenderAnalysis;
-import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
-import cartographer.save.ChunkStreamStats;
 import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
-import cartographer.scanner.SurfaceMap;
 import cartographer.scanner.SurfaceMapScanResult;
-import cartographer.scanner.SurfaceRainHeightPlan;
-import cartographer.scanner.SurfaceRainHeightScanResult;
-import cartographer.scanner.SurfaceRainHeightDiagnosticCounters;
-import cartographer.scanner.SurfaceStreamingSession;
 
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 public class RenderSurfaceResourceMapUseCase {
 
