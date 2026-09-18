@@ -2,12 +2,13 @@ package cartographer.perf;
 
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
+import cartographer.model.MapChunkHeightView;
 
 import java.util.Arrays;
 import java.util.Objects;
 
 /** Compact immutable terrain data derived from one mapchunk. */
-public final class TerrainHeightTile {
+public final class TerrainHeightTile implements MapChunkHeightView {
     public static final int HEIGHT_VALUE_COUNT = MapChunk.HEIGHT_VALUE_COUNT;
 
     private final MapChunkCoordinate coordinate;
@@ -69,6 +70,16 @@ public final class TerrainHeightTile {
         return rainHeightAvailable;
     }
 
+    @Override
+    public boolean hasRainHeight() {
+        return rainHeightAvailable;
+    }
+
+    @Override
+    public boolean hasEffectiveHeight() {
+        return effectiveHeightAvailable;
+    }
+
     public boolean effectiveHeightAvailable() {
         return effectiveHeightAvailable;
     }
@@ -85,5 +96,13 @@ public final class TerrainHeightTile {
             throw new IllegalArgumentException("local mapchunk coordinate out of bounds");
         }
         return effectiveHeights[localZ * MapChunk.SIZE + localX];
+    }
+
+    @Override
+    public int rainHeightAt(int localX, int localZ) {
+        if (!rainHeightAvailable) {
+            throw new IllegalStateException("RainHeightMap is unavailable");
+        }
+        return effectiveHeightAt(localX, localZ);
     }
 }

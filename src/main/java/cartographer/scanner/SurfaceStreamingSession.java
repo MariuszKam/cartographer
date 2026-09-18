@@ -3,6 +3,7 @@ package cartographer.scanner;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkPosition;
 import cartographer.model.MapChunk;
+import cartographer.model.MapChunkHeightView;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParsedChunk;
 import cartographer.model.WorldMetadata;
@@ -63,7 +64,7 @@ public final class SurfaceStreamingSession {
         );
     }
 
-    public void acceptMapChunk(MapChunk mapChunk) {
+    public void acceptMapChunk(MapChunkHeightView mapChunk) {
         ensurePlanning();
         planner.accept(mapChunk);
     }
@@ -88,6 +89,26 @@ public final class SurfaceStreamingSession {
     public void acceptFallbackChunk(ParsedChunk chunk) {
         ensurePlanned();
         scanner.acceptFallback(chunk);
+    }
+
+    public void acceptCachedTile(
+            MapChunkCoordinate coordinate,
+            int width,
+            int height,
+            byte[] state,
+            int[] surfaceY,
+            int[] blockIds,
+            int[] liquidIds,
+            byte[] surfaceClassCodes,
+            boolean fallbackMode,
+            int diagnosticColumnsScanned,
+            int diagnosticEmptyColumns,
+            int diagnosticLiquidUnavailable
+    ) {
+        ensurePlanned();
+        scanner.acceptCachedTile(coordinate, width, height, state, surfaceY, blockIds,
+                liquidIds, surfaceClassCodes, fallbackMode, diagnosticColumnsScanned,
+                diagnosticEmptyColumns, diagnosticLiquidUnavailable);
     }
 
     public java.util.List<MapChunkCoordinate> fallbackMapChunks() {

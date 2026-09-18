@@ -32,6 +32,14 @@ import cartographer.save.SaveSessionFactory;
 import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
+import cartographer.perf.RenderDataCacheRevision;
+import cartographer.perf.RenderDataCacheStore;
+import cartographer.perf.SurfaceCacheTile;
+import cartographer.perf.SurfaceTileLookup;
+import cartographer.perf.SurfaceTileStore;
+import cartographer.perf.TerrainHeightTile;
+import cartographer.perf.TerrainTileLookup;
+import cartographer.perf.TerrainTileStore;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockMatchSpec;
@@ -51,6 +59,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -58,9 +67,11 @@ import java.util.Optional;
 import java.util.Set;
 
 public class RenderActualOreMapUseCase {
+    private static final int CACHE_WRITE_BATCH_SIZE = 128;
 
     private final VcdbsReader reader;
     private final SaveSessionFactory sessionFactory;
+    private final Optional<RenderDataCacheStore> renderDataCacheStore;
     private final HomeStore homeStore;
     private final MarkerStore markerStore;
     private final MapRenderer renderer;
@@ -177,9 +188,49 @@ public class RenderActualOreMapUseCase {
             OreChunkPositionPlanner oreChunkPositionPlanner,
             SaveSessionFactory sessionFactory
     ) {
+        this(reader, metadataReader, homeStore, markerStore, renderer, userMarkerRenderer,
+                actualBlockMapScanner, actualOreOverlayPainter, multiActualBlockMapScanner,
+                oreChunkPositionPlanner, sessionFactory, Optional.empty());
+    }
+
+    public RenderActualOreMapUseCase(
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            HomeStore homeStore,
+            MarkerStore markerStore,
+            MapRenderer renderer,
+            UserMarkerRenderer userMarkerRenderer,
+            ActualBlockMapScanner actualBlockMapScanner,
+            ActualOreOverlayPainter actualOreOverlayPainter,
+            MultiActualBlockMapScanner multiActualBlockMapScanner,
+            OreChunkPositionPlanner oreChunkPositionPlanner,
+            SaveSessionFactory sessionFactory,
+            RenderDataCacheStore renderDataCacheStore
+    ) {
+        this(reader, metadataReader, homeStore, markerStore, renderer, userMarkerRenderer,
+                actualBlockMapScanner, actualOreOverlayPainter, multiActualBlockMapScanner,
+                oreChunkPositionPlanner, sessionFactory,
+                Optional.of(Objects.requireNonNull(renderDataCacheStore, "render data cache store is required")));
+    }
+
+    private RenderActualOreMapUseCase(
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            HomeStore homeStore,
+            MarkerStore markerStore,
+            MapRenderer renderer,
+            UserMarkerRenderer userMarkerRenderer,
+            ActualBlockMapScanner actualBlockMapScanner,
+            ActualOreOverlayPainter actualOreOverlayPainter,
+            MultiActualBlockMapScanner multiActualBlockMapScanner,
+            OreChunkPositionPlanner oreChunkPositionPlanner,
+            SaveSessionFactory sessionFactory,
+            Optional<RenderDataCacheStore> renderDataCacheStore
+    ) {
         this.reader = Objects.requireNonNull(reader, "reader is required");
         Objects.requireNonNull(metadataReader, "metadataReader is required");
         this.sessionFactory = Objects.requireNonNull(sessionFactory, "sessionFactory is required");
+        this.renderDataCacheStore = Objects.requireNonNull(renderDataCacheStore, "render data cache option is required");
         this.homeStore = Objects.requireNonNull(homeStore, "homeStore is required");
         this.markerStore = Objects.requireNonNull(markerStore, "markerStore is required");
         this.renderer = Objects.requireNonNull(renderer, "renderer is required");
@@ -256,16 +307,40 @@ public class RenderActualOreMapUseCase {
                 : List.of();
         Set<MapChunkCoordinate> renderMapChunkSet =
                 new HashSet<>(renderMapChunkCoordinates);
-        Set<MapChunkCoordinate> surfaceSearchSet =
-                new HashSet<>(surfaceMapChunkCoordinates);
-        Set<MapChunkCoordinate> directReadSet =
-                new LinkedHashSet<>(renderMapChunkCoordinates);
-        directReadSet.addAll(surfaceMapChunkCoordinates);
-        List<MapChunkCoordinate> directReadCoordinates = directReadSet.stream()
-                .sorted(
-                        Comparator.comparingInt(MapChunkCoordinate::z)
-                                .thenComparingInt(MapChunkCoordinate::x)
-                )
+        CacheContext cache = prepareCache(request.savePath());
+        Map<MapChunkCoordinate, SurfaceTileLookup> surfaceLookups = surfaceDataRequired
+                ? lookupSurface(cache, surfaceMapChunkCoordinates, metadata)
+                : Map.of();
+        Set<MapChunkCoordinate> surfaceMissSet = new LinkedHashSet<>();
+        Map<MapChunkCoordinate, SurfaceCacheTile> surfaceHits = new LinkedHashMap<>();
+        for (Map.Entry<MapChunkCoordinate, SurfaceTileLookup> entry : surfaceLookups.entrySet()) {
+            if (entry.getValue().status() == SurfaceTileLookup.Status.HIT) {
+                surfaceHits.put(entry.getKey(), entry.getValue().tile());
+            } else {
+                surfaceMissSet.add(entry.getKey());
+            }
+        }
+        List<MapChunkCoordinate> terrainRequiredCoordinates = new ArrayList<>(renderMapChunkCoordinates);
+        terrainRequiredCoordinates.addAll(surfaceMissSet);
+        terrainRequiredCoordinates = terrainRequiredCoordinates.stream()
+                .distinct()
+                .sorted(Comparator.comparingInt(MapChunkCoordinate::z)
+                        .thenComparingInt(MapChunkCoordinate::x))
+                .toList();
+        Map<MapChunkCoordinate, TerrainTileLookup> terrainLookups = lookupTerrain(
+                cache, terrainRequiredCoordinates);
+        Set<MapChunkCoordinate> terrainMissSet = new LinkedHashSet<>();
+        Map<MapChunkCoordinate, TerrainHeightTile> terrainHits = new LinkedHashMap<>();
+        for (Map.Entry<MapChunkCoordinate, TerrainTileLookup> entry : terrainLookups.entrySet()) {
+            if (entry.getValue().status() == TerrainTileLookup.Status.HIT) {
+                terrainHits.put(entry.getKey(), entry.getValue().tile());
+            } else {
+                terrainMissSet.add(entry.getKey());
+            }
+        }
+        List<MapChunkCoordinate> sourceMapChunkCoordinates = terrainMissSet.stream()
+                .sorted(Comparator.comparingInt(MapChunkCoordinate::z)
+                        .thenComparingInt(MapChunkCoordinate::x))
                 .toList();
         MapTerrainPreparation.Builder terrainBuilder =
                 MapTerrainPreparation.builder(
@@ -284,27 +359,44 @@ public class RenderActualOreMapUseCase {
                                 centerWorldX,
                                 centerWorldZ,
                                 request.radius(),
-                                surfaceMapChunkCoordinates,
+                                surfaceMissSet,
                                 surfaceRegistry,
                                 true,
                                 true
                         )
                         : null;
+        List<TerrainHeightTile> terrainWriteBuffer = new ArrayList<>(CACHE_WRITE_BATCH_SIZE);
+        Set<MapChunkCoordinate> deliveredSurfaceMapChunks = new LinkedHashSet<>();
+        for (MapChunkCoordinate coordinate : terrainRequiredCoordinates) {
+            TerrainHeightTile tile = terrainHits.get(coordinate);
+            if (tile == null) continue;
+            if (renderMapChunkSet.contains(coordinate)) terrainBuilder.accept(tile);
+            if (surfaceMissSet.contains(coordinate)) surfaceSession.acceptMapChunk(tile);
+        }
         reader.forEachMapChunkByCoordinate(
                 saveSession,
-                directReadCoordinates,
+                sourceMapChunkCoordinates,
                 mapChunkDiagnostics,
                 mapChunk -> {
+                    MapChunkCoordinate coordinate = mapChunk.coordinate();
+                    if (terrainMissSet.contains(coordinate)) {
+                        terrainWriteBuffer.add(TerrainHeightTile.from(mapChunk));
+                        if (terrainWriteBuffer.size() >= CACHE_WRITE_BATCH_SIZE) {
+                            publishTerrain(cache, terrainWriteBuffer);
+                        }
+                    }
                     if (renderMapChunkSet.contains(mapChunk.coordinate())) {
                         terrainBuilder.accept(mapChunk);
                     }
                     if (surfaceDataRequired
-                            && surfaceSearchSet.contains(mapChunk.coordinate())) {
+                            && surfaceMissSet.contains(mapChunk.coordinate())) {
                         surfaceSession.acceptMapChunk(mapChunk);
+                        deliveredSurfaceMapChunks.add(mapChunk.coordinate());
                     }
                 },
                 progress
         );
+        publishTerrain(cache, terrainWriteBuffer);
         MapTerrainPreparation terrain = terrainBuilder.finish();
         SurfaceMapScanResult compactSurface = surfaceDataRequired
                 ? readCompactSurface(
@@ -312,6 +404,10 @@ public class RenderActualOreMapUseCase {
                         metadata,
                         surfaceSession,
                         surfaceRegistry,
+                        surfaceMissSet,
+                        surfaceHits,
+                        deliveredSurfaceMapChunks,
+                        cache,
                         chunkDiagnostics,
                         progress
                 )
@@ -368,7 +464,8 @@ public class RenderActualOreMapUseCase {
                         ? Optional.empty()
                         : Optional.of(actualOreOverlays.getFirst().map()),
                 mapChunkDiagnostics, chunkDiagnostics, mapRegionDiagnostics,
-                actualOreDiagnostics, userMarkersDrawn, actualOreOverlays
+                actualOreDiagnostics, userMarkersDrawn, actualOreOverlays,
+                cache.report()
         );
     }
 
@@ -453,10 +550,25 @@ public class RenderActualOreMapUseCase {
             WorldMetadata metadata,
             SurfaceStreamingSession surfaceSession,
             Map<Integer, BlockInfo> registry,
+            Set<MapChunkCoordinate> surfaceMisses,
+            Map<MapChunkCoordinate, SurfaceCacheTile> surfaceHits,
+            Set<MapChunkCoordinate> deliveredSurfaceMapChunks,
+            CacheContext cache,
             ReadDiagnostics chunkDiagnostics,
             ProgressReporter progress
     ) {
         SurfaceRainHeightPlan rainPlan = surfaceSession.finishPlanning();
+        for (SurfaceCacheTile tile : surfaceHits.values()) {
+            surfaceSession.acceptCachedTile(
+                    tile.coordinate(), tile.width(), tile.height(), tile.state(),
+                    tile.surfaceY(), tile.blockIds(), tile.liquidBlockIds(),
+                    tile.surfaceClassCodes(),
+                    tile.sourceMode() == SurfaceCacheTile.SourceMode.FALLBACK,
+                    tile.diagnosticColumnsScanned(), tile.diagnosticEmptyColumns(),
+                    tile.diagnosticLiquidUnavailableColumns()
+            );
+        }
+        cache.surface.sourceLoaded = Math.addExact(cache.surface.sourceLoaded, surfaceMisses.size());
         ChunkStreamStats fastChunkStats = new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         if (!rainPlan.chunkPositions().isEmpty()) {
             fastChunkStats = reader.forEachChunkByPositionAdaptive(
@@ -489,6 +601,7 @@ public class RenderActualOreMapUseCase {
         );
         SurfaceMap map = result.surface();
         SurfaceRainHeightDiagnosticCounters diagnostics = result.diagnostics();
+        publishSurfaceTiles(cache, metadata, map, result, surfaceMisses, deliveredSurfaceMapChunks);
         return new SurfaceMapScanResult(
                 map,
                 registry,
@@ -497,6 +610,178 @@ public class RenderActualOreMapUseCase {
                 diagnostics.emptyColumns(),
                 diagnostics.liquidUnavailableColumns()
         );
+    }
+
+    private Map<MapChunkCoordinate, TerrainTileLookup> lookupTerrain(
+            CacheContext cache,
+            List<MapChunkCoordinate> coordinates
+    ) {
+        cache.terrain.requested = coordinates.size();
+        if (!cache.enabled) return misses(coordinates);
+        Map<MapChunkCoordinate, TerrainTileLookup> lookups;
+        try {
+            lookups = cache.terrainStore.orElseThrow().read(coordinates);
+        } catch (RuntimeException exception) {
+            cache.disableWrites("terrain cache read disabled: " + exception.getMessage());
+            lookups = new LinkedHashMap<>();
+            for (MapChunkCoordinate coordinate : coordinates) {
+                lookups.put(coordinate, TerrainTileLookup.corrupt());
+            }
+        }
+        for (TerrainTileLookup lookup : lookups.values()) {
+            switch (lookup.status()) {
+                case HIT -> cache.terrain.hits++;
+                case MISS -> cache.terrain.misses++;
+                case CORRUPT -> cache.terrain.corruptOrIncompatible++;
+            }
+        }
+        return lookups;
+    }
+
+    private Map<MapChunkCoordinate, SurfaceTileLookup> lookupSurface(
+            CacheContext cache,
+            List<MapChunkCoordinate> coordinates,
+            WorldMetadata metadata
+    ) {
+        cache.surface.requested = coordinates.size();
+        if (!cache.enabled) return surfaceMisses(coordinates);
+        Map<MapChunkCoordinate, SurfaceTileLookup> raw;
+        try {
+            raw = cache.surfaceStore.orElseThrow().read(coordinates);
+        } catch (RuntimeException exception) {
+            cache.disableWrites("Surface cache read disabled: " + exception.getMessage());
+            raw = new LinkedHashMap<>();
+            for (MapChunkCoordinate coordinate : coordinates) {
+                raw.put(coordinate, SurfaceTileLookup.corrupt());
+            }
+        }
+        Map<MapChunkCoordinate, SurfaceTileLookup> result = new LinkedHashMap<>();
+        for (MapChunkCoordinate coordinate : coordinates) {
+            SurfaceTileLookup lookup = raw.getOrDefault(coordinate, SurfaceTileLookup.miss());
+            if (lookup.status() == SurfaceTileLookup.Status.HIT
+                    && !lookup.tile().matchesWorld(metadata)) {
+                cache.surface.corruptOrIncompatible++;
+                cache.surface.worldMismatches++;
+                result.put(coordinate, SurfaceTileLookup.corrupt());
+            } else {
+                result.put(coordinate, lookup);
+                switch (lookup.status()) {
+                    case HIT -> cache.surface.hits++;
+                    case MISS -> cache.surface.misses++;
+                    case CORRUPT -> cache.surface.corruptOrIncompatible++;
+                }
+            }
+        }
+        return result;
+    }
+
+    private void publishTerrain(CacheContext cache, List<TerrainHeightTile> buffer) {
+        if (buffer.isEmpty()) return;
+        if (cache.enabled && cache.writesEnabled) {
+            try {
+                cache.terrainStore.orElseThrow().publish(List.copyOf(buffer));
+                cache.terrain.published = Math.addExact(cache.terrain.published, buffer.size());
+            } catch (RuntimeException exception) {
+                cache.disableWrites("terrain cache write disabled: " + exception.getMessage());
+            }
+        }
+        buffer.clear();
+    }
+
+    private void publishSurfaceTiles(
+            CacheContext cache,
+            WorldMetadata metadata,
+            SurfaceMap map,
+            SurfaceRainHeightScanResult result,
+            Set<MapChunkCoordinate> surfaceMisses,
+            Set<MapChunkCoordinate> deliveredSurfaceMapChunks
+    ) {
+        if (!cache.enabled || !cache.writesEnabled || surfaceMisses.isEmpty()) return;
+        Set<MapChunkCoordinate> fallback = new HashSet<>(result.fallbackMapChunks());
+        List<SurfaceCacheTile> buffer = new ArrayList<>(CACHE_WRITE_BATCH_SIZE);
+        for (MapChunkCoordinate coordinate : surfaceMisses) {
+            if (!deliveredSurfaceMapChunks.contains(coordinate)) {
+                cache.surface.skippedIncompleteForPublish++;
+                continue;
+            }
+            try {
+                SurfaceTile tile = map.tileAt(map.layout().tileIndex(coordinate.x(), coordinate.z()));
+                SurfaceCacheTile cached = SurfaceCacheTile.fromComplete(
+                        tile, metadata,
+                        fallback.contains(coordinate)
+                                ? SurfaceCacheTile.SourceMode.FALLBACK
+                                : SurfaceCacheTile.SourceMode.RAIN_HEIGHT_FAST,
+                        fallback.contains(coordinate)
+                                ? fallbackDiagnostics(tile).columnsScanned()
+                                : countActiveConsidered(tile),
+                        fallback.contains(coordinate)
+                                ? fallbackDiagnostics(tile).emptyColumns() : 0,
+                        fallback.contains(coordinate)
+                                ? fallbackDiagnostics(tile).liquidUnavailableColumns() : 0
+                );
+                buffer.add(cached);
+                if (buffer.size() >= CACHE_WRITE_BATCH_SIZE) {
+                    publishSurface(cache, buffer);
+                }
+            } catch (RuntimeException exception) {
+                cache.surface.skippedIncompleteForPublish++;
+            }
+        }
+        publishSurface(cache, buffer);
+    }
+
+    private void publishSurface(CacheContext cache, List<SurfaceCacheTile> buffer) {
+        if (buffer.isEmpty()) return;
+        if (cache.writesEnabled) {
+            try {
+                cache.surfaceStore.orElseThrow().publish(List.copyOf(buffer));
+                cache.surface.published = Math.addExact(cache.surface.published, buffer.size());
+            } catch (RuntimeException exception) {
+                cache.disableWrites("Surface cache write disabled: " + exception.getMessage());
+            }
+        }
+        buffer.clear();
+    }
+
+    private static int countActiveConsidered(cartographer.scanner.SurfaceTile tile) {
+        int count = 0;
+        for (int localZ = 0; localZ < tile.height(); localZ++) {
+            for (int localX = 0; localX < tile.width(); localX++) {
+                if (tile.isActive(localX, localZ) && tile.isConsidered(localX, localZ)) count++;
+            }
+        }
+        return count;
+    }
+
+    private static CacheTileDiagnostics fallbackDiagnostics(cartographer.scanner.SurfaceTile tile) {
+        int scanned = 0;
+        int empty = 0;
+        int unavailable = 0;
+        for (int localZ = 0; localZ < tile.height(); localZ++) {
+            for (int localX = 0; localX < tile.width(); localX++) {
+                if (!tile.isConsidered(localX, localZ)) continue;
+                scanned++;
+                if (!tile.isResolved(localX, localZ)) empty++;
+                if (tile.isLiquidUnavailable(localX, localZ)) unavailable++;
+            }
+        }
+        return new CacheTileDiagnostics(scanned, empty, unavailable);
+    }
+
+    private static Map<MapChunkCoordinate, TerrainTileLookup> misses(
+            List<MapChunkCoordinate> coordinates
+    ) {
+        Map<MapChunkCoordinate, TerrainTileLookup> result = new LinkedHashMap<>();
+        coordinates.forEach(coordinate -> result.put(coordinate, TerrainTileLookup.miss()));
+        return result;
+    }
+
+    private static Map<MapChunkCoordinate, SurfaceTileLookup> surfaceMisses(
+            List<MapChunkCoordinate> coordinates
+    ) {
+        Map<MapChunkCoordinate, SurfaceTileLookup> result = new LinkedHashMap<>();
+        coordinates.forEach(coordinate -> result.put(coordinate, SurfaceTileLookup.miss()));
+        return result;
     }
 
     private SurfaceMapScanResult emptySurface(
@@ -565,4 +850,79 @@ public class RenderActualOreMapUseCase {
         );
         return HomeState.present(new HomeLocation(absolute.x(), absolute.z()));
     }
+
+    private CacheContext prepareCache(Path savePath) {
+        if (renderDataCacheStore.isEmpty()) {
+            return CacheContext.disabled("PF-1.7 render-data cache disabled");
+        }
+        try {
+            RenderDataCacheStore store = renderDataCacheStore.orElseThrow();
+            RenderDataCacheRevision revision = store.observe(savePath);
+            store.publish(revision);
+            return CacheContext.enabled(
+                    new TerrainTileStore(store, revision),
+                    new SurfaceTileStore(store, revision)
+            );
+        } catch (RuntimeException exception) {
+            return CacheContext.disabled("render-data cache unavailable: " + exception.getMessage());
+        }
+    }
+
+    private static final class CacheContext {
+        private final boolean enabled;
+        private final Optional<TerrainTileStore> terrainStore;
+        private final Optional<SurfaceTileStore> surfaceStore;
+        private final CacheCounters terrain = new CacheCounters();
+        private final CacheCounters surface = new CacheCounters();
+        private final List<String> notes = new ArrayList<>();
+        private boolean writesEnabled;
+
+        private CacheContext(boolean enabled, Optional<TerrainTileStore> terrainStore,
+                             Optional<SurfaceTileStore> surfaceStore, String note) {
+            this.enabled = enabled;
+            this.terrainStore = terrainStore;
+            this.surfaceStore = surfaceStore;
+            this.writesEnabled = enabled;
+            if (note != null && !note.isBlank()) notes.add(note);
+        }
+
+        private static CacheContext enabled(TerrainTileStore terrainStore, SurfaceTileStore surfaceStore) {
+            return new CacheContext(true, Optional.of(terrainStore), Optional.of(surfaceStore), null);
+        }
+
+        private static CacheContext disabled(String note) {
+            return new CacheContext(false, Optional.empty(), Optional.empty(), note);
+        }
+
+        private void disableWrites(String note) {
+            writesEnabled = false;
+            if (note != null && !note.isBlank()) notes.add(note);
+        }
+
+        private RenderDataCacheReport report() {
+            return new RenderDataCacheReport(enabled, terrain.toStats(), surface.toStats(), notes);
+        }
+    }
+
+    private static final class CacheCounters {
+        private int requested;
+        private int hits;
+        private int misses;
+        private int corruptOrIncompatible;
+        private int sourceLoaded;
+        private int published;
+        private int skippedIncompleteForPublish;
+        private int worldMismatches;
+
+        private RenderDataCacheReport.ArtifactStats toStats() {
+            return new RenderDataCacheReport.ArtifactStats(requested, hits, misses,
+                    corruptOrIncompatible, sourceLoaded, published,
+                    skippedIncompleteForPublish, worldMismatches);
+        }
+    }
+
+    private record CacheTileDiagnostics(int columnsScanned, int emptyColumns,
+                                        int liquidUnavailableColumns) {
+    }
+
 }

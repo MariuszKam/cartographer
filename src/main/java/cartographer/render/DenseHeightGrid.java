@@ -1,7 +1,7 @@
 package cartographer.render;
 
 import cartographer.application.ProgressReporter;
-import cartographer.model.MapChunk;
+import cartographer.model.MapChunkHeightView;
 
 import java.util.BitSet;
 import java.util.List;
@@ -39,7 +39,7 @@ final class DenseHeightGrid {
     }
 
     static DenseHeightGrid fromMapChunks(
-            List<MapChunk> chunks,
+            List<? extends MapChunkHeightView> chunks,
             int minWorldX,
             int minWorldZ,
             int width,
@@ -119,7 +119,7 @@ final class DenseHeightGrid {
             this.expectedChunks = expectedChunks;
         }
 
-        void accept(MapChunk chunk) {
+        void accept(MapChunkHeightView chunk) {
             Objects.requireNonNull(chunk, "chunks cannot contain null");
             acceptedChunks++;
             progress.progress(
@@ -139,7 +139,10 @@ final class DenseHeightGrid {
                         continue;
                     }
                     int index = Math.toIntExact(relativeZ * width + relativeX);
-                    values[index] = chunk.heightAt(localX, localZ);
+                    if (!chunk.hasEffectiveHeight()) {
+                        continue;
+                    }
+                    values[index] = chunk.effectiveHeightAt(localX, localZ);
                     present.set(index);
                 }
             }
