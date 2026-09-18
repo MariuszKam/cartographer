@@ -1,12 +1,12 @@
 # PF-1.7 Render Data Cache
 
-Status: **IMPLEMENTATION IN PROGRESS — VALIDATION PENDING**
+Status: **IMPLEMENTED — VALIDATION PENDING**
 
-This document records the PF-1.7 A+B foundation plus the C+D, E and F
-implementation. It defines the persistent render-data cache namespace, compact
-terrain and full-mapchunk Surface artifact contracts, and main-render session
-lifecycle. Checkpoints G+H integrate the cache into the main `map render`
-path; runtime validation remains intentionally deferred.
+This document records the completed PF-1.7 A–J implementation. It defines the
+persistent render-data cache namespace, compact terrain and full-mapchunk
+Surface artifact contracts, main-render session lifecycle, production cache
+integration, and fail-closed invalidation semantics. Runtime validation remains
+intentionally deferred.
 
 ## Motivation and boundary
 
@@ -272,6 +272,31 @@ reconstructed from the request-shaped, circle-clipped `SurfaceTile`. This
 preserves diagnostics for world-edge mapchunks where a 32×32 horizontal
 server-chunk column domain is wider than the valid Surface tile domain.
 
+## Checkpoints I+J — invalidation and implementation closure
+
+Cache preparation observes one revision, publishes a manifest when it is
+missing, and then verifies the exact compatible manifest with the cache store
+before enabling terrain or Surface stores. A valid immutable manifest is reused
+without rewriting it. A malformed, incompatible, or otherwise unverifiable
+final manifest fails closed for the operation: PF-1.7 is disabled, existing
+artifact databases beneath that revision are not trusted, and the source
+render remains authoritative. No automatic deletion, garbage collection, or
+background repair is performed.
+
+Revision identity continues to include normalized save identity, size,
+last-modified time, render-data schema, and parser/data compatibility version.
+Changing any of those inputs selects a separate revision namespace; the cache
+does not content-hash the save. Missing, corrupt, or incompatible artifact
+rows remain optional cache failures: source analysis continues and a valid
+deterministic republish may heal the individual row.
+
+The final static audit preserves one read-only source `SaveSession` for the
+main map render, short-lived cache-local SQLite ownership, bounded lookup and
+publication batches, independent terrain/Surface identities, and exclusion of
+player, HOME, markers, mapregions, actual-ore results, and images from the
+cache. No PF-1.7 class retains decoded chunks, source JDBC state, or a global
+in-memory cache.
+
 ## Legacy cache compatibility
 
 PF-1.7 does not redefine or delete the existing `RenderCache`, `CacheKey`,
@@ -297,8 +322,8 @@ The intended remaining implementation pairs are:
 * **D** — compact terrain/mapchunk cache model and persistent store (this work);
 * **E** — reusable full-mapchunk Surface artifact and codec;
 * **F** — persistent Surface store and cache-row healing;
-* **G+H** — production cache integration, mixed hit/miss behavior, and diagnostics (implemented; validation pending);
-* **I+J** — invalidation, cleanup, static audit, and implementation closure.
+* **G+H** — production cache integration, mixed hit/miss behavior, and diagnostics (implemented);
+* **I+J** — fail-closed invalidation, ownership/static audit, and implementation closure (implemented).
 
 PF-1.7 must not turn `SaveSession` into a global cache, retain JDBC
 connections across operations by default, retain decoded chunks, or conflate
@@ -307,8 +332,8 @@ pooling, filesystem watchers, background refresh, or a global mapregion cache.
 
 ## Validation status
 
-Implementation status remains **IMPLEMENTATION IN PROGRESS — VALIDATION
-PENDING**. Build/compile validation, tests, runtime cache-hit/miss validation,
+Implementation status is **IMPLEMENTED — VALIDATION PENDING**. Build/compile
+validation, tests, runtime cache-hit/miss validation,
 real-save safety/checksum validation, performance measurement, JFR, heap/RSS,
 and PNG inspection are intentionally deferred to the reviewer and the PF-1.8
 hardening campaign. No cache speedup, reduced SQLite reads, correctness parity,

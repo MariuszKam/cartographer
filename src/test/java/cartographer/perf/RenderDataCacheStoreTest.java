@@ -60,6 +60,14 @@ class RenderDataCacheStoreTest {
     }
 
     @Test
+    void saveSizeChangeUsesASeparateRevisionNamespace() {
+        RenderDataCacheRevision original = revision(4096, 1000);
+        RenderDataCacheRevision changed = revision(4097, 1000);
+
+        assertNotEquals(original.revisionHash(), changed.revisionHash());
+    }
+
+    @Test
     void schemaMismatchAndMalformedManifestAreMisses(@TempDir Path cacheRoot) throws IOException {
         RenderDataCacheStore store = new RenderDataCacheStore(cacheRoot);
         RenderDataCacheRevision revision = revision(4096, 1000);

@@ -39,6 +39,7 @@ import java.awt.Color;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.nio.file.attribute.FileTime;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
@@ -211,6 +212,94 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(0, reader.pathPlayerCalls);
         assertEquals(0, reader.pathMapChunkCalls);
         assertEquals(0, reader.pathRegistryCalls);
+    }
+
+    @Test
+    void malformedFinalManifestDisablesCacheAndUsesSource() throws Exception {
+        Path savePath = temporaryDirectory.resolve("malformed-render-data-save.vcdbs");
+        Files.write(savePath, new byte[]{1});
+        RenderDataCacheStore cacheStore = new RenderDataCacheStore(
+                temporaryDirectory.resolve("malformed-render-data-cache")
+        );
+        RenderDataCacheRevision revision = cacheStore.observe(savePath);
+        cacheStore.publish(revision);
+        Files.writeString(cacheStore.manifestPath(revision), "not-a-manifest\n");
+
+        FakeReader reader = surfaceReader(true);
+        RenderActualOreMapResult result = useCase(
+                reader,
+                new WorldMetadata(128, 256, 128),
+                temporaryDirectory.resolve("malformed-home.properties"),
+                temporaryDirectory.resolve("malformed-markers.csv"),
+                cacheStore
+        ).execute(new RenderActualOreMapRequest(
+                savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.TERRAIN), Optional.empty(),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(16, 64, 16))
+        ));
+
+        assertFalse(result.renderDataCacheReport().enabled());
+        assertTrue(result.renderDataCacheReport().notes().stream()
+                .anyMatch(note -> note.contains("unavailable or incompatible manifest")));
+        assertFalse(reader.directMapChunkRequests.getLast().isEmpty());
+    }
+
+    @Test
+    void saveRevisionChangeDoesNotReusePreviousRenderArtifacts() throws Exception {
+        Path savePath = temporaryDirectory.resolve("revision-render-data-save.vcdbs");
+        Files.write(savePath, new byte[]{1});
+        RenderDataCacheStore cacheStore = new RenderDataCacheStore(
+                temporaryDirectory.resolve("revision-render-data-cache")
+        );
+
+        RenderActualOreMapResult first = useCase(
+                surfaceReader(true),
+                new WorldMetadata(128, 256, 128),
+                temporaryDirectory.resolve("revision-home.properties"),
+                temporaryDirectory.resolve("revision-markers.csv"),
+                cacheStore
+        ).execute(new RenderActualOreMapRequest(
+                savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.TERRAIN), Optional.empty(),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(16, 64, 16))
+        ));
+        assertTrue(first.renderDataCacheReport().terrain().published() >= 1);
+
+        FakeReader hitReader = surfaceReader(true);
+        RenderActualOreMapResult second = useCase(
+                hitReader,
+                new WorldMetadata(128, 256, 128),
+                temporaryDirectory.resolve("revision-home.properties"),
+                temporaryDirectory.resolve("revision-markers.csv"),
+                cacheStore
+        ).execute(new RenderActualOreMapRequest(
+                savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.TERRAIN), Optional.empty(),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(16, 64, 16))
+        ));
+        assertTrue(second.renderDataCacheReport().terrain().hits() >= 1);
+        assertTrue(hitReader.directMapChunkRequests.getLast().isEmpty());
+
+        Files.setLastModifiedTime(savePath, FileTime.fromMillis(2_000L));
+        FakeReader missReader = surfaceReader(true);
+        RenderActualOreMapResult third = useCase(
+                missReader,
+                new WorldMetadata(128, 256, 128),
+                temporaryDirectory.resolve("revision-home.properties"),
+                temporaryDirectory.resolve("revision-markers.csv"),
+                cacheStore
+        ).execute(new RenderActualOreMapRequest(
+                savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.TERRAIN), Optional.empty(),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(16, 64, 16))
+        ));
+        assertEquals(0, third.renderDataCacheReport().terrain().hits());
+        assertTrue(third.renderDataCacheReport().terrain().misses() >= 1);
+        assertFalse(missReader.directMapChunkRequests.getLast().isEmpty());
     }
 
     @Test
