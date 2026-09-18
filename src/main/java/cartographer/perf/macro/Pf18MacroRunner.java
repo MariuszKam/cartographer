@@ -110,15 +110,18 @@ public final class Pf18MacroRunner {
         }
 
         SaveSafetySnapshot before = snapshotter.capture(save);
-        Pf18IterationEvidence authoritative = operationFactory
-                .createAuthoritative(save, workload).execute();
+        Pf18IterationEvidence authoritative = null;
         List<String> cacheEvidence = List.of();
         List<Long> samples = new ArrayList<>();
         List<Pf18ResourceEvidence> resourceEvidence = new ArrayList<>();
+        List<Pf18MeasuredIterationEvidence> measuredEvidence = new ArrayList<>();
+        List<Pf18IterationEvidence> measuredOperationEvidence = new ArrayList<>();
         List<String> failures = new ArrayList<>();
         AtomicBoolean cacheHit = new AtomicBoolean(mode != ExecutionMode.CACHE_WARM);
-        String preparation;
+        String preparation = "campaign did not reach preparation";
 
+        try {
+            authoritative = operationFactory.createAuthoritative(save, workload).execute();
         if (mode == ExecutionMode.CACHE_WARM) {
             operationFactory.prepareCache(save, campaignCache, workload);
             cacheEvidence = List.copyOf(operationFactory.cacheEvidence(save, campaignCache, workload));
@@ -134,7 +137,6 @@ public final class Pf18MacroRunner {
                     ? "fresh JVM per measured sample; parent timing includes process startup"
                     : "two unmeasured warmups in one JVM; cache population excluded";
         }
-
         if (mode == ExecutionMode.PROCESS_COLD) {
             for (int index = 0; index < MEASURED_COUNT; index++) {
                 Path childEvidence = campaign.resolve("child-" + index + ".properties");
@@ -145,8 +147,17 @@ public final class Pf18MacroRunner {
                     cacheHit.set(cacheHit.get() && result.evidence().cacheHit());
                     samples.add(result.parentElapsedNanoseconds());
                     resourceEvidence.add(result.resourceEvidence());
+                    measuredEvidence.add(new Pf18MeasuredIterationEvidence(
+                            index, java.util.OptionalLong.of(result.parentElapsedNanoseconds()), true,
+                            java.util.Optional.of(result.evidence().cacheHit()),
+                            java.util.Optional.of(result.evidence().sourceWork()),
+                            java.util.Optional.empty()));
                 } catch (Exception failure) {
                     failures.add("PROCESS_COLD sample " + index + ": " + failure);
+                    measuredEvidence.add(new Pf18MeasuredIterationEvidence(
+                            index, java.util.OptionalLong.empty(), false,
+                            java.util.Optional.empty(), java.util.Optional.empty(),
+                            java.util.Optional.of(failure.toString())));
                 }
             }
         } else {
@@ -155,6 +166,7 @@ public final class Pf18MacroRunner {
                             workload);
             java.util.concurrent.atomic.AtomicInteger operationCount =
                     new java.util.concurrent.atomic.AtomicInteger();
+            Pf18IterationEvidence expectedAuthoritative = authoritative;
             BenchmarkRunResult result = benchmarkRunner.run(
                     new BenchmarkPlan(workload, mode == ExecutionMode.CACHE_WARM
                             ? ExecutionMode.JVM_WARM : mode, WARMUP_COUNT, MEASURED_COUNT),
@@ -164,26 +176,47 @@ public final class Pf18MacroRunner {
                         Pf18IterationEvidence evidence = measured.result();
                         if (operationCount.getAndIncrement() >= WARMUP_COUNT) {
                             resourceEvidence.add(measured.evidence());
+                            measuredOperationEvidence.add(evidence);
                         }
-                        assertParity(authoritative, evidence, "measured iteration");
+                        assertParity(expectedAuthoritative, evidence, "measured iteration");
                         cacheHit.set(cacheHit.get() && evidence.cacheHit());
-                        return BenchmarkOperationResult.success(
-                                compositeFingerprint(evidence));
+                        return BenchmarkOperationResult.success(compositeFingerprint(evidence));
                     });
             if (result.status() != cartographer.perf.benchmark.BenchmarkExecutionStatus.SUCCESS) {
                 failures.add("benchmark status: " + result.status());
             }
             result.measuredIterations().forEach(iteration -> {
-                if (iteration.successful()) {
+                int index = iteration.iterationIndex();
+                Pf18IterationEvidence operationEvidence = index < measuredOperationEvidence.size()
+                        ? measuredOperationEvidence.get(index) : null;
+                if (iteration.successful() && operationEvidence != null) {
                     samples.add(iteration.wallClockNanoseconds());
+                    measuredEvidence.add(new Pf18MeasuredIterationEvidence(
+                            index, java.util.OptionalLong.of(iteration.wallClockNanoseconds()), true,
+                            java.util.Optional.of(operationEvidence.cacheHit()),
+                            java.util.Optional.of(operationEvidence.sourceWork()),
+                            java.util.Optional.empty()));
                 } else {
-                    failures.add(iteration.failure().map(Object::toString)
-                            .orElse("incomplete measured iteration"));
+                    String failure = iteration.failure().map(Object::toString)
+                            .orElse("incomplete measured iteration");
+                    failures.add(failure);
+                    measuredEvidence.add(new Pf18MeasuredIterationEvidence(
+                            index, java.util.OptionalLong.empty(), false,
+                            operationEvidence == null ? java.util.Optional.empty()
+                                    : java.util.Optional.of(operationEvidence.cacheHit()),
+                            operationEvidence == null ? java.util.Optional.empty()
+                                    : java.util.Optional.of(operationEvidence.sourceWork()),
+                            java.util.Optional.of(failure)));
                 }
             });
         }
+        } catch (OutOfMemoryError failure) {
+            failures.add("OUT_OF_MEMORY during PF-1.8 campaign: " + failure);
+        } catch (RuntimeException failure) {
+            failures.add("campaign failure: " + failure);
+        }
 
-        SaveSafetySnapshot after;
+        SaveSafetySnapshot after = null;
         SaveSafetyResult safety;
         try {
             after = snapshotter.capture(save);
@@ -195,16 +228,26 @@ public final class Pf18MacroRunner {
                             save)));
             failures.add("source safety inspection failed: " + failure);
         }
+        if (authoritative == null) {
+            authoritative = new Pf18IterationEvidence(java.util.Optional.empty(),
+                    java.util.Optional.empty(), false, "UNAVAILABLE");
+        }
+        if (measuredEvidence.size() != MEASURED_COUNT) {
+            failures.add("incomplete measured evidence: expected " + MEASURED_COUNT
+                    + ", observed " + measuredEvidence.size());
+        }
         Path reportPath = campaign.resolve("macro-report.txt");
         Pf18MacroReport report = new Pf18MacroReport(
-                sha, sha256(save), workload.id(), workload.family().name(),
+                sha, before.mainSave().sha256().orElseThrow().sha256Hex(), workload.id(),
+                workload.family().name(), save,
                 workload.radius().blocks(), mode, preparation, environment,
                 mode == ExecutionMode.PROCESS_COLD ? 0 : WARMUP_COUNT,
                 MEASURED_COUNT, authoritative.semanticFingerprint(),
-                authoritative.imageFingerprint(), resourceEvidence, samples,
+                authoritative.imageFingerprint(), resourceEvidence, measuredEvidence, samples,
                 percentile(samples, 0), percentile(samples, 50),
                 percentile(samples, 95), percentile(samples, 100), failures,
-                safety, cacheHit.get(), cacheEvidence, reportPath);
+                safety, before, java.util.Optional.ofNullable(after), cacheHit.get(),
+                cacheEvidence, reportPath);
         try {
             Files.writeString(reportPath, new Pf18MacroReportRenderer().render(report),
                     StandardCharsets.UTF_8);
@@ -262,12 +305,4 @@ public final class Pf18MacroRunner {
         return normalized;
     }
 
-    private static String sha256(Path path) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(Files.readAllBytes(path)));
-        } catch (IOException | NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("Cannot fingerprint save: " + path, exception);
-        }
-    }
 }

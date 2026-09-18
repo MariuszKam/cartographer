@@ -445,6 +445,16 @@ iteration. Existing campaign cache destinations fail closed, and output/cache
 roots are rejected when they overlap the protected source directory. Tests
 remain **NOT RUN**.
 
+G-FIX2 hardens macro evidence. The source fingerprint is taken from the
+streaming BEFORE safety snapshot, while the report retains normalized source
+identity, BEFORE and AFTER main-file size/mtime/SHA-256, WAL/SHM/journal
+states, safety status, and violations. AFTER inspection is attempted after
+recoverable campaign failures and the original plus inspection failures are
+retained. Reports carry every declared measured sample with per-iteration
+cache/source-work facts; incomplete or failed series cannot be `FACTUAL`.
+Child evidence uses deterministic key/value output without generated
+timestamps. Tests remain **NOT RUN**.
+
 Checkpoint H is implemented as a separate resource and profiling evidence
 layer. Normal macro operations can report process CPU, heap-pool peak usage,
 GC deltas, and explicit `UNAVAILABLE` values for whole-process allocation or

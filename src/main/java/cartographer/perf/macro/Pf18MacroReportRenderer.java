@@ -11,6 +11,7 @@ public final class Pf18MacroReportRenderer {
         line(out, "=====================================");
         line(out, "Git SHA: " + report.gitSha());
         line(out, "Save fingerprint: " + report.saveFingerprint());
+        line(out, "Normalized source path: " + report.savePath());
         line(out, "Workload: " + report.workloadId());
         line(out, "Family: " + report.workloadFamily());
         line(out, "Radius: R" + report.radius());
@@ -52,6 +53,22 @@ public final class Pf18MacroReportRenderer {
         line(out, "P95: " + report.p95Nanoseconds() + " ns");
         line(out, "Max: " + report.maxNanoseconds() + " ns");
         line(out, "Source safety: " + report.sourceSafety().status());
+        line(out, "BEFORE source: " + fileState(report.beforeSafety().mainSave()));
+        line(out, "BEFORE WAL: " + fileState(report.beforeSafety().wal()));
+        line(out, "BEFORE SHM: " + fileState(report.beforeSafety().shm()));
+        line(out, "BEFORE journal: " + fileState(report.beforeSafety().journal()));
+        line(out, "AFTER safety captured: " + report.afterSafety().isPresent());
+        report.afterSafety().ifPresent(after -> {
+            line(out, "AFTER source: " + fileState(after.mainSave()));
+            line(out, "AFTER WAL: " + fileState(after.wal()));
+            line(out, "AFTER SHM: " + fileState(after.shm()));
+            line(out, "AFTER journal: " + fileState(after.journal()));
+        });
+        if (!report.sourceSafety().violations().isEmpty()) {
+            line(out, "Safety violations:");
+            report.sourceSafety().violations().forEach(violation ->
+                    line(out, "- " + violation.type() + ": " + violation.path()));
+        }
         line(out, "Cache HIT verified: " + report.cacheHitVerified());
         line(out, "Evidence verdict: " + (report.evidenceIsValid() ? "FACTUAL" : "INVALID"));
         line(out, "Completed work unit: one declared Cartographer render/analysis operation");
@@ -60,6 +77,12 @@ public final class Pf18MacroReportRenderer {
         for (int i = 0; i < report.measuredWallClockNanoseconds().size(); i++) {
             line(out, i + ": " + report.measuredWallClockNanoseconds().get(i) + " ns");
         }
+        line(out, "Per-iteration operation evidence:");
+        report.measuredEvidence().forEach(evidence -> line(out,
+                evidence.iterationIndex() + ": successful=" + evidence.successful()
+                        + ", cacheHit=" + evidence.cacheHit().map(Object::toString).orElse("UNAVAILABLE")
+                        + ", sourceWork=" + evidence.sourceWork().orElse("UNAVAILABLE")
+                        + ", failure=" + evidence.failure().orElse("none")));
         line(out, "Cache evidence:");
         report.cacheEvidence().forEach(value -> line(out, "- " + value));
         line(out, "Failures:");
@@ -73,5 +96,13 @@ public final class Pf18MacroReportRenderer {
 
     private static void line(StringBuilder out, String value) {
         out.append(value).append('\n');
+    }
+
+    private static String fileState(cartographer.perf.safety.SaveFileSnapshot file) {
+        return file.path() + ", exists=" + file.exists() + ", size="
+                + (file.sizeBytes().isPresent() ? file.sizeBytes().getAsLong() : "UNAVAILABLE")
+                + ", mtime=" + file.lastModified().map(Object::toString).orElse("UNAVAILABLE")
+                + ", sha256=" + file.sha256().map(value -> value.sha256Hex())
+                .orElse("UNAVAILABLE");
     }
 }

@@ -4,6 +4,7 @@ import cartographer.perf.metrics.ExecutionMode;
 import cartographer.perf.metrics.PerformanceEnvironment;
 import cartographer.perf.metrics.Pf18ResourceEvidence;
 import cartographer.perf.safety.SaveSafetyResult;
+import cartographer.perf.safety.SaveSafetySnapshot;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -16,6 +17,7 @@ public record Pf18MacroReport(
         String saveFingerprint,
         String workloadId,
         String workloadFamily,
+        Path savePath,
         int radius,
         ExecutionMode executionMode,
         String preparation,
@@ -25,6 +27,7 @@ public record Pf18MacroReport(
         Optional<String> semanticFingerprint,
         Optional<String> imageFingerprint,
         List<Pf18ResourceEvidence> resourceEvidence,
+        List<Pf18MeasuredIterationEvidence> measuredEvidence,
         List<Long> measuredWallClockNanoseconds,
         long minNanoseconds,
         long p50Nanoseconds,
@@ -32,6 +35,8 @@ public record Pf18MacroReport(
         long maxNanoseconds,
         List<String> failures,
         SaveSafetyResult sourceSafety,
+        SaveSafetySnapshot beforeSafety,
+        Optional<SaveSafetySnapshot> afterSafety,
         boolean cacheHitVerified,
         List<String> cacheEvidence,
         Path outputPath
@@ -44,6 +49,8 @@ public record Pf18MacroReport(
         preparation = required(preparation, "preparation");
         Objects.requireNonNull(executionMode, "executionMode is required");
         Objects.requireNonNull(environment, "environment is required");
+        savePath = Objects.requireNonNull(savePath, "save path is required")
+                .toAbsolutePath().normalize();
         if (radius <= 0 || warmupCount < 0 || measuredCount <= 0) {
             throw new IllegalArgumentException("invalid macro methodology values");
         }
@@ -57,10 +64,14 @@ public record Pf18MacroReport(
                 "image fingerprint is required");
         resourceEvidence = List.copyOf(Objects.requireNonNull(resourceEvidence,
                 "resource evidence is required"));
+        measuredEvidence = List.copyOf(Objects.requireNonNull(measuredEvidence,
+                "measured evidence is required"));
         failures = List.copyOf(Objects.requireNonNull(failures, "failures are required"));
         cacheEvidence = List.copyOf(Objects.requireNonNull(cacheEvidence,
                 "cache evidence is required"));
         Objects.requireNonNull(sourceSafety, "source safety is required");
+        Objects.requireNonNull(beforeSafety, "before safety is required");
+        afterSafety = Objects.requireNonNull(afterSafety, "after safety is required");
         outputPath = Objects.requireNonNull(outputPath, "output path is required")
                 .toAbsolutePath().normalize();
         requireNonNegative(minNanoseconds, "minNanoseconds");
@@ -71,8 +82,15 @@ public record Pf18MacroReport(
 
     public boolean evidenceIsValid() {
         return failures.isEmpty()
+                && measuredEvidence.size() == measuredCount
+                && measuredEvidence.stream().allMatch(Pf18MeasuredIterationEvidence::successful)
+                && measuredWallClockNanoseconds.size() == measuredCount
+                && resourceEvidence.size() == measuredCount
                 && sourceSafety.status() == cartographer.perf.safety.SaveSafetyStatus.PASS
-                && (executionMode != ExecutionMode.CACHE_WARM || cacheHitVerified);
+                && afterSafety.isPresent()
+                && (executionMode != ExecutionMode.CACHE_WARM || cacheHitVerified)
+                && (executionMode != ExecutionMode.CACHE_WARM
+                || measuredEvidence.stream().allMatch(evidence -> evidence.cacheHit().orElse(false)));
     }
 
     private static String required(String value, String name) {

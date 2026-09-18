@@ -5,13 +5,12 @@ import cartographer.perf.metrics.Pf18ResourceEvidence;
 import cartographer.perf.metrics.Pf18ResourceSampler;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Properties;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /** One-operation child entry point for genuine PROCESS_COLD evidence. */
 public final class Pf18MacroChildMain {
@@ -36,12 +35,12 @@ public final class Pf18MacroChildMain {
                                 workload)::execute);
         Pf18IterationEvidence result = measured.result();
         Pf18ResourceEvidence resources = measured.evidence();
-        Properties properties = new Properties();
-        properties.setProperty("semantic", result.semanticFingerprint().orElse("UNAVAILABLE"));
-        properties.setProperty("image", result.imageFingerprint().orElse("UNAVAILABLE"));
-        properties.setProperty("cacheHit", Boolean.toString(result.cacheHit()));
-        properties.setProperty("sourceWork", result.sourceWork());
-        properties.setProperty("operationNanoseconds", Long.toString(System.nanoTime() - started));
+        Map<String, String> properties = new LinkedHashMap<>();
+        properties.put("semantic", result.semanticFingerprint().orElse("UNAVAILABLE"));
+        properties.put("image", result.imageFingerprint().orElse("UNAVAILABLE"));
+        properties.put("cacheHit", Boolean.toString(result.cacheHit()));
+        properties.put("sourceWork", result.sourceWork());
+        properties.put("operationNanoseconds", Long.toString(System.nanoTime() - started));
         writeOptional(properties, "cpu", resources.processCpuNanoseconds());
         writeOptional(properties, "heap", resources.peakHeapBytes());
         writeOptional(properties, "gcCount", resources.gcCollectionCount());
@@ -49,20 +48,14 @@ public final class Pf18MacroChildMain {
         writeOptional(properties, "allocation", resources.allocatedBytes());
         writeOptional(properties, "rss", resources.rssBytes());
         try {
-            Files.createDirectories(evidence.getParent());
-            try (OutputStream output = Files.newOutputStream(evidence)) {
-                properties.store(output, "PF-1.8 machine-readable child evidence");
-            }
+            Pf18DeterministicEvidenceCodec.write(evidence, properties);
         } catch (IOException exception) {
             throw new IllegalStateException("Cannot write child evidence", exception);
         }
     }
 
     static Pf18IterationEvidence readEvidence(Path path) throws IOException {
-        Properties properties = new Properties();
-        try (InputStream input = Files.newInputStream(path)) {
-            properties.load(input);
-        }
+        Map<String, String> properties = Pf18DeterministicEvidenceCodec.read(path);
         return new Pf18IterationEvidence(
                 optional(properties.getProperty("semantic")),
                 optional(properties.getProperty("image")),
@@ -71,10 +64,7 @@ public final class Pf18MacroChildMain {
     }
 
     static Pf18ResourceEvidence readResourceEvidence(Path path) throws IOException {
-        Properties properties = new Properties();
-        try (InputStream input = Files.newInputStream(path)) {
-            properties.load(input);
-        }
+        Map<String, String> properties = Pf18DeterministicEvidenceCodec.read(path);
         return new Pf18ResourceEvidence(
                 optionalLong(properties.getProperty("cpu")),
                 optionalLong(properties.getProperty("heap")),
@@ -86,10 +76,9 @@ public final class Pf18MacroChildMain {
                 "child JVM GC beans", "UNAVAILABLE", "UNAVAILABLE");
     }
 
-    private static void writeOptional(Properties properties, String name,
+    private static void writeOptional(Map<String, String> properties, String name,
                                       java.util.OptionalLong value) {
-        properties.setProperty(name, value.isPresent() ? Long.toString(value.getAsLong())
-                : "UNAVAILABLE");
+        properties.put(name, value.isPresent() ? Long.toString(value.getAsLong()) : "UNAVAILABLE");
     }
 
     private static java.util.OptionalLong optionalLong(String value) {
@@ -101,7 +90,7 @@ public final class Pf18MacroChildMain {
         return value == null || value.equals("UNAVAILABLE") ? Optional.empty() : Optional.of(value);
     }
 
-    private static String required(Properties properties, String name) {
-        return Objects.requireNonNull(properties.getProperty(name), name + " is missing");
+    private static String required(Map<String, String> properties, String name) {
+        return Objects.requireNonNull(properties.get(name), name + " is missing");
     }
 }

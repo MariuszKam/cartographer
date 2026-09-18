@@ -8,6 +8,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -113,6 +115,45 @@ class Pf18MacroRunnerTest {
                 "ROCK_UPPER_R1024", SHA, ExecutionMode.CACHE_WARM,
                 temporaryDirectory.resolve("evidence")));
         assertFalse(Files.exists(cache));
+    }
+
+    @Test
+    void operationFailureStillProducesAfterSafetyAndCannotBeFactual() throws Exception {
+        Path save = save();
+        Pf18MacroOperationFactory failing = (a, b, c) -> () -> {
+            throw new IllegalStateException("declared operation failure");
+        };
+        Pf18MacroReport report = new Pf18MacroRunner(failing,
+                (a, b, c, d, e) -> { throw new AssertionError(); }, ENVIRONMENT).run(
+                save, temporaryDirectory.resolve("cache"), "MAP_R128", SHA,
+                ExecutionMode.JVM_WARM, temporaryDirectory.resolve("failure-evidence"));
+
+        assertTrue(report.afterSafety().isPresent());
+        assertFalse(report.evidenceIsValid());
+        assertTrue(report.failures().stream().anyMatch(value -> value.contains("campaign failure")));
+    }
+
+    @Test
+    void outputInsideSourceDirectoryIsRejected() throws Exception {
+        Path save = save();
+        Pf18MacroRunner runner = new Pf18MacroRunner(fixedFactory(false, new AtomicInteger()),
+                (a, b, c, d, e) -> { throw new AssertionError(); }, ENVIRONMENT);
+
+        assertThrows(IllegalArgumentException.class, () -> runner.run(save,
+                temporaryDirectory.resolve("cache"), "MAP_R128", SHA,
+                ExecutionMode.JVM_WARM, save.getParent().resolve("evidence")));
+    }
+
+    @Test
+    void childEvidenceCodecIsStableWithoutGeneratedTimestamp() throws Exception {
+        Path first = temporaryDirectory.resolve("child-a.properties");
+        Path second = temporaryDirectory.resolve("child-b.properties");
+        Map<String, String> values = Map.of("image", "image", "semantic", "semantic",
+                "cacheHit", "false", "sourceWork", "source");
+        Pf18DeterministicEvidenceCodec.write(first, values);
+        Pf18DeterministicEvidenceCodec.write(second, values);
+        assertEquals(Files.readString(first, StandardCharsets.UTF_8),
+                Files.readString(second, StandardCharsets.UTF_8));
     }
 
     private Pf18MacroOperationFactory fixedFactory(boolean cacheHit, AtomicInteger calls) {
