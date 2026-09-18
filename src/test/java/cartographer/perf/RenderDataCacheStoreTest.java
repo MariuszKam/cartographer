@@ -3,6 +3,8 @@ package cartographer.perf;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import cartographer.model.MapChunkCoordinate;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -60,11 +62,35 @@ class RenderDataCacheStoreTest {
     }
 
     @Test
-    void saveSizeChangeUsesASeparateRevisionNamespace() {
+    void saveSizeChangeUsesASeparateRevisionNamespace(@TempDir Path cacheRoot) {
+        RenderDataCacheStore store = new RenderDataCacheStore(cacheRoot);
         RenderDataCacheRevision original = revision(4096, 1000);
         RenderDataCacheRevision changed = revision(4097, 1000);
 
         assertNotEquals(original.revisionHash(), changed.revisionHash());
+        assertNotEquals(
+                store.manifestPath(original).getParent(),
+                store.manifestPath(changed).getParent()
+        );
+
+        store.publish(original);
+        store.publish(changed);
+        TerrainTileStore originalTiles = new TerrainTileStore(store, original);
+        TerrainTileStore changedTiles = new TerrainTileStore(store, changed);
+        originalTiles.publish(java.util.List.of(new TerrainHeightTile(
+                new MapChunkCoordinate(0, 0), true, true, new int[1024]
+        )));
+
+        assertEquals(
+                TerrainTileLookup.Status.HIT,
+                originalTiles.read(java.util.List.of(new MapChunkCoordinate(0, 0)))
+                        .get(new MapChunkCoordinate(0, 0)).status()
+        );
+        assertEquals(
+                TerrainTileLookup.Status.MISS,
+                changedTiles.read(java.util.List.of(new MapChunkCoordinate(0, 0)))
+                        .get(new MapChunkCoordinate(0, 0)).status()
+        );
     }
 
     @Test

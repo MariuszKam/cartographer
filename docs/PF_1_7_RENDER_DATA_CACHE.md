@@ -297,6 +297,32 @@ player, HOME, markers, mapregions, actual-ore results, and images from the
 cache. No PF-1.7 class retains decoded chunks, source JDBC state, or a global
 in-memory cache.
 
+## PF-1.8 validation handoff
+
+PF-1.7 implementation is complete, but static acceptance is not runtime
+validation. PF-1.7 remains **IMPLEMENTED — VALIDATION PENDING** until PF-1.8
+evidence is reviewed. PF-1.8 must validate, without assuming any performance
+target in advance:
+
+* successful compilation and a green full automated test suite;
+* main-render MISS, HIT, mixed HIT/MISS, and semantic/result-fingerprint parity;
+* terrain HIT avoidance of corresponding source mapchunk reads;
+* Surface HIT avoidance of corresponding server-chunk decode work;
+* one source `SaveSession`/connection lifecycle at runtime;
+* corrupt-cache fallback and deterministic healing;
+* mtime and size revision invalidation;
+* malformed-manifest fail-closed behavior and cache-disabled fallback;
+* real-save checksum/sidecar safety, including unchanged source checksum and no
+  new `.vcdbs-wal` or `.vcdbs-shm` files;
+* PNG visual parity;
+* process-cold, JVM-warm, and cache-warm distinctions;
+* R128, R256, R512, R1024, and, where applicable, R2048 and R4096 workloads;
+* peak heap, RSS/resident memory where practical, allocated bytes, and GC
+  behavior;
+* JFR CPU and allocation hot paths, plus useful SQLite/file-I/O observations.
+
+No expected runtime or performance numbers are asserted by this document.
+
 ## Legacy cache compatibility
 
 PF-1.7 does not redefine or delete the existing `RenderCache`, `CacheKey`,
