@@ -294,6 +294,7 @@ public final class ResultInspectorPane extends VBox {
             lines.add("Source: discovery result");
             lines.add("Observed occurrences: " + objectSelection.occurrenceCount());
         }
+        lines.addAll(renderDataCacheDiagnostics(result.renderDataCacheReport()));
         return lines;
     }
 

@@ -143,7 +143,8 @@ public class CartographerDesktopApp extends Application {
                 new MapRenderer(),
                 new UserMarkerRenderer(),
                 new SurfaceMaterialAnalyzer(),
-                new SurfaceResourceOverlayRenderer()
+                new SurfaceResourceOverlayRenderer(),
+                new RenderDataCacheStore(config.resolve("cache").resolve("render-data"))
         );
     }
 

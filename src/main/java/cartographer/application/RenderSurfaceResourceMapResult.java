@@ -17,7 +17,8 @@ public record RenderSurfaceResourceMapResult(
         MapRenderReport renderReport,
         ReadDiagnostics mapChunkDiagnostics,
         ReadDiagnostics chunkDiagnostics,
-        int userMarkersDrawn
+        int userMarkersDrawn,
+        RenderDataCacheReport renderDataCacheReport
 ) {
 
     public RenderSurfaceResourceMapResult {
@@ -28,6 +29,7 @@ public record RenderSurfaceResourceMapResult(
         Objects.requireNonNull(renderReport, "renderReport is required");
         Objects.requireNonNull(mapChunkDiagnostics, "mapChunkDiagnostics is required");
         Objects.requireNonNull(chunkDiagnostics, "chunkDiagnostics is required");
+        Objects.requireNonNull(renderDataCacheReport, "renderDataCacheReport is required");
         if (userMarkersDrawn < 0) {
             throw new IllegalArgumentException("user markers drawn cannot be negative");
         }
