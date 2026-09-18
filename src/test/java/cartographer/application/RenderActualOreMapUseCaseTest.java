@@ -195,8 +195,100 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(0, retained.chunkDiagnostics().skipped());
         assertEquals(0, retained.chunkDiagnostics().failed());
         assertEquals(1, retained.actualOreOverlays().getFirst().map().matchingBlocks());
+        assertEquals(
+                ImageFingerprinter.fingerprint(first.image()),
+                ImageFingerprinter.fingerprint(retained.image())
+        );
         assertTrue(retained.renderDataCacheReport().notes().stream()
                 .anyMatch(note -> note.contains("retained PreparedMapData reused")));
+    }
+
+    @Test
+    void retainedOreRejectsCrossSaveReuseBeforeAdditionalReads() {
+        FakeReader reader = new FakeReader(
+                Map.of(1, new BlockInfo(1, "ore-cassiterite-granite"))
+        );
+        RenderActualOreMapUseCase useCase = useCase(
+                reader,
+                new WorldMetadata(128, 256, 128),
+                temporaryDirectory.resolve("cross-save-home.properties"),
+                temporaryDirectory.resolve("cross-save-markers.csv")
+        );
+        RenderActualOreMapRequest request = new RenderActualOreMapRequest(
+                temporaryDirectory.resolve("cross-save-a.vcdbs"),
+                16,
+                1,
+                RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.TERRAIN),
+                Optional.of("cassiterite"),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(64, 64, 64)),
+                List.of(new ActualOreOverlaySpec(
+                        "Cassiterite",
+                        "cassiterite",
+                        Color.ORANGE,
+                        ActualBlockMatchMode.ORE_CODE
+                ))
+        );
+        RenderActualOreMapResult first = useCase.execute(request);
+        int mapChunkCalls = reader.directMapChunkCalls;
+        int selectiveCalls = reader.adaptiveSelectiveCalls;
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> useCase.executeRetained(
+                        request,
+                        temporaryDirectory.resolve("cross-save-b.vcdbs"),
+                        first.preparedMapData().orElseThrow(),
+                        first.decorationState().orElseThrow(),
+                        first.mapRegionOverlayState(),
+                        ProgressReporter.NONE
+                )
+        );
+
+        assertEquals(mapChunkCalls, reader.directMapChunkCalls);
+        assertEquals(selectiveCalls, reader.adaptiveSelectiveCalls);
+    }
+
+    @Test
+    void retainedEnvironmentOverlayAvoidsSecondMapRegionReadAndKeepsImageParity() {
+        FakeReader reader = new FakeReader(Map.of());
+        RenderActualOreMapUseCase useCase = useCase(
+                reader,
+                new WorldMetadata(128, 256, 128),
+                temporaryDirectory.resolve("retained-region-home.properties"),
+                temporaryDirectory.resolve("retained-region-markers.csv")
+        );
+        RenderActualOreMapRequest request = new RenderActualOreMapRequest(
+                temporaryDirectory.resolve("retained-region-save.vcdbs"),
+                16,
+                1,
+                RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.TERRAIN, RenderLayer.ENVIRONMENT),
+                Optional.empty(),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(64, 64, 64)),
+                List.of()
+        );
+
+        RenderActualOreMapResult first = useCase.execute(request);
+        int mapRegionCalls = reader.sessionMapRegionCalls;
+        RenderActualOreMapResult retained = useCase.executeRetained(
+                request,
+                request.savePath(),
+                first.preparedMapData().orElseThrow(),
+                first.decorationState().orElseThrow(),
+                first.mapRegionOverlayState(),
+                ProgressReporter.NONE
+        );
+
+        assertEquals(mapRegionCalls, reader.sessionMapRegionCalls);
+        assertEquals(0, retained.mapRegionDiagnostics().parsed());
+        assertTrue(retained.mapRegionOverlayState().orElseThrow().environmentPrepared());
+        assertEquals(
+                ImageFingerprinter.fingerprint(first.image()),
+                ImageFingerprinter.fingerprint(retained.image())
+        );
     }
 
     @Test
