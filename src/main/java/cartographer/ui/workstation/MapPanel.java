@@ -98,6 +98,35 @@ public final class MapPanel extends BorderPane {
         updateCenterPlayerAvailability();
     }
 
+    public void replaceImage(
+            BufferedImage image,
+            Optional<MapViewportGeometry> geometry,
+            Optional<WorldPosition> player
+    ) {
+        Objects.requireNonNull(image, "image is required");
+        geometry = Objects.requireNonNull(geometry, "geometry is required");
+        player = Objects.requireNonNull(player, "player is required");
+        geometry.ifPresent(value -> {
+            if (value.imageWidth() != image.getWidth()
+                    || value.imageHeight() != image.getHeight()) {
+                throw new IllegalArgumentException(
+                        "map geometry dimensions must match image"
+                );
+            }
+        });
+        publishCursorPosition(Optional.empty());
+        this.geometry = geometry;
+        this.player = player;
+        imageView.setImage(SwingFXUtils.toFXImage(image, null));
+        baseWidth = image.getWidth();
+        baseHeight = image.getHeight();
+        mapAvailable = true;
+        toolbar.setMapAvailable(true);
+        imageView.setFitWidth(baseWidth * zoomFactor);
+        imageView.setFitHeight(baseHeight * zoomFactor);
+        updateCenterPlayerAvailability();
+    }
+
     public double zoomFactor() { return zoomFactor; }
     public void setOnZoomChanged(Consumer<Double> listener) { zoomListener = listener == null ? ignored -> { } : listener; zoomListener.accept(zoomFactor); }
     public void setOnCursorPositionChanged(Consumer<Optional<MapCursorPosition>> listener) {
