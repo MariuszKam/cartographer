@@ -188,8 +188,12 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(baseMapChunkCalls, reader.directMapChunkCalls);
         assertEquals(baseAdaptiveExactCalls, reader.adaptiveExactChunkCalls);
         assertEquals(baseSelectiveCalls + 1, reader.adaptiveSelectiveCalls);
-        assertEquals(0, retained.mapChunkDiagnostics().rowsVisited());
-        assertEquals(0, retained.chunkDiagnostics().rowsVisited());
+        assertEquals(0, retained.mapChunkDiagnostics().parsed());
+        assertEquals(0, retained.mapChunkDiagnostics().skipped());
+        assertEquals(0, retained.mapChunkDiagnostics().failed());
+        assertEquals(0, retained.chunkDiagnostics().parsed());
+        assertEquals(0, retained.chunkDiagnostics().skipped());
+        assertEquals(0, retained.chunkDiagnostics().failed());
         assertEquals(1, retained.actualOreOverlays().getFirst().map().matchingBlocks());
         assertTrue(retained.renderDataCacheReport().notes().stream()
                 .anyMatch(note -> note.contains("retained PreparedMapData reused")));
