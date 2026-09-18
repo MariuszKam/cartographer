@@ -2,6 +2,7 @@ package cartographer.ui.workstation;
 
 import cartographer.application.ActualOreOverlayResult;
 import cartographer.application.MapDecorationState;
+import cartographer.application.MapRegionOverlayState;
 import cartographer.application.PreparedMapData;
 import cartographer.geology.rock.RockMap;
 import cartographer.render.MapViewportGeometry;
@@ -29,7 +30,8 @@ public record MapFrame(
         List<ActualOreOverlayResult> actualOreOverlays,
         Optional<SurfaceRenderAnalysis> surfaceAnalysis,
         Optional<RockMap> rockMap,
-        Optional<MapDecorationState> decorationState
+        Optional<MapDecorationState> decorationState,
+        Optional<MapRegionOverlayState> mapRegionOverlayState
 ) {
     public MapFrame {
         savePath = Objects.requireNonNull(savePath, "savePath is required")
@@ -52,6 +54,10 @@ public record MapFrame(
         decorationState = Objects.requireNonNull(
                 decorationState,
                 "decoration state option is required"
+        );
+        mapRegionOverlayState = Objects.requireNonNull(
+                mapRegionOverlayState,
+                "map-region overlay state option is required"
         );
 
         switch (tool) {
@@ -88,7 +94,8 @@ public record MapFrame(
                 if (preparedMapData.isPresent()
                         || !actualOreOverlays.isEmpty()
                         || surfaceAnalysis.isPresent()
-                        || decorationState.isPresent()) {
+                        || decorationState.isPresent()
+                        || mapRegionOverlayState.isPresent()) {
                     throw new IllegalArgumentException(
                             "geology frame contains incompatible retained state"
                     );
@@ -99,7 +106,8 @@ public record MapFrame(
                         || !actualOreOverlays.isEmpty()
                         || surfaceAnalysis.isPresent()
                         || rockMap.isPresent()
-                        || decorationState.isPresent()) {
+                        || decorationState.isPresent()
+                        || mapRegionOverlayState.isPresent()) {
                     throw new IllegalArgumentException(
                             "coverage frame must retain geometry only"
                     );
@@ -116,7 +124,13 @@ public record MapFrame(
             MapViewportGeometry geometry,
             PreparedMapData prepared
     ) {
-        return map(savePath, geometry, prepared, Optional.empty());
+        return map(
+                savePath,
+                geometry,
+                prepared,
+                Optional.empty(),
+                Optional.empty()
+        );
     }
 
     public static MapFrame map(
@@ -129,7 +143,24 @@ public record MapFrame(
                 savePath,
                 geometry,
                 prepared,
-                Optional.of(Objects.requireNonNull(decorations, "decorations are required"))
+                Optional.of(Objects.requireNonNull(decorations, "decorations are required")),
+                Optional.empty()
+        );
+    }
+
+    public static MapFrame map(
+            Path savePath,
+            MapViewportGeometry geometry,
+            PreparedMapData prepared,
+            MapDecorationState decorations,
+            MapRegionOverlayState mapRegionOverlays
+    ) {
+        return map(
+                savePath,
+                geometry,
+                prepared,
+                Optional.of(Objects.requireNonNull(decorations, "decorations are required")),
+                Optional.of(Objects.requireNonNull(mapRegionOverlays, "mapRegionOverlays are required"))
         );
     }
 
@@ -137,7 +168,8 @@ public record MapFrame(
             Path savePath,
             MapViewportGeometry geometry,
             PreparedMapData prepared,
-            Optional<MapDecorationState> decorations
+            Optional<MapDecorationState> decorations,
+            Optional<MapRegionOverlayState> mapRegionOverlays
     ) {
         return new MapFrame(
                 savePath,
@@ -147,7 +179,8 @@ public record MapFrame(
                 List.of(),
                 Optional.empty(),
                 Optional.empty(),
-                decorations
+                decorations,
+                mapRegionOverlays
         );
     }
 
@@ -157,7 +190,14 @@ public record MapFrame(
             PreparedMapData prepared,
             List<ActualOreOverlayResult> overlays
     ) {
-        return ore(savePath, geometry, prepared, overlays, Optional.empty());
+        return ore(
+                savePath,
+                geometry,
+                prepared,
+                overlays,
+                Optional.empty(),
+                Optional.empty()
+        );
     }
 
     public static MapFrame ore(
@@ -172,7 +212,26 @@ public record MapFrame(
                 geometry,
                 prepared,
                 overlays,
-                Optional.of(Objects.requireNonNull(decorations, "decorations are required"))
+                Optional.of(Objects.requireNonNull(decorations, "decorations are required")),
+                Optional.empty()
+        );
+    }
+
+    public static MapFrame ore(
+            Path savePath,
+            MapViewportGeometry geometry,
+            PreparedMapData prepared,
+            List<ActualOreOverlayResult> overlays,
+            MapDecorationState decorations,
+            MapRegionOverlayState mapRegionOverlays
+    ) {
+        return ore(
+                savePath,
+                geometry,
+                prepared,
+                overlays,
+                Optional.of(Objects.requireNonNull(decorations, "decorations are required")),
+                Optional.of(Objects.requireNonNull(mapRegionOverlays, "mapRegionOverlays are required"))
         );
     }
 
@@ -181,7 +240,8 @@ public record MapFrame(
             MapViewportGeometry geometry,
             PreparedMapData prepared,
             List<ActualOreOverlayResult> overlays,
-            Optional<MapDecorationState> decorations
+            Optional<MapDecorationState> decorations,
+            Optional<MapRegionOverlayState> mapRegionOverlays
     ) {
         return new MapFrame(
                 savePath,
@@ -191,7 +251,8 @@ public record MapFrame(
                 overlays,
                 Optional.empty(),
                 Optional.empty(),
-                decorations
+                decorations,
+                mapRegionOverlays
         );
     }
 
@@ -241,7 +302,8 @@ public record MapFrame(
                 List.of(),
                 Optional.of(Objects.requireNonNull(analysis, "analysis is required")),
                 Optional.empty(),
-                decorations
+                decorations,
+                Optional.empty()
         );
     }
 
@@ -258,6 +320,7 @@ public record MapFrame(
                 List.of(),
                 Optional.empty(),
                 Optional.of(Objects.requireNonNull(rockMap, "rockMap is required")),
+                Optional.empty(),
                 Optional.empty()
         );
     }
@@ -274,6 +337,7 @@ public record MapFrame(
                 List.of(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty()
         );
     }
@@ -284,6 +348,8 @@ public record MapFrame(
                 RenderLayer.TERRAIN,
                 RenderLayer.SURFACE,
                 RenderLayer.SOIL_FERTILITY,
+                RenderLayer.ENVIRONMENT,
+                RenderLayer.GEOLOGY,
                 RenderLayer.MARKERS
         );
         if (!supported.containsAll(layers)
@@ -303,9 +369,19 @@ public record MapFrame(
         }
 
         Set<RenderLayer> initial = prepared.options().layers();
-        if (initial.contains(RenderLayer.ENVIRONMENT)
-                || initial.contains(RenderLayer.GEOLOGY)) {
-            return false;
+        if (layers.contains(RenderLayer.ENVIRONMENT)) {
+            if (tool == WorkstationTool.SURFACE
+                    || mapRegionOverlayState.isEmpty()
+                    || !mapRegionOverlayState.orElseThrow().environmentPrepared()) {
+                return false;
+            }
+        }
+        if (layers.contains(RenderLayer.GEOLOGY)) {
+            if (tool == WorkstationTool.SURFACE
+                    || mapRegionOverlayState.isEmpty()
+                    || !mapRegionOverlayState.orElseThrow().geologyPrepared()) {
+                return false;
+            }
         }
         boolean terrainDataPrepared =
                 initial.contains(RenderLayer.TERRAIN)
