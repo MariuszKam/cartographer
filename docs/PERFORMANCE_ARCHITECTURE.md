@@ -412,6 +412,23 @@ A cancelled operation is not reported as a user-facing analysis failure.
 Stale/cancelled callbacks are suppressed, the previous valid frame remains
 visible, and the next operation may start from a clean coordinator state.
 
+### Final Workstation presentation shell
+
+GUI-P13 changes presentation hierarchy only. The Tool Rail, collapsible
+source-control dock, tabbed Inspector, floating map toolbar and split
+operation/telemetry bar remain consumers of the P1-P12 contracts.
+
+Collapsing or revealing UI docks is not an analytical operation. It must not
+open the save, consult the render-data cache, alter retained compact state,
+allocate a replacement map raster, or reset viewport navigation. The map is
+the primary expanding region and continues to display the same bounded raster
+owned by `MapPanel`.
+
+The Inspector separates retained/local view controls from source-request
+controls by placing Layers beside Inspect/Results/Diagnostics. This is a UX
+representation of the existing architectural distinction; it does not change
+layer authority or cache semantics.
+
 ## 11. Correctness and safety
 
 ### Correctness
