@@ -140,8 +140,12 @@ class RenderSurfaceResourceMapUseCaseTest {
         assertEquals(mapChunkCalls, reader.directMapChunkCalls);
         assertEquals(adaptiveChunkCalls, reader.adaptiveExactChunkCalls);
         assertEquals(exactChunkCalls, reader.exactChunkCalls);
-        assertEquals(0, retained.mapChunkDiagnostics().rowsVisited());
-        assertEquals(0, retained.chunkDiagnostics().rowsVisited());
+        assertEquals(0, retained.mapChunkDiagnostics().parsed());
+        assertEquals(0, retained.mapChunkDiagnostics().skipped());
+        assertEquals(0, retained.mapChunkDiagnostics().failed());
+        assertEquals(0, retained.chunkDiagnostics().parsed());
+        assertEquals(0, retained.chunkDiagnostics().skipped());
+        assertEquals(0, retained.chunkDiagnostics().failed());
         assertTrue(retained.renderDataCacheReport().notes().stream()
                 .anyMatch(note -> note.contains("retained PreparedMapData reused")));
     }
