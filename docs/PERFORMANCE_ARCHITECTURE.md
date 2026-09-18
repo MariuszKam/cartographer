@@ -285,6 +285,20 @@ The current rules are consolidated here:
 - no source JDBC connection is retained by cache data or worker state; and
 - retained state is result state or explicitly bounded working state.
 
+### Workstation retained map frame
+
+The Workstation retains the compact result state associated with the currently
+displayed map in a single `MapFrame` slot. Map/Ore/Surface frames retain
+`PreparedMapData`; Geology retains `RockMap`; Coverage retains geometry
+only. Switching saves clears the slot before new source work begins.
+
+The retained frame deliberately does not keep a second `BufferedImage`,
+`SaveSession`, JDBC connection, decoded chunk collection, or other
+source-lifetime state. The displayed raster remains owned by the JavaFX map
+viewport. Retention is therefore bounded by the compact result state already
+produced by the operation and is the foundation for later local recomposition;
+this section does not claim that instant recomposition is implemented yet.
+
 ## 11. Correctness and safety
 
 ### Correctness
