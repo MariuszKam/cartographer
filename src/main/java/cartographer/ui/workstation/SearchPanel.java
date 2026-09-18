@@ -28,7 +28,9 @@ import java.util.function.Consumer;
  * to the active pane.</p>
  */
 public final class SearchPanel extends VBox {
-    private final VBox modeContent = new VBox(4);
+    private final Label contextTitle = new Label("ORES");
+    private final Label contextSubtitle = new Label("Source controls");
+    private final VBox modeContent = new VBox(6);
     private final MapToolPane mapPane = new MapToolPane();
     private final CoverageToolPane coveragePane = new CoverageToolPane();
     private final OreToolPane orePane = new OreToolPane();
@@ -44,17 +46,26 @@ public final class SearchPanel extends VBox {
 
     public SearchPanel(Runnable onRender) {
         surfacePane = new SurfaceToolPane(this::updateRenderAvailability);
-        getStyleClass().add("tool-options");
+        getStyleClass().addAll("tool-options", "context-panel");
+        contextTitle.getStyleClass().add("context-title");
+        contextSubtitle.getStyleClass().add("context-subtitle");
+        renderButton.getStyleClass().add("primary-action");
+        renderButton.setMaxWidth(Double.MAX_VALUE);
         renderButton.setOnAction(e -> onRender.run());
+        HBox actionRow = new HBox(renderButton);
+        HBox.setHgrow(renderButton, javafx.scene.layout.Priority.ALWAYS);
         getChildren().addAll(
-                new Label("TOOL OPTIONS"),
+                contextTitle,
+                contextSubtitle,
+                new Separator(),
                 modeContent,
                 rockHighlightPane,
                 radiusPane,
                 new Separator(),
-                new HBox(8, renderButton)
+                actionRow
         );
-        setPrefWidth(270);
+        setPrefWidth(286);
+        setMaxWidth(Double.MAX_VALUE);
         setMode(WorkstationTool.ORE);
     }
 
@@ -64,6 +75,22 @@ public final class SearchPanel extends VBox {
 
     public void setMode(WorkstationTool selected) {
         mode = java.util.Objects.requireNonNull(selected, "tool is required");
+        contextTitle.setText(switch (selected) {
+            case MAP -> "MAP";
+            case COVERAGE -> "COVERAGE";
+            case ORE -> "ORES";
+            case SURFACE -> "SURFACE";
+            case GEOLOGY -> "GEOLOGY";
+            case PROSPECTING -> "PROSPECTING";
+        });
+        contextSubtitle.setText(switch (selected) {
+            case MAP -> "Base map source request";
+            case COVERAGE -> "Observed mapregion coverage";
+            case ORE -> "Authoritative ore scan";
+            case SURFACE -> "Surface analysis";
+            case GEOLOGY -> "Source-authoritative ROCK";
+            case PROSPECTING -> "Fused geology + ore analysis";
+        });
         modeContent.getChildren().setAll(switch (selected) {
             case MAP -> mapPane;
             case COVERAGE -> coveragePane;
