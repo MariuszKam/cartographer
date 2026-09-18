@@ -418,9 +418,14 @@ public class VcdbsReader {
             Consumer<ParsedChunk> consumer,
             ProgressReporter progress
     ) throws SQLException {
-        boolean tableStream = shouldUseChunkTableStream(
-                connection, packedPositions.size()
-        );
+        boolean tableStream;
+        try {
+            tableStream = shouldUseChunkTableStream(
+                    connection, packedPositions.size()
+            );
+        } catch (SQLException exception) {
+            tableStream = false;
+        }
         if (tableStream) {
             return forEachChunkByPositionMatchingBlockIdsTableStream(
                     connection, packedPositions, wantedBlockIds,

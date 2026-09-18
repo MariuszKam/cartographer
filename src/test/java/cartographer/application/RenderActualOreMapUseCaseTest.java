@@ -205,6 +205,23 @@ class RenderActualOreMapUseCaseTest {
     }
 
     @Test
+    void environmentOverlayUsesSessionMapRegionReader() {
+        FakeReader reader = new FakeReader(Map.of());
+
+        execute(
+                reader,
+                List.of(),
+                Set.of(RenderLayer.TERRAIN, RenderLayer.ENVIRONMENT),
+                64,
+                64,
+                16
+        );
+
+        assertEquals(1, reader.sessionMapRegionCalls);
+        assertEquals(0, reader.pathMapRegionCalls);
+    }
+
+    @Test
     void surfaceLayerUsesRainHeightFastPath() {
         FakeReader reader = surfaceReader(true);
 
@@ -631,6 +648,8 @@ class RenderActualOreMapUseCaseTest {
         private int pathAdaptiveSelectiveCalls;
         private int pathPlayerCalls;
         private int pathRegistryCalls;
+        private int pathMapRegionCalls;
+        private int sessionMapRegionCalls;
         private int legacyMapChunkCalls;
         private int legacyChunkCalls;
         private final int fakeBlockId;
@@ -823,6 +842,26 @@ class RenderActualOreMapUseCaseTest {
         protected Map<Integer, BlockInfo> readBlockRegistry(Connection connection) {
             registryCalls++;
             return registry;
+        }
+
+        @Override
+        public List<cartographer.model.ServerMapRegion> readMapRegions(
+                Path savePath,
+                ReadDiagnostics diagnostics,
+                ProgressReporter progress
+        ) {
+            pathMapRegionCalls++;
+            return List.of();
+        }
+
+        @Override
+        public List<cartographer.model.ServerMapRegion> readMapRegions(
+                SaveSession session,
+                ReadDiagnostics diagnostics,
+                ProgressReporter progress
+        ) {
+            sessionMapRegionCalls++;
+            return List.of();
         }
 
         @Override

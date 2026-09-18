@@ -10,9 +10,9 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -29,6 +29,7 @@ public final class TerrainTileStore {
     private static final int SELECT_BATCH_SIZE = 400;
 
     private final RenderDataCacheStore cacheStore;
+    private final RenderDataCacheRevision revision;
     private final Path databasePath;
 
     public TerrainTileStore(
@@ -36,7 +37,7 @@ public final class TerrainTileStore {
         RenderDataCacheRevision revision
     ) {
         this.cacheStore = Objects.requireNonNull(cacheStore, "cache store is required");
-        Objects.requireNonNull(revision, "revision is required");
+        this.revision = Objects.requireNonNull(revision, "revision is required");
         this.databasePath = cacheStore.manifestPath(revision)
                 .getParent()
                 .resolve(DATABASE_FILE);
@@ -187,13 +188,10 @@ public final class TerrainTileStore {
             Collection<MapChunkCoordinate> coordinates
     ) {
         Objects.requireNonNull(coordinates, "coordinates are required");
-        List<MapChunkCoordinate> unique = new ArrayList<>();
+        LinkedHashSet<MapChunkCoordinate> unique = new LinkedHashSet<>();
         for (MapChunkCoordinate coordinate : coordinates) {
-            Objects.requireNonNull(coordinate, "coordinates cannot contain null");
-            if (!unique.contains(coordinate)) {
-                unique.add(coordinate);
-            }
+            unique.add(Objects.requireNonNull(coordinate, "coordinates cannot contain null"));
         }
-        return unique;
+        return List.copyOf(unique);
     }
 }
