@@ -2117,7 +2117,8 @@ public class VcdbsReader {
         }
     }
 
-    private Map<Integer, BlockInfo> readBlockRegistry(
+    /** Reads registry data from an already-open session-owned read-only connection. */
+    Map<Integer, BlockInfo> readBlockRegistry(
             Connection connection
     ) throws SQLException {
         if (tableMissing(
