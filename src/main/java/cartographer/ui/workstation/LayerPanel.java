@@ -13,8 +13,12 @@ public final class LayerPanel extends VBox {
     private final CheckBox terrain = new CheckBox("Terrain");
     private final CheckBox surface = new CheckBox("Surface");
     private final CheckBox soilFertility = new CheckBox("Soil Fertility");
+    private final CheckBox environment = new CheckBox("Environment");
+    private final CheckBox geology = new CheckBox("Geology");
     private final CheckBox markers = new CheckBox("Markers");
     private boolean modeSupported = true;
+    private boolean mapRegionSupported = true;
+    private boolean busy;
     private Consumer<Set<RenderLayer>> layersListener = ignored -> { };
 
     public LayerPanel() {
@@ -23,8 +27,18 @@ public final class LayerPanel extends VBox {
         terrain.getStyleClass().add("layer-row");
         surface.getStyleClass().add("layer-row");
         soilFertility.getStyleClass().add("layer-row");
+        environment.getStyleClass().add("layer-row");
+        geology.getStyleClass().add("layer-row");
         markers.getStyleClass().add("layer-row");
-        getChildren().addAll(new Label("LAYERS"), terrain, surface, soilFertility, markers);
+        getChildren().addAll(
+                new Label("LAYERS"),
+                terrain,
+                surface,
+                soilFertility,
+                environment,
+                geology,
+                markers
+        );
         terrain.setSelected(true);
         surface.setSelected(true);
         markers.setSelected(true);
@@ -32,6 +46,8 @@ public final class LayerPanel extends VBox {
                 terrain,
                 surface,
                 soilFertility,
+                environment,
+                geology,
                 markers
         )) {
             layer.selectedProperty().addListener(
@@ -50,6 +66,12 @@ public final class LayerPanel extends VBox {
         if (terrain.isSelected()) layers.add(RenderLayer.TERRAIN);
         if (surface.isSelected()) layers.add(RenderLayer.SURFACE);
         if (soilFertility.isSelected()) layers.add(RenderLayer.SOIL_FERTILITY);
+        if (mapRegionSupported && environment.isSelected()) {
+            layers.add(RenderLayer.ENVIRONMENT);
+        }
+        if (mapRegionSupported && geology.isSelected()) {
+            layers.add(RenderLayer.GEOLOGY);
+        }
         if (markers.isSelected()) layers.add(RenderLayer.MARKERS);
         return layers.isEmpty() ? Set.of() : EnumSet.copyOf(layers);
     }
@@ -59,20 +81,22 @@ public final class LayerPanel extends VBox {
                 || mode == WorkstationTool.ORE
                 || mode == WorkstationTool.SURFACE;
         modeSupported = supported;
+        mapRegionSupported = mode == WorkstationTool.MAP
+                || mode == WorkstationTool.ORE;
         applyDisabledState();
     }
 
     public void setBusy(boolean busy) {
-        terrain.setDisable(busy || !modeSupported);
-        surface.setDisable(busy || !modeSupported);
-        soilFertility.setDisable(busy || !modeSupported);
-        markers.setDisable(busy || !modeSupported);
+        this.busy = busy;
+        applyDisabledState();
     }
 
     private void applyDisabledState() {
-        terrain.setDisable(!modeSupported);
-        surface.setDisable(!modeSupported);
-        soilFertility.setDisable(!modeSupported);
-        markers.setDisable(!modeSupported);
+        terrain.setDisable(busy || !modeSupported);
+        surface.setDisable(busy || !modeSupported);
+        soilFertility.setDisable(busy || !modeSupported);
+        environment.setDisable(busy || !modeSupported || !mapRegionSupported);
+        geology.setDisable(busy || !modeSupported || !mapRegionSupported);
+        markers.setDisable(busy || !modeSupported);
     }
 }
