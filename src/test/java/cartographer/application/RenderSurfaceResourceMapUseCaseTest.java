@@ -11,6 +11,7 @@ import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
 import cartographer.perf.RenderDataCacheStore;
+import cartographer.perf.fingerprint.ImageFingerprinter;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
@@ -146,8 +147,42 @@ class RenderSurfaceResourceMapUseCaseTest {
         assertEquals(0, retained.chunkDiagnostics().parsed());
         assertEquals(0, retained.chunkDiagnostics().skipped());
         assertEquals(0, retained.chunkDiagnostics().failed());
+        assertEquals(
+                ImageFingerprinter.fingerprint(first.image()),
+                ImageFingerprinter.fingerprint(retained.image())
+        );
         assertTrue(retained.renderDataCacheReport().notes().stream()
                 .anyMatch(note -> note.contains("retained PreparedMapData reused")));
+    }
+
+    @Test
+    void retainedSurfaceRejectsCrossSaveReuseBeforeAnyAdditionalRead() {
+        MapChunkCoordinate mapChunkCoordinate = new MapChunkCoordinate(0, 0);
+        ChunkPosition exactPosition = new ChunkPosition(0, 0, 0, 0);
+        FakeReader reader = new FakeReader(
+                List.of(mapChunkCoordinate),
+                Map.of(exactPosition, surfaceChunk(new ChunkCoordinate(0, 0, 0))),
+                fireClayRegistry()
+        );
+        RenderSurfaceResourceMapUseCase useCase = useCase(reader);
+        RenderSurfaceResourceMapRequest request = request(16, 16, 1);
+        RenderSurfaceResourceMapResult first = useCase.execute(request);
+        int mapChunkCalls = reader.directMapChunkCalls;
+        int adaptiveCalls = reader.adaptiveExactChunkCalls;
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> useCase.executeRetained(
+                        request,
+                        Path.of("different-save.vcdbs"),
+                        first.preparedMapData().orElseThrow(),
+                        first.decorationState().orElseThrow(),
+                        ProgressReporter.NONE
+                )
+        );
+
+        assertEquals(mapChunkCalls, reader.directMapChunkCalls);
+        assertEquals(adaptiveCalls, reader.adaptiveExactChunkCalls);
     }
 
     @Test

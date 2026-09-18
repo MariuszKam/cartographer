@@ -4,7 +4,15 @@
 
 Workstation v1 is complete.
 
-Runtime validation was performed manually by the reviewer.
+A post-v1 GUI performance redesign (GUI-P1 through GUI-P10) now adds the
+shared PF-1.x data pipeline, 4K raster contract, retained compact map state,
+local layer recomposition, and retained-operation reuse. Automated/runtime
+acceptance for the final GUI-P10 stack is tracked in
+`docs/GUI_PERFORMANCE_VALIDATION.md`.
+
+The original Workstation v1 runtime validation was performed manually by the
+reviewer. That historical validation must not be treated as validation of the
+new R2048/R4096 and retained-render paths.
 
 Final reviewer validation:
 
@@ -15,7 +23,7 @@ Final reviewer validation:
 The Workstation implementation is on `master`. The latest handoff-related commit is:
 
 ```text
-17c7818 fix(test): update reader doubles for progress overloads
+See the current accepted Git ref and GUI_PERFORMANCE_VALIDATION.md evidence.
 ```
 
 ## Delivered scope
@@ -33,20 +41,23 @@ The Workstation implementation is on `master`. The latest handoff-related commit
 
 ```text
 CartographerDesktopApp
-└── WorkstationView
-    ├── WorldBar / WorldPanel
-    ├── ToolNavigationPane
-    ├── SearchPanel
-    ├── LayerPanel
-    ├── MapPanel
-    │   ├── MapToolbar
-    │   └── ScrollPane → StackPane → ImageView
-    ├── ResultInspectorPane
-    │   └── DiagnosticsPane
-    └── WorkstationStatusBar
+└── WorkstationController
+    └── WorkstationView
+        ├── WorldBar / WorldPanel
+        ├── ToolNavigationPane
+        ├── tool-specific option panes
+        ├── LayerPanel
+        ├── MapPanel
+        │   ├── MapToolbar
+        │   └── ScrollPane → StackPane → ImageView
+        ├── ResultInspectorPane
+        │   └── DiagnosticsPane
+        └── WorkstationStatusBar
 ```
 
-`CartographerDesktopApp` remains the composition root and orchestration layer. Panels expose semantic APIs and keep their JavaFX controls private.
+`CartographerDesktopApp` is the JavaFX composition root.
+`WorkstationController` owns orchestration and operation routing. Panels
+expose semantic APIs and keep their JavaFX controls private.
 
 ## Progress architecture
 
@@ -66,8 +77,14 @@ Progress is hidden on both success and failure. No fake time-based or weighted p
 
 - Center Player remains disabled because no verified player-pixel metadata contract exists.
 - Radius overlay and cursor X/Z coordinates are not implemented; coordinate geometry must not be guessed.
-- No instant layer recompositing; changing layers requires rendering again.
-- No layer cache or zoom persistence.
+- Local recomposition is available only when the current `MapFrame` retains
+  all data required by the requested layer set. Missing data requires an
+  explicit full Render; there is no hidden source IO.
+- Environment/Geology local toggles require previously interpreted map-region
+  overlay state; otherwise Render reads the missing map-region data.
+- Surface Object discovery remains a distinct selective source operation.
+- The current runtime does not claim LOD, atlas-backed rendering, or true
+  incremental rendering.
 - `.vcdbs` files remain read-only.
 
 ## Post-v1 extension — Map / Soil Fertility
@@ -87,11 +104,7 @@ Do not add mock analytical data or infer missing save metadata. Any future viewp
 
 ## Next work
 
-Per `AGENTS.md`, the next implementation target is **1.0a Explored World Coverage**:
-
-```text
-coverage inspect <save.vcdbs>
-coverage render <save.vcdbs> --out <coverage.png>
-```
-
-This is separate from the completed Workstation v1 UI work and requires unit tests, real-save CLI validation and PNG inspection before sign-off.
+Complete the acceptance matrix in `docs/GUI_PERFORMANCE_VALIDATION.md` on the
+accepted GUI-P10 HEAD. In particular, record real-save R2048/R4096 behavior,
+local recomposition smoke results, cache diagnostics, and source-safety
+evidence before declaring the performance-oriented GUI redesign DONE.
