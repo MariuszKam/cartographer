@@ -84,7 +84,7 @@ final class RadiusPane extends VBox {
     }
 
     void setDiscoveryBusy(boolean busy) {
-        // Preserve Workstation v1 behavior: radius remains interactive during discovery.
+        setBusy(busy);
     }
 
     static List<Integer> supportedRadii() {
