@@ -17,7 +17,11 @@ import cartographer.prospecting.ProspectingAssessment;
 import cartographer.resource.ResourceAnalyzer;
 import cartographer.resource.ResourceOverlayCell;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
+import cartographer.save.WorldMetadataReader;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +36,7 @@ public final class AnalyzeProspectingAreaUseCase {
     private final ProspectingEvaluator evaluator;
     private final OreRockCompatibilityProvider compatibilityProvider;
     private final ActualOreObservationProvider actualOreProvider;
+    private final SaveSessionFactory sessionFactory;
 
     public AnalyzeProspectingAreaUseCase(
             VcdbsReader reader,
@@ -54,6 +59,28 @@ public final class AnalyzeProspectingAreaUseCase {
             OreRockCompatibilityProvider compatibilityProvider,
             ActualOreObservationProvider actualOreProvider
     ) {
+        this(
+                reader,
+                rockMapUseCase,
+                resourceAnalyzer,
+                compatibilityProvider,
+                actualOreProvider,
+                new SaveSessionFactory(
+                        new SqliteSaveConnection(),
+                        reader,
+                        new WorldMetadataReader()
+                )
+        );
+    }
+
+    public AnalyzeProspectingAreaUseCase(
+            VcdbsReader reader,
+            RenderRockMapUseCase rockMapUseCase,
+            ResourceAnalyzer resourceAnalyzer,
+            OreRockCompatibilityProvider compatibilityProvider,
+            ActualOreObservationProvider actualOreProvider,
+            SaveSessionFactory sessionFactory
+    ) {
         this.reader = Objects.requireNonNull(reader, "reader is required");
         this.rockMapUseCase = Objects.requireNonNull(
                 rockMapUseCase,
@@ -72,24 +99,42 @@ public final class AnalyzeProspectingAreaUseCase {
                 actualOreProvider,
                 "actual ore provider is required"
         );
+        this.sessionFactory = Objects.requireNonNull(
+                sessionFactory,
+                "session factory is required"
+        );
     }
 
     public ProspectingAreaResult execute(ProspectingAreaRequest request) {
         Objects.requireNonNull(request, "prospecting request is required");
+        try (SaveSession saveSession = sessionFactory.open(request.savePath())) {
+            return execute(saveSession, request);
+        }
+    }
+
+    public ProspectingAreaResult execute(
+            SaveSession saveSession,
+            ProspectingAreaRequest request
+    ) {
+        Objects.requireNonNull(saveSession, "save session is required");
+        Objects.requireNonNull(request, "prospecting request is required");
+        saveSession.requireSameSave(request.savePath());
         WorldPosition center = request.center().orElseGet(
-                () -> reader.readPlayerPosition(request.savePath())
+                () -> reader.readPlayerPosition(saveSession, ProgressReporter.NONE)
         );
         ReadDiagnostics diagnostics = new ReadDiagnostics();
         List<ServerMapRegion> regions = reader.readMapRegions(
-                request.savePath(),
-                diagnostics
+                saveSession,
+                diagnostics,
+                ProgressReporter.NONE
         );
         List<String> resources = resources(regions, request.resource());
         FusedProspectingResult fused = actualOreProvider instanceof FusedProspectingObservationProvider provider
-                ? provider.analyze(request.savePath(), center, request.radius(), resources)
+                ? provider.analyze(saveSession, center, request.radius(), resources)
                 : null;
         RockEvidence geology = fused == null
                 ? geology(rockMapUseCase.execute(
+                        saveSession,
                         new RenderRockMapRequest(
                                 request.savePath(),
                                 cartographer.geology.rock.RockMapMode.UPPER_ROCK,
@@ -98,7 +143,8 @@ public final class AnalyzeProspectingAreaUseCase {
                                 java.util.OptionalInt.empty(),
                                 java.util.OptionalInt.empty(),
                                 java.util.OptionalInt.empty()
-                        )
+                        ),
+                        ProgressReporter.NONE
                 ).map())
                 : geology(fused.rockMap());
         List<ProspectingCandidate> candidates = new ArrayList<>();

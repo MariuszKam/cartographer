@@ -55,20 +55,31 @@ public class WorldMetadataReader {
         try (Connection connection =
                      connectionFactory.openReadOnly(
                              savePath
-                     );
-
-             Statement statement =
-                     connection.createStatement();
-
-             ResultSet resultSet =
-                     statement.executeQuery(
-                             """
-                             SELECT data
-                             FROM gamedata
-                             WHERE savegameid = 1
-                             LIMIT 1
-                             """
                      )) {
+            return read(connection, progress);
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot read gamedata: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
+    /** Reads metadata from an already-open session-owned read-only connection. */
+    protected WorldMetadata read(
+            Connection connection,
+            ProgressReporter progress
+    ) {
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(
+                     """
+                     SELECT data
+                     FROM gamedata
+                     WHERE savegameid = 1
+                     LIMIT 1
+                     """
+             )) {
 
             if (!resultSet.next()) {
                 throw new CommandException(

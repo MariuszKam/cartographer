@@ -21,13 +21,18 @@ import cartographer.resource.ResourceAnalyzer;
 import cartographer.resource.ResourceOverlayCell;
 import cartographer.render.RockMapRenderer;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
 import cartographer.save.SelectiveChunkStreamStats;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.SelectiveChunkVisit;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
+import java.lang.reflect.Proxy;
+import java.sql.Connection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -75,7 +80,12 @@ class AnalyzeProspectingAreaUseCaseTest {
                 rockUseCase,
                 resources,
                 (resource, rock) -> OreRockCompatibility.COMPATIBLE,
-                (resource, save, center, radius) -> resource.equals("tin")
+                (resource, save, center, radius) -> resource.equals("tin"),
+                new SaveSessionFactory(
+                        new TestConnectionFactory(),
+                        reader,
+                        new TestMetadataReader()
+                )
         );
 
         var result = useCase.execute(new ProspectingAreaRequest(
@@ -110,9 +120,23 @@ class AnalyzeProspectingAreaUseCaseTest {
         }
 
         @Override
+        protected Map<Integer, BlockInfo> readBlockRegistry(Connection connection) {
+            return readBlockRegistry(Path.of("world.vcdbs"));
+        }
+
+        @Override
         public List<ServerMapRegion> readMapRegions(
                 Path savePath,
                 ReadDiagnostics diagnostics
+        ) {
+            return List.of();
+        }
+
+        @Override
+        public List<ServerMapRegion> readMapRegions(
+                SaveSession session,
+                ReadDiagnostics diagnostics,
+                ProgressReporter progress
         ) {
             return List.of();
         }
@@ -123,6 +147,25 @@ class AnalyzeProspectingAreaUseCaseTest {
                 java.util.Collection<ChunkPosition> positions,
                 int[] wantedBlockIds,
                 ReadDiagnostics diagnostics,
+                Consumer<SelectiveChunkVisit> consumer
+        ) {
+            return coverage(positions, consumer);
+        }
+
+        @Override
+        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                SaveSession session,
+                java.util.Collection<ChunkPosition> positions,
+                int[] wantedBlockIds,
+                ReadDiagnostics diagnostics,
+                Consumer<SelectiveChunkVisit> consumer,
+                ProgressReporter progress
+        ) {
+            return coverage(positions, consumer);
+        }
+
+        private SelectiveChunkStreamStats coverage(
+                java.util.Collection<ChunkPosition> positions,
                 Consumer<SelectiveChunkVisit> consumer
         ) {
             int size = ChunkCoordinate.SIZE_BLOCKS;
@@ -170,8 +213,19 @@ class AnalyzeProspectingAreaUseCaseTest {
 
     private static final class TestMetadataReader extends WorldMetadataReader {
         @Override
-        public WorldMetadata read(Path savePath) {
+        protected WorldMetadata read(Connection connection, ProgressReporter progress) {
             return new WorldMetadata(64, 64, 64);
+        }
+    }
+
+    private static final class TestConnectionFactory extends SqliteSaveConnection {
+        @Override
+        public Connection openReadOnly(Path savePath) {
+            return (Connection) Proxy.newProxyInstance(
+                    Connection.class.getClassLoader(),
+                    new Class<?>[]{Connection.class},
+                    (proxy, method, args) -> null
+            );
         }
     }
 }

@@ -23,7 +23,10 @@ import cartographer.resource.SurfaceObjectSelectionAnalysis;
 import cartographer.resource.SurfaceObjectAnalyzer;
 import cartographer.resource.SurfaceRenderAnalysis;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
 import cartographer.save.ChunkStreamStats;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.SurfaceMap;
@@ -45,7 +48,7 @@ import java.util.Set;
 public class RenderSurfaceResourceMapUseCase {
 
     private final VcdbsReader reader;
-    private final WorldMetadataReader metadataReader;
+    private final SaveSessionFactory sessionFactory;
     private final HomeStore homeStore;
     private final MarkerStore markerStore;
     private final MapRenderer renderer;
@@ -67,8 +70,37 @@ public class RenderSurfaceResourceMapUseCase {
             SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
             SurfaceResourceOverlayRenderer overlayRenderer
     ) {
+        this(
+                reader,
+                metadataReader,
+                new SaveSessionFactory(
+                        new SqliteSaveConnection(),
+                        reader,
+                        metadataReader
+                ),
+                homeStore,
+                markerStore,
+                renderer,
+                userMarkerRenderer,
+                surfaceMaterialAnalyzer,
+                overlayRenderer
+        );
+    }
+
+    public RenderSurfaceResourceMapUseCase(
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            SaveSessionFactory sessionFactory,
+            HomeStore homeStore,
+            MarkerStore markerStore,
+            MapRenderer renderer,
+            UserMarkerRenderer userMarkerRenderer,
+            SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
+            SurfaceResourceOverlayRenderer overlayRenderer
+    ) {
         this.reader = Objects.requireNonNull(reader, "reader is required");
-        this.metadataReader = Objects.requireNonNull(metadataReader, "metadataReader is required");
+        Objects.requireNonNull(metadataReader, "metadataReader is required");
+        this.sessionFactory = Objects.requireNonNull(sessionFactory, "sessionFactory is required");
         this.homeStore = Objects.requireNonNull(homeStore, "homeStore is required");
         this.markerStore = Objects.requireNonNull(markerStore, "markerStore is required");
         this.renderer = Objects.requireNonNull(renderer, "renderer is required");
@@ -91,9 +123,23 @@ public class RenderSurfaceResourceMapUseCase {
     ) {
         Objects.requireNonNull(request, "request is required");
         Objects.requireNonNull(progress, "progress is required");
+        try (SaveSession session = sessionFactory.open(request.savePath())) {
+            return execute(session, request, progress);
+        }
+    }
 
-        WorldMetadata metadata = metadataReader.read(request.savePath());
-        WorldPosition player = reader.readPlayerPosition(request.savePath());
+    public RenderSurfaceResourceMapResult execute(
+            SaveSession session,
+            RenderSurfaceResourceMapRequest request,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(session, "session is required");
+        Objects.requireNonNull(request, "request is required");
+        Objects.requireNonNull(progress, "progress is required");
+        session.requireSameSave(request.savePath());
+
+        WorldMetadata metadata = session.snapshot().metadata();
+        WorldPosition player = reader.readPlayerPosition(session, progress);
         WorldPosition center = request.center().orElse(player);
         int centerWorldX = (int) Math.round(center.x());
         int centerWorldZ = (int) Math.round(center.z());
@@ -132,7 +178,7 @@ public class RenderSurfaceResourceMapUseCase {
                                 .thenComparingInt(MapChunkCoordinate::x)
                 )
                 .toList();
-        Map<Integer, BlockInfo> registry = reader.readBlockRegistry(request.savePath());
+        Map<Integer, BlockInfo> registry = session.snapshot().blockRegistry();
         SurfaceStreamingSession surfaceSession = SurfaceStreamingSession.begin(
                 metadata,
                 centerWorldX,
@@ -153,7 +199,7 @@ public class RenderSurfaceResourceMapUseCase {
                         progress
                 );
         reader.forEachMapChunkByCoordinate(
-                request.savePath(),
+                session,
                 directReadCoordinates,
                 mapChunkDiagnostics,
                 mapChunk -> {
@@ -173,7 +219,7 @@ public class RenderSurfaceResourceMapUseCase {
         ChunkStreamStats fastChunkStats = new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         if (!rainPlan.chunkPositions().isEmpty()) {
             fastChunkStats = reader.forEachChunkByPositionAdaptive(
-                    request.savePath(),
+                    session,
                     rainPlan.chunkPositions(),
                     chunkDiagnostics,
                     surfaceSession::acceptFastChunk,
@@ -188,7 +234,7 @@ public class RenderSurfaceResourceMapUseCase {
         ChunkStreamStats fallbackChunkStats = new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         if (!fallbackChunkPositions.isEmpty()) {
             fallbackChunkStats = reader.forEachChunkByPositionAdaptive(
-                    request.savePath(),
+                    session,
                     fallbackChunkPositions,
                     chunkDiagnostics,
                     surfaceSession::acceptFallbackChunk,

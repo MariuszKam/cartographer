@@ -12,13 +12,18 @@ import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.render.RockMapRenderer;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
 import cartographer.save.SelectiveChunkStreamStats;
 import cartographer.save.SelectiveChunkVisit;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
+import java.lang.reflect.Proxy;
+import java.sql.Connection;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -30,7 +35,8 @@ class RenderRockMapUseCaseStreamingTest {
     void preservesResultContractForUpperAndAtYStreamingModes() {
         StreamingReader reader = new StreamingReader();
         RenderRockMapUseCase useCase = new RenderRockMapUseCase(
-                reader, new MetadataReader(), new RockMapRenderer());
+                reader, new MetadataReader(), new RockMapRenderer(),
+                new SaveSessionFactory(new TestConnectionFactory(), reader, new MetadataReader()));
         WorldPosition center = new WorldPosition(16, 0, 16);
 
         RenderRockMapResult upper = useCase.execute(new RenderRockMapRequest(
@@ -70,13 +76,13 @@ class RenderRockMapUseCaseStreamingTest {
         }
 
         @Override
-        public Map<Integer, BlockInfo> readBlockRegistry(Path savePath) {
+        protected Map<Integer, BlockInfo> readBlockRegistry(Connection connection) {
             return Map.of(1, new BlockInfo(1, "game:rock-granite"));
         }
 
         @Override
         public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                Path savePath, java.util.Collection<ChunkPosition> positions, int[] wantedBlockIds,
+                SaveSession session, java.util.Collection<ChunkPosition> positions, int[] wantedBlockIds,
                 ReadDiagnostics diagnostics, Consumer<SelectiveChunkVisit> consumer,
                 ProgressReporter progress) {
             int size = ChunkCoordinate.SIZE_BLOCKS;
@@ -93,8 +99,19 @@ class RenderRockMapUseCaseStreamingTest {
 
     private static final class MetadataReader extends WorldMetadataReader {
         @Override
-        public WorldMetadata read(Path savePath) {
+        protected WorldMetadata read(Connection connection, ProgressReporter progress) {
             return new WorldMetadata(64, 64, 64);
+        }
+    }
+
+    private static final class TestConnectionFactory extends SqliteSaveConnection {
+        @Override
+        public Connection openReadOnly(Path savePath) {
+            return (Connection) Proxy.newProxyInstance(
+                    Connection.class.getClassLoader(),
+                    new Class<?>[]{Connection.class},
+                    (proxy, method, args) -> null
+            );
         }
     }
 }
