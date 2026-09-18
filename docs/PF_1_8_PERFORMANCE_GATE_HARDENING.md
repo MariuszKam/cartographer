@@ -369,6 +369,12 @@ directory, and absent beside the source save. Temporary manifest publication
 files are also checked for cleanup. This is implementation evidence only;
 tests remain **NOT RUN**.
 
+E-FIX adds a real temporary SQLite fixture test for the actual session-aware
+`VcdbsReader` mapchunk path. It performs two reads through one `SaveSession`,
+checks the underlying read-only connection remains open between reads, and
+checks the owning session closes it exactly at operation end. Tests remain
+**NOT RUN** by Codex.
+
 Checkpoint E is implemented with production-render lifecycle tests using the
 operation-scoped SaveSession probe, isolated-operation/session-protection
 tests, and explicit terrain/Surface HIT and mixed HIT/MISS source-work
