@@ -113,6 +113,39 @@ class RenderSurfaceResourceMapUseCaseTest {
     }
 
     @Test
+    void retainedSurfaceRenderPerformsNoAdditionalSaveReads() {
+        MapChunkCoordinate mapChunkCoordinate = new MapChunkCoordinate(0, 0);
+        ChunkPosition exactPosition = new ChunkPosition(0, 0, 0, 0);
+        FakeReader reader = new FakeReader(
+                List.of(mapChunkCoordinate),
+                Map.of(exactPosition, surfaceChunk(new ChunkCoordinate(0, 0, 0))),
+                fireClayRegistry()
+        );
+        RenderSurfaceResourceMapUseCase useCase = useCase(reader);
+        RenderSurfaceResourceMapRequest request = request(16, 16, 1);
+
+        RenderSurfaceResourceMapResult first = useCase.execute(request);
+        int mapChunkCalls = reader.directMapChunkCalls;
+        int adaptiveChunkCalls = reader.adaptiveExactChunkCalls;
+        int exactChunkCalls = reader.exactChunkCalls;
+
+        RenderSurfaceResourceMapResult retained = useCase.executeRetained(
+                request,
+                first.preparedMapData().orElseThrow(),
+                first.decorationState().orElseThrow(),
+                ProgressReporter.NONE
+        );
+
+        assertEquals(mapChunkCalls, reader.directMapChunkCalls);
+        assertEquals(adaptiveChunkCalls, reader.adaptiveExactChunkCalls);
+        assertEquals(exactChunkCalls, reader.exactChunkCalls);
+        assertEquals(0, retained.mapChunkDiagnostics().rowsVisited());
+        assertEquals(0, retained.chunkDiagnostics().rowsVisited());
+        assertTrue(retained.renderDataCacheReport().notes().stream()
+                .anyMatch(note -> note.contains("retained PreparedMapData reused")));
+    }
+
+    @Test
     void healthyRainHeightPathUsesDirectReadersWithoutFallback() {
         MapChunkCoordinate mapChunkCoordinate = new MapChunkCoordinate(0, 0);
         ChunkPosition exactPosition = new ChunkPosition(0, 0, 0, 0);
