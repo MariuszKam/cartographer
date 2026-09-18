@@ -377,6 +377,81 @@ public class VcdbsReader {
         Objects.requireNonNull(diagnostics, "diagnostics is required");
         Objects.requireNonNull(consumer, "consumer is required");
         Objects.requireNonNull(progress, "progress is required");
+        if (uniqueWantedBlockIds(wantedBlockIds).length == 0) {
+            throw new IllegalArgumentException("wantedBlockIds cannot be empty");
+        }
+        try (Connection connection = connectionFactory.openReadOnly(savePath)) {
+            return forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                    connection,
+                    positions,
+                    wantedBlockIds,
+                    diagnostics,
+                    consumer,
+                    progress
+            );
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot open save for selective chunk coverage: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
+    /**
+     * Session-owned variant. The session connection is borrowed and never
+     * closed by this reader.
+     */
+    public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
+            SaveSession session,
+            Collection<ChunkPosition> positions,
+            int[] wantedBlockIds,
+            ReadDiagnostics diagnostics,
+            Consumer<SelectiveChunkVisit> consumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(session, "session is required");
+        return forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                session.connection(),
+                positions,
+                wantedBlockIds,
+                diagnostics,
+                consumer,
+                progress
+        );
+    }
+
+    public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
+            SaveSession session,
+            Collection<ChunkPosition> positions,
+            int[] wantedBlockIds,
+            ReadDiagnostics diagnostics,
+            Consumer<SelectiveChunkVisit> consumer
+    ) {
+        return forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                session,
+                positions,
+                wantedBlockIds,
+                diagnostics,
+                consumer,
+                ProgressReporter.NONE
+        );
+    }
+
+    private SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
+            Connection connection,
+            Collection<ChunkPosition> positions,
+            int[] wantedBlockIds,
+            ReadDiagnostics diagnostics,
+            Consumer<SelectiveChunkVisit> consumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(connection, "connection is required");
+        Objects.requireNonNull(positions, "positions is required");
+        Objects.requireNonNull(wantedBlockIds, "wantedBlockIds is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(consumer, "consumer is required");
+        Objects.requireNonNull(progress, "progress is required");
 
         int[] uniqueWantedBlockIds = uniqueWantedBlockIds(wantedBlockIds);
         if (uniqueWantedBlockIds.length == 0) {
@@ -388,12 +463,17 @@ public class VcdbsReader {
             return new SelectiveChunkStreamStats(0, 0, 0, 0, 0, 0, 0, 0);
         }
 
-        boolean tableStream = shouldUseChunkTableStream(
-                savePath,
-                packedPositions.size()
-        );
+        boolean tableStream;
+        try {
+            tableStream = shouldUseChunkTableStream(
+                    connection,
+                    packedPositions.size()
+            );
+        } catch (SQLException exception) {
+            tableStream = false;
+        }
         return readSelectiveChunkCoverage(
-                savePath,
+                connection,
                 packedPositions,
                 uniqueWantedBlockIds,
                 diagnostics,
@@ -902,29 +982,39 @@ public class VcdbsReader {
         }
 
         try (Connection connection = connectionFactory.openReadOnly(savePath)) {
-            if (tableMissing(connection, SaveTable.CHUNK.tableName())) {
-                return false;
-            }
-
-            long limit = (long) uniqueRequestedPositions + 1L;
-            try (PreparedStatement statement = connection.prepareStatement(
-                    "SELECT 1 FROM \"" + SaveTable.CHUNK.tableName()
-                            + "\" LIMIT ?"
-            )) {
-                statement.setLong(1, limit);
-                try (ResultSet resultSet = statement.executeQuery()) {
-                    int rowsSeen = 0;
-                    while (resultSet.next()) {
-                        rowsSeen++;
-                        if (rowsSeen > uniqueRequestedPositions) {
-                            return false;
-                        }
-                    }
-                    return true;
-                }
-            }
+            return shouldUseChunkTableStream(connection, uniqueRequestedPositions);
         } catch (SQLException exception) {
             return false;
+        }
+    }
+
+    private boolean shouldUseChunkTableStream(
+            Connection connection,
+            int uniqueRequestedPositions
+    ) throws SQLException {
+        if (uniqueRequestedPositions <= DIRECT_CHUNK_BATCH_SIZE) {
+            return false;
+        }
+        if (tableMissing(connection, SaveTable.CHUNK.tableName())) {
+            return false;
+        }
+
+        long limit = (long) uniqueRequestedPositions + 1L;
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT 1 FROM \"" + SaveTable.CHUNK.tableName()
+                        + "\" LIMIT ?"
+        )) {
+            statement.setLong(1, limit);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                int rowsSeen = 0;
+                while (resultSet.next()) {
+                    rowsSeen++;
+                    if (rowsSeen > uniqueRequestedPositions) {
+                        return false;
+                    }
+                }
+                return true;
+            }
         }
     }
 
@@ -1196,7 +1286,7 @@ public class VcdbsReader {
     }
 
     private SelectiveChunkStreamStats readSelectiveChunkCoverage(
-            Path savePath,
+            Connection connection,
             Set<Long> packedPositions,
             int[] wantedBlockIds,
             ReadDiagnostics diagnostics,
@@ -1204,6 +1294,7 @@ public class VcdbsReader {
             ProgressReporter progress,
             boolean tableStream
     ) {
+        Objects.requireNonNull(connection, "connection is required");
         progress.start(
                 tableStream
                         ? "Scanning chunk table selectively for coverage"
@@ -1214,7 +1305,7 @@ public class VcdbsReader {
         int[] batchesExecuted = {0};
         int[] rowsFound = {0};
 
-        try (Connection connection = connectionFactory.openReadOnly(savePath)) {
+        try {
             if (tableMissing(connection, SaveTable.CHUNK.tableName())) {
                 diagnostics.missingTable(SaveTable.CHUNK.tableName());
                 progress.done("Selective chunk coverage unavailable: chunk table missing");

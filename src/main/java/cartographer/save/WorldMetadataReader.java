@@ -55,9 +55,7 @@ public class WorldMetadataReader {
         try (Connection connection =
                      connectionFactory.openReadOnly(
                              savePath
-                     );
-
-            ) {
+                     )) {
             return read(connection, progress);
         } catch (SQLException exception) {
             throw new CommandException(

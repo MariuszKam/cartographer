@@ -12,8 +12,12 @@ import cartographer.model.ParsedChunk;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
+import cartographer.save.SaveSnapshot;
 import cartographer.save.SelectiveChunkVisit;
 import cartographer.save.SelectiveChunkVisitStatus;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockYFilter;
@@ -27,20 +31,47 @@ import java.util.Objects;
 /** One bounded PF-1.2 traversal feeding the PF-1.3 rock session and ore accumulator. */
 public final class FusedProspectingEngine {
     private final VcdbsReader reader;
-    private final WorldMetadataReader metadataReader;
+    private final SaveSessionFactory sessionFactory;
     private final OreChunkPositionPlanner planner = new OreChunkPositionPlanner();
 
     public FusedProspectingEngine(VcdbsReader reader, WorldMetadataReader metadataReader) {
+        this(
+                reader,
+                new SaveSessionFactory(
+                        new SqliteSaveConnection(),
+                        reader,
+                        metadataReader
+                )
+        );
+    }
+
+    public FusedProspectingEngine(
+            VcdbsReader reader,
+            SaveSessionFactory sessionFactory
+    ) {
         this.reader = Objects.requireNonNull(reader, "reader is required");
-        this.metadataReader = Objects.requireNonNull(metadataReader, "metadata reader is required");
+        this.sessionFactory = Objects.requireNonNull(sessionFactory, "session factory is required");
     }
 
     public FusedProspectingResult analyze(Path savePath, WorldPosition center, int radius, List<String> resources) {
         Objects.requireNonNull(savePath, "save path is required");
+        try (SaveSession session = sessionFactory.open(savePath)) {
+            return analyze(session, center, radius, resources);
+        }
+    }
+
+    public FusedProspectingResult analyze(
+            SaveSession session,
+            WorldPosition center,
+            int radius,
+            List<String> resources
+    ) {
+        Objects.requireNonNull(session, "session is required");
         Objects.requireNonNull(center, "center is required");
         resources = List.copyOf(Objects.requireNonNull(resources, "resources are required"));
-        WorldMetadata metadata = metadataReader.read(savePath);
-        Map<Integer, BlockInfo> registry = reader.readBlockRegistry(savePath);
+        SaveSnapshot snapshot = session.snapshot();
+        WorldMetadata metadata = snapshot.metadata();
+        Map<Integer, BlockInfo> registry = snapshot.blockRegistry();
         RockCatalog catalog = RockCatalog.from(registry);
         if (catalog.rocks().isEmpty()) throw new IllegalArgumentException("No natural rock blocks were discovered in the save registry");
         CompiledProspectingClassifier classifier = CompiledProspectingClassifier.compile(registry, resources, catalog.rockBlockIds());
@@ -53,7 +84,7 @@ public final class FusedProspectingEngine {
         boolean[] matched = new boolean[resources.size()];
         boolean[] unavailable = new boolean[resources.size()];
         ReadDiagnostics diagnostics = new ReadDiagnostics();
-        reader.forEachChunkByPositionMatchingBlockIdsWithCoverage(savePath, plan.positions(), plan.interestingBlockIds(), diagnostics,
+        reader.forEachChunkByPositionMatchingBlockIdsWithCoverage(session, plan.positions(), plan.interestingBlockIds(), diagnostics,
                 visit -> accept(visit, rocks, classifier, matched, unavailable, centerX, centerZ, radius));
         RockMap rockMap = rocks.finish();
         boolean unavailableAny = diagnostics.failed() > 0 || diagnostics.skipped() > 0;

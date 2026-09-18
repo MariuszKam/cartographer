@@ -1,5 +1,6 @@
-package cartographer.prospecting;
+package cartographer.save;
 
+import cartographer.application.ProgressReporter;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
@@ -10,14 +11,14 @@ import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
-import cartographer.save.ReadDiagnostics;
-import cartographer.save.SelectiveChunkStreamStats;
-import cartographer.save.SelectiveChunkVisit;
-import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
+import cartographer.prospecting.ActualOreObservation;
+import cartographer.prospecting.FusedProspectingEngine;
+import cartographer.prospecting.FusedProspectingResult;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
+import java.lang.reflect.Proxy;
+import java.sql.Connection;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -28,7 +29,15 @@ class FusedProspectingEngineTest {
     @Test
     void scansOneDecodedStreamForOverlappingResources() {
         CountingReader reader = new CountingReader();
-        FusedProspectingResult result = new FusedProspectingEngine(reader, new TestMetadataReader())
+        TestMetadataReader metadataReader = new TestMetadataReader();
+        FusedProspectingResult result = new FusedProspectingEngine(
+                reader,
+                new SaveSessionFactory(
+                        new TestConnectionFactory(),
+                        reader,
+                        metadataReader
+                )
+        )
                 .analyze(Path.of("fixture.vcdbs"), new WorldPosition(16, 0, 16), 16,
                         java.util.List.of("copper", "native"));
 
@@ -49,7 +58,7 @@ class FusedProspectingEngineTest {
         }
 
         @Override
-        public Map<Integer, BlockInfo> readBlockRegistry(Path savePath) {
+        Map<Integer, BlockInfo> readBlockRegistry(Connection connection) {
             return Map.of(
                     7, new BlockInfo(7, "game:rock-granite"),
                     9, new BlockInfo(9, "game:ore-copper-native")
@@ -58,7 +67,7 @@ class FusedProspectingEngineTest {
 
         @Override
         public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                Path savePath, java.util.Collection<ChunkPosition> positions, int[] wantedBlockIds,
+                SaveSession session, java.util.Collection<ChunkPosition> positions, int[] wantedBlockIds,
                 ReadDiagnostics diagnostics, Consumer<SelectiveChunkVisit> consumer) {
             calls.incrementAndGet();
             int size = ChunkCoordinate.SIZE_BLOCKS;
@@ -78,8 +87,27 @@ class FusedProspectingEngineTest {
 
     private static final class TestMetadataReader extends WorldMetadataReader {
         @Override
-        public WorldMetadata read(Path savePath) {
+        WorldMetadata read(Connection connection, ProgressReporter progress) {
             return new WorldMetadata(64, 64, 64);
+        }
+    }
+
+    private static final class TestConnectionFactory extends SqliteSaveConnection {
+        @Override
+        public Connection openReadOnly(Path savePath) {
+            return (Connection) Proxy.newProxyInstance(
+                    Connection.class.getClassLoader(),
+                    new Class<?>[]{Connection.class},
+                    (proxy, method, args) -> {
+                        if (method.getName().equals("close")) return null;
+                        if (method.getReturnType() == boolean.class) return false;
+                        if (method.getReturnType() == int.class) return 0;
+                        if (method.getReturnType() == long.class) return 0L;
+                        if (method.getReturnType() == float.class) return 0.0f;
+                        if (method.getReturnType() == double.class) return 0.0d;
+                        return null;
+                    }
+            );
         }
     }
 }
