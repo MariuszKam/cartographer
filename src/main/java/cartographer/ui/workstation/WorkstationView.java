@@ -108,6 +108,10 @@ public final class WorkstationView {
         searchPanel.setOnSurfaceModeChanged(listener);
     }
 
+    public void setOnRenderLayersChanged(Consumer<Set<RenderLayer>> listener) {
+        layerPanel.setOnLayersChanged(listener);
+    }
+
     private void handleRadiusChanged(int radius) {
         statusBar.setRadius(radius);
         radiusListener.accept(radius);
