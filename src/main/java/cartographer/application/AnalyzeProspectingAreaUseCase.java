@@ -128,12 +128,18 @@ public final class AnalyzeProspectingAreaUseCase {
                 diagnostics,
                 ProgressReporter.NONE
         );
-        List<String> resources = resources(regions, request.resource());
-        FusedProspectingResult fused = actualOreProvider instanceof FusedProspectingObservationProvider provider
-                ? provider.analyze(saveSession, center, request.radius(), resources)
-                : null;
-        RockEvidence geology = fused == null
-                ? geology(rockMapUseCase.execute(
+        List<String> resources = resources(regions, request.resources());
+        FusedProspectingResult fused =
+                actualOreProvider instanceof FusedProspectingObservationProvider provider
+                        ? provider.analyze(
+                        saveSession,
+                        center,
+                        request.radius(),
+                        resources
+                )
+                        : null;
+        RockMap rockMap = fused == null
+                ? rockMapUseCase.execute(
                         saveSession,
                         new RenderRockMapRequest(
                                 request.savePath(),
@@ -145,8 +151,9 @@ public final class AnalyzeProspectingAreaUseCase {
                                 java.util.OptionalInt.empty()
                         ),
                         ProgressReporter.NONE
-                ).map())
-                : geology(fused.rockMap());
+                ).map()
+                : fused.rockMap();
+        RockEvidence geology = geology(rockMap);
         List<ProspectingCandidate> candidates = new ArrayList<>();
         for (String resource : resources) {
             OptionalDouble signal = signal(
@@ -176,17 +183,26 @@ public final class AnalyzeProspectingAreaUseCase {
                 candidates,
                 compatibilityProvider
         );
-        return new ProspectingAreaResult(center, request.radius(), assessments);
+        return new ProspectingAreaResult(
+                center,
+                request.radius(),
+                assessments,
+                Optional.of(rockMap)
+        );
     }
 
     private List<String> resources(
             List<ServerMapRegion> regions,
-            Optional<String> requested
+            List<String> requested
     ) {
         if (requested.isEmpty()) {
             return resourceAnalyzer.resourceKeys(regions);
         }
-        return resourceAnalyzer.matchingKeys(regions, requested.orElseThrow());
+        java.util.LinkedHashSet<String> matched = new java.util.LinkedHashSet<>();
+        for (String resource : requested) {
+            matched.addAll(resourceAnalyzer.matchingKeys(regions, resource));
+        }
+        return List.copyOf(matched);
     }
 
     private OptionalDouble signal(
