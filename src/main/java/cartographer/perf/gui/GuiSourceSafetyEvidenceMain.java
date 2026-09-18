@@ -29,6 +29,7 @@ public final class GuiSourceSafetyEvidenceMain {
         Path cache = Path.of(args[1]).toAbsolutePath().normalize();
         String sha = GuiManualValidationManifest.exactSha(args[2]);
         Path root = Path.of(args[3]).toAbsolutePath().normalize();
+        requireExternalEvidenceRoot(save, root);
 
         SaveSafetyStatus realStatus = SaveSafetyStatus.FAIL;
         Optional<String> realFailure = Optional.empty();
@@ -120,4 +121,22 @@ public final class GuiSourceSafetyEvidenceMain {
                 .replace("\n", "\\n")
                 .replace("\r", "");
     }
+    private static void requireExternalEvidenceRoot(
+            Path save,
+            Path root
+    ) {
+        Path sourceDirectory = java.util.Objects.requireNonNull(
+                save.getParent(),
+                "save parent is required"
+        ).toAbsolutePath().normalize();
+        if (root.equals(save)
+                || root.startsWith(sourceDirectory)
+                || sourceDirectory.startsWith(root)) {
+            throw new IllegalArgumentException(
+                    "evidenceRoot must be outside the source save directory: "
+                            + root
+            );
+        }
+    }
+
 }
