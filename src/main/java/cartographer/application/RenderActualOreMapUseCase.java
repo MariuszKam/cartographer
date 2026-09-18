@@ -295,27 +295,96 @@ public class RenderActualOreMapUseCase {
                 progress
         );
         WorldMetadata metadata = prepared.metadata();
-        WorldPosition player = prepared.player();
-        WorldPosition center = prepared.center();
         RenderOptions options = prepared.options();
         HomeState home = absoluteHome(request.savePath(), metadata);
+        MapDecorationState decorations =
+                decorationState(request.savePath(), home, options);
+        return renderPrepared(
+                saveSession,
+                request,
+                prepared,
+                decorations,
+                Optional.empty(),
+                prepared.mapChunkDiagnostics(),
+                prepared.chunkDiagnostics(),
+                prepared.renderDataCacheReport(),
+                progress
+        );
+    }
+
+    public RenderActualOreMapResult executeRetained(
+            RenderActualOreMapRequest request,
+            PreparedMapData prepared,
+            MapDecorationState decorations,
+            Optional<MapRegionOverlayState> retainedMapRegionState,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(request, "request is required");
+        Objects.requireNonNull(prepared, "prepared is required");
+        Objects.requireNonNull(decorations, "decorations are required");
+        Objects.requireNonNull(retainedMapRegionState, "retainedMapRegionState is required");
+        Objects.requireNonNull(progress, "progress is required");
+        requireRetainedCompatibility(request, prepared);
+        try (SaveSession saveSession = sessionFactory.open(request.savePath())) {
+            return renderPrepared(
+                    saveSession,
+                    request,
+                    prepared,
+                    decorations,
+                    retainedMapRegionState,
+                    new ReadDiagnostics(),
+                    new ReadDiagnostics(),
+                    RenderDataCacheReport.disabled(
+                            "retained PreparedMapData reused; source session limited to requested ore/map-region work"
+                    ),
+                    progress
+            );
+        }
+    }
+
+    private RenderActualOreMapResult renderPrepared(
+            SaveSession saveSession,
+            RenderActualOreMapRequest request,
+            PreparedMapData prepared,
+            MapDecorationState decorations,
+            Optional<MapRegionOverlayState> retainedMapRegionState,
+            ReadDiagnostics mapChunkDiagnostics,
+            ReadDiagnostics chunkDiagnostics,
+            RenderDataCacheReport cacheReport,
+            ProgressReporter progress
+    ) {
+        saveSession.requireSameSave(request.savePath());
+        WorldMetadata metadata = prepared.metadata();
+        WorldPosition player = prepared.player();
+        WorldPosition center = prepared.center();
+        RenderOptions options = new RenderOptions(
+                request.radius(),
+                request.pixelsPerBlock(),
+                request.style(),
+                request.layers()
+        );
         SurfaceMapScanResult compactSurface = prepared.surface();
-        ReadDiagnostics mapChunkDiagnostics = prepared.mapChunkDiagnostics();
-        ReadDiagnostics chunkDiagnostics = prepared.chunkDiagnostics();
 
         RenderedMap rendered = renderer.render(
-                center, player, home, prepared.terrain(), compactSurface.map(),
-                prepared.registry(), options, progress
+                center,
+                player,
+                decorations.home(),
+                prepared.terrain(),
+                compactSurface.map(),
+                prepared.registry(),
+                options,
+                progress
         );
 
         ReadDiagnostics mapRegionDiagnostics = new ReadDiagnostics();
-        List<ServerMapRegion> mapRegions = hasMapRegionOverlay(options)
-                ? readMapRegionsWithProgress(
-                        saveSession, mapRegionDiagnostics, progress
-                )
-                : List.of();
         MapRegionOverlayState mapRegionOverlayState =
-                interpretMapRegionOverlays(options, mapRegions);
+                resolveMapRegionOverlays(
+                        saveSession,
+                        options,
+                        retainedMapRegionState,
+                        mapRegionDiagnostics,
+                        progress
+                );
         if (hasMapRegionOverlay(options)) {
             progress.start("Painting map-region overlays");
         }
@@ -334,47 +403,144 @@ public class RenderActualOreMapUseCase {
 
         ReadDiagnostics actualOreDiagnostics = new ReadDiagnostics();
         List<ActualOreOverlayResult> actualOreOverlays = drawActualOreOverlays(
-                saveSession, request, rendered, center, metadata,
-                prepared.registry(), actualOreDiagnostics, progress
+                saveSession,
+                request,
+                rendered,
+                center,
+                metadata,
+                prepared.registry(),
+                actualOreDiagnostics,
+                progress
         );
 
         if ((hasMapRegionOverlay(options) || !actualOreOverlays.isEmpty())
                 && options.layers().contains(RenderLayer.MARKERS)) {
             systemMarkerOverlayRenderer.draw(
-                    rendered.image(), center, player, home, request.radius()
+                    rendered.image(),
+                    center,
+                    player,
+                    decorations.home(),
+                    request.radius()
             );
         }
 
-        MapDecorationState decorations =
-                decorationState(request.savePath(), home, options);
-        List<cartographer.marker.UserMarker> userMarkers =
-                decorations.userMarkers();
         int userMarkersDrawn = 0;
         if (options.layers().contains(RenderLayer.MARKERS)
-                && !userMarkers.isEmpty()) {
+                && !decorations.userMarkers().isEmpty()) {
             userMarkersDrawn = userMarkerRenderer.draw(
                     rendered.image(),
                     center,
                     request.radius(),
-                    userMarkers,
+                    decorations.userMarkers(),
                     metadata
             );
         }
 
         return new RenderActualOreMapResult(
-                rendered.image(), rendered.geometry(), rendered.report(),
+                rendered.image(),
+                rendered.geometry(),
+                rendered.report(),
                 compactSurface,
-                environmentOverlay, geologyOverlay,
+                environmentOverlay,
+                geologyOverlay,
                 actualOreOverlays.isEmpty()
                         ? Optional.empty()
                         : Optional.of(actualOreOverlays.getFirst().map()),
-                mapChunkDiagnostics, chunkDiagnostics, mapRegionDiagnostics,
-                actualOreDiagnostics, userMarkersDrawn, actualOreOverlays,
-                prepared.renderDataCacheReport(),
+                mapChunkDiagnostics,
+                chunkDiagnostics,
+                mapRegionDiagnostics,
+                actualOreDiagnostics,
+                userMarkersDrawn,
+                actualOreOverlays,
+                cacheReport,
                 Optional.of(prepared),
                 Optional.of(decorations),
                 Optional.of(mapRegionOverlayState)
         );
+    }
+
+    private MapRegionOverlayState resolveMapRegionOverlays(
+            SaveSession saveSession,
+            RenderOptions options,
+            Optional<MapRegionOverlayState> retainedState,
+            ReadDiagnostics diagnostics,
+            ProgressReporter progress
+    ) {
+        boolean environmentRequested =
+                options.layers().contains(RenderLayer.ENVIRONMENT);
+        boolean geologyRequested =
+                options.layers().contains(RenderLayer.GEOLOGY);
+        if (!environmentRequested && !geologyRequested) {
+            return new MapRegionOverlayState(
+                    Optional.empty(),
+                    Optional.empty()
+            );
+        }
+
+        Optional<List<EnvironmentProfile>> retainedEnvironment =
+                retainedState.flatMap(MapRegionOverlayState::environmentProfiles);
+        Optional<List<GeologicProvinceSummary>> retainedGeology =
+                retainedState.flatMap(MapRegionOverlayState::geologySummaries);
+        boolean needEnvironment =
+                environmentRequested && retainedEnvironment.isEmpty();
+        boolean needGeology =
+                geologyRequested && retainedGeology.isEmpty();
+
+        List<ServerMapRegion> regions =
+                needEnvironment || needGeology
+                        ? readMapRegionsWithProgress(
+                        saveSession,
+                        diagnostics,
+                        progress
+                )
+                        : List.of();
+
+        Optional<List<EnvironmentProfile>> environmentProfiles =
+                environmentRequested
+                        ? Optional.of(
+                        retainedEnvironment.orElseGet(
+                                () -> regions.stream()
+                                        .map(environmentInterpreter::interpret)
+                                        .toList()
+                        )
+                )
+                        : Optional.empty();
+        Optional<List<GeologicProvinceSummary>> geologySummaries =
+                geologyRequested
+                        ? Optional.of(
+                        retainedGeology.orElseGet(
+                                () -> regions.stream()
+                                        .map(geologicProvinceInterpreter::summarize)
+                                        .flatMap(Optional::stream)
+                                        .toList()
+                        )
+                )
+                        : Optional.empty();
+
+        return new MapRegionOverlayState(
+                environmentProfiles,
+                geologySummaries
+        );
+    }
+
+    private void requireRetainedCompatibility(
+            RenderActualOreMapRequest request,
+            PreparedMapData prepared
+    ) {
+        RenderOptions options = prepared.options();
+        if (request.radius() != options.radiusBlocks()
+                || request.pixelsPerBlock() != options.pixelsPerBlock()
+                || request.style() != options.style()) {
+            throw new IllegalArgumentException(
+                    "retained PreparedMapData does not match Ore render geometry/style"
+            );
+        }
+        if (request.center().isPresent()
+                && !request.center().orElseThrow().equals(prepared.center())) {
+            throw new IllegalArgumentException(
+                    "retained PreparedMapData does not match Ore render center"
+            );
+        }
     }
 
     private List<ServerMapRegion> readMapRegionsWithProgress(
@@ -451,33 +617,6 @@ public class RenderActualOreMapUseCase {
                 request.radius()
         );
         return immutable;
-    }
-
-    private MapRegionOverlayState interpretMapRegionOverlays(
-            RenderOptions options,
-            List<ServerMapRegion> regions
-    ) {
-        Optional<List<EnvironmentProfile>> environmentProfiles =
-                options.layers().contains(RenderLayer.ENVIRONMENT)
-                        ? Optional.of(
-                        regions.stream()
-                                .map(environmentInterpreter::interpret)
-                                .toList()
-                )
-                        : Optional.empty();
-        Optional<List<GeologicProvinceSummary>> geologySummaries =
-                options.layers().contains(RenderLayer.GEOLOGY)
-                        ? Optional.of(
-                        regions.stream()
-                                .map(geologicProvinceInterpreter::summarize)
-                                .flatMap(Optional::stream)
-                                .toList()
-                )
-                        : Optional.empty();
-        return new MapRegionOverlayState(
-                environmentProfiles,
-                geologySummaries
-        );
     }
 
     private OverlayRenderReport drawEnvironmentOverlay(
