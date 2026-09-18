@@ -35,7 +35,10 @@ class Pf18SourceSafetyRunnerTest {
             publishManifest(path, root);
         }).validate(save, cache);
 
-        assertEquals(Pf18SourceSafetyStatus.PASS, report.status());
+        assertEquals(Pf18SourceSafetyStatus.PASS, report.status(),
+                () -> "report=" + report
+                        + ", status=" + report.status()
+                        + ", evidence=" + report.cacheEvidence());
         assertTrue(report.accepted());
         assertTrue(report.cacheEvidence().manifestPresent());
         assertTrue(report.cacheEvidence().qualifyingManifest());

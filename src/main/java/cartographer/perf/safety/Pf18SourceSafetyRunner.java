@@ -127,19 +127,25 @@ public final class Pf18SourceSafetyRunner {
                 continue;
             }
             Path normalized = artifact.toAbsolutePath().normalize();
-            Path resolved;
+            Path resolvedArtifact;
+            Path resolvedCacheRoot;
+            Path resolvedSave;
+            Path resolvedSaveDirectory;
             try {
-                resolved = artifact.toRealPath().normalize();
+                resolvedArtifact = artifact.toRealPath().normalize();
+                resolvedCacheRoot = cacheRoot.toRealPath().normalize();
+                resolvedSave = save.toRealPath().normalize();
+                resolvedSaveDirectory = save.getParent().toRealPath().normalize();
             } catch (IOException exception) {
                 contained = false;
                 continue;
             }
             if (!normalized.startsWith(cacheRoot)
-                    || !resolved.startsWith(cacheRoot)
+                    || !resolvedArtifact.startsWith(resolvedCacheRoot)
                     || normalized.equals(save)
-                    || resolved.equals(save)
+                    || resolvedArtifact.equals(resolvedSave)
                     || normalized.startsWith(save.getParent())
-                    || resolved.startsWith(save.getParent())) {
+                    || resolvedArtifact.startsWith(resolvedSaveDirectory)) {
                 contained = false;
             }
             artifacts.add(normalized);
@@ -194,6 +200,26 @@ public final class Pf18SourceSafetyRunner {
         }
         if (Files.exists(cache) && !Files.isDirectory(cache)) {
             throw new IllegalArgumentException("cache root must be a directory: " + cache);
+        }
+        if (Files.exists(cache)) {
+            Path resolvedCache;
+            Path resolvedSave;
+            Path resolvedSaveParent;
+            try {
+                resolvedCache = cache.toRealPath().normalize();
+                resolvedSave = save.toRealPath().normalize();
+                resolvedSaveParent = saveParent.toRealPath().normalize();
+            } catch (IOException exception) {
+                throw new IllegalArgumentException(
+                        "cannot resolve cache root and source paths for containment: " + cache,
+                        exception);
+            }
+            if (resolvedCache.equals(resolvedSave)
+                    || resolvedCache.startsWith(resolvedSaveParent)
+                    || resolvedSaveParent.startsWith(resolvedCache)) {
+                throw new IllegalArgumentException(
+                        "cache root must be outside the source save directory: " + cache);
+            }
         }
         return cache;
     }
