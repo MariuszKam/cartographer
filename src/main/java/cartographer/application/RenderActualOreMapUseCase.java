@@ -337,14 +337,20 @@ public class RenderActualOreMapUseCase {
             );
         }
 
+        MapDecorationState decorations =
+                decorationState(request.savePath(), home, options);
+        List<cartographer.marker.UserMarker> userMarkers =
+                decorations.userMarkers();
         int userMarkersDrawn = 0;
-        if (options.layers().contains(RenderLayer.MARKERS)) {
-            List<cartographer.marker.UserMarker> markers = markerStore.load(request.savePath());
-            if (!markers.isEmpty()) {
-                userMarkersDrawn = userMarkerRenderer.draw(
-                        rendered.image(), center, request.radius(), markers, metadata
-                );
-            }
+        if (options.layers().contains(RenderLayer.MARKERS)
+                && !userMarkers.isEmpty()) {
+            userMarkersDrawn = userMarkerRenderer.draw(
+                    rendered.image(),
+                    center,
+                    request.radius(),
+                    userMarkers,
+                    metadata
+            );
         }
 
         return new RenderActualOreMapResult(
@@ -357,7 +363,8 @@ public class RenderActualOreMapUseCase {
                 mapChunkDiagnostics, chunkDiagnostics, mapRegionDiagnostics,
                 actualOreDiagnostics, userMarkersDrawn, actualOreOverlays,
                 prepared.renderDataCacheReport(),
-                Optional.of(prepared)
+                Optional.of(prepared),
+                Optional.of(decorations)
         );
     }
 
@@ -473,6 +480,25 @@ public class RenderActualOreMapUseCase {
     private boolean hasMapRegionOverlay(RenderOptions options) {
         return options.layers().contains(RenderLayer.ENVIRONMENT)
                 || options.layers().contains(RenderLayer.GEOLOGY);
+    }
+
+    private MapDecorationState decorationState(
+            java.nio.file.Path savePath,
+            HomeState home,
+            RenderOptions options
+    ) {
+        try {
+            return new MapDecorationState(
+                    home,
+                    markerStore.load(savePath),
+                    true
+            );
+        } catch (RuntimeException exception) {
+            if (options.layers().contains(RenderLayer.MARKERS)) {
+                throw exception;
+            }
+            return new MapDecorationState(home, List.of(), false);
+        }
     }
 
     private HomeState absoluteHome(

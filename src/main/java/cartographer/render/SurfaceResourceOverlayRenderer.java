@@ -39,6 +39,18 @@ public class SurfaceResourceOverlayRenderer {
             WorldPosition player,
             HomeState home
     ) {
+        return drawMaterial(image, center, radiusBlocks, analysis, player, home, true);
+    }
+
+    public int drawMaterial(
+            BufferedImage image,
+            WorldPosition center,
+            int radiusBlocks,
+            SurfaceMaterialAnalysis analysis,
+            WorldPosition player,
+            HomeState home,
+            boolean drawSystemMarkers
+    ) {
         if (image == null) {
             throw new IllegalArgumentException(
                     "Image is required"
@@ -211,16 +223,18 @@ public class SurfaceResourceOverlayRenderer {
                     analysis
             );
 
-            drawMarkers(
-                    graphics,
-                    image,
-                    player,
-                    home,
-                    minWorldX,
-                    minWorldZ,
-                    scaleX,
-                    scaleZ
-            );
+            if (drawSystemMarkers) {
+                drawMarkers(
+                        graphics,
+                        image,
+                        player,
+                        home,
+                        minWorldX,
+                        minWorldZ,
+                        scaleX,
+                        scaleZ
+                );
+            }
 
         } finally {
             graphics.dispose();
@@ -237,8 +251,35 @@ public class SurfaceResourceOverlayRenderer {
             WorldPosition player,
             HomeState home
     ) {
-        return drawObjects(image, center, radiusBlocks,
-                new SurfaceObjectSelectionAnalysis(List.of(analysis)), player, home);
+        return drawObjects(
+                image,
+                center,
+                radiusBlocks,
+                new SurfaceObjectSelectionAnalysis(List.of(analysis)),
+                player,
+                home,
+                true
+        );
+    }
+
+    public int drawObject(
+            BufferedImage image,
+            WorldPosition center,
+            int radiusBlocks,
+            SurfaceObjectAnalysis analysis,
+            WorldPosition player,
+            HomeState home,
+            boolean drawSystemMarkers
+    ) {
+        return drawObjects(
+                image,
+                center,
+                radiusBlocks,
+                new SurfaceObjectSelectionAnalysis(List.of(analysis)),
+                player,
+                home,
+                drawSystemMarkers
+        );
     }
 
     public int drawObjects(
@@ -248,6 +289,26 @@ public class SurfaceResourceOverlayRenderer {
             SurfaceObjectSelectionAnalysis analysis,
             WorldPosition player,
             HomeState home
+    ) {
+        return drawObjects(
+                image,
+                center,
+                radiusBlocks,
+                analysis,
+                player,
+                home,
+                true
+        );
+    }
+
+    public int drawObjects(
+            BufferedImage image,
+            WorldPosition center,
+            int radiusBlocks,
+            SurfaceObjectSelectionAnalysis analysis,
+            WorldPosition player,
+            HomeState home,
+            boolean drawSystemMarkers
     ) {
         Objects.requireNonNull(analysis, "Surface object selection analysis is required");
         Objects.requireNonNull(image, "Image is required");
@@ -281,7 +342,18 @@ public class SurfaceResourceOverlayRenderer {
                 }
             }
             drawObjectLegend(graphics, image, analysis);
-            drawMarkers(graphics, image, player, home, minWorldX, minWorldZ, scaleX, scaleZ);
+            if (drawSystemMarkers) {
+                drawMarkers(
+                        graphics,
+                        image,
+                        player,
+                        home,
+                        minWorldX,
+                        minWorldZ,
+                        scaleX,
+                        scaleZ
+                );
+            }
         } finally {
             graphics.dispose();
         }

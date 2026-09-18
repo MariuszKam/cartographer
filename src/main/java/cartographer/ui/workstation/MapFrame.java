@@ -1,15 +1,18 @@
 package cartographer.ui.workstation;
 
 import cartographer.application.ActualOreOverlayResult;
+import cartographer.application.MapDecorationState;
 import cartographer.application.PreparedMapData;
 import cartographer.geology.rock.RockMap;
 import cartographer.render.MapViewportGeometry;
+import cartographer.render.RenderLayer;
 import cartographer.resource.SurfaceRenderAnalysis;
 
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Retained non-raster state for the map currently displayed by the Workstation.
@@ -25,7 +28,8 @@ public record MapFrame(
         Optional<PreparedMapData> preparedMapData,
         List<ActualOreOverlayResult> actualOreOverlays,
         Optional<SurfaceRenderAnalysis> surfaceAnalysis,
-        Optional<RockMap> rockMap
+        Optional<RockMap> rockMap,
+        Optional<MapDecorationState> decorationState
 ) {
     public MapFrame {
         savePath = Objects.requireNonNull(savePath, "savePath is required")
@@ -45,9 +49,18 @@ public record MapFrame(
                 "surface analysis option is required"
         );
         rockMap = Objects.requireNonNull(rockMap, "rock map option is required");
+        decorationState = Objects.requireNonNull(
+                decorationState,
+                "decoration state option is required"
+        );
 
         switch (tool) {
-            case MAP -> requirePreparedOnly(preparedMapData, actualOreOverlays, surfaceAnalysis, rockMap);
+            case MAP -> requirePreparedOnly(
+                    preparedMapData,
+                    actualOreOverlays,
+                    surfaceAnalysis,
+                    rockMap
+            );
             case ORE -> {
                 if (preparedMapData.isEmpty()) {
                     throw new IllegalArgumentException("ore frame requires prepared map data");
@@ -74,7 +87,8 @@ public record MapFrame(
                 }
                 if (preparedMapData.isPresent()
                         || !actualOreOverlays.isEmpty()
-                        || surfaceAnalysis.isPresent()) {
+                        || surfaceAnalysis.isPresent()
+                        || decorationState.isPresent()) {
                     throw new IllegalArgumentException(
                             "geology frame contains incompatible retained state"
                     );
@@ -84,7 +98,8 @@ public record MapFrame(
                 if (preparedMapData.isPresent()
                         || !actualOreOverlays.isEmpty()
                         || surfaceAnalysis.isPresent()
-                        || rockMap.isPresent()) {
+                        || rockMap.isPresent()
+                        || decorationState.isPresent()) {
                     throw new IllegalArgumentException(
                             "coverage frame must retain geometry only"
                     );
@@ -101,6 +116,29 @@ public record MapFrame(
             MapViewportGeometry geometry,
             PreparedMapData prepared
     ) {
+        return map(savePath, geometry, prepared, Optional.empty());
+    }
+
+    public static MapFrame map(
+            Path savePath,
+            MapViewportGeometry geometry,
+            PreparedMapData prepared,
+            MapDecorationState decorations
+    ) {
+        return map(
+                savePath,
+                geometry,
+                prepared,
+                Optional.of(Objects.requireNonNull(decorations, "decorations are required"))
+        );
+    }
+
+    private static MapFrame map(
+            Path savePath,
+            MapViewportGeometry geometry,
+            PreparedMapData prepared,
+            Optional<MapDecorationState> decorations
+    ) {
         return new MapFrame(
                 savePath,
                 WorkstationTool.MAP,
@@ -108,7 +146,8 @@ public record MapFrame(
                 Optional.of(Objects.requireNonNull(prepared, "prepared is required")),
                 List.of(),
                 Optional.empty(),
-                Optional.empty()
+                Optional.empty(),
+                decorations
         );
     }
 
@@ -118,6 +157,32 @@ public record MapFrame(
             PreparedMapData prepared,
             List<ActualOreOverlayResult> overlays
     ) {
+        return ore(savePath, geometry, prepared, overlays, Optional.empty());
+    }
+
+    public static MapFrame ore(
+            Path savePath,
+            MapViewportGeometry geometry,
+            PreparedMapData prepared,
+            List<ActualOreOverlayResult> overlays,
+            MapDecorationState decorations
+    ) {
+        return ore(
+                savePath,
+                geometry,
+                prepared,
+                overlays,
+                Optional.of(Objects.requireNonNull(decorations, "decorations are required"))
+        );
+    }
+
+    private static MapFrame ore(
+            Path savePath,
+            MapViewportGeometry geometry,
+            PreparedMapData prepared,
+            List<ActualOreOverlayResult> overlays,
+            Optional<MapDecorationState> decorations
+    ) {
         return new MapFrame(
                 savePath,
                 WorkstationTool.ORE,
@@ -125,7 +190,8 @@ public record MapFrame(
                 Optional.of(Objects.requireNonNull(prepared, "prepared is required")),
                 overlays,
                 Optional.empty(),
-                Optional.empty()
+                Optional.empty(),
+                decorations
         );
     }
 
@@ -135,6 +201,38 @@ public record MapFrame(
             PreparedMapData prepared,
             SurfaceRenderAnalysis analysis
     ) {
+        return surface(
+                savePath,
+                geometry,
+                prepared,
+                analysis,
+                Optional.empty()
+        );
+    }
+
+    public static MapFrame surface(
+            Path savePath,
+            MapViewportGeometry geometry,
+            PreparedMapData prepared,
+            SurfaceRenderAnalysis analysis,
+            MapDecorationState decorations
+    ) {
+        return surface(
+                savePath,
+                geometry,
+                prepared,
+                analysis,
+                Optional.of(Objects.requireNonNull(decorations, "decorations are required"))
+        );
+    }
+
+    private static MapFrame surface(
+            Path savePath,
+            MapViewportGeometry geometry,
+            PreparedMapData prepared,
+            SurfaceRenderAnalysis analysis,
+            Optional<MapDecorationState> decorations
+    ) {
         return new MapFrame(
                 savePath,
                 WorkstationTool.SURFACE,
@@ -142,7 +240,8 @@ public record MapFrame(
                 Optional.of(Objects.requireNonNull(prepared, "prepared is required")),
                 List.of(),
                 Optional.of(Objects.requireNonNull(analysis, "analysis is required")),
-                Optional.empty()
+                Optional.empty(),
+                decorations
         );
     }
 
@@ -158,7 +257,8 @@ public record MapFrame(
                 Optional.empty(),
                 List.of(),
                 Optional.empty(),
-                Optional.of(Objects.requireNonNull(rockMap, "rockMap is required"))
+                Optional.of(Objects.requireNonNull(rockMap, "rockMap is required")),
+                Optional.empty()
         );
     }
 
@@ -173,8 +273,57 @@ public record MapFrame(
                 Optional.empty(),
                 List.of(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty()
         );
+    }
+
+    public boolean supportsLocalRecomposition(Set<RenderLayer> layers) {
+        Objects.requireNonNull(layers, "layers are required");
+        Set<RenderLayer> supported = Set.of(
+                RenderLayer.TERRAIN,
+                RenderLayer.SURFACE,
+                RenderLayer.SOIL_FERTILITY,
+                RenderLayer.MARKERS
+        );
+        if (!supported.containsAll(layers)
+                || preparedMapData.isEmpty()
+                || decorationState.isEmpty()
+                || (tool != WorkstationTool.MAP
+                && tool != WorkstationTool.ORE
+                && tool != WorkstationTool.SURFACE)) {
+            return false;
+        }
+
+        PreparedMapData prepared = preparedMapData.orElseThrow();
+        MapDecorationState decorations = decorationState.orElseThrow();
+        if (layers.contains(RenderLayer.MARKERS)
+                && !decorations.userMarkersAvailable()) {
+            return false;
+        }
+
+        Set<RenderLayer> initial = prepared.options().layers();
+        if (initial.contains(RenderLayer.ENVIRONMENT)
+                || initial.contains(RenderLayer.GEOLOGY)) {
+            return false;
+        }
+        boolean terrainDataPrepared =
+                initial.contains(RenderLayer.TERRAIN)
+                        || initial.contains(RenderLayer.SURFACE);
+        boolean surfaceDataPrepared =
+                tool == WorkstationTool.SURFACE
+                        || initial.contains(RenderLayer.SURFACE)
+                        || initial.contains(RenderLayer.SOIL_FERTILITY);
+
+        if (layers.contains(RenderLayer.TERRAIN) && !terrainDataPrepared) {
+            return false;
+        }
+        if (layers.contains(RenderLayer.SURFACE)
+                && (!terrainDataPrepared || !surfaceDataPrepared)) {
+            return false;
+        }
+        return !layers.contains(RenderLayer.SOIL_FERTILITY)
+                || surfaceDataPrepared;
     }
 
     private static void requirePreparedOnly(

@@ -272,21 +272,41 @@ public class RenderSurfaceResourceMapUseCase {
 
         progress.start("Painting surface resource overlay");
         if (analysis instanceof SurfaceMaterialAnalysis materialAnalysis) {
-            overlayRenderer.drawMaterial(rendered.image(), center, request.radius(),
-                    materialAnalysis, player, home);
+            overlayRenderer.drawMaterial(
+                    rendered.image(),
+                    center,
+                    request.radius(),
+                    materialAnalysis,
+                    player,
+                    home,
+                    options.layers().contains(RenderLayer.MARKERS)
+            );
         } else if (analysis instanceof SurfaceObjectSelectionAnalysis objectAnalysis) {
-            overlayRenderer.drawObjects(rendered.image(), center, request.radius(),
-                    objectAnalysis, player, home);
+            overlayRenderer.drawObjects(
+                    rendered.image(),
+                    center,
+                    request.radius(),
+                    objectAnalysis,
+                    player,
+                    home,
+                    options.layers().contains(RenderLayer.MARKERS)
+            );
         }
 
+        MapDecorationState decorations =
+                decorationState(request.savePath(), home, options);
+        List<cartographer.marker.UserMarker> userMarkers =
+                decorations.userMarkers();
         int userMarkersDrawn = 0;
-        if (options.layers().contains(RenderLayer.MARKERS)) {
-            List<cartographer.marker.UserMarker> markers = markerStore.load(request.savePath());
-            if (!markers.isEmpty()) {
-                userMarkersDrawn = userMarkerRenderer.draw(
-                        rendered.image(), center, request.radius(), markers, metadata
-                );
-            }
+        if (options.layers().contains(RenderLayer.MARKERS)
+                && !userMarkers.isEmpty()) {
+            userMarkersDrawn = userMarkerRenderer.draw(
+                    rendered.image(),
+                    center,
+                    request.radius(),
+                    userMarkers,
+                    metadata
+            );
         }
 
         return new RenderSurfaceResourceMapResult(
@@ -299,8 +319,28 @@ public class RenderSurfaceResourceMapUseCase {
                 prepared.chunkDiagnostics(),
                 userMarkersDrawn,
                 prepared.renderDataCacheReport(),
-                Optional.of(prepared)
+                Optional.of(prepared),
+                Optional.of(decorations)
         );
+    }
+
+    private MapDecorationState decorationState(
+            java.nio.file.Path savePath,
+            HomeState home,
+            RenderOptions options
+    ) {
+        try {
+            return new MapDecorationState(
+                    home,
+                    markerStore.load(savePath),
+                    true
+            );
+        } catch (RuntimeException exception) {
+            if (options.layers().contains(RenderLayer.MARKERS)) {
+                throw exception;
+            }
+            return new MapDecorationState(home, List.of(), false);
+        }
     }
 
     private HomeState absoluteHome(

@@ -102,6 +102,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         RenderSurfaceResourceMapResult second = useCase.execute(request);
 
         assertTrue(first.preparedMapData().isPresent());
+        assertTrue(first.decorationState().isPresent());
         assertTrue(first.renderDataCacheReport().enabled());
         assertTrue(first.renderDataCacheReport().terrain().published() >= 1);
         assertTrue(first.renderDataCacheReport().surface().published() >= 1);
