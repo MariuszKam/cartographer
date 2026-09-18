@@ -2,6 +2,7 @@ package cartographer.scanner;
 
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
+import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParsedChunk;
 
 import java.util.HashMap;
