@@ -123,9 +123,11 @@ before request state is combined with save data. Within that operation:
 The adaptive selective reader now opens one connection for a path call, makes
 its strategy decision on that connection, and routes exact or table-stream
 selective decoding through connection cores. A session call borrows the same
-connection and never closes it. PF-1.2 bounded decoding and PF-1.4 phase
-semantics are unchanged. HOME and marker stores remain external to the save
-snapshot.
+connection and never closes it. A failure while probing the adaptive strategy
+is conservatively treated as `tableStream == false`, so the exact-position
+selective core is used; failures during the selected traversal still surface
+with reader error context. PF-1.2 bounded decoding and PF-1.4 phase semantics
+are unchanged. HOME and marker stores remain external to the save snapshot.
 
 The architectural source-read invariant is therefore one operation-scoped
 read-only `.vcdbs` connection lifecycle for the main render. This is a static
@@ -153,7 +155,9 @@ not the game save database: it is writable cache data strictly beneath the
 injected cache root, and it never receives the `.vcdbs` path as its database
 target. It stores codec payloads in a coordinate-addressable primary-key table,
 reads requested coordinates in bounded batches, and publishes tile batches in
-a transaction with deterministic `INSERT OR IGNORE` conflict behavior. Missing
+a transaction with deterministic `INSERT OR IGNORE` conflict behavior: an
+existing coordinate is preserved and is not overwritten or repaired by a later
+publication. Missing
 databases, rows, malformed payloads, and SQL read failures are optional-cache
 miss/corrupt states; they do not alter or fail source-save analysis. A
 compatible published manifest is required before terrain artifacts are

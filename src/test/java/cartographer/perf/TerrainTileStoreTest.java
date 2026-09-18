@@ -94,6 +94,22 @@ class TerrainTileStoreTest {
     }
 
     @Test
+    void duplicateRequestedCoordinatesCollapseInFirstOccurrenceOrder(@TempDir Path cacheRoot) {
+        RenderDataCacheStore cacheStore = new RenderDataCacheStore(cacheRoot);
+        RenderDataCacheRevision revision = revision(5);
+        cacheStore.publish(revision);
+        TerrainTileStore tileStore = new TerrainTileStore(cacheStore, revision);
+        MapChunkCoordinate first = new MapChunkCoordinate(1, 2);
+        MapChunkCoordinate second = new MapChunkCoordinate(3, 4);
+
+        Map<MapChunkCoordinate, TerrainTileLookup> result = tileStore.read(
+                List.of(first, second, first, second, first)
+        );
+
+        assertEquals(List.of(first, second), List.copyOf(result.keySet()));
+    }
+
+    @Test
     void corruptPayloadIsReportedWithoutFabricatedData(@TempDir Path cacheRoot) throws Exception {
         RenderDataCacheStore cacheStore = new RenderDataCacheStore(cacheRoot);
         RenderDataCacheRevision revision = revision(2);
