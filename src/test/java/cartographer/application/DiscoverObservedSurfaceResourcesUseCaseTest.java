@@ -45,8 +45,7 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
     @Test
     void suppliesAllCandidateIdsToOneSelectiveScan() {
         FakeReader reader = new FakeReader();
-        DiscoverObservedSurfaceResourcesUseCase useCase =
-                new DiscoverObservedSurfaceResourcesUseCase(reader, metadataReader());
+        DiscoverObservedSurfaceResourcesUseCase useCase = useCase(reader);
 
         var result = useCase.execute(new DiscoverObservedSurfaceResourcesRequest(
                 Path.of("world.vcdbs"),
