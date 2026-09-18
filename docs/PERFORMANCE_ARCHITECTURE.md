@@ -342,6 +342,32 @@ Compatible Map/Ore/Surface operations may reuse the current frame's
 If compatibility fails, the Workstation falls back to the normal authoritative
 operation rather than performing hidden partial reuse.
 
+### Geology and fused Prospecting workspace
+
+Geology and Prospecting share the compact ROCK result contract without adding a
+persistent ROCK cache.
+
+- ROCK remains source-authoritative. A Geology Y/radius/center change starts a
+  new selective source operation.
+- Prospecting accepts All resources or a multi-resource selection in one
+  request. The fused provider receives the complete resource list once, opens
+  one operation-scoped `SaveSession`, builds one `RockCatalog`, compiles one
+  classifier, and performs one selective traversal that feeds both ROCK and
+  ore observations. The Workstation must not loop one heavy scan per resource.
+- `ProspectingAreaResult` retains the compact `RockMap` produced by that
+  fused operation. The central viewport renders that retained result locally.
+- Geology and Prospecting `MapFrame` values may retain only the compact
+  `RockMap` plus geometry; they never retain a `SaveSession`, JDBC
+  connection, decoded chunk collection, or an extra raster.
+- Cursor inspection uses indexed `RockMap.sampleAt(...)` access. Rock
+  highlighting rerenders from the retained `RockMap` and preserves viewport
+  geometry, with zero save/cache/HOME/marker-store IO.
+- The 4096 x 4096 raster cap still applies to ROCK rendering. Large radii are
+  sampled into the bounded raster instead of allocating world-diameter images.
+
+A local highlight or hover is not a new geology analysis. Changing ROCK mode,
+Y, center or radius remains an explicit new source operation.
+
 ## 11. Correctness and safety
 
 ### Correctness
