@@ -38,6 +38,7 @@ public final class GuiMacroEvidenceMain {
                     "save must be an existing regular file: " + save
             );
         }
+        requireExternalEvidenceRoot(save, root);
 
         Pf18MacroRunner runner = new Pf18MacroRunner(
                 new Pf18ProductionOperationFactory(stateRoot),
@@ -234,6 +235,24 @@ public final class GuiMacroEvidenceMain {
         return value.replace("\\", "\\\\")
                 .replace("\n", "\\n")
                 .replace("\r", "");
+    }
+
+    private static void requireExternalEvidenceRoot(
+            Path save,
+            Path root
+    ) {
+        Path sourceDirectory = java.util.Objects.requireNonNull(
+                save.getParent(),
+                "save parent is required"
+        ).toAbsolutePath().normalize();
+        if (root.equals(save)
+                || root.startsWith(sourceDirectory)
+                || sourceDirectory.startsWith(root)) {
+            throw new IllegalArgumentException(
+                    "evidenceRoot must be outside the source save directory: "
+                            + root
+            );
+        }
     }
 
 }
