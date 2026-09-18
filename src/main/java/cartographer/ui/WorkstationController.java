@@ -76,6 +76,7 @@ public final class WorkstationController {
     private final MapFrameCompositor mapFrameCompositor = new MapFrameCompositor();
     private final LocalRecompositionGate localRecompositionGate =
             new LocalRecompositionGate();
+    private long rockHighlightGeneration;
 
     private final RenderActualOreMapUseCase useCase;
     private final RenderCoverageMapUseCase coverageUseCase;
@@ -134,6 +135,7 @@ public final class WorkstationController {
         workstation.setOnRadiusChanged(this::handleRadiusChanged);
         workstation.setOnSurfaceModeChanged(this::handleSurfaceModeChanged);
         workstation.setOnRenderLayersChanged(this::handleRenderLayersChanged);
+        searchPanel.setOnRockHighlightChanged(this::handleRockHighlightChanged);
     }
 
     public Parent root() {
@@ -154,6 +156,7 @@ public final class WorkstationController {
         loadedWorldMetadata = Optional.empty();
         mapPanel.clearNavigationContext();
         localRecompositionGate.invalidate();
+        rockHighlightGeneration++;
         mapFrameState.clear();
         workstation.clearMapGeometry();
         surfaceSelectionKeys = Set.of();
@@ -352,12 +355,17 @@ public final class WorkstationController {
             showFailure(new IllegalArgumentException("Select a .vcdbs save."));
             return;
         }
-        String resource = searchPanel.prospectingResourceText();
+        List<String> resources = searchPanel.prospectingResourceKeys();
+        if (!searchPanel.prospectingAllResources() && resources.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Select at least one prospecting resource or choose All resources."
+            );
+        }
         ProspectingAreaRequest request = new ProspectingAreaRequest(
                 Path.of(worldPanel.savePathText()),
                 Optional.empty(),
                 searchPanel.selectedRadius(),
-                resource.isBlank() ? Optional.empty() : Optional.of(resource)
+                searchPanel.prospectingAllResources() ? List.of() : resources
         );
         setBusy(true);
         workstation.setStatus("Analyzing prospecting evidence...");
@@ -629,6 +637,15 @@ public final class WorkstationController {
     }
 
     private void handleModeChanged(WorkstationTool mode) {
+        if (mode == WorkstationTool.GEOLOGY
+                || mode == WorkstationTool.PROSPECTING) {
+            List<cartographer.geology.rock.RockIdentity> rocks =
+                    mapFrameState.current()
+                            .flatMap(MapFrame::rockMap)
+                            .map(cartographer.geology.rock.RockMap::ordinalTable)
+                            .orElseGet(List::of);
+            searchPanel.setRockLegend(rocks);
+        }
         if (mode == WorkstationTool.SURFACE
                 && searchPanel.selectedSurfaceMode() == SurfaceToolMode.OBJECTS
                 && !worldPanel.savePathText().isBlank()) {
@@ -829,23 +846,54 @@ public final class WorkstationController {
             RenderRockMapRequest request
     ) {
         localRecompositionGate.invalidate();
+        rockHighlightGeneration++;
+        searchPanel.setRockLegend(result.map().ordinalTable());
+        var displayed = searchPanel.selectedRockHighlight().isPresent()
+                ? rockUseCase.renderRetained(
+                result.map(),
+                searchPanel.selectedRockHighlight()
+        )
+                : result.rendered();
         mapPanel.show(
-                result.rendered().image(),
-                Optional.of(result.rendered().geometry()),
+                displayed.image(),
+                Optional.of(displayed.geometry()),
                 loadedPlayerAbsolute
         );
         mapFrameState.retain(MapFrame.geology(
                 request.savePath(),
-                result.rendered().geometry(),
+                displayed.geometry(),
                 result.map()
         ));
-        workstation.setMapGeometry(Optional.of(result.rendered().geometry()));
+        workstation.setMapGeometry(Optional.of(displayed.geometry()));
         resultInspector.showRockResult(result, request);
         workstation.setStatus("Rock map rendered.");
         setBusy(false);
     }
 
-    private void showProspectingResult(ProspectingAreaResult result, ProspectingAreaRequest request) {
+    private void showProspectingResult(
+            ProspectingAreaResult result,
+            ProspectingAreaRequest request
+    ) {
+        localRecompositionGate.invalidate();
+        rockHighlightGeneration++;
+        result.rockMap().ifPresent(rockMap -> {
+            searchPanel.setRockLegend(rockMap.ordinalTable());
+            var rendered = rockUseCase.renderRetained(
+                    rockMap,
+                    searchPanel.selectedRockHighlight()
+            );
+            mapPanel.show(
+                    rendered.image(),
+                    Optional.of(rendered.geometry()),
+                    loadedPlayerAbsolute
+            );
+            mapFrameState.retain(MapFrame.prospecting(
+                    request.savePath(),
+                    rendered.geometry(),
+                    rockMap
+            ));
+            workstation.setMapGeometry(Optional.of(rendered.geometry()));
+        });
         resultInspector.showProspectingResult(result, request);
         workstation.setStatus("Prospecting analysis complete.");
         setBusy(false);
@@ -884,13 +932,82 @@ public final class WorkstationController {
     private void handleCursorPositionChanged(Optional<MapCursorPosition> cursor) {
         if (cursor.isEmpty() || loadedWorldMetadata.isEmpty()) {
             workstation.clearCursorCoordinates();
+            resultInspector.clearCursorInspection();
             return;
         }
         MapCursorPosition absolute = cursor.orElseThrow();
         var display = loadedWorldMetadata.orElseThrow().toDisplay(
-                new cartographer.model.WorldPosition(absolute.absoluteX(), 0.0, absolute.absoluteZ())
+                new cartographer.model.WorldPosition(
+                        absolute.absoluteX(),
+                        0.0,
+                        absolute.absoluteZ()
+                )
         );
         workstation.setCursorCoordinates(display.x(), display.z());
+
+        Optional<cartographer.geology.rock.RockColumnSample> rockSample =
+                mapFrameState.current()
+                        .flatMap(MapFrame::rockMap)
+                        .flatMap(rockMap -> rockMap.sampleAt(
+                                floorWorldCoordinate(absolute.absoluteX()),
+                                floorWorldCoordinate(absolute.absoluteZ())
+                        ));
+        resultInspector.showRockCursor(rockSample);
+    }
+
+    private int floorWorldCoordinate(double value) {
+        double floored = Math.floor(value);
+        if (floored < Integer.MIN_VALUE || floored > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException(
+                    "world coordinate is outside supported block range"
+            );
+        }
+        return (int) floored;
+    }
+
+    private void handleRockHighlightChanged(Optional<String> rockCode) {
+        Optional<MapFrame> current = mapFrameState.current();
+        if (current.isEmpty() || current.orElseThrow().rockMap().isEmpty()) {
+            return;
+        }
+        MapFrame frame = current.orElseThrow();
+        if (frame.tool() != WorkstationTool.GEOLOGY
+                && frame.tool() != WorkstationTool.PROSPECTING) {
+            return;
+        }
+        long generation = ++rockHighlightGeneration;
+        workstation.setStatus("Highlighting rock locally...");
+        operationCoordinator.submit(
+                "cartographer-rock-highlight",
+                () -> rockUseCase.renderRetained(
+                        frame.rockMap().orElseThrow(),
+                        rockCode
+                ),
+                rendered -> {
+                    if (generation != rockHighlightGeneration
+                            || mapFrameState.current().filter(frame::equals).isEmpty()
+                            || !searchPanel.selectedRockHighlight().equals(rockCode)) {
+                        return;
+                    }
+                    mapPanel.replaceImage(
+                            rendered.image(),
+                            Optional.of(rendered.geometry()),
+                            loadedPlayerAbsolute
+                    );
+                    workstation.setMapGeometry(Optional.of(rendered.geometry()));
+                    workstation.setStatus(
+                            rockCode.map(code -> "Rock highlighted locally: " + code)
+                                    .orElse("Rock highlight cleared locally.")
+                    );
+                },
+                failure -> {
+                    if (generation == rockHighlightGeneration) {
+                        workstation.setStatus(
+                                "Error: " + conciseMessage(failure)
+                        );
+                    }
+                }
+        );
     }
 
     private void showFailure(Throwable failure) {

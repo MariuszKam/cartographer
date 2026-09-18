@@ -2,6 +2,7 @@ package cartographer.ui.workstation;
 
 import cartographer.application.*;
 import cartographer.coverage.RegionCoverageSummary;
+import cartographer.geology.rock.RockColumnSample;
 import cartographer.geology.rock.RockMapMode;
 import cartographer.prospecting.ProspectingAssessment;
 import cartographer.render.RockLegendEntry;
@@ -22,8 +23,10 @@ import javafx.scene.layout.VBox;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public final class ResultInspectorPane extends VBox {
+    private final Label cursorInspection = new Label();
     private final VBox content = new VBox(8);
     private final DiagnosticsPane diagnostics = new DiagnosticsPane();
 
@@ -31,7 +34,11 @@ public final class ResultInspectorPane extends VBox {
         super(8);
         getStyleClass().add("result-inspector");
         setPrefWidth(290);
-        VBox scrollContent = new VBox(8, content, diagnostics);
+        cursorInspection.setWrapText(true);
+        cursorInspection.getStyleClass().add("cursor-inspection");
+        cursorInspection.setVisible(false);
+        cursorInspection.setManaged(false);
+        VBox scrollContent = new VBox(8, cursorInspection, content, diagnostics);
         scrollContent.setPadding(new Insets(4));
         ScrollPane scroll = new ScrollPane(scrollContent);
         scroll.setFitToWidth(true);
@@ -43,11 +50,13 @@ public final class ResultInspectorPane extends VBox {
     }
 
     public void clear() {
+        clearCursorInspection();
         content.getChildren().setAll(label("No result yet."));
         diagnostics.show(List.of());
     }
 
     public void showError(Throwable failure) {
+        clearCursorInspection();
         content.getChildren().setAll(label("ERROR"), label(message(failure)));
         diagnostics.show(List.of());
     }
@@ -163,7 +172,12 @@ public final class ResultInspectorPane extends VBox {
     public void showProspectingResult(ProspectingAreaResult result, ProspectingAreaRequest request) {
         List<javafx.scene.Node> nodes = new ArrayList<>();
         nodes.add(sectionTitle("Prospecting"));
-        nodes.add(label("Resource: " + request.resource().orElse("All resources")));
+        nodes.add(label(
+                "Resources: "
+                        + (request.allResources()
+                        ? "All resources"
+                        : String.join(", ", request.resources()))
+        ));
         nodes.add(label("Radius: " + result.radius()));
         for (ProspectingAssessment assessment : result.assessments()) {
             nodes.add(card(assessment.candidate().resourceKey(), "Rank", assessment.rank().toString(),
@@ -179,6 +193,36 @@ public final class ResultInspectorPane extends VBox {
         }
         content.getChildren().setAll(nodes);
         diagnostics.show(List.of("Assessments: " + result.assessments().size()));
+    }
+
+    public void showRockCursor(Optional<RockColumnSample> sample) {
+        sample = java.util.Objects.requireNonNull(sample, "sample is required");
+        if (sample.isEmpty()) {
+            clearCursorInspection();
+            return;
+        }
+        RockColumnSample value = sample.orElseThrow();
+        String details = switch (value.state()) {
+            case OBSERVED -> "Rock @ X " + value.worldX()
+                    + ", Z " + value.worldZ()
+                    + "\n" + value.rock().orElseThrow().code()
+                    + " @ Y " + value.rockY().orElseThrow();
+            case NO_ROCK -> "Rock @ X " + value.worldX()
+                    + ", Z " + value.worldZ()
+                    + "\nNo rock observed";
+            case UNAVAILABLE -> "Rock @ X " + value.worldX()
+                    + ", Z " + value.worldZ()
+                    + "\nUnavailable";
+        };
+        cursorInspection.setText(details);
+        cursorInspection.setVisible(true);
+        cursorInspection.setManaged(true);
+    }
+
+    public void clearCursorInspection() {
+        cursorInspection.setText("");
+        cursorInspection.setVisible(false);
+        cursorInspection.setManaged(false);
     }
 
     private VBox card(String title, String key1, String value1, String key2, String value2, String key3, String value3) {

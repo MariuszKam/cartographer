@@ -89,9 +89,11 @@ public record MapFrame(
                     );
                 }
             }
-            case GEOLOGY -> {
+            case GEOLOGY, PROSPECTING -> {
                 if (rockMap.isEmpty()) {
-                    throw new IllegalArgumentException("geology frame requires RockMap");
+                    throw new IllegalArgumentException(
+                            tool.name().toLowerCase() + " frame requires RockMap"
+                    );
                 }
                 if (preparedMapData.isPresent()
                         || !actualOreOverlays.isEmpty()
@@ -99,7 +101,8 @@ public record MapFrame(
                         || decorationState.isPresent()
                         || mapRegionOverlayState.isPresent()) {
                     throw new IllegalArgumentException(
-                            "geology frame contains incompatible retained state"
+                            tool.name().toLowerCase()
+                                    + " frame contains incompatible retained state"
                     );
                 }
             }
@@ -115,9 +118,7 @@ public record MapFrame(
                     );
                 }
             }
-            case PROSPECTING -> throw new IllegalArgumentException(
-                    "prospecting does not produce a displayed map frame"
-            );
+
         }
     }
 
@@ -317,6 +318,24 @@ public record MapFrame(
         return new MapFrame(
                 savePath,
                 WorkstationTool.GEOLOGY,
+                geometry,
+                Optional.empty(),
+                List.of(),
+                Optional.empty(),
+                Optional.of(Objects.requireNonNull(rockMap, "rockMap is required")),
+                Optional.empty(),
+                Optional.empty()
+        );
+    }
+
+    public static MapFrame prospecting(
+            Path savePath,
+            MapViewportGeometry geometry,
+            RockMap rockMap
+    ) {
+        return new MapFrame(
+                savePath,
+                WorkstationTool.PROSPECTING,
                 geometry,
                 Optional.empty(),
                 List.of(),

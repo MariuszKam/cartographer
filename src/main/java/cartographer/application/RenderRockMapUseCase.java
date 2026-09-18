@@ -20,6 +20,7 @@ import cartographer.scanner.ActualBlockYFilter;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 public final class RenderRockMapUseCase {
     private final VcdbsReader reader;
@@ -55,6 +56,19 @@ public final class RenderRockMapUseCase {
         Objects.requireNonNull(metadataReader, "metadata reader is required");
         this.sessionFactory = Objects.requireNonNull(sessionFactory, "sessionFactory is required");
         this.renderer = Objects.requireNonNull(renderer, "renderer is required");
+    }
+
+    public RockMapRenderResult renderRetained(RockMap rockMap) {
+        return renderRetained(rockMap, Optional.empty());
+    }
+
+    public RockMapRenderResult renderRetained(
+            RockMap rockMap,
+            Optional<String> highlightRockCode
+    ) {
+        Objects.requireNonNull(rockMap, "rock map is required");
+        Objects.requireNonNull(highlightRockCode, "highlightRockCode is required");
+        return renderer.render(rockMap, highlightRockCode);
     }
 
     public RenderRockMapResult execute(RenderRockMapRequest request) {

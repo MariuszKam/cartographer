@@ -5,6 +5,9 @@ import cartographer.application.MapRegionOverlayState;
 import cartographer.application.PreparedMapData;
 import cartographer.application.ProgressReporter;
 import cartographer.application.RenderDataCacheReport;
+import cartographer.geology.rock.RockColumnSample;
+import cartographer.geology.rock.RockIdentity;
+import cartographer.geology.rock.RockMap;
 import cartographer.model.HomeState;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
@@ -170,6 +173,46 @@ class MapFrameTest {
                 Optional.empty(),
                 true
         ));
+    }
+
+    @Test
+    void prospectingFrameRetainsOnlyCompactRockMapState() {
+        RockIdentity granite = new RockIdentity(
+                7,
+                "game:rock-granite",
+                "game",
+                "granite"
+        );
+        RockMap rockMap = new RockMap(
+                new WorldPosition(32, 0, 32),
+                16,
+                List.of(RockColumnSample.observed(
+                        32,
+                        32,
+                        granite,
+                        5
+                ))
+        );
+        MapFrame frame = MapFrame.prospecting(
+                Path.of("prospecting.vcdbs"),
+                MapViewportGeometry.fullImage(
+                        33,
+                        33,
+                        16,
+                        16,
+                        49,
+                        49
+                ),
+                rockMap
+        );
+
+        assertEquals(WorkstationTool.PROSPECTING, frame.tool());
+        assertSame(rockMap, frame.rockMap().orElseThrow());
+        assertTrue(frame.preparedMapData().isEmpty());
+        assertTrue(frame.actualOreOverlays().isEmpty());
+        assertTrue(frame.surfaceAnalysis().isEmpty());
+        assertTrue(frame.decorationState().isEmpty());
+        assertTrue(frame.mapRegionOverlayState().isEmpty());
     }
 
     @Test

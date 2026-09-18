@@ -8,6 +8,7 @@ import cartographer.model.WorldPosition;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -126,6 +127,35 @@ class RockMapRendererTest {
                 new RockPalette().colorFor(MODDED)
         );
         assertEquals(4, first.observedCount());
+    }
+
+    @Test
+    void highlightDimsOtherRocksWithoutChangingGeometryOrLegend() {
+        RockMap map = map(
+                0,
+                0,
+                1,
+                RockColumnSample.observed(0, 0, GRANITE, 5),
+                RockColumnSample.observed(1, 0, SHALE, 5)
+        );
+        RockMapRenderer renderer = new RockMapRenderer();
+
+        RockMapRenderResult normal = renderer.render(map);
+        RockMapRenderResult highlighted = renderer.render(
+                map,
+                Optional.of(GRANITE.code())
+        );
+
+        assertEquals(normal.geometry(), highlighted.geometry());
+        assertEquals(normal.legend(), highlighted.legend());
+        assertEquals(
+                normal.image().getRGB(1, 1),
+                highlighted.image().getRGB(1, 1)
+        );
+        assertNotEquals(
+                normal.image().getRGB(2, 1),
+                highlighted.image().getRGB(2, 1)
+        );
     }
 
     @Test

@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 public final class RockMapRenderer {
     private static final int NO_ROCK_COLOR = 0xFF4A4A4A;
@@ -35,7 +36,18 @@ public final class RockMapRenderer {
     }
 
     public RockMapRenderResult render(RockMap rockMap) {
+        return render(rockMap, Optional.empty());
+    }
+
+    public RockMapRenderResult render(
+            RockMap rockMap,
+            Optional<String> highlightRockCode
+    ) {
         Objects.requireNonNull(rockMap, "rock map is required");
+        highlightRockCode = Objects.requireNonNull(
+                highlightRockCode,
+                "highlightRockCode is required"
+        ).map(String::trim).filter(value -> !value.isEmpty());
 
         int radius = rockMap.radius();
         int worldDiameter;
@@ -61,9 +73,22 @@ public final class RockMapRenderer {
                 minZ + (double) worldDiameter
         );
         if (diameter == worldDiameter) {
-            drawOneToOne(image, rockMap, minX, minZ);
+            drawOneToOne(
+                    image,
+                    rockMap,
+                    minX,
+                    minZ,
+                    highlightRockCode
+            );
         } else {
-            drawSampled(image, rockMap, minX, minZ, worldDiameter);
+            drawSampled(
+                    image,
+                    rockMap,
+                    minX,
+                    minZ,
+                    worldDiameter,
+                    highlightRockCode
+            );
         }
 
         long observedCount = rockMap.observedCount();
@@ -101,7 +126,8 @@ public final class RockMapRenderer {
             BufferedImage image,
             RockMap rockMap,
             int minX,
-            int minZ
+            int minZ,
+            Optional<String> highlightRockCode
     ) {
         for (int row = 0; row < rockMap.geometry().rowCount(); row++) {
             int worldZ = rockMap.geometry().worldZForRow(row);
@@ -118,7 +144,8 @@ public final class RockMapRenderer {
                         rockMap,
                         index,
                         worldX,
-                        worldZ
+                        worldZ,
+                        highlightRockCode
                 );
             }
         }
@@ -129,7 +156,8 @@ public final class RockMapRenderer {
             RockMap rockMap,
             int minX,
             int minZ,
-            int worldDiameter
+            int worldDiameter,
+            Optional<String> highlightRockCode
     ) {
         int raster = image.getWidth();
         for (int imageY = 0; imageY < raster; imageY++) {
@@ -143,7 +171,16 @@ public final class RockMapRenderer {
                 if (!rockMap.isPopulatedAtIndex(index)) {
                     continue;
                 }
-                paintCell(image, imageX, imageY, rockMap, index, worldX, worldZ);
+                paintCell(
+                        image,
+                        imageX,
+                        imageY,
+                        rockMap,
+                        index,
+                        worldX,
+                        worldZ,
+                        highlightRockCode
+                );
             }
         }
     }
@@ -164,13 +201,19 @@ public final class RockMapRenderer {
             RockMap rockMap,
             int index,
             int worldX,
-            int worldZ
+            int worldZ,
+            Optional<String> highlightRockCode
     ) {
         switch (rockMap.stateAtIndex(index)) {
             case OBSERVED -> {
                 RockIdentity identity = rockMap.ordinalTable()
                         .get(rockMap.rockOrdinalAtIndex(index) - 1);
-                image.setRGB(imageX, imageY, palette.colorFor(identity));
+                int color = palette.colorFor(identity);
+                if (highlightRockCode.isPresent()
+                        && !highlightRockCode.orElseThrow().equals(identity.code())) {
+                    color = dim(color);
+                }
+                image.setRGB(imageX, imageY, color);
             }
             case NO_ROCK -> image.setRGB(imageX, imageY, NO_ROCK_COLOR);
             case UNAVAILABLE -> image.setRGB(
@@ -181,6 +224,14 @@ public final class RockMapRenderer {
                             : UNAVAILABLE_DARK
             );
         }
+    }
+
+    private int dim(int argb) {
+        int alpha = (argb >>> 24) & 0xff;
+        int red = ((argb >>> 16) & 0xff) / 4;
+        int green = ((argb >>> 8) & 0xff) / 4;
+        int blue = (argb & 0xff) / 4;
+        return (alpha << 24) | (red << 16) | (green << 8) | blue;
     }
 
     private int floorBlockCoordinate(double coordinate) {
