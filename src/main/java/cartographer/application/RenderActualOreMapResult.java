@@ -101,4 +101,41 @@ public record RenderActualOreMapResult(
         );
     }
 
+    public RenderActualOreMapResult(
+            BufferedImage image,
+            MapViewportGeometry geometry,
+            MapRenderReport renderReport,
+            SurfaceMapScanResult surface,
+            OverlayRenderReport environmentOverlay,
+            OverlayRenderReport geologyOverlay,
+            Optional<ActualBlockMap> actualOreMap,
+            ReadDiagnostics mapChunkDiagnostics,
+            ReadDiagnostics chunkDiagnostics,
+            ReadDiagnostics mapRegionDiagnostics,
+            ReadDiagnostics actualOreDiagnostics,
+            int userMarkersDrawn,
+            List<ActualOreOverlayResult> actualOreOverlays,
+            RenderDataCacheReport renderDataCacheReport,
+            Optional<PreparedMapData> preparedMapData
+    ) {
+        this(
+                image,
+                geometry,
+                renderReport,
+                surface,
+                environmentOverlay,
+                geologyOverlay,
+                actualOreMap,
+                mapChunkDiagnostics,
+                chunkDiagnostics,
+                mapRegionDiagnostics,
+                actualOreDiagnostics,
+                userMarkersDrawn,
+                actualOreOverlays,
+                renderDataCacheReport,
+                preparedMapData,
+                Optional.empty()
+        );
+    }
+
 }
