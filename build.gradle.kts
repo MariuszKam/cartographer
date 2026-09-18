@@ -250,7 +250,7 @@ tasks.register<JavaExec>("guiValidationInit") {
 tasks.register("guiValidationPreflight") {
     group = "verification"
     description = "Runs the full unit-test gate and writes GUI-P14 preflight evidence"
-    dependsOn(tasks.test)
+    dependsOn("test")
     doLast {
         val gitSha = project.findProperty("gitSha")?.toString()?.trim()
             ?: throw GradleException("guiValidationPreflight requires -PgitSha=<40-character-sha>")
