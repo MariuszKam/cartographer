@@ -61,6 +61,7 @@ final class SurfaceToolPane extends VBox {
     private SurfaceObjectDiscoveryState discoveryState = SurfaceObjectDiscoveryState.NOT_SCANNED;
     private Consumer<SurfaceToolMode> modeListener = ignored -> { };
     private boolean busy;
+    private boolean initialized;
 
     SurfaceToolPane(Runnable availabilityChanged) {
         super(4);
@@ -68,6 +69,7 @@ final class SurfaceToolPane extends VBox {
                 availabilityChanged == null ? () -> { } : availabilityChanged;
         configure();
         build();
+        initialized = true;
     }
 
     SurfaceToolMode selectedMode() {
@@ -174,7 +176,7 @@ final class SurfaceToolPane extends VBox {
         );
         updateResourceStatus();
         applyObjectFilter();
-        availabilityChanged.run();
+        notifyAvailabilityChanged();
     }
 
     void setObservedSurfaceResources(
@@ -198,7 +200,7 @@ final class SurfaceToolPane extends VBox {
         surfaceResourceBox.setDisable(true);
         resourceStatusLabel.setText("Surface objects not scanned yet");
         applyObjectFilter();
-        availabilityChanged.run();
+        notifyAvailabilityChanged();
     }
 
     void setDiscoveryState(SurfaceObjectDiscoveryState state) {
@@ -222,7 +224,7 @@ final class SurfaceToolPane extends VBox {
         if (state == SurfaceObjectDiscoveryState.READY) {
             updateResourceStatus();
         }
-        availabilityChanged.run();
+        notifyAvailabilityChanged();
     }
 
     void setBusy(boolean busy) {
@@ -248,7 +250,7 @@ final class SurfaceToolPane extends VBox {
                 busy || discoveryState != SurfaceObjectDiscoveryState.READY
                         || surfaceResourceBox.getItems().isEmpty()
         );
-        availabilityChanged.run();
+        notifyAvailabilityChanged();
     }
 
     void setDiscoveryBusy(boolean busy) {
@@ -261,6 +263,12 @@ final class SurfaceToolPane extends VBox {
                 SurfaceMaterialPreset.CLAY,
                 SurfaceMaterialPreset.PEAT
         );
+    }
+
+    private void notifyAvailabilityChanged() {
+        if (initialized) {
+            availabilityChanged.run();
+        }
     }
 
     private void configure() {
@@ -337,7 +345,7 @@ final class SurfaceToolPane extends VBox {
             }
             updateMode();
             modeListener.accept(mode);
-            availabilityChanged.run();
+            notifyAvailabilityChanged();
         });
 
         resourceStatusLabel.setWrapText(true);
@@ -436,7 +444,7 @@ final class SurfaceToolPane extends VBox {
                                 + objectsByKey.size() + " observed resources"
         );
         updateResourceStatus();
-        availabilityChanged.run();
+        notifyAvailabilityChanged();
     }
 
     private void applyObjectSelection(Set<String> selectedKeys) {
@@ -447,7 +455,7 @@ final class SurfaceToolPane extends VBox {
 
     private void onSelectionChanged() {
         updateResourceStatus();
-        availabilityChanged.run();
+        notifyAvailabilityChanged();
     }
 
     private void updateResourceStatus() {
@@ -491,6 +499,6 @@ final class SurfaceToolPane extends VBox {
         multipleObjectContent.setVisible(!single);
         multipleObjectContent.setManaged(!single);
         updateResourceStatus();
-        availabilityChanged.run();
+        notifyAvailabilityChanged();
     }
 }
