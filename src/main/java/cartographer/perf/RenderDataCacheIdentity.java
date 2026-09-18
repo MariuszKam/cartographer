@@ -21,6 +21,7 @@ public record RenderDataCacheIdentity(
         } else if (!expectedHash.equalsIgnoreCase(namespaceHash)) {
             throw new IllegalArgumentException("namespace hash does not match save path");
         }
+        namespaceHash = expectedHash;
     }
 
 }

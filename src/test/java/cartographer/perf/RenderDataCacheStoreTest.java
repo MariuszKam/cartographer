@@ -6,6 +6,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -27,8 +28,21 @@ class RenderDataCacheStoreTest {
         RenderDataCacheIdentity differentDirectory = new RenderDataCacheIdentity(
                 base.resolve("two").resolve("world.vcdbs")
         );
+        RenderDataCacheIdentity suppliedUppercase = new RenderDataCacheIdentity(
+                first.normalizedSavePath(),
+                first.namespaceHash().toUpperCase(Locale.ROOT)
+        );
+        RenderDataCacheRevision firstRevision = new RenderDataCacheRevision(
+                first, 4096, 1000, SCHEMA, COMPATIBILITY
+        );
+        RenderDataCacheRevision uppercaseRevision = new RenderDataCacheRevision(
+                suppliedUppercase, 4096, 1000, SCHEMA, COMPATIBILITY
+        );
 
         assertEquals(first, equivalent);
+        assertEquals(first, suppliedUppercase);
+        assertEquals(first.namespaceHash(), suppliedUppercase.namespaceHash());
+        assertEquals(firstRevision.revisionHash(), uppercaseRevision.revisionHash());
         assertNotEquals(first.namespaceHash(), differentDirectory.namespaceHash());
     }
 
