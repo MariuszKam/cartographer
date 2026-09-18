@@ -298,7 +298,10 @@ public final class WorkstationController {
                         request.style(),
                         request.center(),
                         requireSurfaceData
-                ));
+                ))
+                .filter(frame -> !request.layers().contains(
+                        cartographer.render.RenderLayer.MARKERS
+                ) || frame.decorationState().orElseThrow().userMarkersAvailable());
         setBusy(true);
         if (reusable.isPresent()) {
             MapFrame frame = reusable.orElseThrow();
