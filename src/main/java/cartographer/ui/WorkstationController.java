@@ -351,14 +351,7 @@ public final class WorkstationController {
                 selected,
                 surfaceDiscoveryResult.center()
         );
-        setBusy(true);
-        workstation.setStatus("Rendering surface resource...");
-        operationCoordinator.submitProgress(
-                "cartographer-surface-resource-render",
-                progress -> surfaceUseCase.execute(request, progress),
-                result -> showSurfaceResult(result, request),
-                this::showFailure
-        );
+        submitSurfaceRender(request);
     }
 
     private void renderSurfaceMaterial() {
@@ -370,10 +363,40 @@ public final class WorkstationController {
         RenderSurfaceResourceMapRequest request = new RenderSurfaceResourceMapRequest(
                 Path.of(worldPanel.savePathText()), searchPanel.selectedRadius(), 1,
                 RenderStyle.TOPOGRAPHIC, workstation.selectedRenderLayers(), match, Optional.empty());
+        submitSurfaceRender(request);
+    }
+
+    private void submitSurfaceRender(RenderSurfaceResourceMapRequest request) {
+        Optional<MapFrame> reusable = mapFrameState.current()
+                .filter(frame -> frame.canReusePreparedMap(
+                        request.savePath(),
+                        request.radius(),
+                        request.pixelsPerBlock(),
+                        request.style(),
+                        request.center(),
+                        true
+                ));
         setBusy(true);
+        if (reusable.isPresent()) {
+            MapFrame frame = reusable.orElseThrow();
+            workstation.setStatus("Rendering Surface from retained map data...");
+            operationCoordinator.submitProgress(
+                    "cartographer-surface-retained-render",
+                    progress -> surfaceUseCase.executeRetained(
+                            request,
+                            frame.preparedMapData().orElseThrow(),
+                            frame.decorationState().orElseThrow(),
+                            progress
+                    ),
+                    result -> showSurfaceResult(result, request),
+                    this::showFailure
+            );
+            return;
+        }
+
         workstation.setStatus("Rendering surface resource...");
         operationCoordinator.submitProgress(
-                "cartographer-surface-material-render",
+                "cartographer-surface-resource-render",
                 progress -> surfaceUseCase.execute(request, progress),
                 result -> showSurfaceResult(result, request),
                 this::showFailure
