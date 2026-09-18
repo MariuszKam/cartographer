@@ -218,14 +218,45 @@ public final class WorkstationController {
                 return;
             }
             RenderActualOreMapRequest request = requestFromControls();
+            boolean requireSurfaceData =
+                    request.layers().contains(cartographer.render.RenderLayer.SURFACE)
+                            || request.layers().contains(
+                            cartographer.render.RenderLayer.SOIL_FERTILITY
+                    );
+            Optional<MapFrame> reusable = mapFrameState.current()
+                    .filter(frame -> frame.canReusePreparedMap(
+                            request.savePath(),
+                            request.radius(),
+                            request.pixelsPerBlock(),
+                            request.style(),
+                            request.center(),
+                            requireSurfaceData
+                    ));
             setBusy(true);
-            workstation.setStatus("Rendering ore map...");
-            operationCoordinator.submitProgress(
-                    "cartographer-ore-map-render",
-                    progress -> useCase.execute(request, progress),
-                    result -> showResult(result, request),
-                    this::showFailure
-            );
+            if (reusable.isPresent()) {
+                MapFrame frame = reusable.orElseThrow();
+                workstation.setStatus("Rendering ore map with retained base data...");
+                operationCoordinator.submitProgress(
+                        "cartographer-ore-retained-render",
+                        progress -> useCase.executeRetained(
+                                request,
+                                frame.preparedMapData().orElseThrow(),
+                                frame.decorationState().orElseThrow(),
+                                frame.mapRegionOverlayState(),
+                                progress
+                        ),
+                        result -> showResult(result, request),
+                        this::showFailure
+                );
+            } else {
+                workstation.setStatus("Rendering ore map...");
+                operationCoordinator.submitProgress(
+                        "cartographer-ore-map-render",
+                        progress -> useCase.execute(request, progress),
+                        result -> showResult(result, request),
+                        this::showFailure
+                );
+            }
         } catch (RuntimeException exception) {
             showFailure(exception);
         }
