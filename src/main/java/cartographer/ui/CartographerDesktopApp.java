@@ -2,6 +2,7 @@ package cartographer.ui;
 
 import cartographer.application.AnalyzeProspectingAreaUseCase;
 import cartographer.application.DiscoverObservedSurfaceResourcesUseCase;
+import cartographer.application.LoadWorldOverviewUseCase;
 import cartographer.application.RenderActualOreMapUseCase;
 import cartographer.application.RenderCoverageMapUseCase;
 import cartographer.application.RenderRockMapUseCase;
@@ -68,10 +69,11 @@ public class CartographerDesktopApp extends Application {
                 surfaceDiscoveryUseCase,
                 rockUseCase,
                 prospectingUseCase,
-                reader,
-                metadataReader,
-                new ResourceCatalogService(reader, new ResourceAnalyzer()),
-                new PlayerPositionService(reader, metadataReader)
+                new LoadWorldOverviewUseCase(
+                        reader,
+                        metadataReader,
+                        new ResourceAnalyzer()
+                )
         );
 
         stage.setTitle("VS Cartographer");
