@@ -77,11 +77,13 @@ public class CartographerDesktopApp extends Application {
         );
 
         stage.setTitle("VS Cartographer");
-        Scene scene = new Scene(controller.root(), 1180, 760);
+        Scene scene = new Scene(controller.root(), 1440, 880);
         scene.getStylesheets().add(
                 getClass().getResource("/cartographer/ui/cartographer-dark.css").toExternalForm()
         );
         stage.setScene(scene);
+        stage.setMinWidth(1024);
+        stage.setMinHeight(680);
         stage.show();
     }
 
