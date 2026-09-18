@@ -62,6 +62,10 @@ final class ProspectingToolPane extends VBox {
         updateState();
     }
 
+    boolean allResources() {
+        return allResourcesButton.isSelected();
+    }
+
     List<String> selectedResourceKeys() {
         if (allResourcesButton.isSelected()) {
             return List.of();
