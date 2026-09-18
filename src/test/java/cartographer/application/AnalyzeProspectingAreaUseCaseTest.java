@@ -1,6 +1,8 @@
 package cartographer.application;
 
+import cartographer.geology.rock.RockColumnSample;
 import cartographer.geology.rock.RockIdentity;
+import cartographer.geology.rock.RockMap;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
@@ -13,7 +15,10 @@ import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
+import cartographer.prospecting.ActualOreObservation;
 import cartographer.prospecting.ActualOreObservationProvider;
+import cartographer.prospecting.FusedProspectingObservationProvider;
+import cartographer.prospecting.FusedProspectingResult;
 import cartographer.prospecting.OreRockCompatibility;
 import cartographer.prospecting.OreRockCompatibilityProvider;
 import cartographer.prospecting.ProspectingRank;
@@ -37,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -104,6 +110,129 @@ class AnalyzeProspectingAreaUseCaseTest {
                 .candidate().evidence().observedHostRocks().stream()
                 .map(RockIdentity::code)
                 .toList());
+    }
+
+    @Test
+    void multiResourceRequestUsesOneFusedProviderCallAndRetainsRockMap() {
+        TestReader reader = new TestReader();
+        RenderRockMapUseCase rockUseCase = new RenderRockMapUseCase(
+                reader,
+                new TestMetadataReader(),
+                new RockMapRenderer()
+        );
+        ResourceAnalyzer resources = new ResourceAnalyzer() {
+            @Override
+            public List<String> matchingKeys(
+                    List<ServerMapRegion> regions,
+                    String query
+            ) {
+                return List.of(query);
+            }
+
+            @Override
+            public List<ResourceOverlayCell> overlayCells(
+                    List<ServerMapRegion> regions,
+                    String resourceKey,
+                    double minimumRelativeSignal
+            ) {
+                return List.of();
+            }
+        };
+        CountingFusedProvider provider = new CountingFusedProvider();
+        AnalyzeProspectingAreaUseCase useCase = new AnalyzeProspectingAreaUseCase(
+                reader,
+                rockUseCase,
+                resources,
+                OreRockCompatibilityProvider.unknown(),
+                provider,
+                new SaveSessionFactory(
+                        new TestConnectionFactory(),
+                        reader,
+                        new TestMetadataReader()
+                )
+        );
+
+        ProspectingAreaResult result = useCase.execute(
+                new ProspectingAreaRequest(
+                        Path.of("world.vcdbs"),
+                        Optional.of(new WorldPosition(16, 0, 16)),
+                        16,
+                        List.of("copper", "tin")
+                )
+        );
+
+        assertEquals(1, provider.sessionCalls.get());
+        assertEquals(List.of("copper", "tin"), provider.lastResources);
+        assertEquals(2, result.assessments().size());
+        assertEquals(
+                List.of("copper", "tin"),
+                result.assessments().stream()
+                        .map(assessment -> assessment.candidate().resourceKey())
+                        .toList()
+        );
+        assertEquals(provider.rockMap, result.rockMap().orElseThrow());
+    }
+
+    private static final class CountingFusedProvider
+            implements ActualOreObservationProvider, FusedProspectingObservationProvider {
+        private final AtomicInteger sessionCalls = new AtomicInteger();
+        private List<String> lastResources = List.of();
+        private final RockMap rockMap = new RockMap(
+                new WorldPosition(16, 0, 16),
+                16,
+                List.of(RockColumnSample.observed(
+                        16,
+                        16,
+                        new RockIdentity(
+                                7,
+                                "game:rock-granite",
+                                "game",
+                                "granite"
+                        ),
+                        5
+                ))
+        );
+
+        @Override
+        public boolean observed(
+                String resourceKey,
+                Path savePath,
+                WorldPosition center,
+                int radius
+        ) {
+            return false;
+        }
+
+        @Override
+        public FusedProspectingResult analyze(
+                SaveSession session,
+                WorldPosition center,
+                int radius,
+                List<String> resourceKeys
+        ) {
+            sessionCalls.incrementAndGet();
+            lastResources = List.copyOf(resourceKeys);
+            return result(resourceKeys);
+        }
+
+        @Override
+        public FusedProspectingResult analyze(
+                Path savePath,
+                WorldPosition center,
+                int radius,
+                List<String> resourceKeys
+        ) {
+            throw new AssertionError("session overload must be used");
+        }
+
+        private FusedProspectingResult result(List<String> resources) {
+            Map<String, ActualOreObservation> observations =
+                    new java.util.LinkedHashMap<>();
+            for (String resource : resources) {
+                observations.put(resource, ActualOreObservation.NOT_OBSERVED);
+            }
+            return new FusedProspectingResult(rockMap, observations);
+        }
     }
 
     private static final class TestReader extends VcdbsReader {
