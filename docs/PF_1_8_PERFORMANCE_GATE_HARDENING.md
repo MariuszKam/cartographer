@@ -334,6 +334,12 @@ reason is required. A failed gate receives the smallest reasonable fix as a
 new commit; the failing evidence is preserved and the gate is rerun without
 weakening it.
 
+Checkpoint B is implemented as an operation-scoped SaveSession lifecycle probe
+with deterministic exactly-once close observation and focused structural tests.
+It records facts only; it does not issue a PF-1.6 verdict. Tests and runtime
+validation are **NOT RUN** by Codex. PF-1.6 and PF-1.7 remain **PENDING MANUAL
+VALIDATION**.
+
 ## 10. Final evidence required for PF-1.6/PF-1.7 validation
 
 Before either PF-1.6 or PF-1.7 can be marked `VALIDATED`, the final PF-1.8
