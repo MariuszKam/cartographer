@@ -7,6 +7,8 @@ import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldPosition;
 import cartographer.prospecting.ActualOreObservationProvider;
 import cartographer.prospecting.ActualOreObservation;
+import cartographer.prospecting.FusedProspectingObservationProvider;
+import cartographer.prospecting.FusedProspectingResult;
 import cartographer.prospecting.OreRockCompatibilityProvider;
 import cartographer.prospecting.ProspectingCandidate;
 import cartographer.prospecting.ProspectingEvidence;
@@ -82,19 +84,23 @@ public final class AnalyzeProspectingAreaUseCase {
                 request.savePath(),
                 diagnostics
         );
-        RockMap rockMap = rockMapUseCase.execute(
-                new RenderRockMapRequest(
-                        request.savePath(),
-                        cartographer.geology.rock.RockMapMode.UPPER_ROCK,
-                        request.radius(),
-                        Optional.of(center),
-                        java.util.OptionalInt.empty(),
-                        java.util.OptionalInt.empty(),
-                        java.util.OptionalInt.empty()
-                )
-        ).map();
-        RockEvidence geology = geology(rockMap);
         List<String> resources = resources(regions, request.resource());
+        FusedProspectingResult fused = actualOreProvider instanceof FusedProspectingObservationProvider provider
+                ? provider.analyze(request.savePath(), center, request.radius(), resources)
+                : null;
+        RockEvidence geology = fused == null
+                ? geology(rockMapUseCase.execute(
+                        new RenderRockMapRequest(
+                                request.savePath(),
+                                cartographer.geology.rock.RockMapMode.UPPER_ROCK,
+                                request.radius(),
+                                Optional.of(center),
+                                java.util.OptionalInt.empty(),
+                                java.util.OptionalInt.empty(),
+                                java.util.OptionalInt.empty()
+                        )
+                ).map())
+                : geology(fused.rockMap());
         List<ProspectingCandidate> candidates = new ArrayList<>();
         for (String resource : resources) {
             OptionalDouble signal = signal(
@@ -110,12 +116,9 @@ public final class AnalyzeProspectingAreaUseCase {
                                     signal,
                                     geology.state(),
                                     geology.rocks(),
-                                    actualOreProvider.observation(
-                                            resource,
-                                            request.savePath(),
-                                            center,
-                                            request.radius()
-                                    ),
+                                    fused == null
+                                            ? actualOreProvider.observation(resource, request.savePath(), center, request.radius())
+                                            : fused.observation(resource),
                                     geology.observedColumns(),
                                     geology.noRockColumns(),
                                     geology.unavailableColumns()
