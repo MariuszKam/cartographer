@@ -178,6 +178,7 @@ class RenderActualOreMapUseCaseTest {
 
         RenderActualOreMapResult retained = useCase.executeRetained(
                 request,
+                request.savePath(),
                 first.preparedMapData().orElseThrow(),
                 first.decorationState().orElseThrow(),
                 first.mapRegionOverlayState(),
