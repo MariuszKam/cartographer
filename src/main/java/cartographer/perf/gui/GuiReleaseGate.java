@@ -194,7 +194,21 @@ public final class GuiReleaseGate {
                 .resolve(workload + "-" + mode)
                 .resolve("macro-report.txt");
         if (!Files.isRegularFile(report)) {
-            failures.add("macro evidence missing: " + report);
+            if (!requireFactual
+                    && checkStretchAttempt(
+                    sha,
+                    root,
+                    workload,
+                    mode,
+                    passed,
+                    failures
+            )) {
+                failures.add(
+                        "stretch macro attempt evidence missing: " + report
+                );
+            } else if (requireFactual) {
+                failures.add("macro evidence missing: " + report);
+            }
             return;
         }
         List<String> lines;
@@ -265,6 +279,52 @@ public final class GuiReleaseGate {
                             : " stretch attempt evidence (" + verdict + ")")
             );
         }
+    }
+
+    private boolean checkStretchAttempt(
+            String sha,
+            Path root,
+            String workload,
+            String mode,
+            List<String> passed,
+            List<String> failures
+    ) {
+        Path file = root.resolve("macro")
+                .resolve("attempts")
+                .resolve(workload + "-" + mode + ".properties");
+        Properties properties = load(
+                file,
+                "stretch-attempt",
+                failures
+        );
+        if (properties == null) {
+            return false;
+        }
+        if (!matchesSha(sha, properties, file, failures)) {
+            return false;
+        }
+        String actualWorkload = properties.getProperty("workload");
+        String outcome = properties.getProperty("outcome");
+        if (!workload.equals(actualWorkload)) {
+            failures.add(
+                    "stretch workload mismatch in " + file
+                            + ": " + actualWorkload
+            );
+            return false;
+        }
+        if (outcome == null
+                || outcome.isBlank()
+                || "STARTED".equals(outcome)) {
+            failures.add(
+                    "stretch attempt has no terminal outcome: " + file
+            );
+            return false;
+        }
+        passed.add(
+                workload + "/" + mode
+                        + " stretch attempt evidence (" + outcome + ")"
+        );
+        return true;
     }
 
     private Properties load(
