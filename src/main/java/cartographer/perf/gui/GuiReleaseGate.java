@@ -194,20 +194,17 @@ public final class GuiReleaseGate {
                 .resolve(workload + "-" + mode)
                 .resolve("macro-report.txt");
         if (!Files.isRegularFile(report)) {
-            if (!requireFactual
-                    && checkStretchAttempt(
-                    sha,
-                    root,
-                    workload,
-                    mode,
-                    passed,
-                    failures
-            )) {
-                failures.add(
-                        "stretch macro attempt evidence missing: " + report
-                );
-            } else if (requireFactual) {
+            if (requireFactual) {
                 failures.add("macro evidence missing: " + report);
+            } else {
+                checkStretchAttempt(
+                        sha,
+                        root,
+                        workload,
+                        mode,
+                        passed,
+                        failures
+                );
             }
             return;
         }
