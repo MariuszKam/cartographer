@@ -506,6 +506,17 @@ AFTER capture, and campaign identity must all be valid before the recording
 is analyzed. These corrections are implementation-only; tests, profiling,
 and real-save validation remain **NOT RUN**.
 
+H-FIX2 repairs the JFR implementation contract. Recording analysis now uses
+the Java 25 instance `RecordingFile.readEventTypes()` API while streaming
+events, and a bounded deterministic Space-Saving accumulator allows repeated
+late unit-weight CPU samples to become reported hot items without retaining
+unbounded cardinality. Event metadata, observed counts, partial allocation
+weights, partial GC durations, and conservative file-I/O wording remain
+distinct. MAP profiling requires CACHE_WARM HIT evidence for every recorded
+warmup and measured operation; ROCK profiling remains source-authoritative.
+Profiler, analyzer, and source-safety seams are package-scoped for
+deterministic tests. Tests and JFR execution remain **NOT RUN**.
+
 ## 10. Final evidence required for PF-1.6/PF-1.7 validation
 
 Before either PF-1.6 or PF-1.7 can be marked `VALIDATED`, the final PF-1.8

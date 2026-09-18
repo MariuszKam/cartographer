@@ -27,20 +27,26 @@ import java.util.Objects;
 /** Runs one separate PF-1.8 diagnostic profiling campaign. */
 public final class Pf18JfrRunner {
     private static final long MAX_JFR_SIZE_BYTES = 256L * 1024 * 1024;
-    private final JfrBenchmarkProfiler profiler;
-    private final Pf18JfrAnalyzer analyzer;
+    private final Pf18JfrProfilerInvoker profiler;
+    private final Pf18JfrAnalyzerInvoker analyzer;
     private final Pf18MacroOperationFactory operations;
-    private final SaveSafetySnapshotter snapshotter;
+    private final Pf18JfrSafetySnapshotProvider snapshotter;
     private final SaveSafetyGate safetyGate;
 
     public Pf18JfrRunner(Pf18MacroOperationFactory operations) {
-        this(new JfrBenchmarkProfiler(), new Pf18JfrAnalyzer(), operations,
-                new SaveSafetySnapshotter(), new SaveSafetyGate());
+        this(new JfrBenchmarkProfiler()::profile, new Pf18JfrAnalyzer()::analyze, operations,
+                new SaveSafetySnapshotter()::capture, new SaveSafetyGate());
     }
 
     Pf18JfrRunner(JfrBenchmarkProfiler profiler, Pf18JfrAnalyzer analyzer,
                   Pf18MacroOperationFactory operations,
                   SaveSafetySnapshotter snapshotter, SaveSafetyGate safetyGate) {
+        this(profiler::profile, analyzer::analyze, operations, snapshotter::capture, safetyGate);
+    }
+
+    Pf18JfrRunner(Pf18JfrProfilerInvoker profiler, Pf18JfrAnalyzerInvoker analyzer,
+                  Pf18MacroOperationFactory operations,
+                  Pf18JfrSafetySnapshotProvider snapshotter, SaveSafetyGate safetyGate) {
         this.profiler = Objects.requireNonNull(profiler);
         this.analyzer = Objects.requireNonNull(analyzer);
         this.operations = Objects.requireNonNull(operations);
@@ -91,7 +97,8 @@ public final class Pf18JfrRunner {
         Throwable primaryFailure = null;
         Pf18IterationEvidence authoritative = null;
         String profileState = workload.family() == WorkloadFamily.MAP
-                ? "CACHE_WARM" : "PROCESS_SOURCE_AUTHORITATIVE";
+                ? "CACHE_WARM; JVM warm after external cache preparation"
+                : "SOURCE_AUTHORITATIVE; JVM_WARM diagnostic profile";
         try {
             authoritative = operations.createAuthoritative(save, workload).execute();
             Pf18MacroOperationFactory.Pf18MacroOperation operation;
@@ -117,7 +124,11 @@ public final class Pf18JfrRunner {
                     new BenchmarkPlan(workload, ExecutionMode.JVM_WARM, 2, 5),
                     ignored -> {
                         Pf18IterationEvidence evidence = operation.execute();
-                        assertParity(expected, evidence, "JFR measured operation");
+                        assertParity(expected, evidence, "JFR recorded operation");
+                        if (workload.family() == WorkloadFamily.MAP && !evidence.cacheHit()) {
+                            throw new JfrProfilingException(
+                                    "MAP JFR recorded operation did not prove CACHE_WARM HIT");
+                        }
                         return BenchmarkOperationResult.success(composite(evidence));
                     });
             BenchmarkRunResult result = profiling.benchmarkResult();
@@ -153,7 +164,7 @@ public final class Pf18JfrRunner {
         }
         Pf18JfrCampaignIdentity identity = new Pf18JfrCampaignIdentity(
                 sha, workload.id(), workload.family().name(), workload.radius().blocks(),
-                profileState, JfrConfiguration.PROFILE.name(), MAX_JFR_SIZE_BYTES, save,
+                profileState, "profile", MAX_JFR_SIZE_BYTES, save,
                 safety.status().name(), authoritative.semanticFingerprint(), authoritative.imageFingerprint());
         return analyzer.analyze(recording, summary, identity);
     }
