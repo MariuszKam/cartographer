@@ -116,6 +116,55 @@ After a normal Map/Ore/Surface render:
 - Surface Object discovery is intentionally still a distinct selective source
   operation; do not count it as retained Surface-render IO.
 
+## Responsive operation and cancellation acceptance
+
+### Scoped responsiveness
+
+Start a source-heavy R2048 or R4096 render while a valid previous frame is
+visible.
+
+Confirm that:
+
+- pan, zoom, Fit/Reset and cursor inspection remain responsive;
+- the Result Inspector remains readable;
+- retained layer toggles can recompose the previous Map/Ore/Surface frame;
+- retained ROCK highlight can rerender the previous Geology/Prospecting frame;
+- save/radius/new source Render controls that would conflict with the active
+  source request are disabled;
+- background Surface discovery does not disable the viewport or inspector.
+
+### Foreground cancellation
+
+1. Start a source-authoritative R2048 or R4096 Map/Ore/Geology/Prospecting
+   operation.
+2. Press Cancel while source/decode work is active.
+3. Confirm the UI reports cancellation rather than an ERROR analysis result.
+4. Confirm the previously valid frame remains visible.
+5. Confirm the cancelled result is never displayed after cancellation.
+6. Confirm the application becomes ready for another operation.
+7. Immediately run a smaller operation and confirm it succeeds.
+
+For deterministic automated evidence, cancellation tests must prove that an
+interrupted Surface discovery and ROCK source workflow close their
+operation-scoped `SaveSession` exactly once. The bounded decode pipeline tests
+must continue to prove interruption, outstanding-future cancellation,
+`shutdownNow()`, worker quiescence and restored interrupt state.
+
+### Stale completion protection
+
+Rapidly request a second local layer recomposition or ROCK highlight before the
+first completes. Only the latest generation may replace the viewport raster.
+
+Changing save invalidates/cancels old FOREGROUND, DISCOVERY and LOCAL work.
+No completion belonging to the previous save may update the current
+Workstation.
+
+### Source safety after cancellation
+
+After a cancelled real-save operation, rerun the read-only safety gate and
+confirm the source `.vcdbs` and prohibited sidecars remain unchanged. A
+cancelled operation does not weaken the source-safety contract.
+
 ## Visual acceptance
 
 For at least R1024, R2048 and R4096 inspect:
