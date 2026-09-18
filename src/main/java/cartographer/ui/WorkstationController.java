@@ -33,6 +33,8 @@ import cartographer.render.RenderStyle;
 import cartographer.resource.ObservedSurfaceResource;
 import cartographer.scanner.ActualBlockYFilter;
 import cartographer.ui.workstation.MapCursorPosition;
+import cartographer.ui.workstation.MapFrame;
+import cartographer.ui.workstation.MapFrameState;
 import cartographer.ui.workstation.MapPanel;
 import cartographer.ui.workstation.ResultInspectorPane;
 import cartographer.ui.workstation.SearchPanel;
@@ -68,6 +70,7 @@ public final class WorkstationController {
     private final MapPanel mapPanel;
     private final ResultInspectorPane resultInspector;
     private final WorkstationOperationCoordinator operationCoordinator;
+    private final MapFrameState mapFrameState = new MapFrameState();
 
     private final RenderActualOreMapUseCase useCase;
     private final RenderCoverageMapUseCase coverageUseCase;
@@ -144,6 +147,7 @@ public final class WorkstationController {
         loadedPlayerAbsolute = Optional.empty();
         loadedWorldMetadata = Optional.empty();
         mapPanel.clearNavigationContext();
+        mapFrameState.clear();
         workstation.clearMapGeometry();
         surfaceSelectionKeys = Set.of();
         invalidateSurfaceDiscovery();
@@ -236,7 +240,7 @@ public final class WorkstationController {
         operationCoordinator.submitProgress(
                 "cartographer-coverage-render",
                 progress -> coverageUseCase.execute(request, progress),
-                this::showCoverageResult,
+                result -> showCoverageResult(result, request),
                 this::showFailure
         );
     }
@@ -427,6 +431,14 @@ public final class WorkstationController {
 
     private void showResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
         mapPanel.show(result.image(), Optional.of(result.geometry()), loadedPlayerAbsolute);
+        mapFrameState.retain(MapFrame.ore(
+                request.savePath(),
+                result.geometry(),
+                result.preparedMapData().orElseThrow(
+                        () -> new IllegalStateException("ore result missing prepared map data")
+                ),
+                result.actualOreOverlays()
+        ));
         workstation.setMapGeometry(Optional.of(result.geometry()));
         resultInspector.showOreResult(result, request);
         workstation.setStatus("Rendered.");
@@ -435,14 +447,26 @@ public final class WorkstationController {
 
     private void showMapResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
         mapPanel.show(result.image(), Optional.of(result.geometry()), loadedPlayerAbsolute);
+        mapFrameState.retain(MapFrame.map(
+                request.savePath(),
+                result.geometry(),
+                result.preparedMapData().orElseThrow(
+                        () -> new IllegalStateException("map result missing prepared map data")
+                )
+        ));
         workstation.setMapGeometry(Optional.of(result.geometry()));
         resultInspector.showMapResult(result, request);
         workstation.setStatus("Map rendered.");
         setBusy(false);
     }
 
-    private void showCoverageResult(RenderCoverageMapResult result) {
+    private void showCoverageResult(
+            RenderCoverageMapResult result,
+            RenderCoverageMapRequest request
+    ) {
         mapPanel.show(result.image(), result.geometry(), loadedPlayerAbsolute);
+        result.geometry().ifPresent(geometry ->
+                mapFrameState.retain(MapFrame.coverage(request.savePath(), geometry)));
         workstation.setMapGeometry(result.geometry());
         resultInspector.showCoverageResult(result);
         workstation.setStatus("Coverage rendered.");
@@ -454,6 +478,14 @@ public final class WorkstationController {
             RenderSurfaceResourceMapRequest request
     ) {
         mapPanel.show(result.image(), Optional.of(result.geometry()), loadedPlayerAbsolute);
+        mapFrameState.retain(MapFrame.surface(
+                request.savePath(),
+                result.geometry(),
+                result.preparedMapData().orElseThrow(
+                        () -> new IllegalStateException("surface result missing prepared map data")
+                ),
+                result.analysis()
+        ));
         workstation.setMapGeometry(Optional.of(result.geometry()));
         resultInspector.showSurfaceResult(result, request);
         workstation.setStatus("Rendered.");
@@ -613,6 +645,11 @@ public final class WorkstationController {
                 Optional.of(result.rendered().geometry()),
                 loadedPlayerAbsolute
         );
+        mapFrameState.retain(MapFrame.geology(
+                request.savePath(),
+                result.rendered().geometry(),
+                result.map()
+        ));
         workstation.setMapGeometry(Optional.of(result.rendered().geometry()));
         resultInspector.showRockResult(result, request);
         workstation.setStatus("Rock map rendered.");
