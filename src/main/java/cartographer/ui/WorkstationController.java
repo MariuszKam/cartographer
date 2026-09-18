@@ -1128,6 +1128,12 @@ public final class WorkstationController {
     }
 
     private void setBusy(boolean busy) {
+        if (busy
+                && operationCoordinator.isActive(
+                WorkstationOperationScope.DISCOVERY
+        )) {
+            operationCoordinator.cancel(WorkstationOperationScope.DISCOVERY);
+        }
         workstation.setBusy(busy);
     }
 
