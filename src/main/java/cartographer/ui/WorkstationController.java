@@ -240,6 +240,7 @@ public final class WorkstationController {
                         "cartographer-ore-retained-render",
                         progress -> useCase.executeRetained(
                                 request,
+                                frame.savePath(),
                                 frame.preparedMapData().orElseThrow(),
                                 frame.decorationState().orElseThrow(),
                                 frame.mapRegionOverlayState(),
@@ -303,6 +304,7 @@ public final class WorkstationController {
                     "cartographer-map-retained-render",
                     progress -> useCase.executeRetained(
                             request,
+                            frame.savePath(),
                             frame.preparedMapData().orElseThrow(),
                             frame.decorationState().orElseThrow(),
                             frame.mapRegionOverlayState(),
