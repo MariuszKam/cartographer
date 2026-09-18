@@ -15,6 +15,9 @@ import cartographer.perf.RenderDataCacheStore;
 import cartographer.perf.TerrainHeightTile;
 import cartographer.perf.TerrainTileStore;
 import cartographer.perf.SurfaceTileStore;
+import cartographer.perf.fingerprint.ImageFingerprinter;
+import cartographer.perf.fingerprint.RenderActualOreMapResultFingerprinter;
+import cartographer.perf.fingerprint.ResultFingerprint;
 import cartographer.render.ActualOreOverlayPainter;
 import cartographer.render.MapRenderer;
 import cartographer.render.RenderLayer;
@@ -504,6 +507,24 @@ class RenderActualOreMapUseCaseTest {
         assertTrue(requested.contains(missCoordinate));
         assertEquals(1, result.renderDataCacheReport().terrain().hits());
         assertTrue(result.renderDataCacheReport().terrain().sourceLoaded() >= 1);
+
+        FakeReader sourceReader = new FakeReader(fireClayRegistry());
+        sourceReader.mapChunks.put(hitCoordinate,
+                new MapChunk(hitCoordinate, filledHeights(), new int[0]));
+        sourceReader.mapChunks.put(missCoordinate,
+                new MapChunk(missCoordinate, filledHeights(7), new int[0]));
+        RenderActualOreMapResult source = useCase(
+                sourceReader,
+                new WorldMetadata(128, 256, 128),
+                temporaryDirectory.resolve("mixed-terrain-home-source.properties"),
+                temporaryDirectory.resolve("mixed-terrain-markers-source.csv")
+        ).execute(new RenderActualOreMapRequest(
+                savePath, 32, 1, RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.TERRAIN), Optional.empty(),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(32, 64, 32))
+        ));
+        assertParity(source, result);
     }
 
     @Test
@@ -584,6 +605,51 @@ class RenderActualOreMapUseCaseTest {
                         second.surface().map().surfaceClassAt(worldX, worldZ));
             }
         }
+    }
+
+    @Test
+    void sourceMissAndHitPreserveSemanticAndImageFingerprints() throws Exception {
+        Path savePath = temporaryDirectory.resolve("fingerprint-parity-save.vcdbs");
+        Files.write(savePath, new byte[]{1});
+        Path home = temporaryDirectory.resolve("fingerprint-parity-home.properties");
+        Path markers = temporaryDirectory.resolve("fingerprint-parity-markers.csv");
+        RenderActualOreMapRequest request = new RenderActualOreMapRequest(
+                savePath, 23, 1, RenderStyle.TOPOGRAPHIC, Set.of(RenderLayer.SURFACE),
+                Optional.empty(), ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(16, 64, 16))
+        );
+
+        RenderActualOreMapResult source = useCase(
+                surfaceReader(true), new WorldMetadata(32, 256, 32), home, markers
+        ).execute(request);
+        RenderDataCacheStore cacheStore = new RenderDataCacheStore(
+                temporaryDirectory.resolve("fingerprint-parity-cache")
+        );
+        RenderActualOreMapResult miss = useCase(
+                surfaceReader(true), new WorldMetadata(32, 256, 32), home, markers, cacheStore
+        ).execute(request);
+        RenderActualOreMapResult hit = useCase(
+                surfaceReader(true), new WorldMetadata(32, 256, 32), home, markers, cacheStore
+        ).execute(request);
+
+        assertParity(source, miss);
+        assertParity(source, hit);
+        assertTrue(miss.renderDataCacheReport().terrain().misses() > 0);
+        assertTrue(hit.renderDataCacheReport().terrain().hits() > 0);
+        assertTrue(hit.renderDataCacheReport().surface().hits() > 0);
+    }
+
+    private static void assertParity(
+            RenderActualOreMapResult expected,
+            RenderActualOreMapResult actual
+    ) {
+        ResultFingerprint expectedSemantic =
+                RenderActualOreMapResultFingerprinter.fingerprint(expected);
+        ResultFingerprint actualSemantic =
+                RenderActualOreMapResultFingerprinter.fingerprint(actual);
+        assertEquals(expectedSemantic, actualSemantic);
+        assertEquals(ImageFingerprinter.fingerprint(expected.image()),
+                ImageFingerprinter.fingerprint(actual.image()));
     }
 
     @Test

@@ -340,6 +340,13 @@ It records facts only; it does not issue a PF-1.6 verdict. Tests and runtime
 validation are **NOT RUN** by Codex. PF-1.6 and PF-1.7 remain **PENDING MANUAL
 VALIDATION**.
 
+Checkpoint C is implemented with the existing logical ARGB fingerprinter and
+canonical semantic fingerprint infrastructure. Source, MISS, HIT, and mixed
+path parity gates cover stable render geometry and Surface cell semantics;
+cache work counters remain operational evidence rather than fingerprint input.
+Tests and runtime validation are **NOT RUN** by Codex. PF-1.6 and PF-1.7 remain
+**PENDING MANUAL VALIDATION**.
+
 ## 10. Final evidence required for PF-1.6/PF-1.7 validation
 
 Before either PF-1.6 or PF-1.7 can be marked `VALIDATED`, the final PF-1.8
