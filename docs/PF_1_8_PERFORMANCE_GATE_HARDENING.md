@@ -517,6 +517,14 @@ warmup and measured operation; ROCK profiling remains source-authoritative.
 Profiler, analyzer, and source-safety seams are package-scoped for
 deterministic tests. Tests and JFR execution remain **NOT RUN**.
 
+H-FIX3 adds deterministic runner, accumulator, resource, and identity gate
+coverage for the corrected contract, including profiler-status rejection,
+cache-warm HIT enforcement, safety-after-attempt behavior, output/evidence
+collision rejection, bounded late-key selection, partial unavailable-event
+semantics, conservative file-I/O wording, and diagnostic summary identity.
+These are authored tests only; tests, JFR execution, and real-save validation
+remain **NOT RUN**.
+
 ## 10. Final evidence required for PF-1.6/PF-1.7 validation
 
 Before either PF-1.6 or PF-1.7 can be marked `VALIDATED`, the final PF-1.8

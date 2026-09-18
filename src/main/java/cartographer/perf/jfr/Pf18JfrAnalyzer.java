@@ -95,7 +95,7 @@ public final class Pf18JfrAnalyzer {
         return new Pf18JfrSummary(normalizedRecording, normalizedSummary, true, identity, lines);
     }
 
-    private static String allocationWeightDescription(Pf18JfrEventAccumulator facts) {
+    static String allocationWeightDescription(Pf18JfrEventAccumulator facts) {
         if (facts.allocationEventCount() == 0) return "UNAVAILABLE (no allocation sample events observed)";
         if (facts.allocationKnownWeightCount() == facts.allocationEventCount()) {
             return "available for all observed events";
@@ -104,7 +104,7 @@ public final class Pf18JfrAnalyzer {
                 - facts.allocationKnownWeightCount()) + " event(s)";
     }
 
-    private static String gcDurationDescription(Pf18JfrEventAccumulator facts) {
+    static String gcDurationDescription(Pf18JfrEventAccumulator facts) {
         if (facts.gcPauseEventCount() == 0) return "UNAVAILABLE (no GC pause events observed)";
         if (facts.gcPauseKnownDurationCount() == facts.gcPauseEventCount()) {
             return Long.toString(facts.gcPauseDurationNanos());
@@ -113,7 +113,7 @@ public final class Pf18JfrAnalyzer {
                 - facts.gcPauseKnownDurationCount()) + " event(s)";
     }
 
-    private static String fileIoDescription(Pf18JfrEventAccumulator facts) {
+    static String fileIoDescription(Pf18JfrEventAccumulator facts) {
         long reads = facts.counts().getOrDefault("jdk.FileRead", 0L);
         long writes = facts.counts().getOrDefault("jdk.FileWrite", 0L);
         if (reads > 0 || writes > 0) {

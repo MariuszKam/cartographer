@@ -30,6 +30,9 @@ class Pf18ResourceEvidenceTest {
         assertEquals(12, evidence.processCpuNanoseconds().getAsLong());
         assertEquals(34, evidence.peakHeapBytes().getAsLong());
         assertEquals("test GC", evidence.gcMethod());
+        assertTrue(evidence.heapMethod().contains("per-heap-pool"));
+        assertTrue(evidence.render("RSS", evidence.rssBytes(), evidence.rssMethod())
+                .contains("UNAVAILABLE"));
     }
 
     @Test
