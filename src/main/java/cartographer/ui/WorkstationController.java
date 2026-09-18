@@ -1077,6 +1077,41 @@ public final class WorkstationController {
         );
     }
 
+    private void cancelPreferredOperation() {
+        if (operationCoordinator.cancelPreferred()) {
+            workstation.setStatus("Cancelling operation...");
+        }
+    }
+
+    private void handleOperationCancelled(WorkstationOperationScope scope) {
+        switch (scope) {
+            case FOREGROUND -> setBusy(false);
+            case DISCOVERY -> {
+                workstation.setDiscoveryBusy(false);
+                if (surfaceObjectDiscoveryState == SurfaceObjectDiscoveryState.SCANNING) {
+                    surfaceDiscoveryResult = null;
+                    surfaceDiscoveryTaskKey = null;
+                    workstation.clearObservedSurfaceResources();
+                    surfaceObjectDiscoveryState =
+                            SurfaceObjectDiscoveryState.NOT_SCANNED;
+                    workstation.setSurfaceObjectDiscoveryState(
+                            surfaceObjectDiscoveryState
+                    );
+                }
+            }
+            case LOCAL -> {
+                localRecompositionGate.invalidate();
+                rockHighlightGeneration++;
+                workstation.setLocalBusy(false);
+            }
+        }
+        if (!operationCoordinator.isActive(WorkstationOperationScope.FOREGROUND)
+                && !operationCoordinator.isActive(WorkstationOperationScope.LOCAL)
+                && !operationCoordinator.isActive(WorkstationOperationScope.DISCOVERY)) {
+            workstation.setStatus("Cancelled.");
+        }
+    }
+
     private void showFailure(Throwable failure) {
         workstation.setStatus("Error: " + conciseMessage(failure));
         resultInspector.showError(failure);
