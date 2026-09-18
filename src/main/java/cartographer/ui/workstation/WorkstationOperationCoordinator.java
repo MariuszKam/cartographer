@@ -3,23 +3,39 @@ package cartographer.ui.workstation;
 import cartographer.application.ProgressReporter;
 import javafx.concurrent.Task;
 
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.CancellationException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * UI-owned launcher for Workstation background operations.
+ * UI-owned coordinator for bounded Workstation operations.
  *
- * <p>This class centralizes JavaFX Task creation, progress bridging and daemon-thread
- * startup only. Operation semantics, busy scopes, stale-result handling and cancellation
- * remain owned by the controller/callers.</p>
+ * <p>One active operation is allowed per scope. Starting a replacement
+ * operation cancels/interupts the previous operation in that scope. Completion
+ * callbacks are generation-gated so stale results cannot update the UI.</p>
  */
 public final class WorkstationOperationCoordinator {
     private final WorkstationView workstation;
+    private final Map<WorkstationOperationScope, ActiveOperation<?>> active =
+            new EnumMap<>(WorkstationOperationScope.class);
+    private final Map<WorkstationOperationScope, WorkstationOperationSnapshot> last =
+            new EnumMap<>(WorkstationOperationScope.class);
+    private long generation;
+    private Consumer<WorkstationOperationScope> cancelledListener = ignored -> { };
 
     public WorkstationOperationCoordinator(WorkstationView workstation) {
         this.workstation = Objects.requireNonNull(workstation, "workstation is required");
+    }
+
+    public void setOnCancelled(
+            Consumer<WorkstationOperationScope> listener
+    ) {
+        cancelledListener = listener == null ? ignored -> { } : listener;
     }
 
     public <T> Task<T> submit(
@@ -28,15 +44,43 @@ public final class WorkstationOperationCoordinator {
             Consumer<T> onSucceeded,
             Consumer<Throwable> onFailed
     ) {
+        return submit(
+                WorkstationOperationScope.FOREGROUND,
+                threadName,
+                threadName,
+                operation,
+                onSucceeded,
+                onFailed
+        );
+    }
+
+    public <T> Task<T> submit(
+            WorkstationOperationScope scope,
+            String type,
+            String requestSummary,
+            Supplier<T> operation,
+            Consumer<T> onSucceeded,
+            Consumer<Throwable> onFailed
+    ) {
         Objects.requireNonNull(operation, "operation is required");
+        long token = nextGeneration();
         Task<T> task = new Task<>() {
             @Override
             protected T call() {
+                requireCurrent(scope, token, this);
                 return operation.get();
             }
         };
-        configure(task, onSucceeded, onFailed, false);
-        start(task, threadName);
+        ActiveOperation<T> activeOperation = new ActiveOperation<>(
+                token,
+                scope,
+                normalized(type, "type"),
+                normalized(requestSummary, "request summary"),
+                task
+        );
+        register(activeOperation);
+        configure(activeOperation, onSucceeded, onFailed, false);
+        start(activeOperation, activeOperation.type());
         return task;
     }
 
@@ -46,51 +90,183 @@ public final class WorkstationOperationCoordinator {
             Consumer<T> onSucceeded,
             Consumer<Throwable> onFailed
     ) {
+        return submitProgress(
+                WorkstationOperationScope.FOREGROUND,
+                threadName,
+                threadName,
+                operation,
+                onSucceeded,
+                onFailed
+        );
+    }
+
+    public <T> Task<T> submitProgress(
+            WorkstationOperationScope scope,
+            String type,
+            String requestSummary,
+            Function<ProgressReporter, T> operation,
+            Consumer<T> onSucceeded,
+            Consumer<Throwable> onFailed
+    ) {
         Objects.requireNonNull(operation, "operation is required");
+        long token = nextGeneration();
         ProgressTask<T> task = new ProgressTask<>() {
             @Override
             protected T call() {
-                return operation.apply(progressReporter(this));
+                requireCurrent(scope, token, this);
+                return operation.apply(progressReporter(this, scope, token));
             }
         };
-        configure(task, onSucceeded, onFailed, true);
-        start(task, threadName);
+        ActiveOperation<T> activeOperation = new ActiveOperation<>(
+                token,
+                scope,
+                normalized(type, "type"),
+                normalized(requestSummary, "request summary"),
+                task
+        );
+        register(activeOperation);
+        configure(activeOperation, onSucceeded, onFailed, true);
+        start(activeOperation, activeOperation.type());
         return task;
     }
 
+    public boolean cancel(WorkstationOperationScope scope) {
+        Objects.requireNonNull(scope, "scope is required");
+        ActiveOperation<?> operation;
+        synchronized (this) {
+            operation = active.get(scope);
+            if (operation == null || operation.terminal()) {
+                return false;
+            }
+            operation.state = WorkstationOperationState.CANCEL_REQUESTED;
+            last.put(scope, operation.snapshot());
+        }
+        interrupt(operation);
+        return true;
+    }
+
+    public boolean cancelPreferred() {
+        if (cancel(WorkstationOperationScope.FOREGROUND)) {
+            return true;
+        }
+        if (cancel(WorkstationOperationScope.LOCAL)) {
+            return true;
+        }
+        return cancel(WorkstationOperationScope.DISCOVERY);
+    }
+
+    public void cancelAll() {
+        for (WorkstationOperationScope scope : WorkstationOperationScope.values()) {
+            cancel(scope);
+        }
+    }
+
+    public synchronized boolean isActive(WorkstationOperationScope scope) {
+        ActiveOperation<?> operation = active.get(
+                Objects.requireNonNull(scope, "scope is required")
+        );
+        return operation != null && !operation.terminal();
+    }
+
+    public synchronized Optional<WorkstationOperationSnapshot> snapshot(
+            WorkstationOperationScope scope
+    ) {
+        Objects.requireNonNull(scope, "scope is required");
+        ActiveOperation<?> operation = active.get(scope);
+        if (operation != null) {
+            return Optional.of(operation.snapshot());
+        }
+        return Optional.ofNullable(last.get(scope));
+    }
+
+    private synchronized long nextGeneration() {
+        return ++generation;
+    }
+
+    private <T> void register(ActiveOperation<T> operation) {
+        ActiveOperation<?> previous;
+        synchronized (this) {
+            previous = active.put(operation.scope(), operation);
+        }
+        if (previous != null && !previous.terminal()) {
+            interrupt(previous);
+        }
+    }
+
     private <T> void configure(
-            Task<T> task,
+            ActiveOperation<T> operation,
             Consumer<T> onSucceeded,
             Consumer<Throwable> onFailed,
             boolean reportProgress
     ) {
-        Objects.requireNonNull(task, "task is required");
+        Task<T> task = operation.task();
         Consumer<T> success = onSucceeded == null ? ignored -> { } : onSucceeded;
         Consumer<Throwable> failure = onFailed == null ? ignored -> { } : onFailed;
         if (reportProgress) {
-            wireProgress(task);
+            wireProgress(operation);
         }
-        task.setOnSucceeded(event -> success.accept(task.getValue()));
-        task.setOnFailed(event -> failure.accept(task.getException()));
+        task.setOnSucceeded(event -> {
+            if (!complete(operation, WorkstationOperationState.SUCCEEDED, null, true)) {
+                return;
+            }
+            success.accept(task.getValue());
+        });
+        task.setOnFailed(event -> {
+            Throwable problem = task.getException();
+            if (!complete(operation, WorkstationOperationState.FAILED, problem, false)) {
+                return;
+            }
+            failure.accept(problem);
+        });
+        task.setOnCancelled(event -> {
+            if (!complete(operation, WorkstationOperationState.CANCELLED, null, false)) {
+                return;
+            }
+            cancelledListener.accept(operation.scope());
+        });
     }
 
-    private void start(Task<?> task, String threadName) {
-        String name = Objects.requireNonNull(threadName, "thread name is required").trim();
-        if (name.isEmpty()) {
-            throw new IllegalArgumentException("thread name must not be blank");
-        }
-        Thread worker = new Thread(task, name);
+    private void start(
+            ActiveOperation<?> operation,
+            String threadName
+    ) {
+        Thread worker = new Thread(operation.task(), threadName);
         worker.setDaemon(true);
+        operation.worker = worker;
         worker.start();
     }
 
-    private void wireProgress(Task<?> task) {
+    private boolean complete(
+            ActiveOperation<?> operation,
+            WorkstationOperationState state,
+            Throwable failure,
+            boolean resultDelivered
+    ) {
+        synchronized (this) {
+            if (active.get(operation.scope()) != operation) {
+                return false;
+            }
+            operation.state = state;
+            operation.failure = failure;
+            operation.resultDelivered = resultDelivered;
+            last.put(operation.scope(), operation.snapshot());
+            active.remove(operation.scope());
+            return true;
+        }
+    }
+
+    private void wireProgress(ActiveOperation<?> operation) {
+        Task<?> task = operation.task();
         task.messageProperty().addListener((observable, oldMessage, message) -> {
-            if (message != null && !message.isBlank()) {
+            if (message != null && !message.isBlank()
+                    && shouldPublish(operation)) {
                 workstation.setStatus(message);
             }
         });
         task.progressProperty().addListener((observable, oldProgress, progress) -> {
+            if (!shouldPublish(operation)) {
+                return;
+            }
             if (progress == null || progress.doubleValue() < 0.0) {
                 workstation.setIndeterminateProgress();
             } else {
@@ -99,23 +275,159 @@ public final class WorkstationOperationCoordinator {
         });
     }
 
-    private ProgressReporter progressReporter(ProgressTask<?> task) {
+    private synchronized boolean shouldPublish(ActiveOperation<?> operation) {
+        if (active.get(operation.scope()) != operation) {
+            return false;
+        }
+        ActiveOperation<?> foreground =
+                active.get(WorkstationOperationScope.FOREGROUND);
+        if (foreground != null) {
+            return foreground == operation;
+        }
+        ActiveOperation<?> local =
+                active.get(WorkstationOperationScope.LOCAL);
+        if (local != null) {
+            return local == operation;
+        }
+        return active.get(WorkstationOperationScope.DISCOVERY) == operation;
+    }
+
+    private ProgressReporter progressReporter(
+            ProgressTask<?> task,
+            WorkstationOperationScope scope,
+            long token
+    ) {
         return new ProgressReporter() {
             @Override
             public void start(String stage) {
+                requireCurrent(scope, token, task);
+                recordProgress(scope, token, stage, -1.0);
                 task.reportStage(stage);
             }
 
             @Override
             public void progress(String stage, int current, int total) {
+                requireCurrent(scope, token, task);
+                double fraction = total <= 0
+                        ? -1.0
+                        : Math.clamp(current / (double) total, 0.0, 1.0);
+                recordProgress(scope, token, stage, fraction);
                 task.reportProgress(stage, current, total);
             }
 
             @Override
             public void done(String stage) {
+                requireCurrent(scope, token, task);
+                recordProgress(scope, token, stage, 1.0);
                 task.reportDone(stage);
             }
         };
+    }
+
+    private synchronized void recordProgress(
+            WorkstationOperationScope scope,
+            long token,
+            String stage,
+            double progress
+    ) {
+        ActiveOperation<?> operation = active.get(scope);
+        if (operation == null || operation.generation() != token) {
+            return;
+        }
+        operation.stage = stage == null ? "" : stage;
+        operation.progress = progress;
+    }
+
+    private void requireCurrent(
+            WorkstationOperationScope scope,
+            long token,
+            Task<?> task
+    ) {
+        boolean current;
+        synchronized (this) {
+            ActiveOperation<?> operation = active.get(scope);
+            current = operation != null
+                    && operation.generation() == token
+                    && operation.task() == task;
+        }
+        if (!current || task.isCancelled() || Thread.currentThread().isInterrupted()) {
+            throw new CancellationException("workstation operation cancelled or superseded");
+        }
+    }
+
+    private void interrupt(ActiveOperation<?> operation) {
+        operation.task().cancel(true);
+        Thread worker = operation.worker;
+        if (worker != null) {
+            worker.interrupt();
+        }
+    }
+
+    private String normalized(String value, String label) {
+        String normalized = Objects.requireNonNull(value, label + " is required").trim();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException(label + " must not be blank");
+        }
+        return normalized;
+    }
+
+    private static final class ActiveOperation<T> {
+        private final long generation;
+        private final WorkstationOperationScope scope;
+        private final String type;
+        private final String requestSummary;
+        private final Task<T> task;
+        private volatile Thread worker;
+        private volatile WorkstationOperationState state =
+                WorkstationOperationState.RUNNING;
+        private volatile String stage = "";
+        private volatile double progress = -1.0;
+        private volatile boolean resultDelivered;
+        private volatile Throwable failure;
+
+        private ActiveOperation(
+                long generation,
+                WorkstationOperationScope scope,
+                String type,
+                String requestSummary,
+                Task<T> task
+        ) {
+            this.generation = generation;
+            this.scope = Objects.requireNonNull(scope, "scope is required");
+            this.type = Objects.requireNonNull(type, "type is required");
+            this.requestSummary = Objects.requireNonNull(
+                    requestSummary,
+                    "requestSummary is required"
+            );
+            this.task = Objects.requireNonNull(task, "task is required");
+        }
+
+        long generation() { return generation; }
+        WorkstationOperationScope scope() { return scope; }
+        String type() { return type; }
+        Task<T> task() { return task; }
+
+        boolean terminal() {
+            return state == WorkstationOperationState.SUCCEEDED
+                    || state == WorkstationOperationState.FAILED
+                    || state == WorkstationOperationState.CANCELLED;
+        }
+
+        WorkstationOperationSnapshot snapshot() {
+            return new WorkstationOperationSnapshot(
+                    generation,
+                    scope,
+                    type,
+                    requestSummary,
+                    state,
+                    stage,
+                    progress,
+                    resultDelivered,
+                    Optional.ofNullable(failure)
+                            .map(Throwable::getMessage)
+                            .filter(message -> !message.isBlank())
+            );
+        }
     }
 
     private abstract static class ProgressTask<T> extends Task<T> {
