@@ -272,21 +272,39 @@ public class RenderSurfaceResourceMapUseCase {
 
         progress.start("Painting surface resource overlay");
         if (analysis instanceof SurfaceMaterialAnalysis materialAnalysis) {
-            overlayRenderer.drawMaterial(rendered.image(), center, request.radius(),
-                    materialAnalysis, player, home);
+            overlayRenderer.drawMaterial(
+                    rendered.image(),
+                    center,
+                    request.radius(),
+                    materialAnalysis,
+                    player,
+                    home,
+                    options.layers().contains(RenderLayer.MARKERS)
+            );
         } else if (analysis instanceof SurfaceObjectSelectionAnalysis objectAnalysis) {
-            overlayRenderer.drawObjects(rendered.image(), center, request.radius(),
-                    objectAnalysis, player, home);
+            overlayRenderer.drawObjects(
+                    rendered.image(),
+                    center,
+                    request.radius(),
+                    objectAnalysis,
+                    player,
+                    home,
+                    options.layers().contains(RenderLayer.MARKERS)
+            );
         }
 
+        List<cartographer.marker.UserMarker> userMarkers =
+                markerStore.load(request.savePath());
         int userMarkersDrawn = 0;
-        if (options.layers().contains(RenderLayer.MARKERS)) {
-            List<cartographer.marker.UserMarker> markers = markerStore.load(request.savePath());
-            if (!markers.isEmpty()) {
-                userMarkersDrawn = userMarkerRenderer.draw(
-                        rendered.image(), center, request.radius(), markers, metadata
-                );
-            }
+        if (options.layers().contains(RenderLayer.MARKERS)
+                && !userMarkers.isEmpty()) {
+            userMarkersDrawn = userMarkerRenderer.draw(
+                    rendered.image(),
+                    center,
+                    request.radius(),
+                    userMarkers,
+                    metadata
+            );
         }
 
         return new RenderSurfaceResourceMapResult(
@@ -299,7 +317,8 @@ public class RenderSurfaceResourceMapUseCase {
                 prepared.chunkDiagnostics(),
                 userMarkersDrawn,
                 prepared.renderDataCacheReport(),
-                Optional.of(prepared)
+                Optional.of(prepared),
+                Optional.of(new MapDecorationState(home, userMarkers))
         );
     }
 
