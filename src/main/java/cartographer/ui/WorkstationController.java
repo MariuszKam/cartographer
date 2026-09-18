@@ -43,6 +43,7 @@ import cartographer.ui.workstation.SearchPanel;
 import cartographer.ui.workstation.SurfaceObjectDiscoveryState;
 import cartographer.ui.workstation.SurfaceToolMode;
 import cartographer.ui.workstation.WorkstationOperationCoordinator;
+import cartographer.ui.workstation.WorkstationOperationScope;
 import cartographer.ui.workstation.WorkstationTool;
 import cartographer.ui.workstation.WorkstationView;
 import cartographer.ui.workstation.WorldPanel;
@@ -136,6 +137,8 @@ public final class WorkstationController {
         workstation.setOnSurfaceModeChanged(this::handleSurfaceModeChanged);
         workstation.setOnRenderLayersChanged(this::handleRenderLayersChanged);
         searchPanel.setOnRockHighlightChanged(this::handleRockHighlightChanged);
+        workstation.setOnCancel(this::cancelPreferredOperation);
+        operationCoordinator.setOnCancelled(this::handleOperationCancelled);
     }
 
     public Parent root() {
@@ -152,6 +155,7 @@ public final class WorkstationController {
     }
 
     private void loadSaveData(Path savePath) {
+        operationCoordinator.cancelAll();
         loadedPlayerAbsolute = Optional.empty();
         loadedWorldMetadata = Optional.empty();
         mapPanel.clearNavigationContext();
@@ -161,13 +165,15 @@ public final class WorkstationController {
         workstation.clearMapGeometry();
         surfaceSelectionKeys = Set.of();
         invalidateSurfaceDiscovery();
-        workstation.setDiscoveryBusy(true);
+        setBusy(true);
         workstation.setStatus("Loading resources and player position...");
         workstation.setPlayerLoaded(false);
         worldPanel.setPlayerStatus("Player: loading...");
 
         operationCoordinator.submit(
-                "cartographer-resource-discovery",
+                WorkstationOperationScope.FOREGROUND,
+                "world-overview",
+                "Load " + savePath.getFileName(),
                 () -> worldOverviewUseCase.execute(savePath),
                 loaded -> {
                     List<OreResource> discovered = resourceResolver.resolve(
@@ -189,7 +195,7 @@ public final class WorkstationController {
                                     ? "No resource maps found; custom matches are available."
                                     : "Loaded " + discovered.size() + " resources."
                     );
-                    workstation.setDiscoveryBusy(false);
+                    setBusy(false);
                     startSurfaceDiscovery(savePath);
                 },
                 failure -> {
@@ -197,7 +203,6 @@ public final class WorkstationController {
                     worldPanel.setPlayerStatus("Player: unavailable");
                     workstation.setPlayerLoaded(false);
                     showFailure(failure);
-                    workstation.setDiscoveryBusy(false);
                 }
         );
     }
