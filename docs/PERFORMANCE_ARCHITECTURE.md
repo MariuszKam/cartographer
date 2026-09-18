@@ -296,8 +296,23 @@ The retained frame deliberately does not keep a second `BufferedImage`,
 `SaveSession`, JDBC connection, decoded chunk collection, or other
 source-lifetime state. The displayed raster remains owned by the JavaFX map
 viewport. Retention is therefore bounded by the compact result state already
-produced by the operation and is the foundation for later local recomposition;
-this section does not claim that instant recomposition is implemented yet.
+produced by the operation.
+
+For Map/Ore/Surface frames, the Workstation can locally recompose the current
+raster from retained state when the requested layers are already represented
+by that frame. The current local layer contract covers `TERRAIN`, `SURFACE`,
+`SOIL_FERTILITY`, and `MARKERS`. Ore and Surface analysis overlays are
+repainted from their retained compact results, while HOME and user-marker state
+are retained as small decoration state. The local compositor does not open the
+save, render-data cache, HOME store, or marker store.
+
+If a layer is enabled but its required compact Terrain/Surface input was not
+prepared by the original operation, the Workstation does not perform hidden
+source IO. It leaves the retained frame unchanged and asks the user to run a
+full Render. Local recomposition creates one new bounded raster (up to the
+current 4096×4096 contract) and replaces the JavaFX viewport image without
+retaining an additional `BufferedImage` or resetting viewport zoom/pan.
+Recomposition is local work, not a claim of zero-millisecond rendering or LOD.
 
 ## 11. Correctness and safety
 
