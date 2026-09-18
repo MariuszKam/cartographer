@@ -721,18 +721,22 @@ public final class WorkstationController {
 
         LocalRecompositionGate.Token token =
                 localRecompositionGate.begin(frame, layers);
-        setBusy(true);
-        workstation.setStatus("Recomposing layers locally...");
+        workstation.setLocalBusy(true);
+        if (!operationCoordinator.isActive(WorkstationOperationScope.FOREGROUND)) {
+            workstation.setStatus("Recomposing layers locally...");
+        }
         operationCoordinator.submitProgress(
-                "cartographer-local-layer-recompose",
+                WorkstationOperationScope.LOCAL,
+                "layer-recomposition",
+                "Layers " + layers,
                 progress -> mapFrameCompositor.recompose(frame, layers, progress),
                 image -> {
+                    workstation.setLocalBusy(false);
                     if (!localRecompositionGate.accepts(
                             token,
                             mapFrameState.current(),
                             workstation.selectedRenderLayers()
                     )) {
-                        setBusy(false);
                         return;
                     }
                     mapPanel.replaceImage(
@@ -740,20 +744,27 @@ public final class WorkstationController {
                             Optional.of(frame.geometry()),
                             loadedPlayerAbsolute
                     );
-                    workstation.setStatus(
-                            "Layers recomposed locally (no save read)."
-                    );
-                    setBusy(false);
+                    if (!operationCoordinator.isActive(
+                            WorkstationOperationScope.FOREGROUND
+                    )) {
+                        workstation.setStatus(
+                                "Layers recomposed locally (no save read)."
+                        );
+                    }
                 },
                 failure -> {
+                    workstation.setLocalBusy(false);
                     if (localRecompositionGate.accepts(
                             token,
                             mapFrameState.current(),
                             workstation.selectedRenderLayers()
+                    ) && !operationCoordinator.isActive(
+                            WorkstationOperationScope.FOREGROUND
                     )) {
-                        showFailure(failure);
-                    } else {
-                        setBusy(false);
+                        workstation.setStatus(
+                                "Local recomposition failed: "
+                                        + conciseMessage(failure)
+                        );
                     }
                 }
         );
@@ -1002,14 +1013,21 @@ public final class WorkstationController {
             return;
         }
         long generation = ++rockHighlightGeneration;
-        workstation.setStatus("Highlighting rock locally...");
+        workstation.setLocalBusy(true);
+        if (!operationCoordinator.isActive(WorkstationOperationScope.FOREGROUND)) {
+            workstation.setStatus("Highlighting rock locally...");
+        }
         operationCoordinator.submit(
-                "cartographer-rock-highlight",
+                WorkstationOperationScope.LOCAL,
+                "rock-highlight",
+                rockCode.map(code -> "Highlight " + code)
+                        .orElse("Clear rock highlight"),
                 () -> rockUseCase.renderRetained(
                         frame.rockMap().orElseThrow(),
                         rockCode
                 ),
                 rendered -> {
+                    workstation.setLocalBusy(false);
                     if (generation != rockHighlightGeneration
                             || mapFrameState.current().filter(frame::equals).isEmpty()
                             || !searchPanel.selectedRockHighlight().equals(rockCode)) {
@@ -1021,15 +1039,26 @@ public final class WorkstationController {
                             loadedPlayerAbsolute
                     );
                     workstation.setMapGeometry(Optional.of(rendered.geometry()));
-                    workstation.setStatus(
-                            rockCode.map(code -> "Rock highlighted locally: " + code)
-                                    .orElse("Rock highlight cleared locally.")
-                    );
+                    if (!operationCoordinator.isActive(
+                            WorkstationOperationScope.FOREGROUND
+                    )) {
+                        workstation.setStatus(
+                                rockCode.map(
+                                                code -> "Rock highlighted locally: " + code
+                                        )
+                                        .orElse("Rock highlight cleared locally.")
+                        );
+                    }
                 },
                 failure -> {
-                    if (generation == rockHighlightGeneration) {
+                    workstation.setLocalBusy(false);
+                    if (generation == rockHighlightGeneration
+                            && !operationCoordinator.isActive(
+                            WorkstationOperationScope.FOREGROUND
+                    )) {
                         workstation.setStatus(
-                                "Error: " + conciseMessage(failure)
+                                "Local rock highlight failed: "
+                                        + conciseMessage(failure)
                         );
                     }
                 }
