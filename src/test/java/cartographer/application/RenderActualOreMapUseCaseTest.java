@@ -122,6 +122,7 @@ class RenderActualOreMapUseCaseTest {
         assertArrayEquals(new int[]{1}, reader.lastWantedBlockIds);
         assertFalse(reader.lastPositions.isEmpty());
         assertEquals(1, result.actualOreOverlays().getFirst().map().matchingBlocks());
+        assertFalse(result.renderDataCacheReport().enabled());
         assertEquals(64, result.geometry().imageWidth());
         assertEquals(48.0, result.geometry().worldMinX());
         assertEquals(48.0, result.geometry().worldMinZ());
@@ -245,6 +246,7 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(0, firstReader.directMapChunkRequests.getLast().size());
         assertEquals(1, firstReader.adaptiveExactChunkCalls);
         assertEquals(1, first.renderDataCacheReport().surface().published());
+        assertEquals(1, first.renderDataCacheReport().surface().sourceLoaded());
 
         corruptSurfaceRow(cacheStore, revision);
 
@@ -282,6 +284,7 @@ class RenderActualOreMapUseCaseTest {
         ));
 
         assertEquals(1, third.renderDataCacheReport().surface().hits());
+        assertEquals(0, third.renderDataCacheReport().surface().sourceLoaded());
         assertEquals(0, thirdReader.adaptiveExactChunkCalls);
         assertSurfaceParity(first.surface().map(), third.surface().map());
     }
@@ -316,6 +319,95 @@ class RenderActualOreMapUseCaseTest {
 
         assertEquals(0, result.renderDataCacheReport().surface().published());
         assertTrue(result.renderDataCacheReport().surface().skippedIncompleteForPublish() >= 1);
+    }
+
+    @Test
+    void fallbackCachePreservesFullServerChunkDiagnosticsAtWorldEdge() throws Exception {
+        Path savePath = temporaryDirectory.resolve("edge-fallback-save.vcdbs");
+        Files.write(savePath, new byte[]{1});
+        RenderDataCacheStore cacheStore = new RenderDataCacheStore(
+                temporaryDirectory.resolve("edge-render-data-cache")
+        );
+        RenderDataCacheRevision revision = cacheStore.observe(savePath);
+        cacheStore.publish(revision);
+        new TerrainTileStore(cacheStore, revision).publish(List.of(
+                new TerrainHeightTile(
+                        new MapChunkCoordinate(1, 0), true, true, filledHeights(999)
+                )
+        ));
+        WorldMetadata metadata = new WorldMetadata(34, 256, 128);
+
+        RenderActualOreMapResult first = useCase(
+                edgeFallbackReader(), metadata,
+                temporaryDirectory.resolve("edge-home.properties"),
+                temporaryDirectory.resolve("edge-markers.csv"),
+                cacheStore
+        ).execute(new RenderActualOreMapRequest(
+                savePath, 17, 1, RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.SURFACE), Optional.empty(),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(33, 64, 16))
+        ));
+
+        assertEquals(32, first.surface().columnsScanned());
+        assertEquals(32, first.surface().liquidUnavailableColumns());
+        assertEquals(1, first.renderDataCacheReport().surface().published());
+
+        RenderActualOreMapResult second = useCase(
+                edgeFallbackReader(), metadata,
+                temporaryDirectory.resolve("edge-home.properties"),
+                temporaryDirectory.resolve("edge-markers.csv"),
+                cacheStore
+        ).execute(new RenderActualOreMapRequest(
+                savePath, 17, 1, RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.SURFACE), Optional.empty(),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(33, 64, 16))
+        ));
+
+        assertEquals(first.surface().columnsScanned(), second.surface().columnsScanned());
+        assertEquals(first.surface().emptyColumns(), second.surface().emptyColumns());
+        assertEquals(first.surface().liquidUnavailableColumns(),
+                second.surface().liquidUnavailableColumns());
+        assertSurfaceParity(first.surface().map(), second.surface().map());
+    }
+
+    @Test
+    void mixedTerrainHitAndMissReadsOnlyTheMissingMapchunkCoordinates() throws Exception {
+        Path savePath = temporaryDirectory.resolve("mixed-terrain-save.vcdbs");
+        Files.write(savePath, new byte[]{1});
+        RenderDataCacheStore cacheStore = new RenderDataCacheStore(
+                temporaryDirectory.resolve("mixed-terrain-render-data-cache")
+        );
+        RenderDataCacheRevision revision = cacheStore.observe(savePath);
+        cacheStore.publish(revision);
+        MapChunkCoordinate hitCoordinate = new MapChunkCoordinate(0, 0);
+        MapChunkCoordinate missCoordinate = new MapChunkCoordinate(1, 1);
+        new TerrainTileStore(cacheStore, revision).publish(List.of(
+                new TerrainHeightTile(hitCoordinate, true, true, filledHeights())
+        ));
+        FakeReader reader = new FakeReader(fireClayRegistry());
+        reader.mapChunks.put(missCoordinate,
+                new MapChunk(missCoordinate, filledHeights(7), new int[0]));
+
+        RenderActualOreMapResult result = useCase(
+                reader,
+                new WorldMetadata(128, 256, 128),
+                temporaryDirectory.resolve("mixed-terrain-home.properties"),
+                temporaryDirectory.resolve("mixed-terrain-markers.csv"),
+                cacheStore
+        ).execute(new RenderActualOreMapRequest(
+                savePath, 32, 1, RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.TERRAIN), Optional.empty(),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(32, 64, 32))
+        ));
+
+        List<MapChunkCoordinate> requested = reader.directMapChunkRequests.getLast();
+        assertFalse(requested.contains(hitCoordinate));
+        assertTrue(requested.contains(missCoordinate));
+        assertEquals(1, result.renderDataCacheReport().terrain().hits());
+        assertTrue(result.renderDataCacheReport().terrain().sourceLoaded() >= 1);
     }
 
     @Test
@@ -811,9 +903,22 @@ class RenderActualOreMapUseCaseTest {
     }
 
     private static int[] filledHeights() {
+        return filledHeights(5);
+    }
+
+    private static int[] filledHeights(int value) {
         int[] heights = new int[MapChunk.HEIGHT_VALUE_COUNT];
-        java.util.Arrays.fill(heights, 5);
+        java.util.Arrays.fill(heights, value);
         return heights;
+    }
+
+    private FakeReader edgeFallbackReader() {
+        FakeReader reader = new FakeReader(fireClayRegistry());
+        reader.chunks.put(
+                new ChunkPosition(1, 0, 0, 0),
+                surfaceChunk(new ChunkCoordinate(1, 0, 0), false)
+        );
+        return reader;
     }
 
     private static final class FakeReader extends VcdbsReader {
