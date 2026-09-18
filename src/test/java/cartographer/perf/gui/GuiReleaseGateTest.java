@@ -35,6 +35,22 @@ class GuiReleaseGateTest {
     }
 
     @Test
+    void acceptsTerminalStretchAttemptWhenR4096ReportWasNotProduced()
+            throws Exception {
+        writeCompleteBaseEvidence();
+        macro("MAP_R2048", "jvm_warm", "FACTUAL", "PASS", false);
+        macro("MAP_R2048", "cache_warm", "FACTUAL", "PASS", true);
+        macro("ROCK_UPPER_R2048", "jvm_warm", "FACTUAL", "PASS", false);
+        stretchAttempt("MAP_R4096", "jvm_warm", "OUT_OF_MEMORY");
+        stretchAttempt("ROCK_UPPER_R4096", "jvm_warm", "FAILED");
+
+        GuiReleaseGateReport report =
+                new GuiReleaseGate().evaluate(SHA, temporaryDirectory);
+
+        assertTrue(report.accepted(), report.render());
+    }
+
+    @Test
     void rejectsMissingMandatoryFactualR2048Evidence() throws Exception {
         writeCompleteBaseEvidence();
         macro("MAP_R2048", "jvm_warm", "INVALID", "PASS", false);
@@ -128,4 +144,23 @@ class GuiReleaseGateTest {
                 StandardCharsets.UTF_8
         );
     }
+    private void stretchAttempt(
+            String workload,
+            String mode,
+            String outcome
+    ) throws Exception {
+        Path file = temporaryDirectory.resolve("macro")
+                .resolve("attempts")
+                .resolve(workload + "-" + mode + ".properties");
+        Files.createDirectories(file.getParent());
+        Files.writeString(
+                file,
+                "candidateSha=" + SHA + "\n"
+                        + "workload=" + workload + "\n"
+                        + "mode=" + mode.toUpperCase(java.util.Locale.ROOT) + "\n"
+                        + "outcome=" + outcome + "\n",
+                StandardCharsets.UTF_8
+        );
+    }
+
 }
