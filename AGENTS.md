@@ -499,17 +499,15 @@ world reports
 
 ## 3.0 Performance Engine
 
-Goals:
+The current performance architecture is implemented across bounded streaming
+decode, compact ROCK/Surface processing, fused prospecting, operation-scoped
+read-only save access, persistent render-data caching, and reviewer-controlled
+macro/resource/JFR evidence. See
+[`docs/PERFORMANCE_ARCHITECTURE.md`](docs/PERFORMANCE_ARCHITECTURE.md).
 
-```text
-real parsed-data cache
-parallel range processing
-more aggressive SQLite spatial filtering
-bounded tile processing
-profiling of hot paths
-```
-
-Legacy common-pool decode scanning was removed during PF-1.2 Checkpoint E.
+Legacy common-pool decode scanning was removed during the implementation of
+the bounded streaming engine. Runtime validation of the current architecture
+remains reviewer-controlled and pending.
 
 ---
 
