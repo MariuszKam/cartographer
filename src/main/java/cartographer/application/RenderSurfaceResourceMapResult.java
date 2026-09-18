@@ -19,7 +19,8 @@ public record RenderSurfaceResourceMapResult(
         ReadDiagnostics chunkDiagnostics,
         int userMarkersDrawn,
         RenderDataCacheReport renderDataCacheReport,
-        java.util.Optional<PreparedMapData> preparedMapData
+        java.util.Optional<PreparedMapData> preparedMapData,
+        java.util.Optional<MapDecorationState> decorationState
 ) {
 
     public RenderSurfaceResourceMapResult {
@@ -34,6 +35,10 @@ public record RenderSurfaceResourceMapResult(
         preparedMapData = Objects.requireNonNull(
                 preparedMapData,
                 "preparedMapData is required; use Optional.empty() when unavailable"
+        );
+        decorationState = Objects.requireNonNull(
+                decorationState,
+                "decorationState is required; use Optional.empty() when unavailable"
         );
         if (userMarkersDrawn < 0) {
             throw new IllegalArgumentException("user markers drawn cannot be negative");
@@ -61,6 +66,7 @@ public record RenderSurfaceResourceMapResult(
                 chunkDiagnostics,
                 userMarkersDrawn,
                 renderDataCacheReport,
+                java.util.Optional.empty(),
                 java.util.Optional.empty()
         );
     }
