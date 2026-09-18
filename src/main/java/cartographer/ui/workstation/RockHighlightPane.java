@@ -14,20 +14,26 @@ final class RockHighlightPane extends VBox {
     private final ComboBox<String> rockBox = new ComboBox<>();
     private Consumer<Optional<String>> listener = ignored -> { };
     private boolean busy;
+    private boolean updating;
 
     RockHighlightPane() {
         super(4);
         rockBox.getItems().setAll(ALL);
         rockBox.setValue(ALL);
-        rockBox.valueProperty().addListener((o, old, selected) ->
-                listener.accept(selectedRockCode()));
+        rockBox.valueProperty().addListener((o, old, selected) -> {
+            if (!updating) {
+                listener.accept(selectedRockCode());
+            }
+        });
         getChildren().addAll(new Label("ROCK HIGHLIGHT"), rockBox);
         setVisible(false);
         setManaged(false);
     }
 
     void setRocks(List<RockIdentity> rocks) {
-        String previous = rockBox.getValue();
+        updating = true;
+        try {
+            String previous = rockBox.getValue();
         List<String> codes = rocks == null
                 ? List.of()
                 : rocks.stream()
@@ -41,11 +47,14 @@ final class RockHighlightPane extends VBox {
                         codes.stream()
                 ).toList()
         );
-        rockBox.setValue(
-                previous != null && rockBox.getItems().contains(previous)
-                        ? previous
-                        : ALL
-        );
+            rockBox.setValue(
+                    previous != null && rockBox.getItems().contains(previous)
+                            ? previous
+                            : ALL
+            );
+        } finally {
+            updating = false;
+        }
     }
 
     Optional<String> selectedRockCode() {
