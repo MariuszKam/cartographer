@@ -296,7 +296,17 @@ public record MapFrame(
         }
 
         PreparedMapData prepared = preparedMapData.orElseThrow();
+        MapDecorationState decorations = decorationState.orElseThrow();
+        if (layers.contains(RenderLayer.MARKERS)
+                && !decorations.userMarkersAvailable()) {
+            return false;
+        }
+
         Set<RenderLayer> initial = prepared.options().layers();
+        if (initial.contains(RenderLayer.ENVIRONMENT)
+                || initial.contains(RenderLayer.GEOLOGY)) {
+            return false;
+        }
         boolean terrainDataPrepared =
                 initial.contains(RenderLayer.TERRAIN)
                         || initial.contains(RenderLayer.SURFACE);
