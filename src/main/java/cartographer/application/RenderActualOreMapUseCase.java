@@ -337,14 +337,18 @@ public class RenderActualOreMapUseCase {
             );
         }
 
+        List<cartographer.marker.UserMarker> userMarkers =
+                markerStore.load(request.savePath());
         int userMarkersDrawn = 0;
-        if (options.layers().contains(RenderLayer.MARKERS)) {
-            List<cartographer.marker.UserMarker> markers = markerStore.load(request.savePath());
-            if (!markers.isEmpty()) {
-                userMarkersDrawn = userMarkerRenderer.draw(
-                        rendered.image(), center, request.radius(), markers, metadata
-                );
-            }
+        if (options.layers().contains(RenderLayer.MARKERS)
+                && !userMarkers.isEmpty()) {
+            userMarkersDrawn = userMarkerRenderer.draw(
+                    rendered.image(),
+                    center,
+                    request.radius(),
+                    userMarkers,
+                    metadata
+            );
         }
 
         return new RenderActualOreMapResult(
@@ -357,7 +361,8 @@ public class RenderActualOreMapUseCase {
                 mapChunkDiagnostics, chunkDiagnostics, mapRegionDiagnostics,
                 actualOreDiagnostics, userMarkersDrawn, actualOreOverlays,
                 prepared.renderDataCacheReport(),
-                Optional.of(prepared)
+                Optional.of(prepared),
+                Optional.of(new MapDecorationState(home, userMarkers))
         );
     }
 
