@@ -1,6 +1,7 @@
 package cartographer.ui.workstation;
 
 import javafx.geometry.Pos;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ProgressIndicator;
@@ -13,6 +14,7 @@ public final class WorkstationStatusBar extends HBox {
     private final Label operation = new Label("Ready");
     private final ProgressBar progress = new ProgressBar();
     private final Label progressText = new Label();
+    private final Button cancel = new Button("Cancel");
     private final Label zoom = new Label("Zoom 100%");
     private final Label radius = new Label("Radius 256");
     private final Label mapScale = new Label("Map —");
@@ -30,7 +32,18 @@ public final class WorkstationStatusBar extends HBox {
         progressText.getStyleClass().add("status-progress-text");
         progressText.setVisible(false);
         progressText.setManaged(false);
-        getChildren().addAll(operation, progress, progressText, zoom, radius, mapScale, cursor);
+        cancel.setVisible(false);
+        cancel.setManaged(false);
+        getChildren().addAll(
+                operation,
+                progress,
+                progressText,
+                cancel,
+                zoom,
+                radius,
+                mapScale,
+                cursor
+        );
     }
 
     public void setStatus(String text) {
@@ -38,13 +51,28 @@ public final class WorkstationStatusBar extends HBox {
     }
 
     public void setBusy(boolean busy) {
-        if (busy) {
+        setOperationActive(busy, false);
+    }
+
+    public void setOperationActive(boolean active, boolean cancellable) {
+        if (active) {
             setIndeterminateProgress();
         }
-        progress.setVisible(busy);
-        progress.setManaged(busy);
-        progressText.setVisible(busy);
-        progressText.setManaged(busy);
+        progress.setVisible(active);
+        progress.setManaged(active);
+        progressText.setVisible(active);
+        progressText.setManaged(active);
+        cancel.setVisible(active && cancellable);
+        cancel.setManaged(active && cancellable);
+        cancel.setDisable(!active || !cancellable);
+    }
+
+    public void setOnCancel(Runnable action) {
+        cancel.setOnAction(event -> {
+            if (action != null) {
+                action.run();
+            }
+        });
     }
 
     public void setIndeterminateProgress() {

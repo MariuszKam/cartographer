@@ -43,6 +43,7 @@ import cartographer.ui.workstation.SearchPanel;
 import cartographer.ui.workstation.SurfaceObjectDiscoveryState;
 import cartographer.ui.workstation.SurfaceToolMode;
 import cartographer.ui.workstation.WorkstationOperationCoordinator;
+import cartographer.ui.workstation.WorkstationOperationScope;
 import cartographer.ui.workstation.WorkstationTool;
 import cartographer.ui.workstation.WorkstationView;
 import cartographer.ui.workstation.WorldPanel;
@@ -136,6 +137,8 @@ public final class WorkstationController {
         workstation.setOnSurfaceModeChanged(this::handleSurfaceModeChanged);
         workstation.setOnRenderLayersChanged(this::handleRenderLayersChanged);
         searchPanel.setOnRockHighlightChanged(this::handleRockHighlightChanged);
+        workstation.setOnCancel(this::cancelPreferredOperation);
+        operationCoordinator.setOnCancelled(this::handleOperationCancelled);
     }
 
     public Parent root() {
@@ -152,6 +155,7 @@ public final class WorkstationController {
     }
 
     private void loadSaveData(Path savePath) {
+        operationCoordinator.cancelAll();
         loadedPlayerAbsolute = Optional.empty();
         loadedWorldMetadata = Optional.empty();
         mapPanel.clearNavigationContext();
@@ -161,13 +165,15 @@ public final class WorkstationController {
         workstation.clearMapGeometry();
         surfaceSelectionKeys = Set.of();
         invalidateSurfaceDiscovery();
-        workstation.setDiscoveryBusy(true);
+        setBusy(true);
         workstation.setStatus("Loading resources and player position...");
         workstation.setPlayerLoaded(false);
         worldPanel.setPlayerStatus("Player: loading...");
 
         operationCoordinator.submit(
-                "cartographer-resource-discovery",
+                WorkstationOperationScope.FOREGROUND,
+                "world-overview",
+                "Load " + savePath.getFileName(),
                 () -> worldOverviewUseCase.execute(savePath),
                 loaded -> {
                     List<OreResource> discovered = resourceResolver.resolve(
@@ -189,7 +195,7 @@ public final class WorkstationController {
                                     ? "No resource maps found; custom matches are available."
                                     : "Loaded " + discovered.size() + " resources."
                     );
-                    workstation.setDiscoveryBusy(false);
+                    setBusy(false);
                     startSurfaceDiscovery(savePath);
                 },
                 failure -> {
@@ -197,7 +203,6 @@ public final class WorkstationController {
                     worldPanel.setPlayerStatus("Player: unavailable");
                     workstation.setPlayerLoaded(false);
                     showFailure(failure);
-                    workstation.setDiscoveryBusy(false);
                 }
         );
     }
@@ -247,7 +252,9 @@ public final class WorkstationController {
                 MapFrame frame = reusable.orElseThrow();
                 workstation.setStatus("Rendering ore map with retained base data...");
                 operationCoordinator.submitProgress(
-                        "cartographer-ore-retained-render",
+                        WorkstationOperationScope.FOREGROUND,
+                        "ore-retained-render",
+                        "Ore retained R" + request.radius(),
                         progress -> useCase.executeRetained(
                                 request,
                                 frame.savePath(),
@@ -262,7 +269,9 @@ public final class WorkstationController {
             } else {
                 workstation.setStatus("Rendering ore map...");
                 operationCoordinator.submitProgress(
-                        "cartographer-ore-map-render",
+                        WorkstationOperationScope.FOREGROUND,
+                        "ore-render",
+                        "Ore R" + request.radius(),
                         progress -> useCase.execute(request, progress),
                         result -> showResult(result, request),
                         this::showFailure
@@ -283,7 +292,9 @@ public final class WorkstationController {
         setBusy(true);
         workstation.setStatus("Rendering coverage...");
         operationCoordinator.submitProgress(
-                "cartographer-coverage-render",
+                WorkstationOperationScope.FOREGROUND,
+                "coverage-render",
+                "Coverage " + request.savePath().getFileName(),
                 progress -> coverageUseCase.execute(request, progress),
                 result -> showCoverageResult(result, request),
                 this::showFailure
@@ -314,7 +325,9 @@ public final class WorkstationController {
             MapFrame frame = reusable.orElseThrow();
             workstation.setStatus("Rendering map with retained base data...");
             operationCoordinator.submitProgress(
-                    "cartographer-map-retained-render",
+                    WorkstationOperationScope.FOREGROUND,
+                    "map-retained-render",
+                    "Map retained R" + request.radius(),
                     progress -> useCase.executeRetained(
                             request,
                             frame.savePath(),
@@ -331,7 +344,9 @@ public final class WorkstationController {
 
         workstation.setStatus("Rendering map...");
         operationCoordinator.submitProgress(
-                "cartographer-map-render",
+                WorkstationOperationScope.FOREGROUND,
+                "map-render",
+                "Map R" + request.radius(),
                 progress -> useCase.execute(request, progress),
                 result -> showMapResult(result, request),
                 this::showFailure
@@ -343,7 +358,9 @@ public final class WorkstationController {
         setBusy(true);
         workstation.setStatus("Rendering observed rock geology...");
         operationCoordinator.submitProgress(
-                "cartographer-rock-map-render",
+                WorkstationOperationScope.FOREGROUND,
+                "rock-render",
+                "Geology R" + request.radius(),
                 progress -> rockUseCase.execute(request, progress),
                 result -> showRockResult(result, request),
                 this::showFailure
@@ -370,7 +387,12 @@ public final class WorkstationController {
         setBusy(true);
         workstation.setStatus("Analyzing prospecting evidence...");
         operationCoordinator.submit(
-                "cartographer-prospecting-analysis",
+                WorkstationOperationScope.FOREGROUND,
+                "prospecting-analysis",
+                "Prospecting R" + request.radius()
+                        + " (" + (request.allResources()
+                        ? "all resources"
+                        : request.resources().size() + " selected") + ")",
                 () -> prospectingUseCase.execute(request),
                 result -> showProspectingResult(result, request),
                 this::showFailure
@@ -465,7 +487,9 @@ public final class WorkstationController {
             MapFrame frame = reusable.orElseThrow();
             workstation.setStatus("Rendering Surface from retained map data...");
             operationCoordinator.submitProgress(
-                    "cartographer-surface-retained-render",
+                    WorkstationOperationScope.FOREGROUND,
+                    "surface-retained-render",
+                    "Surface retained R" + request.radius(),
                     progress -> surfaceUseCase.executeRetained(
                             request,
                             frame.savePath(),
@@ -481,7 +505,9 @@ public final class WorkstationController {
 
         workstation.setStatus("Rendering surface resource...");
         operationCoordinator.submitProgress(
-                "cartographer-surface-resource-render",
+                WorkstationOperationScope.FOREGROUND,
+                "surface-render",
+                "Surface R" + request.radius(),
                 progress -> surfaceUseCase.execute(request, progress),
                 result -> showSurfaceResult(result, request),
                 this::showFailure
@@ -695,18 +721,22 @@ public final class WorkstationController {
 
         LocalRecompositionGate.Token token =
                 localRecompositionGate.begin(frame, layers);
-        setBusy(true);
-        workstation.setStatus("Recomposing layers locally...");
+        workstation.setLocalBusy(true);
+        if (!operationCoordinator.isActive(WorkstationOperationScope.FOREGROUND)) {
+            workstation.setStatus("Recomposing layers locally...");
+        }
         operationCoordinator.submitProgress(
-                "cartographer-local-layer-recompose",
+                WorkstationOperationScope.LOCAL,
+                "layer-recomposition",
+                "Layers " + layers,
                 progress -> mapFrameCompositor.recompose(frame, layers, progress),
                 image -> {
+                    workstation.setLocalBusy(false);
                     if (!localRecompositionGate.accepts(
                             token,
                             mapFrameState.current(),
                             workstation.selectedRenderLayers()
                     )) {
-                        setBusy(false);
                         return;
                     }
                     mapPanel.replaceImage(
@@ -714,20 +744,27 @@ public final class WorkstationController {
                             Optional.of(frame.geometry()),
                             loadedPlayerAbsolute
                     );
-                    workstation.setStatus(
-                            "Layers recomposed locally (no save read)."
-                    );
-                    setBusy(false);
+                    if (!operationCoordinator.isActive(
+                            WorkstationOperationScope.FOREGROUND
+                    )) {
+                        workstation.setStatus(
+                                "Layers recomposed locally (no save read)."
+                        );
+                    }
                 },
                 failure -> {
+                    workstation.setLocalBusy(false);
                     if (localRecompositionGate.accepts(
                             token,
                             mapFrameState.current(),
                             workstation.selectedRenderLayers()
+                    ) && !operationCoordinator.isActive(
+                            WorkstationOperationScope.FOREGROUND
                     )) {
-                        showFailure(failure);
-                    } else {
-                        setBusy(false);
+                        workstation.setStatus(
+                                "Local recomposition failed: "
+                                        + conciseMessage(failure)
+                        );
                     }
                 }
         );
@@ -748,6 +785,7 @@ public final class WorkstationController {
 
     private void invalidateSurfaceDiscovery() {
         surfaceDiscoveryGate.invalidate();
+        operationCoordinator.cancel(WorkstationOperationScope.DISCOVERY);
         surfaceDiscoveryCache.clear();
         surfaceDiscoveryCenter = Optional.empty();
         surfaceDiscoveryResult = null;
@@ -773,6 +811,7 @@ public final class WorkstationController {
                 surfaceSelectionKeys = workstation.selectedObservedSurfaceResources().stream()
                         .map(resource -> resource.candidate().qualifiedResourceKey())
                         .collect(java.util.stream.Collectors.toUnmodifiableSet());
+                workstation.setDiscoveryBusy(false);
                 applySurfaceDiscoveryResult(key, cached.orElseThrow());
                 return;
             }
@@ -793,16 +832,21 @@ public final class WorkstationController {
         workstation.clearObservedSurfaceResources();
         surfaceObjectDiscoveryState = SurfaceObjectDiscoveryState.SCANNING;
         workstation.setSurfaceObjectDiscoveryState(surfaceObjectDiscoveryState);
-        surfaceDiscoveryTask = operationCoordinator.submit(
-                "cartographer-surface-object-discovery",
-                () -> surfaceDiscoveryUseCase.execute(
+        workstation.setDiscoveryBusy(true);
+        surfaceDiscoveryTask = operationCoordinator.submitProgress(
+                WorkstationOperationScope.DISCOVERY,
+                "surface-object-discovery",
+                "Surface discovery R" + key.radius(),
+                progress -> surfaceDiscoveryUseCase.execute(
                         new DiscoverObservedSurfaceResourcesRequest(
                                 key.savePath(),
                                 key.radius(),
                                 surfaceDiscoveryCenter
-                        )
+                        ),
+                        progress
                 ),
                 result -> {
+                    workstation.setDiscoveryBusy(false);
                     if (!SurfaceDiscoveryPolicy.shouldCacheCompletion(
                             surfaceDiscoveryGate.accepts(token, currentSurfaceDiscoveryKey()))) {
                         return;
@@ -811,12 +855,17 @@ public final class WorkstationController {
                         surfaceDiscoveryCenter = Optional.of(result.center());
                     }
                     surfaceDiscoveryCache.put(
-                            SurfaceDiscoveryCacheKey.of(key.savePath(), key.radius(), result.center()),
+                            SurfaceDiscoveryCacheKey.of(
+                                    key.savePath(),
+                                    key.radius(),
+                                    result.center()
+                            ),
                             result
                     );
                     applySurfaceDiscoveryResult(key, result);
                 },
                 failure -> {
+                    workstation.setDiscoveryBusy(false);
                     if (!surfaceDiscoveryGate.accepts(token, currentSurfaceDiscoveryKey())) {
                         return;
                     }
@@ -976,14 +1025,21 @@ public final class WorkstationController {
             return;
         }
         long generation = ++rockHighlightGeneration;
-        workstation.setStatus("Highlighting rock locally...");
+        workstation.setLocalBusy(true);
+        if (!operationCoordinator.isActive(WorkstationOperationScope.FOREGROUND)) {
+            workstation.setStatus("Highlighting rock locally...");
+        }
         operationCoordinator.submit(
-                "cartographer-rock-highlight",
+                WorkstationOperationScope.LOCAL,
+                "rock-highlight",
+                rockCode.map(code -> "Highlight " + code)
+                        .orElse("Clear rock highlight"),
                 () -> rockUseCase.renderRetained(
                         frame.rockMap().orElseThrow(),
                         rockCode
                 ),
                 rendered -> {
+                    workstation.setLocalBusy(false);
                     if (generation != rockHighlightGeneration
                             || mapFrameState.current().filter(frame::equals).isEmpty()
                             || !searchPanel.selectedRockHighlight().equals(rockCode)) {
@@ -995,19 +1051,65 @@ public final class WorkstationController {
                             loadedPlayerAbsolute
                     );
                     workstation.setMapGeometry(Optional.of(rendered.geometry()));
-                    workstation.setStatus(
-                            rockCode.map(code -> "Rock highlighted locally: " + code)
-                                    .orElse("Rock highlight cleared locally.")
-                    );
+                    if (!operationCoordinator.isActive(
+                            WorkstationOperationScope.FOREGROUND
+                    )) {
+                        workstation.setStatus(
+                                rockCode.map(
+                                                code -> "Rock highlighted locally: " + code
+                                        )
+                                        .orElse("Rock highlight cleared locally.")
+                        );
+                    }
                 },
                 failure -> {
-                    if (generation == rockHighlightGeneration) {
+                    workstation.setLocalBusy(false);
+                    if (generation == rockHighlightGeneration
+                            && !operationCoordinator.isActive(
+                            WorkstationOperationScope.FOREGROUND
+                    )) {
                         workstation.setStatus(
-                                "Error: " + conciseMessage(failure)
+                                "Local rock highlight failed: "
+                                        + conciseMessage(failure)
                         );
                     }
                 }
         );
+    }
+
+    private void cancelPreferredOperation() {
+        if (operationCoordinator.cancelPreferred()) {
+            workstation.setStatus("Cancelling operation...");
+        }
+    }
+
+    private void handleOperationCancelled(WorkstationOperationScope scope) {
+        switch (scope) {
+            case FOREGROUND -> setBusy(false);
+            case DISCOVERY -> {
+                workstation.setDiscoveryBusy(false);
+                if (surfaceObjectDiscoveryState == SurfaceObjectDiscoveryState.SCANNING) {
+                    surfaceDiscoveryResult = null;
+                    surfaceDiscoveryTaskKey = null;
+                    workstation.clearObservedSurfaceResources();
+                    surfaceObjectDiscoveryState =
+                            SurfaceObjectDiscoveryState.NOT_SCANNED;
+                    workstation.setSurfaceObjectDiscoveryState(
+                            surfaceObjectDiscoveryState
+                    );
+                }
+            }
+            case LOCAL -> {
+                localRecompositionGate.invalidate();
+                rockHighlightGeneration++;
+                workstation.setLocalBusy(false);
+            }
+        }
+        if (!operationCoordinator.isActive(WorkstationOperationScope.FOREGROUND)
+                && !operationCoordinator.isActive(WorkstationOperationScope.LOCAL)
+                && !operationCoordinator.isActive(WorkstationOperationScope.DISCOVERY)) {
+            workstation.setStatus("Cancelled.");
+        }
     }
 
     private void showFailure(Throwable failure) {
@@ -1025,6 +1127,12 @@ public final class WorkstationController {
     }
 
     private void setBusy(boolean busy) {
+        if (busy
+                && operationCoordinator.isActive(
+                WorkstationOperationScope.DISCOVERY
+        )) {
+            operationCoordinator.cancel(WorkstationOperationScope.DISCOVERY);
+        }
         workstation.setBusy(busy);
     }
 
