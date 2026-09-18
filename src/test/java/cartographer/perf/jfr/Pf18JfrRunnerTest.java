@@ -277,15 +277,28 @@ class Pf18JfrRunnerTest {
     }
 
     @Test
-    void successfulStatusCannotContainAMissingMeasuredFingerprint() {
-        BenchmarkPlan plan = new BenchmarkPlan(
-                new cartographer.perf.workload.MapWorkload(
-                        cartographer.perf.workload.RadiusProfile.R128),
-                ExecutionMode.JVM_WARM, 0, 1);
-        assertThrows(IllegalArgumentException.class, () -> new BenchmarkRunResult(
-                plan, List.of(), List.of(new BenchmarkIterationResult(
-                        0, 1, Optional.empty(), Optional.empty(), Optional.empty())),
-                BenchmarkExecutionStatus.SUCCESS));
+    void successfulStatusWithMissingMeasuredFingerprintCannotReachAnalyzer() throws Exception {
+        Path save = save();
+        AtomicInteger analyzerCalls = new AtomicInteger();
+        Pf18JfrProfilerInvoker profiler = (recordingPlan, plan, operation) -> {
+            BenchmarkIterationResult missing = new BenchmarkIterationResult(
+                    0, 1, Optional.empty(), Optional.empty(),
+                    Optional.of(new BenchmarkFailure("MissingFingerprint", "missing", "test")));
+            List<BenchmarkIterationResult> measured = List.of(missing,
+                    consistentIteration(1), consistentIteration(2),
+                    consistentIteration(3), consistentIteration(4));
+            return new JfrRecordingResult(new BenchmarkRunResult(plan,
+                    List.of(consistentIteration(0)), measured, BenchmarkExecutionStatus.SUCCESS),
+                    recordingPlan.destination(), 1, JfrConfiguration.PROFILE);
+        };
+
+        assertThrows(RuntimeException.class, () -> runner(
+                (a, b, c) -> () -> evidence(false, Optional.empty(), Optional.of("image")),
+                profiler, identity("ROCK_UPPER_R128", "ROCK_UPPER",
+                        "SOURCE_AUTHORITATIVE; JVM_WARM diagnostic profile"), analyzerCalls)
+                .profile(save, temp.resolve("missing-fingerprint-cache"), SHA,
+                        "ROCK_UPPER_R128", temp.resolve("missing-fingerprint-output")));
+        assertEquals(0, analyzerCalls.get());
     }
 
     private Pf18JfrRunner runner(Pf18MacroOperationFactory operations,
@@ -381,6 +394,12 @@ class Pf18JfrRunnerTest {
     private static BenchmarkIterationResult successfulIteration(int index) {
         return new BenchmarkIterationResult(index, 1,
                 Optional.of(new ResultFingerprint(Integer.toHexString(index).repeat(64).substring(0, 64))),
+                Optional.empty(), Optional.empty());
+    }
+
+    private static BenchmarkIterationResult consistentIteration(int index) {
+        return new BenchmarkIterationResult(index, 1,
+                Optional.of(new ResultFingerprint("d".repeat(64))),
                 Optional.empty(), Optional.empty());
     }
 
