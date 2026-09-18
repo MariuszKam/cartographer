@@ -786,7 +786,6 @@ public final class WorkstationController {
     private void invalidateSurfaceDiscovery() {
         surfaceDiscoveryGate.invalidate();
         operationCoordinator.cancel(WorkstationOperationScope.DISCOVERY);
-        workstation.setDiscoveryBusy(false);
         surfaceDiscoveryCache.clear();
         surfaceDiscoveryCenter = Optional.empty();
         surfaceDiscoveryResult = null;
