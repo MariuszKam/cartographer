@@ -406,6 +406,35 @@ qualify. Missing or escaped qualifying cache evidence is `INCONCLUSIVE`, while
 source or sidecar mutation remains a safety `FAIL`. Tests and real-save
 validation remain **NOT RUN**.
 
+D-FIX3 isolates the successful Surface cache-containment fixture: the source
+directory and injected cache root are sibling paths, and the test asserts those
+containment assumptions before checking the exact PF-1.7 manifest, terrain, and
+Surface artifacts. Existing deterministic healing, parity, incompatible
+manifest, and fallback coverage is retained. Tests remain **NOT RUN**.
+
+Checkpoint G is implemented as an opt-in macro campaign runner on top of the
+existing benchmark and fingerprint foundations. It supports `MAP_R128` through
+`MAP_R4096` and `ROCK_UPPER_R128` through `ROCK_UPPER_R4096`, performs an
+unmeasured correctness preflight, records semantic and logical-ARGB image
+fingerprints separately, supports `JVM_WARM`, genuine fresh-process
+`PROCESS_COLD`, and cache-prepared `CACHE_WARM`, and captures immutable source
+safety around the campaign. Campaign evidence is isolated and is never
+overwritten. The reviewer command is:
+
+```powershell
+.\gradlew.bat pf18Macro `
+  -Psave="C:\path\world.vcdbs" `
+  -PcacheRoot="C:\path\pf18-cache" `
+  -PgitSha="<40-char-sha>" `
+  -Pworkload="MAP_R1024" `
+  -Pmode="JVM_WARM" `
+  -Poutput="C:\path\pf18-evidence"
+```
+
+The command does not invent thresholds or throughput claims. Runtime macro
+evidence, tests, and real-save validation are **NOT RUN** by Codex. PF-1.6,
+PF-1.7, and PF-1.8 remain **PENDING MANUAL VALIDATION**.
+
 ## 10. Final evidence required for PF-1.6/PF-1.7 validation
 
 Before either PF-1.6 or PF-1.7 can be marked `VALIDATED`, the final PF-1.8

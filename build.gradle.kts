@@ -183,6 +183,31 @@ tasks.register<JavaExec>("perfBaseline") {
     }
 }
 
+tasks.register<JavaExec>("pf18Macro") {
+    group = "verification"
+    description = "Runs an opt-in PF-1.8 macro campaign"
+    dependsOn("classes")
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("cartographer.perf.macro.Pf18MacroMain")
+    javaLauncher.set(jpackageJavaLauncher)
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    doFirst {
+        val save = project.findProperty("save")?.toString()
+            ?: throw GradleException("pf18Macro requires -Psave=<path>")
+        val cacheRoot = project.findProperty("cacheRoot")?.toString()
+            ?: throw GradleException("pf18Macro requires -PcacheRoot=<path>")
+        val gitSha = project.findProperty("gitSha")?.toString()
+            ?: throw GradleException("pf18Macro requires -PgitSha=<40-character-sha>")
+        val workload = project.findProperty("workload")?.toString()
+            ?: throw GradleException("pf18Macro requires -Pworkload=<workload-id>")
+        val mode = project.findProperty("mode")?.toString()
+            ?: throw GradleException("pf18Macro requires -Pmode=PROCESS_COLD|JVM_WARM|CACHE_WARM")
+        val output = project.findProperty("output")?.toString()
+            ?: throw GradleException("pf18Macro requires -Poutput=<evidence-directory>")
+        args(save, cacheRoot, gitSha, workload, mode, output)
+    }
+}
+
 tasks.register<JavaExec>("runGui") {
     group = "application"
     description = "Launches the VS Cartographer desktop UI"
