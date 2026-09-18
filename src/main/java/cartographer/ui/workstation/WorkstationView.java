@@ -103,7 +103,7 @@ public final class WorkstationView {
         radiusListener.accept(searchPanel.selectedRadius());
     }
 
-    public void setOnSurfaceModeChanged(Consumer<SearchPanel.SurfaceMode> listener) {
+    public void setOnSurfaceModeChanged(Consumer<SurfaceToolMode> listener) {
         searchPanel.setOnSurfaceModeChanged(listener);
     }
 

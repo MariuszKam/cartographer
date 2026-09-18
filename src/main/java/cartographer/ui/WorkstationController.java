@@ -37,6 +37,7 @@ import cartographer.ui.workstation.MapPanel;
 import cartographer.ui.workstation.ResultInspectorPane;
 import cartographer.ui.workstation.SearchPanel;
 import cartographer.ui.workstation.SurfaceObjectDiscoveryState;
+import cartographer.ui.workstation.SurfaceToolMode;
 import cartographer.ui.workstation.WorkstationOperationCoordinator;
 import cartographer.ui.workstation.WorkstationTool;
 import cartographer.ui.workstation.WorkstationView;
@@ -309,7 +310,7 @@ public final class WorkstationController {
     }
 
     private void renderSurfaceResource() {
-        if (searchPanel.selectedSurfaceMode() == SearchPanel.SurfaceMode.MATERIALS) {
+        if (searchPanel.selectedSurfaceMode() == SurfaceToolMode.MATERIALS) {
             renderSurfaceMaterial();
             return;
         }
@@ -469,7 +470,7 @@ public final class WorkstationController {
 
     private void handleModeChanged(WorkstationTool mode) {
         if (mode == WorkstationTool.SURFACE
-                && searchPanel.selectedSurfaceMode() == SearchPanel.SurfaceMode.OBJECTS
+                && searchPanel.selectedSurfaceMode() == SurfaceToolMode.OBJECTS
                 && !worldPanel.savePathText().isBlank()) {
             SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey currentKey = currentSurfaceDiscoveryKey();
             if (!surfaceObjectDiscoveryState.isCurrentFor(
@@ -479,8 +480,8 @@ public final class WorkstationController {
         }
     }
 
-    private void handleSurfaceModeChanged(SearchPanel.SurfaceMode mode) {
-        if (mode == SearchPanel.SurfaceMode.OBJECTS
+    private void handleSurfaceModeChanged(SurfaceToolMode mode) {
+        if (mode == SurfaceToolMode.OBJECTS
                 && searchPanel.selectedMode() == WorkstationTool.SURFACE
                 && !worldPanel.savePathText().isBlank()
                 && !surfaceObjectDiscoveryState.isCurrentFor(
