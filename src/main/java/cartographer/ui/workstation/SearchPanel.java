@@ -39,7 +39,8 @@ public final class SearchPanel extends VBox {
     private final RadiusPane radiusPane = new RadiusPane();
     private final Button renderButton = new Button("Render");
     private WorkstationTool mode = WorkstationTool.ORE;
-    private boolean globallyBusy;
+    private boolean foregroundBusy;
+    private boolean discoveryBusy;
 
     public SearchPanel(Runnable onRender) {
         surfacePane = new SurfaceToolPane(this::updateRenderAvailability);
@@ -205,26 +206,21 @@ public final class SearchPanel extends VBox {
     }
 
     public void setBusy(boolean busy) {
-        globallyBusy = busy;
+        foregroundBusy = busy;
         renderButton.setDisable(busy);
         orePane.setBusy(busy);
         surfacePane.setBusy(busy);
         geologyPane.setBusy(busy);
         prospectingPane.setBusy(busy);
-        rockHighlightPane.setBusy(busy);
         radiusPane.setBusy(busy);
+        // Rock highlight works entirely from retained RockMap state and remains local.
+        rockHighlightPane.setBusy(false);
         updateRenderAvailability();
     }
 
     public void setDiscoveryBusy(boolean busy) {
-        globallyBusy = busy;
-        renderButton.setDisable(busy);
-        orePane.setDiscoveryBusy(busy);
+        discoveryBusy = busy;
         surfacePane.setDiscoveryBusy(busy);
-        geologyPane.setDiscoveryBusy(busy);
-        prospectingPane.setDiscoveryBusy(busy);
-        rockHighlightPane.setBusy(busy);
-        radiusPane.setDiscoveryBusy(busy);
         updateRenderAvailability();
     }
 
@@ -249,7 +245,7 @@ public final class SearchPanel extends VBox {
     }
 
     private void updateRenderAvailability() {
-        if (globallyBusy) {
+        if (foregroundBusy) {
             renderButton.setDisable(true);
             return;
         }
