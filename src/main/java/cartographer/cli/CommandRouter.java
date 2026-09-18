@@ -185,7 +185,7 @@ public class CommandRouter {
                             )
                     );
 
-                    case "map" ->
+            case "map" ->
                     new MapCommand(
                             out,
                             reader,

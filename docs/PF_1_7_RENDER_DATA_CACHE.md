@@ -235,7 +235,9 @@ They mean that the corresponding heavy layer read can be skipped:
 * Surface hits are projected into the existing request accumulator and their
   coordinates are omitted from Surface source planning; and
 * a Surface miss may use an already available terrain hit for RainHeight
-  planning, without forcing a second mapchunk read.
+  planning, without forcing a second mapchunk read. Such a terrain hit is
+  still authoritative planning input and can make the complete Surface result
+  eligible for publication.
 
 Terrain and Surface cache identities are independent. A terrain HIT does not
 imply a Surface HIT, and the reverse is also true. Surface cache artifacts are
@@ -258,7 +260,10 @@ back to the source path and can be repaired by deterministic republish.
 `map render` prints compact requested/hit/miss/corrupt/source/published
 statistics. The report contains no timing or performance claim. Mapregions,
 actual-ore results, player position, HOME, and user markers remain dynamic and
-are not cached.
+are not cached. `terrain.sourceLoaded` counts terrain-miss coordinates actually
+delivered by the source mapchunk reader. `surface.sourceLoaded` counts Surface
+cache-miss coordinates whose result was sourced/computed during this operation;
+it is not a raw cache-miss count for an unavailable result.
 
 ## Legacy cache compatibility
 
