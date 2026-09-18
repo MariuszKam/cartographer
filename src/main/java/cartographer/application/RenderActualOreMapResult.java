@@ -79,6 +79,7 @@ public record RenderActualOreMapResult(
                 actualOreDiagnostics, userMarkersDrawn, actualOreOverlays,
                 RenderDataCacheReport.disabled("PF-1.7 render-data cache disabled"),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -102,7 +103,10 @@ public record RenderActualOreMapResult(
                 image, geometry, renderReport, surface, environmentOverlay, geologyOverlay,
                 actualOreMap, mapChunkDiagnostics, chunkDiagnostics, mapRegionDiagnostics,
                 actualOreDiagnostics, userMarkersDrawn, actualOreOverlays,
-                renderDataCacheReport, Optional.empty(), Optional.empty()
+                renderDataCacheReport,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty()
         );
     }
 
@@ -139,6 +143,7 @@ public record RenderActualOreMapResult(
                 actualOreOverlays,
                 renderDataCacheReport,
                 preparedMapData,
+                Optional.empty(),
                 Optional.empty()
         );
     }
