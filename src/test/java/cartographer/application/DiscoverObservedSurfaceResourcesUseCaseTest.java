@@ -14,13 +14,18 @@ import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.save.MapChunkStreamStats;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
 import cartographer.save.SelectiveChunkStreamStats;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.SelectiveChunkVisit;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Proxy;
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -66,10 +71,27 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
         assertEquals(0, result.scan().observedTargets());
     }
 
+    private DiscoverObservedSurfaceResourcesUseCase useCase(
+            FakeReader reader
+    ) {
+        WorldMetadataReader metadata = metadataReader();
+        return new DiscoverObservedSurfaceResourcesUseCase(
+                reader,
+                new SaveSessionFactory(
+                        new TestConnectionFactory(),
+                        reader,
+                        metadata
+                )
+        );
+    }
+
     private WorldMetadataReader metadataReader() {
         return new WorldMetadataReader(null, null) {
             @Override
-            public WorldMetadata read(Path savePath) {
+            protected WorldMetadata read(
+                    Connection connection,
+                    ProgressReporter progress
+            ) {
                 return new WorldMetadata(32, 64, 32);
             }
         };
@@ -86,7 +108,9 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
         }
 
         @Override
-        public Map<Integer, BlockInfo> readBlockRegistry(Path savePath) {
+        protected Map<Integer, BlockInfo> readBlockRegistry(
+                Connection connection
+        ) {
             return Map.of(
                     1, new BlockInfo(1,
                             "game:looseores-nativecopper-granite-free"),
@@ -97,10 +121,11 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
 
         @Override
         public MapChunkStreamStats forEachMapChunkByCoordinate(
-                Path savePath,
+                SaveSession session,
                 Collection<MapChunkCoordinate> coordinates,
                 ReadDiagnostics diagnostics,
-                java.util.function.Consumer<MapChunk> consumer
+                java.util.function.Consumer<MapChunk> consumer,
+                ProgressReporter progress
         ) {
             consumer.accept(new MapChunk(
                     new MapChunkCoordinate(0, 0),
@@ -115,11 +140,12 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
         @Override
         public SelectiveChunkStreamStats
         forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                Path savePath,
+                SaveSession session,
                 Collection<ChunkPosition> positions,
                 int[] wantedBlockIds,
                 ReadDiagnostics diagnostics,
-                java.util.function.Consumer<SelectiveChunkVisit> consumer
+                java.util.function.Consumer<SelectiveChunkVisit> consumer,
+                ProgressReporter progress
         ) {
             selectiveScanCalls++;
             lastWantedIds = Arrays.copyOf(wantedBlockIds, wantedBlockIds.length);
@@ -150,4 +176,21 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
             );
         }
     }
+    private static final class TestConnectionFactory extends SqliteSaveConnection {
+        @Override
+        public Connection openReadOnly(Path savePath) {
+            return (Connection) Proxy.newProxyInstance(
+                    Connection.class.getClassLoader(),
+                    new Class<?>[]{Connection.class},
+                    (proxy, method, args) -> {
+                        if (method.getName().equals("close")) return null;
+                        if (method.getReturnType() == boolean.class) return false;
+                        if (method.getReturnType() == int.class) return 0;
+                        if (method.getReturnType() == long.class) return 0L;
+                        return null;
+                    }
+            );
+        }
+    }
+
 }
