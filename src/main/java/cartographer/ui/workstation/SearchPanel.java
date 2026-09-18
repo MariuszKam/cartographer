@@ -3,6 +3,7 @@ package cartographer.ui.workstation;
 import cartographer.application.ActualOreOverlaySpec;
 import cartographer.application.SurfaceMaterialMatch;
 import cartographer.application.SurfaceMaterialPreset;
+import cartographer.geology.rock.RockIdentity;
 import cartographer.model.BlockInfo;
 import cartographer.resource.ObservedSurfaceResource;
 import cartographer.resource.ObservedSurfaceResourceCatalog;
@@ -34,6 +35,7 @@ public final class SearchPanel extends VBox {
     private final SurfaceToolPane surfacePane;
     private final GeologyToolPane geologyPane = new GeologyToolPane();
     private final ProspectingToolPane prospectingPane = new ProspectingToolPane();
+    private final RockHighlightPane rockHighlightPane = new RockHighlightPane();
     private final RadiusPane radiusPane = new RadiusPane();
     private final Button renderButton = new Button("Render");
     private WorkstationTool mode = WorkstationTool.ORE;
@@ -46,6 +48,7 @@ public final class SearchPanel extends VBox {
         getChildren().addAll(
                 new Label("TOOL OPTIONS"),
                 modeContent,
+                rockHighlightPane,
                 radiusPane,
                 new Separator(),
                 new HBox(8, renderButton)
@@ -74,6 +77,10 @@ public final class SearchPanel extends VBox {
         renderButton.setText(
                 selected == WorkstationTool.PROSPECTING ? "Analyze" : "Render"
         );
+        rockHighlightPane.setModeVisible(
+                selected == WorkstationTool.GEOLOGY
+                        || selected == WorkstationTool.PROSPECTING
+        );
         updateRenderAvailability();
     }
 
@@ -83,6 +90,18 @@ public final class SearchPanel extends VBox {
 
     public String prospectingResourceText() {
         return prospectingPane.resourceText();
+    }
+
+    public boolean prospectingAllResources() {
+        return prospectingPane.allResources();
+    }
+
+    public List<String> prospectingResourceKeys() {
+        return prospectingPane.selectedResourceKeys();
+    }
+
+    public String prospectingSelectionLabel() {
+        return prospectingPane.selectionLabel();
     }
 
     public boolean customYEnabled() {
@@ -143,10 +162,12 @@ public final class SearchPanel extends VBox {
     ) {
         java.util.Objects.requireNonNull(registry, "registry is required");
         orePane.setResources(resources);
+        prospectingPane.setResources(resources);
     }
 
     public void setDiscoveryFailure() {
         orePane.setDiscoveryFailure();
+        prospectingPane.setResources(List.of());
     }
 
     public Optional<ObservedSurfaceResource> selectedObservedSurfaceResource() {
@@ -190,6 +211,7 @@ public final class SearchPanel extends VBox {
         surfacePane.setBusy(busy);
         geologyPane.setBusy(busy);
         prospectingPane.setBusy(busy);
+        rockHighlightPane.setBusy(busy);
         radiusPane.setBusy(busy);
         updateRenderAvailability();
     }
@@ -201,8 +223,21 @@ public final class SearchPanel extends VBox {
         surfacePane.setDiscoveryBusy(busy);
         geologyPane.setDiscoveryBusy(busy);
         prospectingPane.setDiscoveryBusy(busy);
+        rockHighlightPane.setBusy(busy);
         radiusPane.setDiscoveryBusy(busy);
         updateRenderAvailability();
+    }
+
+    public void setOnRockHighlightChanged(Consumer<Optional<String>> listener) {
+        rockHighlightPane.setOnChanged(listener);
+    }
+
+    public void setRockLegend(List<RockIdentity> rocks) {
+        rockHighlightPane.setRocks(rocks);
+    }
+
+    public Optional<String> selectedRockHighlight() {
+        return rockHighlightPane.selectedRockCode();
     }
 
     public List<ActualOreOverlaySpec> selectedOverlays() {
