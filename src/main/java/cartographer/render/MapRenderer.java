@@ -23,9 +23,6 @@ import java.util.stream.Collectors;
 
 public class MapRenderer {
 
-    private static final int MAX_IMAGE_SIZE =
-            4096;
-
     private static final int MIN_LEGEND_WIDTH =
             180;
 
@@ -77,9 +74,9 @@ public class MapRenderer {
         Objects.requireNonNull(home, "Home state is required");
         Objects.requireNonNull(terrain, "terrain preparation is required");
         Objects.requireNonNull(registry, "registry is required");
-        int diameter = Math.clamp((long) options.radiusBlocks() * 2
-                        * options.pixelsPerBlock() + 1, 64, MAX_IMAGE_SIZE);
-        double scale = diameter / (double) (options.radiusBlocks() * 2);
+        MapRasterContract rasterContract = MapRasterContract.from(options);
+        int diameter = rasterContract.rasterSize();
+        double scale = rasterContract.effectivePixelsPerBlock();
         BufferedImage image = new BufferedImage(diameter, diameter, BufferedImage.TYPE_INT_ARGB);
         ArgbRaster raster = ArgbRaster.wrap(image);
         prepareBackground(raster, options, progress);
@@ -197,22 +194,14 @@ public class MapRenderer {
         );
         Objects.requireNonNull(terrain, "terrain preparation is required");
 
+        MapRasterContract rasterContract =
+                MapRasterContract.from(options);
+
         int diameter =
-                Math.clamp(
-                        (long) options.radiusBlocks()
-                                * 2
-                                * options.pixelsPerBlock()
-                                + 1,
-                        64,
-                        MAX_IMAGE_SIZE
-                );
+                rasterContract.rasterSize();
 
         double scale =
-                diameter
-                        / (double) (
-                        options.radiusBlocks()
-                                * 2
-                );
+                rasterContract.effectivePixelsPerBlock();
 
         BufferedImage image =
                 new BufferedImage(

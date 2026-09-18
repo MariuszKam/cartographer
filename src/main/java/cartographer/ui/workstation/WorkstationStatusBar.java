@@ -5,7 +5,9 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.layout.HBox;
+import cartographer.render.MapViewportGeometry;
 import java.util.Locale;
+import java.util.Optional;
 
 public final class WorkstationStatusBar extends HBox {
     private final Label operation = new Label("Ready");
@@ -13,6 +15,7 @@ public final class WorkstationStatusBar extends HBox {
     private final Label progressText = new Label();
     private final Label zoom = new Label("Zoom 100%");
     private final Label radius = new Label("Radius 256");
+    private final Label mapScale = new Label("Map —");
     private final Label cursor = new Label("Cursor —");
 
     public WorkstationStatusBar() {
@@ -27,7 +30,7 @@ public final class WorkstationStatusBar extends HBox {
         progressText.getStyleClass().add("status-progress-text");
         progressText.setVisible(false);
         progressText.setManaged(false);
-        getChildren().addAll(operation, progress, progressText, zoom, radius, cursor);
+        getChildren().addAll(operation, progress, progressText, zoom, radius, mapScale, cursor);
     }
 
     public void setStatus(String text) {
@@ -70,6 +73,19 @@ public final class WorkstationStatusBar extends HBox {
     public void setRadiusVisible(boolean visible) {
         radius.setVisible(visible);
         radius.setManaged(visible);
+    }
+
+    public void setMapGeometry(Optional<MapViewportGeometry> geometry) {
+        Optional<MapViewportGeometry> safe =
+                geometry == null ? Optional.empty() : geometry;
+        mapScale.setText(
+                safe.map(MapScaleSummary::format)
+                        .orElse("Map —")
+        );
+    }
+
+    public void clearMapGeometry() {
+        mapScale.setText("Map —");
     }
 
     public void setCursorCoordinates(double displayX, double displayZ) {

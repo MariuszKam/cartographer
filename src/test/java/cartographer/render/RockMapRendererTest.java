@@ -33,6 +33,23 @@ class RockMapRendererTest {
     );
 
     @Test
+    void capsLargeRockRasterAndKeepsFullWorldCoverage() {
+        int radius = 40;
+        RockMap map = map(0, 0, radius);
+        RockMapRenderResult result = new RockMapRenderer(
+                new RockPalette(),
+                32
+        ).render(map);
+
+        assertEquals(32, result.image().getWidth());
+        assertEquals(32, result.image().getHeight());
+        assertEquals(81.0, result.geometry().worldWidthBlocks());
+        assertEquals(81.0 / 32.0, result.geometry().blocksPerPixelX(), 1.0e-12);
+        assertEquals(-40.0, result.geometry().worldMinX());
+        assertEquals(41.0, result.geometry().worldMaxXExclusive());
+    }
+
+    @Test
     void rendersCategoricalStatesWithExpectedDimensions() {
         RockMapRenderResult result = new RockMapRenderer().render(
                 map(

@@ -144,6 +144,7 @@ public final class WorkstationController {
         loadedPlayerAbsolute = Optional.empty();
         loadedWorldMetadata = Optional.empty();
         mapPanel.clearNavigationContext();
+        workstation.clearMapGeometry();
         surfaceSelectionKeys = Set.of();
         invalidateSurfaceDiscovery();
         workstation.setDiscoveryBusy(true);
@@ -426,6 +427,7 @@ public final class WorkstationController {
 
     private void showResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
         mapPanel.show(result.image(), Optional.of(result.geometry()), loadedPlayerAbsolute);
+        workstation.setMapGeometry(Optional.of(result.geometry()));
         resultInspector.showOreResult(result, request);
         workstation.setStatus("Rendered.");
         setBusy(false);
@@ -433,6 +435,7 @@ public final class WorkstationController {
 
     private void showMapResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
         mapPanel.show(result.image(), Optional.of(result.geometry()), loadedPlayerAbsolute);
+        workstation.setMapGeometry(Optional.of(result.geometry()));
         resultInspector.showMapResult(result, request);
         workstation.setStatus("Map rendered.");
         setBusy(false);
@@ -440,6 +443,7 @@ public final class WorkstationController {
 
     private void showCoverageResult(RenderCoverageMapResult result) {
         mapPanel.show(result.image(), result.geometry(), loadedPlayerAbsolute);
+        workstation.setMapGeometry(result.geometry());
         resultInspector.showCoverageResult(result);
         workstation.setStatus("Coverage rendered.");
         setBusy(false);
@@ -450,6 +454,7 @@ public final class WorkstationController {
             RenderSurfaceResourceMapRequest request
     ) {
         mapPanel.show(result.image(), Optional.of(result.geometry()), loadedPlayerAbsolute);
+        workstation.setMapGeometry(Optional.of(result.geometry()));
         resultInspector.showSurfaceResult(result, request);
         workstation.setStatus("Rendered.");
         setBusy(false);
@@ -608,6 +613,7 @@ public final class WorkstationController {
                 Optional.of(result.rendered().geometry()),
                 loadedPlayerAbsolute
         );
+        workstation.setMapGeometry(Optional.of(result.rendered().geometry()));
         resultInspector.showRockResult(result, request);
         workstation.setStatus("Rock map rendered.");
         setBusy(false);
