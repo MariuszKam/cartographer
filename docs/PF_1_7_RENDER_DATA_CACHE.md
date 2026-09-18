@@ -90,15 +90,19 @@ compatibility versions are misses. Cache metadata failures do not modify or
 invalidate the source save.
 
 Manifest publication writes a temporary sibling under the revision directory,
-writes all bytes, forces and closes the file, then moves it to the final name
-with an atomic replace when supported. A replace-only fallback is used on file
-systems without atomic moves. Temporary files are cleaned up when possible, and
-a final manifest is not considered valid until the move has completed.
+writes all bytes, forces and closes the file, then prefers an atomic move to the
+final name. If atomic move is unsupported, a non-atomic move of the already
+closed temporary file is allowed. Neither publication path replaces an
+already-published deterministic revision; a concurrent publisher of the same
+revision therefore cannot overwrite valid metadata. Temporary files are
+cleaned up when possible, and a final manifest is not considered valid until
+the move has completed. A valid published manifest is treated as immutable
+cache metadata. A malformed or incompatible final manifest remains a cache
+miss. This foundation does not add a writer-locking system.
 
 The store has no background threads, global synchronization, session registry,
-connection pool, static cache, or persistent JDBC resource. Completed manifests
-are immutable by convention; later artifact-writer checkpoints must preserve
-that publication boundary.
+connection pool, static cache, or persistent JDBC resource. Later
+artifact-writer checkpoints must preserve the same publication boundary.
 
 ## Legacy cache compatibility
 
