@@ -5,6 +5,7 @@ import cartographer.model.MapChunkCoordinate;
 import cartographer.model.SurfaceClass;
 import cartographer.model.SurfaceClassCode;
 import cartographer.model.WorldMetadata;
+import cartographer.scanner.SurfaceTile;
 
 import java.util.Arrays;
 import java.util.Objects;
@@ -122,6 +123,57 @@ public final class SurfaceCacheTile {
 
     public SurfaceClass surfaceClassAt(int localX, int localZ) {
         return SurfaceClassCode.decode(surfaceClassCodes[index(localX, localZ)]);
+    }
+
+    /**
+     * Converts a request tile only after proving it contains the complete
+     * world-valid mapchunk domain. Request-clipped tiles are rejected.
+     */
+    public static SurfaceCacheTile fromComplete(
+            SurfaceTile tile,
+            WorldMetadata metadata,
+            SourceMode sourceMode,
+            int diagnosticColumnsScanned,
+            int diagnosticEmptyColumns,
+            int diagnosticLiquidUnavailableColumns
+    ) {
+        Objects.requireNonNull(tile, "Surface tile is required");
+        Objects.requireNonNull(metadata, "metadata is required");
+        MapChunkCoordinate coordinate = new MapChunkCoordinate(tile.tileX(), tile.tileZ());
+        Geometry geometry = deriveGeometry(coordinate, metadata.mapSizeX(), metadata.mapSizeZ());
+        if (tile.width() != geometry.width() || tile.height() != geometry.height()) {
+            throw new IllegalArgumentException("Surface tile dimensions do not cover the full mapchunk");
+        }
+        int cells = geometry.cellCount();
+        byte[] state = new byte[cells];
+        int[] surfaceY = new int[cells];
+        int[] blockIds = new int[cells];
+        int[] liquidIds = new int[cells];
+        byte[] classes = new byte[cells];
+        byte unknown = SurfaceClassCode.encode(SurfaceClass.UNKNOWN);
+        Arrays.fill(classes, unknown);
+        for (int localZ = 0; localZ < geometry.height(); localZ++) {
+            for (int localX = 0; localX < geometry.width(); localX++) {
+                if (!tile.isActive(localX, localZ)) {
+                    throw new IllegalArgumentException("request-clipped Surface tile cannot be cached");
+                }
+                int index = localZ * geometry.width() + localX;
+                byte cellState = 0;
+                if (tile.isConsidered(localX, localZ)) cellState |= CONSIDERED;
+                if (tile.isResolved(localX, localZ)) {
+                    cellState |= RESOLVED;
+                    surfaceY[index] = tile.surfaceYAt(localX, localZ);
+                    blockIds[index] = tile.blockIdAt(localX, localZ);
+                    liquidIds[index] = tile.liquidBlockIdAt(localX, localZ);
+                    classes[index] = SurfaceClassCode.encode(tile.surfaceClassAt(localX, localZ));
+                }
+                if (tile.isLiquidUnavailable(localX, localZ)) cellState |= LIQUID_UNAVAILABLE;
+                state[index] = cellState;
+            }
+        }
+        return new SurfaceCacheTile(coordinate, metadata.mapSizeX(), metadata.mapSizeZ(),
+                state, surfaceY, blockIds, liquidIds, classes, sourceMode,
+                diagnosticColumnsScanned, diagnosticEmptyColumns, diagnosticLiquidUnavailableColumns);
     }
 
     private void validateCells() {

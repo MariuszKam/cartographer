@@ -1,7 +1,7 @@
 package cartographer.render;
 
 import cartographer.application.ProgressReporter;
-import cartographer.model.MapChunk;
+import cartographer.model.MapChunkHeightView;
 import cartographer.model.WorldPosition;
 
 import java.util.Objects;
@@ -79,8 +79,8 @@ public final class MapTerrainPreparation {
             );
         }
 
-        public void accept(MapChunk mapChunk) {
-            Objects.requireNonNull(mapChunk, "map chunk is required");
+        public void accept(MapChunkHeightView mapChunk) {
+            Objects.requireNonNull(mapChunk, "map chunk height view is required");
             mapChunkCount++;
             if (heights != null) {
                 heights.accept(mapChunk);

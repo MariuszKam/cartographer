@@ -5,8 +5,8 @@ Status: **IMPLEMENTATION IN PROGRESS — VALIDATION PENDING**
 This document records the PF-1.7 A+B foundation plus the C+D, E and F
 implementation. It defines the persistent render-data cache namespace, compact
 terrain and full-mapchunk Surface artifact contracts, and main-render session
-lifecycle. The cache is still not consumed by the renderer; cache HIT/MISS
-integration is intentionally deferred.
+lifecycle. Checkpoints G+H integrate the cache into the main `map render`
+path; runtime validation remains intentionally deferred.
 
 ## Motivation and boundary
 
@@ -164,10 +164,11 @@ miss/corrupt states; they do not alter or fail source-save analysis. A
 compatible published manifest is required before terrain artifacts are
 trusted.
 
-Checkpoint D does not make the renderer look up terrain tiles, skip mapchunk
-reads, mix cached and uncached terrain, write from render callbacks, or report
-cache diagnostics. The production renderer still reads source mapchunks through
-its SaveSession.
+Checkpoint D established the artifact without integrating it. Checkpoint G+H
+now performs optional terrain lookup before source reads. Valid terrain hits
+feed the same height view used by source mapchunks; only terrain misses are
+requested from the source session and newly produced tiles are published in
+bounded batches.
 
 ## Checkpoint E — reusable full-mapchunk Surface artifact
 
@@ -214,6 +215,51 @@ invalid payloads remain optional-cache MISS/CORRUPT states for later fallback.
 No registry, request geometry, player, HOME, marker, connection, or session is
 persisted.
 
+## Checkpoints G+H — production integration and diagnostics
+
+The production `map render` composition receives a dedicated
+`cache/render-data` root, separate from the legacy `RenderCache`. A cache-enabled
+operation observes one PF-1.7 revision, publishes or verifies its compatible
+manifest, creates revision-bound terrain and Surface stores, and continues
+uncached if cache preparation or later cache I/O fails. Cache-local SQLite
+databases are writable artifacts under the cache root; the source `.vcdbs`
+remains read-only.
+
+The main render still opens exactly one operation-scoped source `SaveSession`.
+Metadata, registry, player, optional mapregions, and actual-ore reads continue
+to use that session. Cache hits do not mean that the save is never opened.
+They mean that the corresponding heavy layer read can be skipped:
+
+* terrain hits are supplied through the neutral `MapChunkHeightView` seam and
+  their coordinates are omitted from the source mapchunk request;
+* Surface hits are projected into the existing request accumulator and their
+  coordinates are omitted from Surface source planning; and
+* a Surface miss may use an already available terrain hit for RainHeight
+  planning, without forcing a second mapchunk read.
+
+Terrain and Surface cache identities are independent. A terrain HIT does not
+imply a Surface HIT, and the reverse is also true. Surface cache artifacts are
+validated against the current world dimensions before use. Cached cells enter
+the same accumulator as source cells, so neighboring fallback processing does
+not reset them. FAST diagnostic contributions are clipped to the current
+request-active domain; FALLBACK contributions retain the persisted full-
+mapchunk diagnostic summary. Current-operation `chunksScanned` counts only
+server chunks decoded during this operation.
+
+Only a source result that proves every valid cell of a mapchunk was active in
+the request may populate a Surface cache tile. Boundary-clipped tiles are
+skipped, and request `ACTIVE` state is never persisted. Terrain and Surface
+publication use bounded buffers; a cache write failure records a diagnostic and
+disables further writes for the operation without failing a valid source
+render. Missing, corrupt, incompatible, or world-mismatched artifacts fall
+back to the source path and can be repaired by deterministic republish.
+
+`RenderActualOreMapResult` carries an immutable `RenderDataCacheReport`, and
+`map render` prints compact requested/hit/miss/corrupt/source/published
+statistics. The report contains no timing or performance claim. Mapregions,
+actual-ore results, player position, HOME, and user markers remain dynamic and
+are not cached.
+
 ## Legacy cache compatibility
 
 PF-1.7 does not redefine or delete the existing `RenderCache`, `CacheKey`,
@@ -222,12 +268,12 @@ PF-1.7 does not redefine or delete the existing `RenderCache`, `CacheKey`,
 table-level facilities with their existing semantics. The PF-1.7 namespace and
 manifest are intentionally separate.
 
-## No renderer integration in E+F
+## Non-integrated render paths
 
 `RenderSurfaceResourceMapUseCase` and other rendering paths still perform their
-existing source reads. The main `RenderActualOreMapUseCase` source path now
-uses the C SaveSession lifecycle, but no renderer consumes terrain or Surface
-cache artifacts.
+existing source reads. G+H scope is the main `RenderActualOreMapUseCase`
+`map render` pipeline only; it does not migrate unrelated renderers or resource
+commands.
 No decoded input is retained by this foundation.
 
 ## Roadmap
@@ -239,7 +285,7 @@ The intended remaining implementation pairs are:
 * **D** — compact terrain/mapchunk cache model and persistent store (this work);
 * **E** — reusable full-mapchunk Surface artifact and codec;
 * **F** — persistent Surface store and cache-row healing;
-* **G+H** — production cache integration, mixed hit/miss behavior, and diagnostics;
+* **G+H** — production cache integration, mixed hit/miss behavior, and diagnostics (implemented; validation pending);
 * **I+J** — invalidation, cleanup, static audit, and implementation closure.
 
 PF-1.7 must not turn `SaveSession` into a global cache, retain JDBC

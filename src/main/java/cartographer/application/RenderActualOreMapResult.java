@@ -25,7 +25,8 @@ public record RenderActualOreMapResult(
         ReadDiagnostics mapRegionDiagnostics,
         ReadDiagnostics actualOreDiagnostics,
         int userMarkersDrawn,
-        List<ActualOreOverlayResult> actualOreOverlays
+        List<ActualOreOverlayResult> actualOreOverlays,
+        RenderDataCacheReport renderDataCacheReport
 ) {
 
     public RenderActualOreMapResult {
@@ -40,6 +41,28 @@ public record RenderActualOreMapResult(
         actualOreOverlays = List.copyOf(
                 actualOreOverlays == null ? List.of() : actualOreOverlays
         );
+        Objects.requireNonNull(renderDataCacheReport, "renderDataCacheReport is required");
+    }
+
+    public RenderActualOreMapResult(
+            BufferedImage image,
+            MapViewportGeometry geometry,
+            MapRenderReport renderReport,
+            SurfaceMapScanResult surface,
+            OverlayRenderReport environmentOverlay,
+            OverlayRenderReport geologyOverlay,
+            Optional<ActualBlockMap> actualOreMap,
+            ReadDiagnostics mapChunkDiagnostics,
+            ReadDiagnostics chunkDiagnostics,
+            ReadDiagnostics mapRegionDiagnostics,
+            ReadDiagnostics actualOreDiagnostics,
+            int userMarkersDrawn,
+            List<ActualOreOverlayResult> actualOreOverlays
+    ) {
+        this(image, geometry, renderReport, surface, environmentOverlay, geologyOverlay,
+                actualOreMap, mapChunkDiagnostics, chunkDiagnostics, mapRegionDiagnostics,
+                actualOreDiagnostics, userMarkersDrawn, actualOreOverlays,
+                RenderDataCacheReport.disabled("PF-1.7 render-data cache disabled"));
     }
 
 }

@@ -6,6 +6,7 @@ import cartographer.model.ChunkPosition;
 import cartographer.model.ParsedChunk;
 import cartographer.model.SurfaceClass;
 import cartographer.model.MapChunkCoordinate;
+import cartographer.model.SurfaceClassCode;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -41,11 +42,15 @@ public final class SurfaceRainHeightScanner {
         private final Set<ChunkPosition> deliveredFallback = new HashSet<>();
         private final SurfaceFallbackDiagnosticState fallbackDiagnostics =
                 new SurfaceFallbackDiagnosticState();
+        private final Set<MapChunkCoordinate> cachedTiles = new HashSet<>();
         private final boolean[] promoted;
         private boolean finished;
         private int resolved;
         private int unresolved;
         private int liquidUnavailable;
+        private int cachedColumns;
+        private int cachedEmptyColumns;
+        private int cachedLiquidUnavailable;
 
         private StreamingSession(
                 SurfaceRainHeightPlan plan,
@@ -193,6 +198,70 @@ public final class SurfaceRainHeightScanner {
             }
         }
 
+        /** Injects one validated full-mapchunk cache artifact into this request accumulator. */
+        public void acceptCachedTile(
+                MapChunkCoordinate coordinate,
+                int width,
+                int height,
+                byte[] state,
+                int[] surfaceY,
+                int[] blockIds,
+                int[] liquidIds,
+                byte[] surfaceClassCodes,
+                boolean fallbackMode,
+                int diagnosticColumnsScanned,
+                int diagnosticEmptyColumns,
+                int diagnosticLiquidUnavailable
+        ) {
+            ensureMutable();
+            Objects.requireNonNull(coordinate, "cached coordinate is required");
+            Objects.requireNonNull(state, "cached state is required");
+            Objects.requireNonNull(surfaceY, "cached surface Y is required");
+            Objects.requireNonNull(blockIds, "cached block IDs are required");
+            Objects.requireNonNull(liquidIds, "cached liquid IDs are required");
+            Objects.requireNonNull(surfaceClassCodes, "cached class codes are required");
+            if (!cachedTiles.add(coordinate)) return;
+            int expected = Math.multiplyExact(width, height);
+            if (state.length != expected || surfaceY.length != expected || blockIds.length != expected
+                    || liquidIds.length != expected || surfaceClassCodes.length != expected) {
+                throw new IllegalArgumentException("cached Surface arrays do not match dimensions");
+            }
+            int tileIndex = plan.layout().tileIndex(coordinate.x(), coordinate.z());
+            if (width != plan.layout().tileWidth(coordinate.x())
+                    || height != plan.layout().tileHeight(coordinate.z())) {
+                throw new IllegalArgumentException("cached Surface tile geometry does not match request world");
+            }
+            for (int localZ = 0; localZ < height; localZ++) {
+                for (int localX = 0; localX < width; localX++) {
+                    int index = localZ * width + localX;
+                    int worldX = plan.layout().worldXForTileLocal(coordinate.x(), localX);
+                    int worldZ = plan.layout().worldZForTileLocal(coordinate.z(), localZ);
+                    byte cellState = state[index];
+                    if ((cellState & SurfaceTile.CONSIDERED) != 0) {
+                        accumulator.consider(worldX, worldZ);
+                    }
+                    if ((cellState & SurfaceTile.LIQUID_UNAVAILABLE) != 0
+                            && accumulator.markLiquidUnavailable(worldX, worldZ)) {
+                        liquidUnavailable++;
+                    }
+                    if ((cellState & SurfaceTile.RESOLVED) != 0) {
+                        accumulator.recordSurface(worldX, worldZ, surfaceY[index], blockIds[index],
+                                liquidIds[index], SurfaceClassCode.decode(surfaceClassCodes[index]));
+                    }
+                    if (!fallbackMode && plan.layout().isActive(worldX, worldZ)
+                            && (cellState & SurfaceTile.CONSIDERED) != 0) {
+                        cachedColumns++;
+                    }
+                }
+            }
+            if (fallbackMode) {
+                cachedColumns = Math.addExact(cachedColumns, diagnosticColumnsScanned);
+                cachedEmptyColumns = Math.addExact(cachedEmptyColumns, diagnosticEmptyColumns);
+                cachedLiquidUnavailable = Math.addExact(
+                        cachedLiquidUnavailable, diagnosticLiquidUnavailable);
+            }
+        }
+
         /** Promotes targets whose requested server chunk was not delivered. */
         public void promoteUndeliveredTargets() {
             ensureMutable();
@@ -251,9 +320,11 @@ public final class SurfaceRainHeightScanner {
             return new SurfaceRainHeightScanResult(
                     accumulator.finish(), fallback, resolved, unresolved, liquidUnavailable,
                     new SurfaceRainHeightDiagnosticCounters(
-                            Math.addExact(healthyFast, fallbackSummary.consideredColumns()),
-                            fallbackSummary.emptyColumns(),
-                            fallbackSummary.liquidUnavailableColumns()
+                            Math.addExact(Math.addExact(healthyFast, fallbackSummary.consideredColumns()),
+                                    cachedColumns),
+                            Math.addExact(fallbackSummary.emptyColumns(), cachedEmptyColumns),
+                            Math.addExact(fallbackSummary.liquidUnavailableColumns(),
+                                    cachedLiquidUnavailable)
                     ));
         }
 
