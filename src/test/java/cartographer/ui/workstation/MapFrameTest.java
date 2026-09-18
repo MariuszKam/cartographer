@@ -1,11 +1,14 @@
 package cartographer.ui.workstation;
 
+import cartographer.application.MapDecorationState;
 import cartographer.application.PreparedMapData;
 import cartographer.application.ProgressReporter;
 import cartographer.application.RenderDataCacheReport;
+import cartographer.model.HomeState;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.render.MapTerrainPreparation;
+import cartographer.render.RenderLayer;
 import cartographer.render.MapViewportGeometry;
 import cartographer.render.RenderOptions;
 import cartographer.render.RenderStyle;
@@ -18,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import java.awt.image.BufferedImage;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -60,6 +64,39 @@ class MapFrameTest {
     }
 
     @Test
+    void localRecompositionRequiresRetainedDataForEnabledLayers() {
+        MapDecorationState decorations =
+                new MapDecorationState(HomeState.absent(), List.of());
+        MapViewportGeometry geometry = MapViewportGeometry.fullImage(
+                64, 64, 16, 16, 48, 48
+        );
+
+        MapFrame rich = MapFrame.map(
+                Path.of("rich.vcdbs"),
+                geometry,
+                prepared(Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE)),
+                decorations
+        );
+        assertTrue(rich.supportsLocalRecomposition(Set.of(
+                RenderLayer.TERRAIN,
+                RenderLayer.SURFACE,
+                RenderLayer.SOIL_FERTILITY,
+                RenderLayer.MARKERS
+        )));
+
+        MapFrame sparse = MapFrame.map(
+                Path.of("sparse.vcdbs"),
+                geometry,
+                prepared(Set.of(RenderLayer.MARKERS)),
+                decorations
+        );
+        assertTrue(sparse.supportsLocalRecomposition(Set.of(RenderLayer.MARKERS)));
+        assertFalse(sparse.supportsLocalRecomposition(Set.of(RenderLayer.TERRAIN)));
+        assertFalse(sparse.supportsLocalRecomposition(Set.of(RenderLayer.SURFACE)));
+        assertFalse(sparse.supportsLocalRecomposition(Set.of(RenderLayer.SOIL_FERTILITY)));
+    }
+
+    @Test
     void stateReplacesAndInvalidatesCurrentFrame() {
         MapFrameState state = new MapFrameState();
         MapFrame first = MapFrame.map(
@@ -82,13 +119,17 @@ class MapFrameTest {
     }
 
     private PreparedMapData prepared() {
+        return prepared(Set.of());
+    }
+
+    private PreparedMapData prepared(Set<RenderLayer> layers) {
         WorldMetadata metadata = new WorldMetadata(64, 256, 64);
         WorldPosition center = new WorldPosition(32, 64, 32);
         RenderOptions options = new RenderOptions(
                 16,
                 1,
                 RenderStyle.TOPOGRAPHIC,
-                Set.of()
+                layers
         );
         SurfaceTileLayout layout = SurfaceTileLayout.forSurface(
                 center.x(), center.z(), 16, metadata
