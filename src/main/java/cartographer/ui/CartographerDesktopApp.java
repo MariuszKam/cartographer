@@ -19,7 +19,6 @@ import cartographer.application.RenderRockMapUseCase;
 import cartographer.application.AnalyzeProspectingAreaUseCase;
 import cartographer.application.ProspectingAreaRequest;
 import cartographer.application.ProspectingAreaResult;
-import cartographer.application.ProgressReporter;
 import cartographer.application.SurfaceDiscoveryRequestGate;
 import cartographer.application.SurfaceDiscoveryCache;
 import cartographer.application.SurfaceDiscoveryCacheKey;
@@ -55,6 +54,7 @@ import cartographer.ui.workstation.MapCursorPosition;
 import cartographer.ui.workstation.ResultInspectorPane;
 import cartographer.ui.workstation.SearchPanel;
 import cartographer.ui.workstation.SurfaceObjectDiscoveryState;
+import cartographer.ui.workstation.WorkstationOperationCoordinator;
 import cartographer.ui.workstation.WorkstationView;
 import cartographer.ui.workstation.WorldPanel;
 import javafx.application.Application;
@@ -78,6 +78,7 @@ public class CartographerDesktopApp extends Application {
     private WorldPanel worldPanel;
     private MapPanel mapPanel;
     private ResultInspectorPane resultInspector;
+    private WorkstationOperationCoordinator operationCoordinator;
 
     private RenderActualOreMapUseCase useCase;
     private RenderCoverageMapUseCase coverageUseCase;
@@ -141,6 +142,7 @@ public class CartographerDesktopApp extends Application {
         searchPanel = workstation.searchPanel();
         mapPanel = workstation.mapPanel();
         resultInspector = workstation.resultInspectorPane();
+        operationCoordinator = new WorkstationOperationCoordinator(workstation);
         mapPanel.setOnCursorPositionChanged(this::handleCursorPositionChanged);
         workstation.setOnModeChanged(this::handleModeChanged);
         workstation.setOnRadiusChanged(this::handleRadiusChanged);
@@ -187,60 +189,55 @@ public class CartographerDesktopApp extends Application {
         workstation.setPlayerLoaded(false);
         worldPanel.setPlayerStatus("Player: loading...");
 
-        Task<SaveLoadResult> task = new Task<>() {
-            @Override
-            protected SaveLoadResult call() {
-                List<OreResource> resources = resourceCatalogService.discover(savePath);
-                Map<Integer, BlockInfo> registry = reader.readBlockRegistry(savePath);
-                Optional<WorldMetadata> metadata;
-                try {
-                    metadata = Optional.of(metadataReader.read(savePath));
-                } catch (RuntimeException exception) {
-                    metadata = Optional.empty();
-                }
-                try {
-                    return new SaveLoadResult(
-                            resources,
-                            Optional.of(playerPositionService.loadSnapshot(savePath)),
-                            metadata,
-                            registry
+        operationCoordinator.submit(
+                "cartographer-resource-discovery",
+                () -> {
+                    List<OreResource> resources = resourceCatalogService.discover(savePath);
+                    Map<Integer, BlockInfo> registry = reader.readBlockRegistry(savePath);
+                    Optional<WorldMetadata> metadata;
+                    try {
+                        metadata = Optional.of(metadataReader.read(savePath));
+                    } catch (RuntimeException exception) {
+                        metadata = Optional.empty();
+                    }
+                    try {
+                        return new SaveLoadResult(
+                                resources,
+                                Optional.of(playerPositionService.loadSnapshot(savePath)),
+                                metadata,
+                                registry
+                        );
+                    } catch (RuntimeException exception) {
+                        return new SaveLoadResult(resources, Optional.empty(), metadata, registry);
+                    }
+                },
+                loaded -> {
+                    List<OreResource> discovered = loaded.resources();
+                    searchPanel.setResources(discovered, loaded.registry());
+                    loadedPlayerAbsolute = loaded.player()
+                            .map(PlayerPositionSnapshot::absolute);
+                    loadedWorldMetadata = loaded.metadata();
+                    worldPanel.setPlayerStatus(
+                            loaded.player().map(snapshot -> formatPlayer(snapshot.display()))
+                                    .orElse("Player: unavailable")
                     );
-                } catch (RuntimeException exception) {
-                    return new SaveLoadResult(resources, Optional.empty(), metadata, registry);
+                    workstation.setPlayerLoaded(loaded.player().isPresent());
+                    workstation.setStatus(
+                            discovered.isEmpty()
+                                    ? "No resource maps found; custom matches are available."
+                                    : "Loaded " + discovered.size() + " resources."
+                    );
+                    workstation.setDiscoveryBusy(false);
+                    startSurfaceDiscovery(savePath);
+                },
+                failure -> {
+                    searchPanel.setDiscoveryFailure();
+                    worldPanel.setPlayerStatus("Player: unavailable");
+                    workstation.setPlayerLoaded(false);
+                    showFailure(failure);
+                    workstation.setDiscoveryBusy(false);
                 }
-            }
-        };
-        task.setOnSucceeded(event -> {
-            SaveLoadResult loaded = task.getValue();
-            List<OreResource> discovered = loaded.resources();
-            searchPanel.setResources(discovered, loaded.registry());
-            loadedPlayerAbsolute = loaded.player()
-                    .map(PlayerPositionSnapshot::absolute);
-            loadedWorldMetadata = loaded.metadata();
-            worldPanel.setPlayerStatus(
-                    loaded.player().map(snapshot -> formatPlayer(snapshot.display()))
-                            .orElse("Player: unavailable")
-            );
-            workstation.setPlayerLoaded(loaded.player().isPresent());
-            workstation.setStatus(
-                    discovered.isEmpty()
-                            ? "No resource maps found; custom matches are available."
-                            : "Loaded " + discovered.size() + " resources."
-            );
-            workstation.setDiscoveryBusy(false);
-            startSurfaceDiscovery(savePath);
-        });
-        task.setOnFailed(event -> {
-            searchPanel.setDiscoveryFailure();
-            worldPanel.setPlayerStatus("Player: unavailable");
-            workstation.setPlayerLoaded(false);
-            showFailure(task.getException());
-            workstation.setDiscoveryBusy(false);
-        });
-
-        Thread worker = new Thread(task, "cartographer-resource-discovery");
-        worker.setDaemon(true);
-        worker.start();
+        );
     }
 
     private void render() {
@@ -268,18 +265,12 @@ public class CartographerDesktopApp extends Application {
             RenderActualOreMapRequest request = requestFromControls();
             setBusy(true);
             workstation.setStatus("Rendering ore map...");
-            ProgressTask<RenderActualOreMapResult> task = new ProgressTask<>() {
-                @Override
-                protected RenderActualOreMapResult call() {
-                    return useCase.execute(request, taskProgress(this));
-                }
-            };
-            wireTaskProgress(task);
-            task.setOnSucceeded(event -> showResult(task.getValue(), request));
-            task.setOnFailed(event -> showFailure(task.getException()));
-            Thread worker = new Thread(task, "cartographer-ore-map-render");
-            worker.setDaemon(true);
-            worker.start();
+            operationCoordinator.submitProgress(
+                    "cartographer-ore-map-render",
+                    progress -> useCase.execute(request, progress),
+                    result -> showResult(result, request),
+                    this::showFailure
+            );
         } catch (RuntimeException exception) {
             showFailure(exception);
         }
@@ -294,54 +285,36 @@ public class CartographerDesktopApp extends Application {
         );
         setBusy(true);
         workstation.setStatus("Rendering coverage...");
-        ProgressTask<RenderCoverageMapResult> task = new ProgressTask<>() {
-            @Override
-            protected RenderCoverageMapResult call() {
-                return coverageUseCase.execute(request, taskProgress(this));
-            }
-        };
-        wireTaskProgress(task);
-        task.setOnSucceeded(event -> showCoverageResult(task.getValue()));
-        task.setOnFailed(event -> showFailure(task.getException()));
-        Thread worker = new Thread(task, "cartographer-coverage-render");
-        worker.setDaemon(true);
-        worker.start();
+        operationCoordinator.submitProgress(
+                "cartographer-coverage-render",
+                progress -> coverageUseCase.execute(request, progress),
+                this::showCoverageResult,
+                this::showFailure
+        );
     }
 
     private void renderMap() {
         RenderActualOreMapRequest request = mapRequestFromControls();
         setBusy(true);
         workstation.setStatus("Rendering map...");
-        ProgressTask<RenderActualOreMapResult> task = new ProgressTask<>() {
-            @Override
-            protected RenderActualOreMapResult call() {
-                return useCase.execute(request, taskProgress(this));
-            }
-        };
-        wireTaskProgress(task);
-        task.setOnSucceeded(event -> showMapResult(task.getValue(), request));
-        task.setOnFailed(event -> showFailure(task.getException()));
-        Thread worker = new Thread(task, "cartographer-map-render");
-        worker.setDaemon(true);
-        worker.start();
+        operationCoordinator.submitProgress(
+                "cartographer-map-render",
+                progress -> useCase.execute(request, progress),
+                result -> showMapResult(result, request),
+                this::showFailure
+        );
     }
 
     private void renderRockMap() {
         RenderRockMapRequest request = rockRequestFromControls();
         setBusy(true);
         workstation.setStatus("Rendering observed rock geology...");
-        ProgressTask<RenderRockMapResult> task = new ProgressTask<>() {
-            @Override
-            protected RenderRockMapResult call() {
-                return rockUseCase.execute(request, taskProgress(this));
-            }
-        };
-        wireTaskProgress(task);
-        task.setOnSucceeded(event -> showRockResult(task.getValue(), request));
-        task.setOnFailed(event -> showFailure(task.getException()));
-        Thread worker = new Thread(task, "cartographer-rock-map-render");
-        worker.setDaemon(true);
-        worker.start();
+        operationCoordinator.submitProgress(
+                "cartographer-rock-map-render",
+                progress -> rockUseCase.execute(request, progress),
+                result -> showRockResult(result, request),
+                this::showFailure
+        );
     }
 
     private void analyzeProspectingArea() {
@@ -358,17 +331,12 @@ public class CartographerDesktopApp extends Application {
         );
         setBusy(true);
         workstation.setStatus("Analyzing prospecting evidence...");
-        Task<ProspectingAreaResult> task = new Task<>() {
-            @Override
-            protected ProspectingAreaResult call() {
-                return prospectingUseCase.execute(request);
-            }
-        };
-        task.setOnSucceeded(event -> showProspectingResult(task.getValue(), request));
-        task.setOnFailed(event -> showFailure(task.getException()));
-        Thread worker = new Thread(task, "cartographer-prospecting-analysis");
-        worker.setDaemon(true);
-        worker.start();
+        operationCoordinator.submit(
+                "cartographer-prospecting-analysis",
+                () -> prospectingUseCase.execute(request),
+                result -> showProspectingResult(result, request),
+                this::showFailure
+        );
     }
 
     private RenderRockMapRequest rockRequestFromControls() {
@@ -430,18 +398,12 @@ public class CartographerDesktopApp extends Application {
         );
         setBusy(true);
         workstation.setStatus("Rendering surface resource...");
-        ProgressTask<RenderSurfaceResourceMapResult> task = new ProgressTask<>() {
-            @Override
-            protected RenderSurfaceResourceMapResult call() {
-                return surfaceUseCase.execute(request, taskProgress(this));
-            }
-        };
-        wireTaskProgress(task);
-        task.setOnSucceeded(event -> showSurfaceResult(task.getValue(), request));
-        task.setOnFailed(event -> showFailure(task.getException()));
-        Thread worker = new Thread(task, "cartographer-surface-resource-render");
-        worker.setDaemon(true);
-        worker.start();
+        operationCoordinator.submitProgress(
+                "cartographer-surface-resource-render",
+                progress -> surfaceUseCase.execute(request, progress),
+                result -> showSurfaceResult(result, request),
+                this::showFailure
+        );
     }
 
     private void renderSurfaceMaterial() {
@@ -455,18 +417,12 @@ public class CartographerDesktopApp extends Application {
                 RenderStyle.TOPOGRAPHIC, workstation.selectedRenderLayers(), match, Optional.empty());
         setBusy(true);
         workstation.setStatus("Rendering surface resource...");
-        ProgressTask<RenderSurfaceResourceMapResult> task = new ProgressTask<>() {
-            @Override
-            protected RenderSurfaceResourceMapResult call() {
-                return surfaceUseCase.execute(request, taskProgress(this));
-            }
-        };
-        wireTaskProgress(task);
-        task.setOnSucceeded(event -> showSurfaceResult(task.getValue(), request));
-        task.setOnFailed(event -> showFailure(task.getException()));
-        Thread worker = new Thread(task, "cartographer-surface-material-render");
-        worker.setDaemon(true);
-        worker.start();
+        operationCoordinator.submitProgress(
+                "cartographer-surface-material-render",
+                progress -> surfaceUseCase.execute(request, progress),
+                result -> showSurfaceResult(result, request),
+                this::showFailure
+        );
     }
 
     private RenderActualOreMapRequest requestFromControls() {
@@ -648,43 +604,36 @@ public class CartographerDesktopApp extends Application {
         workstation.clearObservedSurfaceResources();
         surfaceObjectDiscoveryState = SurfaceObjectDiscoveryState.SCANNING;
         workstation.setSurfaceObjectDiscoveryState(surfaceObjectDiscoveryState);
-        ProgressTask<DiscoverObservedSurfaceResourcesResult> task = new ProgressTask<>() {
-            @Override
-            protected DiscoverObservedSurfaceResourcesResult call() {
-                return surfaceDiscoveryUseCase.execute(
+        surfaceDiscoveryTask = operationCoordinator.submit(
+                "cartographer-surface-object-discovery",
+                () -> surfaceDiscoveryUseCase.execute(
                         new DiscoverObservedSurfaceResourcesRequest(
                                 key.savePath(),
                                 key.radius(),
                                 surfaceDiscoveryCenter
                         )
-                );
-            }
-        };
-        surfaceDiscoveryTask = task;
-        task.setOnSucceeded(event -> {
-            if (!SurfaceDiscoveryPolicy.shouldCacheCompletion(
-                    surfaceDiscoveryGate.accepts(token, currentSurfaceDiscoveryKey()))) {
-                return;
-            }
-            DiscoverObservedSurfaceResourcesResult result = task.getValue();
-            if (surfaceDiscoveryCenter.isEmpty()) {
-                surfaceDiscoveryCenter = Optional.of(result.center());
-            }
-            surfaceDiscoveryCache.put(
-                    SurfaceDiscoveryCacheKey.of(key.savePath(), key.radius(), result.center()),
-                    result
-            );
-            applySurfaceDiscoveryResult(key, result);
-        });
-        task.setOnFailed(event -> {
-            if (!surfaceDiscoveryGate.accepts(token, currentSurfaceDiscoveryKey())) {
-                return;
-            }
-            showSurfaceDiscoveryFailure();
-        });
-        Thread worker = new Thread(task, "cartographer-surface-object-discovery");
-        worker.setDaemon(true);
-        worker.start();
+                ),
+                result -> {
+                    if (!SurfaceDiscoveryPolicy.shouldCacheCompletion(
+                            surfaceDiscoveryGate.accepts(token, currentSurfaceDiscoveryKey()))) {
+                        return;
+                    }
+                    if (surfaceDiscoveryCenter.isEmpty()) {
+                        surfaceDiscoveryCenter = Optional.of(result.center());
+                    }
+                    surfaceDiscoveryCache.put(
+                            SurfaceDiscoveryCacheKey.of(key.savePath(), key.radius(), result.center()),
+                            result
+                    );
+                    applySurfaceDiscoveryResult(key, result);
+                },
+                failure -> {
+                    if (!surfaceDiscoveryGate.accepts(token, currentSurfaceDiscoveryKey())) {
+                        return;
+                    }
+                    showSurfaceDiscoveryFailure();
+                }
+        );
     }
 
     private void applySurfaceDiscoveryResult(
@@ -770,61 +719,6 @@ public class CartographerDesktopApp extends Application {
         surfaceObjectDiscoveryState = SurfaceObjectDiscoveryState.FAILED;
         workstation.clearObservedSurfaceResources();
         workstation.setSurfaceObjectDiscoveryState(surfaceObjectDiscoveryState);
-    }
-
-    private void wireTaskProgress(Task<?> task) {
-        task.messageProperty().addListener((observable, oldMessage, message) -> {
-            if (message != null && !message.isBlank()) {
-                workstation.setStatus(message);
-            }
-        });
-        task.progressProperty().addListener((observable, oldProgress, progress) -> {
-            if (progress == null || progress.doubleValue() < 0.0) {
-                workstation.setIndeterminateProgress();
-            } else {
-                workstation.setProgress(progress.doubleValue(), 1.0);
-            }
-        });
-    }
-
-    private ProgressReporter taskProgress(ProgressTask<?> task) {
-        return new ProgressReporter() {
-            @Override
-            public void start(String stage) {
-                task.reportStage(stage);
-            }
-
-            @Override
-            public void progress(String stage, int current, int total) {
-                task.reportProgress(stage, current, total);
-            }
-
-            @Override
-            public void done(String stage) {
-                task.reportDone(stage);
-            }
-        };
-    }
-
-    private abstract static class ProgressTask<T> extends Task<T> {
-        final void reportStage(String stage) {
-            updateMessage(stage);
-            updateProgress(-1, 1);
-        }
-
-        final void reportProgress(String stage, int current, int total) {
-            updateMessage(stage);
-            if (total <= 0) {
-                updateProgress(-1, 1);
-            } else {
-                updateProgress(current, total);
-            }
-        }
-
-        final void reportDone(String stage) {
-            updateMessage(stage);
-            updateProgress(1, 1);
-        }
     }
 
     private List<ActualOreOverlaySpec> selectedOverlays() {
