@@ -16,9 +16,12 @@ import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
 import cartographer.save.SelectiveChunkStreamStats;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.MapChunkStreamStats;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMapScanner;
@@ -28,7 +31,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.awt.Color;
+import java.lang.reflect.Proxy;
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -194,6 +199,9 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
         assertEquals(0, reader.registryCalls);
+        assertEquals(0, reader.pathPlayerCalls);
+        assertEquals(0, reader.pathMapChunkCalls);
+        assertEquals(0, reader.pathRegistryCalls);
     }
 
     @Test
@@ -216,6 +224,11 @@ class RenderActualOreMapUseCaseTest {
         assertTrue(hasSurfaceBlockId(result, 1));
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
+        assertEquals(0, reader.pathPlayerCalls);
+        assertEquals(0, reader.pathMapChunkCalls);
+        assertEquals(0, reader.pathAdaptiveChunkCalls);
+        assertEquals(0, reader.pathAdaptiveSelectiveCalls);
+        assertEquals(0, reader.pathRegistryCalls);
     }
 
     @Test
@@ -517,6 +530,11 @@ class RenderActualOreMapUseCaseTest {
             public WorldMetadata read(Path savePath) {
                 return metadata;
             }
+
+            @Override
+            protected WorldMetadata read(Connection connection, ProgressReporter progress) {
+                return metadata;
+            }
         };
         return new RenderActualOreMapUseCase(
                 reader,
@@ -526,7 +544,10 @@ class RenderActualOreMapUseCaseTest {
                 new MapRenderer(),
                 new UserMarkerRenderer(),
                 new ActualBlockMapScanner(),
-                new ActualOreOverlayPainter()
+                new ActualOreOverlayPainter(),
+                new cartographer.scanner.MultiActualBlockMapScanner(),
+                new OreChunkPositionPlanner(),
+                new SaveSessionFactory(new TestConnectionFactory(), reader, metadataReader)
         );
     }
 
@@ -605,6 +626,11 @@ class RenderActualOreMapUseCaseTest {
         private int exactChunkCalls;
         private int adaptiveExactChunkCalls;
         private int registryCalls;
+        private int pathMapChunkCalls;
+        private int pathAdaptiveChunkCalls;
+        private int pathAdaptiveSelectiveCalls;
+        private int pathPlayerCalls;
+        private int pathRegistryCalls;
         private int legacyMapChunkCalls;
         private int legacyChunkCalls;
         private final int fakeBlockId;
@@ -623,6 +649,15 @@ class RenderActualOreMapUseCaseTest {
 
         @Override
         public WorldPosition readPlayerPosition(Path savePath) {
+            pathPlayerCalls++;
+            return new WorldPosition(64, 64, 64);
+        }
+
+        @Override
+        public WorldPosition readPlayerPosition(
+                SaveSession session,
+                ProgressReporter progress
+        ) {
             return new WorldPosition(64, 64, 64);
         }
 
@@ -633,8 +668,16 @@ class RenderActualOreMapUseCaseTest {
                 ReadDiagnostics diagnostics,
                 java.util.function.Consumer<MapChunk> consumer
         ) {
-            directMapChunkCalls++;
+            pathMapChunkCalls++;
             directMapChunkRequests.add(List.copyOf(coordinates));
+            return visitMapChunks(coordinates, consumer);
+        }
+
+        private MapChunkStreamStats visitMapChunks(
+                java.util.Collection<MapChunkCoordinate> coordinates,
+                java.util.function.Consumer<MapChunk> consumer
+        ) {
+            directMapChunkCalls++;
             int delivered = 0;
             for (MapChunkCoordinate coordinate : coordinates) {
                 MapChunk mapChunk = mapChunks.get(coordinate);
@@ -651,6 +694,18 @@ class RenderActualOreMapUseCaseTest {
                     0,
                     0
             );
+        }
+
+        @Override
+        public MapChunkStreamStats forEachMapChunkByCoordinate(
+                SaveSession session,
+                java.util.Collection<MapChunkCoordinate> coordinates,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<MapChunk> consumer,
+                ProgressReporter progress
+        ) {
+            directMapChunkRequests.add(List.copyOf(coordinates));
+            return visitMapChunks(coordinates, consumer);
         }
 
         @Override
@@ -673,10 +728,20 @@ class RenderActualOreMapUseCaseTest {
                 ReadDiagnostics diagnostics,
             java.util.function.Consumer<ParsedChunk> consumer
         ) {
+            pathAdaptiveChunkCalls++;
+            return visitChunks(positions, consumer);
+        }
+
+        @Override
+        public ChunkStreamStats forEachChunkByPositionAdaptive(
+                SaveSession session,
+                java.util.Collection<ChunkPosition> positions,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer,
+                ProgressReporter progress
+        ) {
             adaptiveExactChunkCalls++;
-            return forEachChunkByPosition(
-                    savePath, positions, diagnostics, consumer
-            );
+            return visitChunks(positions, consumer);
         }
 
         @Override
@@ -697,6 +762,13 @@ class RenderActualOreMapUseCaseTest {
                 Path savePath,
                 java.util.Collection<ChunkPosition> positions,
                 ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer
+        ) {
+            return visitChunks(positions, consumer);
+        }
+
+        private ChunkStreamStats visitChunks(
+                java.util.Collection<ChunkPosition> positions,
                 java.util.function.Consumer<ParsedChunk> consumer
         ) {
             exactChunkCalls++;
@@ -743,6 +815,12 @@ class RenderActualOreMapUseCaseTest {
 
         @Override
         public Map<Integer, BlockInfo> readBlockRegistry(Path savePath) {
+            pathRegistryCalls++;
+            return registry;
+        }
+
+        @Override
+        protected Map<Integer, BlockInfo> readBlockRegistry(Connection connection) {
             registryCalls++;
             return registry;
         }
@@ -755,10 +833,21 @@ class RenderActualOreMapUseCaseTest {
                 ReadDiagnostics diagnostics,
                 java.util.function.Consumer<ParsedChunk> consumer
         ) {
+            pathAdaptiveSelectiveCalls++;
+            return visitSelective(positions, wantedBlockIds, consumer);
+        }
+
+        @Override
+        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
+                SaveSession session,
+                java.util.Collection<ChunkPosition> positions,
+                int[] wantedBlockIds,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer,
+                ProgressReporter progress
+        ) {
             adaptiveSelectiveCalls++;
-            return forEachChunkByPositionMatchingBlockIds(
-                    savePath, positions, wantedBlockIds, diagnostics, consumer
-            );
+            return visitSelective(positions, wantedBlockIds, consumer);
         }
 
         @Override
@@ -781,6 +870,14 @@ class RenderActualOreMapUseCaseTest {
                 java.util.Collection<cartographer.model.ChunkPosition> positions,
                 int[] wantedBlockIds,
                 ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer
+        ) {
+            return visitSelective(positions, wantedBlockIds, consumer);
+        }
+
+        private SelectiveChunkStreamStats visitSelective(
+                java.util.Collection<ChunkPosition> positions,
+                int[] wantedBlockIds,
                 java.util.function.Consumer<ParsedChunk> consumer
         ) {
             selectiveCalls++;
@@ -816,6 +913,17 @@ class RenderActualOreMapUseCaseTest {
                 }
             }
             return false;
+        }
+    }
+
+    private static final class TestConnectionFactory extends SqliteSaveConnection {
+        @Override
+        public Connection openReadOnly(Path savePath) {
+            return (Connection) Proxy.newProxyInstance(
+                    Connection.class.getClassLoader(),
+                    new Class<?>[]{Connection.class},
+                    (proxy, method, args) -> null
+            );
         }
     }
 }

@@ -27,6 +27,9 @@ import cartographer.render.SystemMarkerOverlayRenderer;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.ChunkStreamStats;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMap;
@@ -57,7 +60,7 @@ import java.util.Set;
 public class RenderActualOreMapUseCase {
 
     private final VcdbsReader reader;
-    private final WorldMetadataReader metadataReader;
+    private final SaveSessionFactory sessionFactory;
     private final HomeStore homeStore;
     private final MarkerStore markerStore;
     private final MapRenderer renderer;
@@ -97,7 +100,10 @@ public class RenderActualOreMapUseCase {
                 actualBlockMapScanner,
                 actualOreOverlayPainter,
                 new MultiActualBlockMapScanner(),
-                new OreChunkPositionPlanner()
+                new OreChunkPositionPlanner(),
+                new SaveSessionFactory(
+                        new SqliteSaveConnection(), reader, metadataReader
+                )
         );
     }
 
@@ -122,7 +128,10 @@ public class RenderActualOreMapUseCase {
                 actualBlockMapScanner,
                 actualOreOverlayPainter,
                 multiActualBlockMapScanner,
-                new OreChunkPositionPlanner()
+                new OreChunkPositionPlanner(),
+                new SaveSessionFactory(
+                        new SqliteSaveConnection(), reader, metadataReader
+                )
         );
     }
 
@@ -138,8 +147,39 @@ public class RenderActualOreMapUseCase {
             MultiActualBlockMapScanner multiActualBlockMapScanner,
             OreChunkPositionPlanner oreChunkPositionPlanner
     ) {
+        this(
+                reader,
+                metadataReader,
+                homeStore,
+                markerStore,
+                renderer,
+                userMarkerRenderer,
+                actualBlockMapScanner,
+                actualOreOverlayPainter,
+                multiActualBlockMapScanner,
+                oreChunkPositionPlanner,
+                new SaveSessionFactory(
+                        new SqliteSaveConnection(), reader, metadataReader
+                )
+        );
+    }
+
+    public RenderActualOreMapUseCase(
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            HomeStore homeStore,
+            MarkerStore markerStore,
+            MapRenderer renderer,
+            UserMarkerRenderer userMarkerRenderer,
+            ActualBlockMapScanner actualBlockMapScanner,
+            ActualOreOverlayPainter actualOreOverlayPainter,
+            MultiActualBlockMapScanner multiActualBlockMapScanner,
+            OreChunkPositionPlanner oreChunkPositionPlanner,
+            SaveSessionFactory sessionFactory
+    ) {
         this.reader = Objects.requireNonNull(reader, "reader is required");
-        this.metadataReader = Objects.requireNonNull(metadataReader, "metadataReader is required");
+        Objects.requireNonNull(metadataReader, "metadataReader is required");
+        this.sessionFactory = Objects.requireNonNull(sessionFactory, "sessionFactory is required");
         this.homeStore = Objects.requireNonNull(homeStore, "homeStore is required");
         this.markerStore = Objects.requireNonNull(markerStore, "markerStore is required");
         this.renderer = Objects.requireNonNull(renderer, "renderer is required");
@@ -167,8 +207,23 @@ public class RenderActualOreMapUseCase {
         Objects.requireNonNull(request, "request is required");
         Objects.requireNonNull(progress, "progress is required");
 
-        WorldMetadata metadata = metadataReader.read(request.savePath());
-        WorldPosition player = reader.readPlayerPosition(request.savePath());
+        try (SaveSession saveSession = sessionFactory.open(request.savePath())) {
+            return execute(saveSession, request, progress);
+        }
+    }
+
+    public RenderActualOreMapResult execute(
+            SaveSession saveSession,
+            RenderActualOreMapRequest request,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(saveSession, "saveSession is required");
+        Objects.requireNonNull(request, "request is required");
+        Objects.requireNonNull(progress, "progress is required");
+        saveSession.requireSameSave(request.savePath());
+
+        WorldMetadata metadata = saveSession.snapshot().metadata();
+        WorldPosition player = reader.readPlayerPosition(saveSession, progress);
         WorldPosition center = request.center().orElse(player);
         RenderOptions options = new RenderOptions(
                 request.radius(),
@@ -220,7 +275,7 @@ public class RenderActualOreMapUseCase {
                         progress
                 );
         Map<Integer, BlockInfo> surfaceRegistry = surfaceDataRequired
-                ? reader.readBlockRegistry(request.savePath())
+                ? saveSession.snapshot().blockRegistry()
                 : Map.of();
         SurfaceStreamingSession surfaceSession =
                 surfaceDataRequired
@@ -236,7 +291,7 @@ public class RenderActualOreMapUseCase {
                         )
                         : null;
         reader.forEachMapChunkByCoordinate(
-                request.savePath(),
+                saveSession,
                 directReadCoordinates,
                 mapChunkDiagnostics,
                 mapChunk -> {
@@ -253,7 +308,7 @@ public class RenderActualOreMapUseCase {
         MapTerrainPreparation terrain = terrainBuilder.finish();
         SurfaceMapScanResult compactSurface = surfaceDataRequired
                 ? readCompactSurface(
-                        request.savePath(),
+                        saveSession,
                         metadata,
                         surfaceSession,
                         surfaceRegistry,
@@ -269,7 +324,7 @@ public class RenderActualOreMapUseCase {
         ReadDiagnostics mapRegionDiagnostics = new ReadDiagnostics();
         List<ServerMapRegion> mapRegions = hasMapRegionOverlay(options)
                 ? readMapRegionsWithProgress(
-                        request.savePath(), mapRegionDiagnostics, progress
+                        saveSession, mapRegionDiagnostics, progress
                 )
                 : List.of();
         if (hasMapRegionOverlay(options)) {
@@ -284,7 +339,8 @@ public class RenderActualOreMapUseCase {
 
         ReadDiagnostics actualOreDiagnostics = new ReadDiagnostics();
         List<ActualOreOverlayResult> actualOreOverlays = drawActualOreOverlays(
-                request, rendered, center, metadata, actualOreDiagnostics, progress
+                saveSession, request, rendered, center, metadata,
+                saveSession.snapshot().blockRegistry(), actualOreDiagnostics, progress
         );
 
         if ((hasMapRegionOverlay(options) || !actualOreOverlays.isEmpty())
@@ -317,19 +373,21 @@ public class RenderActualOreMapUseCase {
     }
 
     private List<ServerMapRegion> readMapRegionsWithProgress(
-            Path savePath,
+            SaveSession saveSession,
             ReadDiagnostics diagnostics,
             ProgressReporter progress
     ) {
         progress.start("Reading map regions");
-        return reader.readMapRegions(savePath, diagnostics);
+        return reader.readMapRegions(saveSession, diagnostics, progress);
     }
 
     private List<ActualOreOverlayResult> drawActualOreOverlays(
+            SaveSession saveSession,
             RenderActualOreMapRequest request,
             RenderedMap rendered,
             WorldPosition center,
             WorldMetadata metadata,
+            Map<Integer, BlockInfo> registry,
             ReadDiagnostics diagnostics,
             ProgressReporter progress
     ) {
@@ -337,7 +395,6 @@ public class RenderActualOreMapUseCase {
         if (specs.isEmpty()) {
             return List.of();
         }
-        Map<Integer, BlockInfo> registry = reader.readBlockRegistry(request.savePath());
         int centerX = (int) Math.round(center.x());
         int centerZ = (int) Math.round(center.z());
         List<ActualBlockMatchSpec> matches = specs.stream()
@@ -362,7 +419,7 @@ public class RenderActualOreMapUseCase {
                     request.yFilter()
             );
             reader.forEachChunkByPositionMatchingBlockIdsAdaptive(
-                    request.savePath(),
+                    saveSession,
                     positions,
                     wantedBlockIds,
                     diagnostics,
@@ -392,7 +449,7 @@ public class RenderActualOreMapUseCase {
     }
 
     private SurfaceMapScanResult readCompactSurface(
-            java.nio.file.Path savePath,
+            SaveSession saveSession,
             WorldMetadata metadata,
             SurfaceStreamingSession surfaceSession,
             Map<Integer, BlockInfo> registry,
@@ -403,7 +460,7 @@ public class RenderActualOreMapUseCase {
         ChunkStreamStats fastChunkStats = new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         if (!rainPlan.chunkPositions().isEmpty()) {
             fastChunkStats = reader.forEachChunkByPositionAdaptive(
-                    savePath,
+                    saveSession,
                     rainPlan.chunkPositions(),
                     chunkDiagnostics,
                     surfaceSession::acceptFastChunk,
@@ -418,7 +475,7 @@ public class RenderActualOreMapUseCase {
         ChunkStreamStats fallbackChunkStats = new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         if (!fallbackPositions.isEmpty()) {
             fallbackChunkStats = reader.forEachChunkByPositionAdaptive(
-                    savePath,
+                    saveSession,
                     fallbackPositions,
                     chunkDiagnostics,
                     surfaceSession::acceptFallbackChunk,
@@ -454,16 +511,6 @@ public class RenderActualOreMapUseCase {
         return new SurfaceMapScanResult(
                 accumulator.finish(), Map.of(), 0, 0, 0, 0
         );
-    }
-
-    private List<ServerMapRegion> mapRegions(
-            java.nio.file.Path savePath,
-            RenderOptions options,
-            ReadDiagnostics diagnostics
-    ) {
-        return hasMapRegionOverlay(options)
-                ? reader.readMapRegions(savePath, diagnostics)
-                : List.of();
     }
 
     private OverlayRenderReport drawEnvironmentOverlay(

@@ -2,9 +2,10 @@
 
 Status: **IMPLEMENTATION IN PROGRESS — VALIDATION PENDING**
 
-This document records the PF-1.7 A+B foundation. It defines a persistent
-render-data cache namespace and manifest contract, but it does not integrate
-the cache into any renderer or analysis use case yet.
+This document records the PF-1.7 A+B foundation plus the C+D implementation.
+It defines the persistent render-data cache namespace, compact terrain artifact
+contract, and main-render session lifecycle. The cache is still not consumed by
+the renderer; cache HIT/MISS integration is intentionally deferred.
 
 ## Motivation and boundary
 
@@ -104,6 +105,65 @@ The store has no background threads, global synchronization, session registry,
 connection pool, static cache, or persistent JDBC resource. Later
 artifact-writer checkpoints must preserve the same publication boundary.
 
+## Checkpoint C — main render SaveSession migration
+
+`RenderActualOreMapUseCase` now owns one `SaveSession` for a path-based render
+and delegates to a session execution seam. The session identity is checked
+before request state is combined with save data. Within that operation:
+
+* metadata and the block registry come from `SaveSnapshot`;
+* player lookup uses the session reader;
+* the union of terrain and Surface mapchunk coordinates is read once through
+  the session reader;
+* Surface fast and fallback chunk phases borrow the same connection;
+* optional mapregion overlays use the session reader only when enabled; and
+* actual-ore overlays use the snapshot registry and session-aware adaptive
+  selective traversal.
+
+The adaptive selective reader now opens one connection for a path call, makes
+its strategy decision on that connection, and routes exact or table-stream
+selective decoding through connection cores. A session call borrows the same
+connection and never closes it. PF-1.2 bounded decoding and PF-1.4 phase
+semantics are unchanged. HOME and marker stores remain external to the save
+snapshot.
+
+The architectural source-read invariant is therefore one operation-scoped
+read-only `.vcdbs` connection lifecycle for the main render. This is a static
+design invariant, not runtime connection-count evidence.
+
+## Checkpoint D — compact terrain artifact
+
+`TerrainHeightTile` is an immutable representation for one
+`MapChunkCoordinate`. It stores one effective primitive `int[1024]` height
+array when available, plus fixed metadata indicating whether RainHeightMap was
+available. Rain heights are preferred; otherwise world-generation heights are
+used; when neither exists the tile contains no fabricated values and an empty
+array. The object owns a defensive copy and contains no `MapChunk`, session,
+registry, or per-cell objects.
+
+`TerrainHeightTileCodec` defines a deterministic big-endian binary format with
+magic, artifact version, coordinate, flags, exact height count, and values. It
+rejects wrong magic/version, unknown or impossible flags, invalid counts,
+truncated payloads, and trailing bytes. `TerrainTileLookup` distinguishes
+HIT, MISS, and CORRUPT so later integration can fall back to source reads.
+
+`TerrainTileStore` is a cache-local SQLite artifact database at
+`terrain-cache.sqlite` below the already-published revision directory. It is
+not the game save database: it is writable cache data strictly beneath the
+injected cache root, and it never receives the `.vcdbs` path as its database
+target. It stores codec payloads in a coordinate-addressable primary-key table,
+reads requested coordinates in bounded batches, and publishes tile batches in
+a transaction with deterministic `INSERT OR IGNORE` conflict behavior. Missing
+databases, rows, malformed payloads, and SQL read failures are optional-cache
+miss/corrupt states; they do not alter or fail source-save analysis. A
+compatible published manifest is required before terrain artifacts are
+trusted.
+
+Checkpoint D does not make the renderer look up terrain tiles, skip mapchunk
+reads, mix cached and uncached terrain, write from render callbacks, or report
+cache diagnostics. The production renderer still reads source mapchunks through
+its SaveSession.
+
 ## Legacy cache compatibility
 
 PF-1.7 does not redefine or delete the existing `RenderCache`, `CacheKey`,
@@ -114,19 +174,20 @@ manifest are intentionally separate.
 
 ## No renderer integration in A+B
 
-`RenderActualOreMapUseCase`, `RenderSurfaceResourceMapUseCase`, and other
-rendering paths still perform their existing source reads. A+B does not skip
-SQLite reads, return cached terrain or Surface data, or claim a cache speedup.
+`RenderSurfaceResourceMapUseCase` and other rendering paths still perform their
+existing source reads. The main `RenderActualOreMapUseCase` source path now
+uses the C SaveSession lifecycle, but no renderer consumes D cache artifacts.
 No decoded input is retained by this foundation.
 
 ## Roadmap
 
 The intended remaining implementation pairs are:
 
-* **A+B** — identity, revision, and persistent manifest foundation (this work);
-* **C+D** — compact terrain/mapchunk cache representation and storage;
-* **E+F** — PF-1.4 Surface tile cache representation and storage;
-* **G+H** — main render-pipeline integration and cache hit/miss diagnostics;
+* **A+B** — identity and manifest foundation;
+* **C** — main `RenderActualOreMapUseCase` SaveSession migration;
+* **D** — compact terrain/mapchunk cache model and persistent store (this work);
+* **E+F** — compact PF-1.4 Surface tile cache;
+* **G+H** — production cache integration, mixed hit/miss behavior, and diagnostics;
 * **I+J** — invalidation, cleanup, static audit, and implementation closure.
 
 PF-1.7 must not turn `SaveSession` into a global cache, retain JDBC
