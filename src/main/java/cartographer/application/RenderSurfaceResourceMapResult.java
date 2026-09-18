@@ -18,7 +18,8 @@ public record RenderSurfaceResourceMapResult(
         ReadDiagnostics mapChunkDiagnostics,
         ReadDiagnostics chunkDiagnostics,
         int userMarkersDrawn,
-        RenderDataCacheReport renderDataCacheReport
+        RenderDataCacheReport renderDataCacheReport,
+        java.util.Optional<PreparedMapData> preparedMapData
 ) {
 
     public RenderSurfaceResourceMapResult {
@@ -30,8 +31,37 @@ public record RenderSurfaceResourceMapResult(
         Objects.requireNonNull(mapChunkDiagnostics, "mapChunkDiagnostics is required");
         Objects.requireNonNull(chunkDiagnostics, "chunkDiagnostics is required");
         Objects.requireNonNull(renderDataCacheReport, "renderDataCacheReport is required");
+        preparedMapData = Objects.requireNonNull(
+                preparedMapData,
+                "preparedMapData is required; use Optional.empty() when unavailable"
+        );
         if (userMarkersDrawn < 0) {
             throw new IllegalArgumentException("user markers drawn cannot be negative");
         }
+    }
+
+    public RenderSurfaceResourceMapResult(
+            BufferedImage image,
+            MapViewportGeometry geometry,
+            SurfaceRenderAnalysis analysis,
+            SurfaceMapScanResult surface,
+            MapRenderReport renderReport,
+            ReadDiagnostics mapChunkDiagnostics,
+            ReadDiagnostics chunkDiagnostics,
+            int userMarkersDrawn,
+            RenderDataCacheReport renderDataCacheReport
+    ) {
+        this(
+                image,
+                geometry,
+                analysis,
+                surface,
+                renderReport,
+                mapChunkDiagnostics,
+                chunkDiagnostics,
+                userMarkersDrawn,
+                renderDataCacheReport,
+                java.util.Optional.empty()
+        );
     }
 }
