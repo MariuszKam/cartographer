@@ -497,7 +497,7 @@ public final class SearchPanel extends VBox {
     }
 
     private void updateYFields() { boolean disabled = allYButton.isSelected() || mode != WorkstationTool.ORE; yMinField.setDisable(disabled); yMaxField.setDisable(disabled); updateRockMode(); }
-    private void updateRockMode() { rockYField.setDisable(mode != WorkstationTool.ROCK || !rockAtYButton.isSelected()); }
+    private void updateRockMode() { rockYField.setDisable(mode != WorkstationTool.GEOLOGY || !rockAtYButton.isSelected()); }
     private void updateRadiusWarning() { boolean visible = radius1024Button.isSelected(); radiusWarningLabel.setVisible(visible); radiusWarningLabel.setManaged(visible); }
     private void updateResourceMode() {
         boolean multiple = multipleResourcesButton.isSelected();
