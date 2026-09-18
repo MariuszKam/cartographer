@@ -10,7 +10,10 @@ import cartographer.model.WorldPosition;
 import cartographer.render.RockMapRenderResult;
 import cartographer.render.RockMapRenderer;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
 import cartographer.save.SelectiveChunkStreamStats;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockYFilter;
@@ -21,6 +24,7 @@ import java.util.Objects;
 public final class RenderRockMapUseCase {
     private final VcdbsReader reader;
     private final WorldMetadataReader metadataReader;
+    private final SaveSessionFactory sessionFactory;
     private final RockMapRenderer renderer;
     private final OreChunkPositionPlanner positionPlanner =
             new OreChunkPositionPlanner();
@@ -30,11 +34,30 @@ public final class RenderRockMapUseCase {
             WorldMetadataReader metadataReader,
             RockMapRenderer renderer
     ) {
+        this(
+                reader,
+                metadataReader,
+                renderer,
+                new SaveSessionFactory(
+                        new SqliteSaveConnection(),
+                        reader,
+                        metadataReader
+                )
+        );
+    }
+
+    public RenderRockMapUseCase(
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            RockMapRenderer renderer,
+            SaveSessionFactory sessionFactory
+    ) {
         this.reader = Objects.requireNonNull(reader, "reader is required");
         this.metadataReader = Objects.requireNonNull(
                 metadataReader,
                 "metadata reader is required"
         );
+        this.sessionFactory = Objects.requireNonNull(sessionFactory, "sessionFactory is required");
         this.renderer = Objects.requireNonNull(renderer, "renderer is required");
     }
 
@@ -48,12 +71,25 @@ public final class RenderRockMapUseCase {
     ) {
         Objects.requireNonNull(request, "rock map request is required");
         Objects.requireNonNull(progress, "progress is required");
-        WorldMetadata metadata = metadataReader.read(request.savePath());
+        try (SaveSession session = sessionFactory.open(request.savePath())) {
+            return execute(session, request, progress);
+        }
+    }
+
+    public RenderRockMapResult execute(
+            SaveSession session,
+            RenderRockMapRequest request,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(session, "session is required");
+        Objects.requireNonNull(request, "rock map request is required");
+        Objects.requireNonNull(progress, "progress is required");
+        WorldMetadata metadata = session.snapshot().metadata();
         WorldPosition center = request.center().orElseGet(
-                () -> reader.readPlayerPosition(request.savePath())
+                () -> reader.readPlayerPosition(session, progress)
         );
         RockCatalog catalog = RockCatalog.from(
-                reader.readBlockRegistry(request.savePath())
+                session.snapshot().blockRegistry()
         );
         if (catalog.rocks().isEmpty()) {
             throw new IllegalArgumentException(
@@ -97,7 +133,7 @@ public final class RenderRockMapUseCase {
         ReadDiagnostics diagnostics = new ReadDiagnostics();
         SelectiveChunkStreamStats stats = reader
                 .forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                        request.savePath(),
+                        session,
                         positions,
                         catalog.rockBlockIds().stream()
                                 .mapToInt(Integer::intValue)

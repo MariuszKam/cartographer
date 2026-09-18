@@ -67,7 +67,7 @@ public class WorldMetadataReader {
     }
 
     /** Reads metadata from an already-open session-owned read-only connection. */
-    WorldMetadata read(
+    protected WorldMetadata read(
             Connection connection,
             ProgressReporter progress
     ) {

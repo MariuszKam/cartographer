@@ -27,12 +27,17 @@ import cartographer.resource.SurfaceObjectObservation;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.MapChunkStreamStats;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.SurfaceScanner;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
+import java.lang.reflect.Proxy;
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -366,19 +371,41 @@ class RenderSurfaceResourceMapUseCaseTest {
             FakeReader reader,
             WorldMetadata metadata
     ) {
+        WorldMetadataReader metadataReader = metadataReader(metadata);
         return new RenderSurfaceResourceMapUseCase(
                 reader,
-                new WorldMetadataReader(null, null) {
-                    @Override
-                    public WorldMetadata read(Path savePath) {
-                        return metadata;
-                    }
-                },
+                metadataReader,
+                new SaveSessionFactory(new TestConnectionFactory(), reader, metadataReader),
                 new HomeStore(Path.of("build", "surface-test-home.properties")),
                 new MarkerStore(Path.of("build", "surface-test-markers.csv")),
                 new MapRenderer(), new UserMarkerRenderer(),
                 new SurfaceMaterialAnalyzer(), new SurfaceResourceOverlayRenderer()
         );
+    }
+
+    private static final class TestConnectionFactory extends SqliteSaveConnection {
+        @Override
+        public Connection openReadOnly(Path savePath) {
+            return (Connection) Proxy.newProxyInstance(
+                    Connection.class.getClassLoader(),
+                    new Class<?>[]{Connection.class},
+                    (proxy, method, args) -> null
+            );
+        }
+    }
+
+    private WorldMetadataReader metadataReader(WorldMetadata metadata) {
+        return new WorldMetadataReader(null, null) {
+            @Override
+            protected WorldMetadata read(Connection connection, ProgressReporter progress) {
+                return metadata;
+            }
+
+            @Override
+            public WorldMetadata read(Path savePath) {
+                return metadata;
+            }
+        };
     }
 
     private Map<Integer, BlockInfo> fireClayRegistry() {
@@ -498,11 +525,38 @@ class RenderSurfaceResourceMapUseCaseTest {
         }
 
         @Override
+        public WorldPosition readPlayerPosition(SaveSession session, ProgressReporter progress) {
+            return new WorldPosition(16, 100, 16);
+        }
+
+        @Override
         public MapChunkStreamStats forEachMapChunkByCoordinate(
                 Path savePath,
                 java.util.Collection<MapChunkCoordinate> coordinates,
                 ReadDiagnostics diagnostics,
                 java.util.function.Consumer<MapChunk> consumer
+        ) {
+            directMapChunkCalls++;
+            directMapChunkRequests.add(List.copyOf(coordinates));
+            int delivered = 0;
+            for (MapChunkCoordinate coordinate : coordinates) {
+                MapChunk mapChunk = mapChunks.get(coordinate);
+                if (mapChunk != null) {
+                    delivered++;
+                    consumer.accept(mapChunk);
+                }
+            }
+            return new MapChunkStreamStats(coordinates.size(), coordinates.isEmpty() ? 0 : 1,
+                    delivered, delivered, 0, 0);
+        }
+
+        @Override
+        public MapChunkStreamStats forEachMapChunkByCoordinate(
+                SaveSession session,
+                java.util.Collection<MapChunkCoordinate> coordinates,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<MapChunk> consumer,
+                ProgressReporter progress
         ) {
             directMapChunkCalls++;
             directMapChunkRequests.add(List.copyOf(coordinates));
@@ -546,6 +600,20 @@ class RenderSurfaceResourceMapUseCaseTest {
 
         @Override
         public ChunkStreamStats forEachChunkByPositionAdaptive(
+                SaveSession session,
+                java.util.Collection<ChunkPosition> positions,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer,
+                ProgressReporter progress
+        ) {
+            adaptiveExactChunkCalls++;
+            exactChunkCalls++;
+            exactRequests.add(List.copyOf(positions));
+            return deliverChunks(positions, consumer);
+        }
+
+        @Override
+        public ChunkStreamStats forEachChunkByPositionAdaptive(
                 Path savePath,
                 java.util.Collection<ChunkPosition> positions,
                 ReadDiagnostics diagnostics,
@@ -566,6 +634,13 @@ class RenderSurfaceResourceMapUseCaseTest {
         ) {
             exactChunkCalls++;
             exactRequests.add(List.copyOf(positions));
+            return deliverChunks(positions, consumer);
+        }
+
+        private ChunkStreamStats deliverChunks(
+                java.util.Collection<ChunkPosition> positions,
+                java.util.function.Consumer<ParsedChunk> consumer
+        ) {
             int delivered = 0;
             for (ChunkPosition position : positions) {
                 ParsedChunk chunk = chunks.get(position);
@@ -655,6 +730,11 @@ class RenderSurfaceResourceMapUseCaseTest {
 
         @Override
         public Map<Integer, BlockInfo> readBlockRegistry(Path savePath) {
+            return registry;
+        }
+
+        @Override
+        protected Map<Integer, BlockInfo> readBlockRegistry(Connection connection) {
             return registry;
         }
     }

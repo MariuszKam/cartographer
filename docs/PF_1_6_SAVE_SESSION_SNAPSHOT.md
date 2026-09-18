@@ -54,16 +54,16 @@ is introduced.
 ## Migration boundary
 
 Checkpoints A+B establish the lifecycle and a same-connection loading seam.
-Existing use cases and reader methods are intentionally not migrated yet;
-later PF-1.6 checkpoints will adopt sessions in scoped groups. The existing
-path-based reader APIs remain available and preserve their current ownership.
+At that boundary, existing use cases and reader methods were intentionally not
+migrated yet; later PF-1.6 checkpoints adopt sessions in scoped groups. The
+existing path-based reader APIs remain available and preserve their ownership.
 
-## Remaining PF-1.6 checkpoints
+## Status after A+B
 
-C–J remain open for later work, including scoped consumer migration, session
-reader integration, diagnostics/progress decisions, characterization,
-concurrency/lifecycle tests, save-safety validation, and final hardening.
-PF-1.6 is not declared complete by A+B.
+At the A+B boundary, C–J remained open for later work, including scoped
+consumer migration, session reader integration, diagnostics/progress decisions,
+characterization, concurrency/lifecycle tests, save-safety validation, and
+final hardening. PF-1.6 was not declared complete by A+B.
 
 ## Checkpoint C — session-aware selective reader
 
@@ -92,10 +92,46 @@ one selective physical chunk traversal. Exceptions propagate through
 try-with-resources so the session closes before the original failure is
 reported.
 
-## Remaining checkpoints
+## Status after C+D
 
-E–J remain open. They include additional scoped consumer migrations,
+At the C+D boundary, E–J remained open. They included additional scoped consumer migrations,
 characterization and lifecycle tests, diagnostics/progress decisions,
 save-safety validation, and final PF-1.6/PF-1.8 hardening. Surface, rendering,
 CLI-wide, mapregion-wide, and caching migrations are intentionally out of
 scope for C+D.
+
+## Checkpoint E — ROCK migration
+
+`RenderRockMapUseCase` now owns one `SaveSession` for each path-based
+operation and delegates business logic to its session variant. Metadata and
+the immutable registry come from `SaveSnapshot`; an implicit center uses the
+session-aware player reader; and ROCK uses the session-aware selective
+coverage traversal. The PF-1.3 `RockStreamingSession` and all coordinate and
+coverage semantics remain unchanged.
+
+## Checkpoint F — Surface migration
+
+`RenderSurfaceResourceMapUseCase` now uses one session for metadata, implicit
+player lookup, registry access, direct mapchunk reads, and both logically
+separate adaptive server-chunk phases. `VcdbsReader` provides session-aware
+mapchunk and adaptive chunk APIs that share their path implementations through
+connection cores. Adaptive strategy selection probes the supplied connection
+and exact/table streaming cores borrow it without closing it.
+
+HOME and marker stores remain outside the session snapshot and continue to
+use their existing non-SQLite storage paths. Surface algorithms, fast/fallback
+phases, diagnostics, and bounded PF-1.2 decode behavior were not redesigned.
+
+For one path-based ROCK operation, and for one path-based Surface operation,
+the migrated save-backed work is performed under one session-owned SQLite
+connection lifecycle. Statements, result sets, decode workspaces, and bounded
+pipelines retain their existing ownership; only `SaveSession.close()` closes
+the session connection.
+
+## Remaining G-J work
+
+G-J remain open for additional scoped migrations, characterization and
+lifecycle tests, diagnostics/progress review, save-safety validation, and
+final PF-1.6/PF-1.8 hardening. CLI-wide migration, global mapregion/resource
+access, caching, refresh, and connection pooling remain intentionally out of
+scope.
