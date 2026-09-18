@@ -1,0 +1,87 @@
+package cartographer.perf;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class RenderDataCacheStoreTest {
+    private static final String SCHEMA = RenderDataCacheManifest.CURRENT_SCHEMA_VERSION;
+    private static final String COMPATIBILITY = RenderDataCacheManifest.CURRENT_COMPATIBILITY_VERSION;
+
+    @Test
+    void normalizedEquivalentPathsShareIdentityButDifferentDirectoriesDoNot() {
+        Path base = Path.of("cache-fixture").toAbsolutePath().normalize();
+        RenderDataCacheIdentity first = new RenderDataCacheIdentity(
+                base.resolve("one").resolve("world.vcdbs")
+        );
+        RenderDataCacheIdentity equivalent = new RenderDataCacheIdentity(
+                base.resolve("one").resolve(".").resolve("world.vcdbs")
+        );
+        RenderDataCacheIdentity differentDirectory = new RenderDataCacheIdentity(
+                base.resolve("two").resolve("world.vcdbs")
+        );
+
+        assertEquals(first, equivalent);
+        assertNotEquals(first.namespaceHash(), differentDirectory.namespaceHash());
+    }
+
+    @Test
+    void manifestRoundTripAndRevisionChange(@TempDir Path cacheRoot) {
+        RenderDataCacheStore store = new RenderDataCacheStore(cacheRoot);
+        RenderDataCacheRevision original = revision(4096, 1000);
+        RenderDataCacheRevision changed = revision(4096, 1001);
+
+        store.publish(original);
+
+        assertTrue(store.find(original).isPresent());
+        assertTrue(store.find(changed).isEmpty());
+        assertNotEquals(original.revisionHash(), changed.revisionHash());
+    }
+
+    @Test
+    void schemaMismatchAndMalformedManifestAreMisses(@TempDir Path cacheRoot) throws IOException {
+        RenderDataCacheStore store = new RenderDataCacheStore(cacheRoot);
+        RenderDataCacheRevision revision = revision(4096, 1000);
+        Path manifest = store.manifestPath(revision);
+        Files.createDirectories(manifest.getParent());
+        Files.writeString(manifest, "schemaVersion=unknown\n");
+
+        assertTrue(store.find(revision).isEmpty());
+        assertTrue(store.find(new RenderDataCacheRevision(
+                revision.identity(),
+                revision.saveSize(),
+                revision.saveModifiedMillis(),
+                "render-data-v2",
+                COMPATIBILITY
+        )).isEmpty());
+    }
+
+    @Test
+    void temporaryManifestIsNotAHit(@TempDir Path cacheRoot) throws IOException {
+        RenderDataCacheStore store = new RenderDataCacheStore(cacheRoot);
+        RenderDataCacheRevision revision = revision(4096, 1000);
+        Path manifest = store.manifestPath(revision);
+        Files.createDirectories(manifest.getParent());
+        Files.writeString(manifest.resolveSibling(".manifest-partial.tmp"),
+                new RenderDataCacheManifest(revision).serialize());
+
+        assertTrue(store.find(revision).isEmpty());
+    }
+
+    private static RenderDataCacheRevision revision(long size, long modifiedMillis) {
+        return new RenderDataCacheRevision(
+                new RenderDataCacheIdentity(Path.of("fixtures", "world.vcdbs")),
+                size,
+                modifiedMillis,
+                SCHEMA,
+                COMPATIBILITY
+        );
+    }
+}
