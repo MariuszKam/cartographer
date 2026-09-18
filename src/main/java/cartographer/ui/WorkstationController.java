@@ -33,6 +33,7 @@ import cartographer.render.RenderStyle;
 import cartographer.resource.ObservedSurfaceResource;
 import cartographer.scanner.ActualBlockYFilter;
 import cartographer.ui.workstation.MapCursorPosition;
+import cartographer.ui.workstation.LocalRecompositionGate;
 import cartographer.ui.workstation.MapFrame;
 import cartographer.ui.workstation.MapFrameCompositor;
 import cartographer.ui.workstation.MapFrameState;
@@ -73,6 +74,8 @@ public final class WorkstationController {
     private final WorkstationOperationCoordinator operationCoordinator;
     private final MapFrameState mapFrameState = new MapFrameState();
     private final MapFrameCompositor mapFrameCompositor = new MapFrameCompositor();
+    private final LocalRecompositionGate localRecompositionGate =
+            new LocalRecompositionGate();
 
     private final RenderActualOreMapUseCase useCase;
     private final RenderCoverageMapUseCase coverageUseCase;
@@ -150,6 +153,7 @@ public final class WorkstationController {
         loadedPlayerAbsolute = Optional.empty();
         loadedWorldMetadata = Optional.empty();
         mapPanel.clearNavigationContext();
+        localRecompositionGate.invalidate();
         mapFrameState.clear();
         workstation.clearMapGeometry();
         surfaceSelectionKeys = Set.of();
@@ -529,6 +533,7 @@ public final class WorkstationController {
     }
 
     private void showResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
+        localRecompositionGate.invalidate();
         mapPanel.show(result.image(), Optional.of(result.geometry()), loadedPlayerAbsolute);
         mapFrameState.retain(MapFrame.ore(
                 request.savePath(),
@@ -551,6 +556,7 @@ public final class WorkstationController {
     }
 
     private void showMapResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
+        localRecompositionGate.invalidate();
         mapPanel.show(result.image(), Optional.of(result.geometry()), loadedPlayerAbsolute);
         mapFrameState.retain(MapFrame.map(
                 request.savePath(),
@@ -575,6 +581,7 @@ public final class WorkstationController {
             RenderCoverageMapResult result,
             RenderCoverageMapRequest request
     ) {
+        localRecompositionGate.invalidate();
         mapPanel.show(result.image(), result.geometry(), loadedPlayerAbsolute);
         mapFrameState.clear();
         result.geometry().ifPresent(geometry ->
@@ -589,6 +596,7 @@ public final class WorkstationController {
             RenderSurfaceResourceMapResult result,
             RenderSurfaceResourceMapRequest request
     ) {
+        localRecompositionGate.invalidate();
         mapPanel.show(result.image(), Optional.of(result.geometry()), loadedPlayerAbsolute);
         mapFrameState.retain(MapFrame.surface(
                 request.savePath(),
@@ -668,13 +676,19 @@ public final class WorkstationController {
             return;
         }
 
+        LocalRecompositionGate.Token token =
+                localRecompositionGate.begin(frame, layers);
         setBusy(true);
         workstation.setStatus("Recomposing layers locally...");
         operationCoordinator.submitProgress(
                 "cartographer-local-layer-recompose",
                 progress -> mapFrameCompositor.recompose(frame, layers, progress),
                 image -> {
-                    if (mapFrameState.current().filter(frame::equals).isEmpty()) {
+                    if (!localRecompositionGate.accepts(
+                            token,
+                            mapFrameState.current(),
+                            workstation.selectedRenderLayers()
+                    )) {
                         setBusy(false);
                         return;
                     }
@@ -688,7 +702,17 @@ public final class WorkstationController {
                     );
                     setBusy(false);
                 },
-                this::showFailure
+                failure -> {
+                    if (localRecompositionGate.accepts(
+                            token,
+                            mapFrameState.current(),
+                            workstation.selectedRenderLayers()
+                    )) {
+                        showFailure(failure);
+                    } else {
+                        setBusy(false);
+                    }
+                }
         );
     }
 
@@ -804,6 +828,7 @@ public final class WorkstationController {
             RenderRockMapResult result,
             RenderRockMapRequest request
     ) {
+        localRecompositionGate.invalidate();
         mapPanel.show(
                 result.rendered().image(),
                 Optional.of(result.rendered().geometry()),
