@@ -218,14 +218,49 @@ public final class WorkstationController {
                 return;
             }
             RenderActualOreMapRequest request = requestFromControls();
+            boolean requireSurfaceData =
+                    request.layers().contains(cartographer.render.RenderLayer.SURFACE)
+                            || request.layers().contains(
+                            cartographer.render.RenderLayer.SOIL_FERTILITY
+                    );
+            Optional<MapFrame> reusable = mapFrameState.current()
+                    .filter(frame -> frame.canReusePreparedMap(
+                            request.savePath(),
+                            request.radius(),
+                            request.pixelsPerBlock(),
+                            request.style(),
+                            request.center(),
+                            requireSurfaceData
+                    ))
+                    .filter(frame -> !request.layers().contains(
+                            cartographer.render.RenderLayer.MARKERS
+                    ) || frame.decorationState().orElseThrow().userMarkersAvailable());
             setBusy(true);
-            workstation.setStatus("Rendering ore map...");
-            operationCoordinator.submitProgress(
-                    "cartographer-ore-map-render",
-                    progress -> useCase.execute(request, progress),
-                    result -> showResult(result, request),
-                    this::showFailure
-            );
+            if (reusable.isPresent()) {
+                MapFrame frame = reusable.orElseThrow();
+                workstation.setStatus("Rendering ore map with retained base data...");
+                operationCoordinator.submitProgress(
+                        "cartographer-ore-retained-render",
+                        progress -> useCase.executeRetained(
+                                request,
+                                frame.savePath(),
+                                frame.preparedMapData().orElseThrow(),
+                                frame.decorationState().orElseThrow(),
+                                frame.mapRegionOverlayState(),
+                                progress
+                        ),
+                        result -> showResult(result, request),
+                        this::showFailure
+                );
+            } else {
+                workstation.setStatus("Rendering ore map...");
+                operationCoordinator.submitProgress(
+                        "cartographer-ore-map-render",
+                        progress -> useCase.execute(request, progress),
+                        result -> showResult(result, request),
+                        this::showFailure
+                );
+            }
         } catch (RuntimeException exception) {
             showFailure(exception);
         }
@@ -250,7 +285,43 @@ public final class WorkstationController {
 
     private void renderMap() {
         RenderActualOreMapRequest request = mapRequestFromControls();
+        boolean requireSurfaceData =
+                request.layers().contains(cartographer.render.RenderLayer.SURFACE)
+                        || request.layers().contains(
+                        cartographer.render.RenderLayer.SOIL_FERTILITY
+                );
+        Optional<MapFrame> reusable = mapFrameState.current()
+                .filter(frame -> frame.canReusePreparedMap(
+                        request.savePath(),
+                        request.radius(),
+                        request.pixelsPerBlock(),
+                        request.style(),
+                        request.center(),
+                        requireSurfaceData
+                ))
+                .filter(frame -> !request.layers().contains(
+                        cartographer.render.RenderLayer.MARKERS
+                ) || frame.decorationState().orElseThrow().userMarkersAvailable());
         setBusy(true);
+        if (reusable.isPresent()) {
+            MapFrame frame = reusable.orElseThrow();
+            workstation.setStatus("Rendering map with retained base data...");
+            operationCoordinator.submitProgress(
+                    "cartographer-map-retained-render",
+                    progress -> useCase.executeRetained(
+                            request,
+                            frame.savePath(),
+                            frame.preparedMapData().orElseThrow(),
+                            frame.decorationState().orElseThrow(),
+                            frame.mapRegionOverlayState(),
+                            progress
+                    ),
+                    result -> showMapResult(result, request),
+                    this::showFailure
+            );
+            return;
+        }
+
         workstation.setStatus("Rendering map...");
         operationCoordinator.submitProgress(
                 "cartographer-map-render",
@@ -351,14 +422,7 @@ public final class WorkstationController {
                 selected,
                 surfaceDiscoveryResult.center()
         );
-        setBusy(true);
-        workstation.setStatus("Rendering surface resource...");
-        operationCoordinator.submitProgress(
-                "cartographer-surface-resource-render",
-                progress -> surfaceUseCase.execute(request, progress),
-                result -> showSurfaceResult(result, request),
-                this::showFailure
-        );
+        submitSurfaceRender(request);
     }
 
     private void renderSurfaceMaterial() {
@@ -370,10 +434,42 @@ public final class WorkstationController {
         RenderSurfaceResourceMapRequest request = new RenderSurfaceResourceMapRequest(
                 Path.of(worldPanel.savePathText()), searchPanel.selectedRadius(), 1,
                 RenderStyle.TOPOGRAPHIC, workstation.selectedRenderLayers(), match, Optional.empty());
+        submitSurfaceRender(request);
+    }
+
+    private void submitSurfaceRender(RenderSurfaceResourceMapRequest request) {
+        Optional<MapFrame> reusable = mapFrameState.current()
+                .filter(frame -> frame.canReusePreparedMap(
+                        request.savePath(),
+                        request.radius(),
+                        request.pixelsPerBlock(),
+                        request.style(),
+                        request.center(),
+                        true
+                ))
+                .filter(frame -> frame.supportsLocalRecomposition(request.layers()));
         setBusy(true);
+        if (reusable.isPresent()) {
+            MapFrame frame = reusable.orElseThrow();
+            workstation.setStatus("Rendering Surface from retained map data...");
+            operationCoordinator.submitProgress(
+                    "cartographer-surface-retained-render",
+                    progress -> surfaceUseCase.executeRetained(
+                            request,
+                            frame.savePath(),
+                            frame.preparedMapData().orElseThrow(),
+                            frame.decorationState().orElseThrow(),
+                            progress
+                    ),
+                    result -> showSurfaceResult(result, request),
+                    this::showFailure
+            );
+            return;
+        }
+
         workstation.setStatus("Rendering surface resource...");
         operationCoordinator.submitProgress(
-                "cartographer-surface-material-render",
+                "cartographer-surface-resource-render",
                 progress -> surfaceUseCase.execute(request, progress),
                 result -> showSurfaceResult(result, request),
                 this::showFailure
@@ -443,6 +539,9 @@ public final class WorkstationController {
                 result.actualOreOverlays(),
                 result.decorationState().orElseThrow(
                         () -> new IllegalStateException("ore result missing decoration state")
+                ),
+                result.mapRegionOverlayState().orElseThrow(
+                        () -> new IllegalStateException("ore result missing map-region overlay state")
                 )
         ));
         workstation.setMapGeometry(Optional.of(result.geometry()));
@@ -461,6 +560,9 @@ public final class WorkstationController {
                 ),
                 result.decorationState().orElseThrow(
                         () -> new IllegalStateException("map result missing decoration state")
+                ),
+                result.mapRegionOverlayState().orElseThrow(
+                        () -> new IllegalStateException("map result missing map-region overlay state")
                 )
         ));
         workstation.setMapGeometry(Optional.of(result.geometry()));

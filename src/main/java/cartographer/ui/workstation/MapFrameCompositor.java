@@ -4,6 +4,8 @@ import cartographer.application.MapDecorationState;
 import cartographer.application.PreparedMapData;
 import cartographer.application.ProgressReporter;
 import cartographer.render.ActualOreOverlayPainter;
+import cartographer.render.EnvironmentOverlayRenderer;
+import cartographer.render.GeologyOverlayRenderer;
 import cartographer.render.MapRenderer;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderOptions;
@@ -28,6 +30,8 @@ public final class MapFrameCompositor {
     private final MapRenderer mapRenderer;
     private final ActualOreOverlayPainter oreOverlayPainter;
     private final SurfaceResourceOverlayRenderer surfaceOverlayRenderer;
+    private final EnvironmentOverlayRenderer environmentOverlayRenderer;
+    private final GeologyOverlayRenderer geologyOverlayRenderer;
     private final SystemMarkerOverlayRenderer systemMarkerOverlayRenderer;
     private final UserMarkerRenderer userMarkerRenderer;
 
@@ -36,6 +40,8 @@ public final class MapFrameCompositor {
                 new MapRenderer(),
                 new ActualOreOverlayPainter(),
                 new SurfaceResourceOverlayRenderer(),
+                new EnvironmentOverlayRenderer(),
+                new GeologyOverlayRenderer(),
                 new SystemMarkerOverlayRenderer(),
                 new UserMarkerRenderer()
         );
@@ -45,6 +51,8 @@ public final class MapFrameCompositor {
             MapRenderer mapRenderer,
             ActualOreOverlayPainter oreOverlayPainter,
             SurfaceResourceOverlayRenderer surfaceOverlayRenderer,
+            EnvironmentOverlayRenderer environmentOverlayRenderer,
+            GeologyOverlayRenderer geologyOverlayRenderer,
             SystemMarkerOverlayRenderer systemMarkerOverlayRenderer,
             UserMarkerRenderer userMarkerRenderer
     ) {
@@ -53,6 +61,10 @@ public final class MapFrameCompositor {
                 oreOverlayPainter, "oreOverlayPainter is required");
         this.surfaceOverlayRenderer = Objects.requireNonNull(
                 surfaceOverlayRenderer, "surfaceOverlayRenderer is required");
+        this.environmentOverlayRenderer = Objects.requireNonNull(
+                environmentOverlayRenderer, "environmentOverlayRenderer is required");
+        this.geologyOverlayRenderer = Objects.requireNonNull(
+                geologyOverlayRenderer, "geologyOverlayRenderer is required");
         this.systemMarkerOverlayRenderer = Objects.requireNonNull(
                 systemMarkerOverlayRenderer, "systemMarkerOverlayRenderer is required");
         this.userMarkerRenderer = Objects.requireNonNull(
@@ -101,6 +113,31 @@ public final class MapFrameCompositor {
 
         BufferedImage image = rendered.image();
         boolean markers = layers.contains(RenderLayer.MARKERS);
+        boolean environment = layers.contains(RenderLayer.ENVIRONMENT);
+        boolean geology = layers.contains(RenderLayer.GEOLOGY);
+
+        if (environment) {
+            environmentOverlayRenderer.draw(
+                    image,
+                    prepared.center(),
+                    options.radiusBlocks(),
+                    frame.mapRegionOverlayState()
+                            .orElseThrow()
+                            .environmentProfiles()
+                            .orElseThrow()
+            );
+        }
+        if (geology) {
+            geologyOverlayRenderer.draw(
+                    image,
+                    prepared.center(),
+                    options.radiusBlocks(),
+                    frame.mapRegionOverlayState()
+                            .orElseThrow()
+                            .geologySummaries()
+                            .orElseThrow()
+            );
+        }
 
         switch (frame.tool()) {
             case MAP -> {
@@ -113,15 +150,7 @@ public final class MapFrameCompositor {
                         prepared.center(),
                         options.radiusBlocks()
                 );
-                if (markers && !frame.actualOreOverlays().isEmpty()) {
-                    systemMarkerOverlayRenderer.draw(
-                            image,
-                            prepared.center(),
-                            prepared.player(),
-                            decorations.home(),
-                            options.radiusBlocks()
-                    );
-                }
+
             }
             case SURFACE -> {
                 var analysis = frame.surfaceAnalysis().orElseThrow();
@@ -154,6 +183,22 @@ public final class MapFrameCompositor {
             }
             case COVERAGE, GEOLOGY, PROSPECTING -> throw new IllegalStateException(
                     "Tool does not support local base-layer recomposition: " + frame.tool()
+            );
+        }
+
+        boolean repaintSystemMarkers =
+                markers
+                        && (environment
+                        || geology
+                        || (frame.tool() == WorkstationTool.ORE
+                        && !frame.actualOreOverlays().isEmpty()));
+        if (repaintSystemMarkers) {
+            systemMarkerOverlayRenderer.draw(
+                    image,
+                    prepared.center(),
+                    prepared.player(),
+                    decorations.home(),
+                    options.radiusBlocks()
             );
         }
 

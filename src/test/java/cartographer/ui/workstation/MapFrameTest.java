@@ -1,6 +1,7 @@
 package cartographer.ui.workstation;
 
 import cartographer.application.MapDecorationState;
+import cartographer.application.MapRegionOverlayState;
 import cartographer.application.PreparedMapData;
 import cartographer.application.ProgressReporter;
 import cartographer.application.RenderDataCacheReport;
@@ -23,6 +24,7 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -106,6 +108,67 @@ class MapFrameTest {
         ));
         assertFalse(unavailableMarkers.supportsLocalRecomposition(
                 Set.of(RenderLayer.TERRAIN, RenderLayer.MARKERS)
+        ));
+
+        MapFrame environmentPrepared = MapFrame.map(
+                Path.of("environment.vcdbs"),
+                geometry,
+                prepared(Set.of(RenderLayer.TERRAIN, RenderLayer.ENVIRONMENT)),
+                decorations,
+                new MapRegionOverlayState(
+                        Optional.of(List.of()),
+                        Optional.empty()
+                )
+        );
+        assertTrue(environmentPrepared.supportsLocalRecomposition(
+                Set.of(RenderLayer.TERRAIN, RenderLayer.ENVIRONMENT)
+        ));
+        assertFalse(environmentPrepared.supportsLocalRecomposition(
+                Set.of(RenderLayer.TERRAIN, RenderLayer.GEOLOGY)
+        ));
+    }
+
+    @Test
+    void retainedPreparedMapReuseRequiresMatchingGeometryAndSurfaceAvailability() {
+        MapDecorationState decorations =
+                new MapDecorationState(HomeState.absent(), List.of());
+        MapFrame frame = MapFrame.map(
+                Path.of("reuse.vcdbs"),
+                MapViewportGeometry.fullImage(64, 64, 16, 16, 48, 48),
+                prepared(Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE)),
+                decorations
+        );
+
+        assertTrue(frame.canReusePreparedMap(
+                Path.of("reuse.vcdbs"),
+                16,
+                1,
+                RenderStyle.TOPOGRAPHIC,
+                Optional.empty(),
+                true
+        ));
+        assertFalse(frame.canReusePreparedMap(
+                Path.of("reuse.vcdbs"),
+                32,
+                1,
+                RenderStyle.TOPOGRAPHIC,
+                Optional.empty(),
+                true
+        ));
+
+        MapFrame withoutSurface = MapFrame.map(
+                Path.of("reuse.vcdbs"),
+                MapViewportGeometry.fullImage(64, 64, 16, 16, 48, 48),
+                prepared(Set.of(RenderLayer.TERRAIN)),
+                decorations
+        );
+        assertFalse(withoutSurface.canReusePreparedMap(
+                Path.of("reuse.vcdbs"),
+                16,
+                1,
+                RenderStyle.TOPOGRAPHIC,
+                Optional.empty(),
+                true
         ));
     }
 

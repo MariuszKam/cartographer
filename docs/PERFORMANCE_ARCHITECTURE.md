@@ -314,6 +314,34 @@ current 4096×4096 contract) and replaces the JavaFX viewport image without
 retaining an additional `BufferedImage` or resetting viewport zoom/pan.
 Recomposition is local work, not a claim of zero-millisecond rendering or LOD.
 
+### Workstation retained-operation reuse
+
+Compatible Map/Ore/Surface operations may reuse the current frame's
+`PreparedMapData` instead of repeating Terrain/Surface preparation.
+
+- Surface analysis/rendering can run entirely from retained compact
+  Terrain/Surface/registry/decorations when save, center, radius, raster scale,
+  style, and required Surface availability match. That path opens no
+  `SaveSession` and reports fresh empty source-read diagnostics.
+- Ore rendering may reuse the retained base map, but a newly requested ore is
+  still scanned from the authoritative save in a new operation-scoped
+  `SaveSession`. The retained path therefore removes repeated base-map work;
+  it does not cache or guess actual ore observations.
+- Environment and geologic-province map-region overlays retain interpreted
+  `EnvironmentProfile` / `GeologicProvinceSummary` data, not raw
+  `ServerMapRegion` payloads. Already prepared overlays can be toggled locally.
+  If a newly enabled overlay was never prepared, a retained-base Map/Ore render
+  reads only the missing map-region source data and preserves previously
+  retained interpreted overlays.
+- Retained reuse is save-bound. A retained result from one normalized save path
+  must never be combined with source reads from another save.
+- Surface-object discovery remains a distinct selective source operation. This
+  architecture does not claim parity between that discovery scan and the
+  compact `SurfaceMap`, so it is not silently replaced by retained data.
+
+If compatibility fails, the Workstation falls back to the normal authoritative
+operation rather than performing hidden partial reuse.
+
 ## 11. Correctness and safety
 
 ### Correctness

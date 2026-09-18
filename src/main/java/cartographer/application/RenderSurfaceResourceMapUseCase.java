@@ -20,6 +20,7 @@ import cartographer.resource.SurfaceMaterialAnalyzer;
 import cartographer.resource.SurfaceObjectSelectionAnalysis;
 import cartographer.resource.SurfaceObjectAnalyzer;
 import cartographer.resource.SurfaceRenderAnalysis;
+import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
 import cartographer.save.SqliteSaveConnection;
@@ -239,10 +240,77 @@ public class RenderSurfaceResourceMapUseCase {
                 progress
         );
         WorldMetadata metadata = prepared.metadata();
-        WorldPosition player = prepared.player();
-        WorldPosition center = prepared.center();
         RenderOptions options = prepared.options();
         HomeState home = absoluteHome(request.savePath(), metadata);
+        MapDecorationState decorations =
+                decorationState(request.savePath(), home, options);
+        return renderPrepared(
+                request,
+                prepared,
+                decorations,
+                prepared.mapChunkDiagnostics(),
+                prepared.chunkDiagnostics(),
+                prepared.renderDataCacheReport(),
+                progress
+        );
+    }
+
+    public RenderSurfaceResourceMapResult executeRetained(
+            RenderSurfaceResourceMapRequest request,
+            java.nio.file.Path retainedSavePath,
+            PreparedMapData prepared,
+            MapDecorationState decorations,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(request, "request is required");
+        Objects.requireNonNull(retainedSavePath, "retainedSavePath is required");
+        if (!request.savePath().toAbsolutePath().normalize().equals(
+                retainedSavePath.toAbsolutePath().normalize())) {
+            throw new IllegalArgumentException(
+                    "retained PreparedMapData belongs to a different save"
+            );
+        }
+        Objects.requireNonNull(prepared, "prepared is required");
+        Objects.requireNonNull(decorations, "decorations are required");
+        Objects.requireNonNull(progress, "progress is required");
+        requireRetainedCompatibility(request, prepared);
+        return renderPrepared(
+                request,
+                prepared,
+                decorations,
+                new ReadDiagnostics(),
+                new ReadDiagnostics(),
+                RenderDataCacheReport.disabled(
+                        "retained PreparedMapData reused; no save/cache preparation read"
+                ),
+                progress
+        );
+    }
+
+    private RenderSurfaceResourceMapResult renderPrepared(
+            RenderSurfaceResourceMapRequest request,
+            PreparedMapData prepared,
+            MapDecorationState decorations,
+            ReadDiagnostics mapChunkDiagnostics,
+            ReadDiagnostics chunkDiagnostics,
+            RenderDataCacheReport cacheReport,
+            ProgressReporter progress
+    ) {
+        WorldMetadata metadata = prepared.metadata();
+        WorldPosition player = prepared.player();
+        WorldPosition center = prepared.center();
+        RenderOptions options = new RenderOptions(
+                request.radius(),
+                request.pixelsPerBlock(),
+                request.style(),
+                request.layers()
+        );
+        if (options.layers().contains(RenderLayer.MARKERS)
+                && !decorations.userMarkersAvailable()) {
+            throw new IllegalStateException(
+                    "retained marker state is unavailable; full render is required"
+            );
+        }
         Map<Integer, BlockInfo> registry = prepared.registry();
         SurfaceMapScanResult surface = prepared.surface();
 
@@ -251,18 +319,20 @@ public class RenderSurfaceResourceMapUseCase {
             analysis = surfaceMaterialAnalyzer.analyze(
                     surface,
                     request.material().orElseThrow(),
-                    request.resourceDisplayName());
+                    request.resourceDisplayName()
+            );
         } else {
             analysis = new SurfaceObjectSelectionAnalysis(
                     request.observedResources().stream()
                             .map(resource -> surfaceObjectAnalyzer.analyze(resource, registry))
-                            .toList());
+                            .toList()
+            );
         }
 
         RenderedMap rendered = renderer.render(
                 center,
                 player,
-                home,
+                decorations.home(),
                 prepared.terrain(),
                 surface.map(),
                 registry,
@@ -278,7 +348,7 @@ public class RenderSurfaceResourceMapUseCase {
                     request.radius(),
                     materialAnalysis,
                     player,
-                    home,
+                    decorations.home(),
                     options.layers().contains(RenderLayer.MARKERS)
             );
         } else if (analysis instanceof SurfaceObjectSelectionAnalysis objectAnalysis) {
@@ -288,23 +358,19 @@ public class RenderSurfaceResourceMapUseCase {
                     request.radius(),
                     objectAnalysis,
                     player,
-                    home,
+                    decorations.home(),
                     options.layers().contains(RenderLayer.MARKERS)
             );
         }
 
-        MapDecorationState decorations =
-                decorationState(request.savePath(), home, options);
-        List<cartographer.marker.UserMarker> userMarkers =
-                decorations.userMarkers();
         int userMarkersDrawn = 0;
         if (options.layers().contains(RenderLayer.MARKERS)
-                && !userMarkers.isEmpty()) {
+                && !decorations.userMarkers().isEmpty()) {
             userMarkersDrawn = userMarkerRenderer.draw(
                     rendered.image(),
                     center,
                     request.radius(),
-                    userMarkers,
+                    decorations.userMarkers(),
                     metadata
             );
         }
@@ -315,13 +381,33 @@ public class RenderSurfaceResourceMapUseCase {
                 analysis,
                 surface,
                 rendered.report(),
-                prepared.mapChunkDiagnostics(),
-                prepared.chunkDiagnostics(),
+                mapChunkDiagnostics,
+                chunkDiagnostics,
                 userMarkersDrawn,
-                prepared.renderDataCacheReport(),
+                cacheReport,
                 Optional.of(prepared),
                 Optional.of(decorations)
         );
+    }
+
+    private void requireRetainedCompatibility(
+            RenderSurfaceResourceMapRequest request,
+            PreparedMapData prepared
+    ) {
+        RenderOptions options = prepared.options();
+        if (request.radius() != options.radiusBlocks()
+                || request.pixelsPerBlock() != options.pixelsPerBlock()
+                || request.style() != options.style()) {
+            throw new IllegalArgumentException(
+                    "retained PreparedMapData does not match Surface render geometry/style"
+            );
+        }
+        if (request.center().isPresent()
+                && !request.center().orElseThrow().equals(prepared.center())) {
+            throw new IllegalArgumentException(
+                    "retained PreparedMapData does not match Surface render center"
+            );
+        }
     }
 
     private MapDecorationState decorationState(
