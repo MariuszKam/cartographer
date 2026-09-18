@@ -12,6 +12,18 @@ class MapViewportGeometryTest {
     private static final double DELTA = 1.0e-9;
 
     @Test
+    void reportsWorldCoverageAndEffectiveBlocksPerPixel() {
+        MapViewportGeometry geometry = fullImage(
+                4096, 4096, -4096, -4096, 4096, 4096
+        );
+
+        assertEquals(8192.0, geometry.worldWidthBlocks(), DELTA);
+        assertEquals(8192.0, geometry.worldHeightBlocks(), DELTA);
+        assertEquals(2.0, geometry.blocksPerPixelX(), DELTA);
+        assertEquals(2.0, geometry.blocksPerPixelZ(), DELTA);
+    }
+
+    @Test
     void mapsWorldCoordinatesToImageCoordinates() {
         MapViewportGeometry geometry = fullImage(100, 80, -20, 40, 30, 80);
 

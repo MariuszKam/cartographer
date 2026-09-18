@@ -67,6 +67,22 @@ public record MapViewportGeometry(
         );
     }
 
+    public double worldWidthBlocks() {
+        return worldMaxXExclusive - worldMinX;
+    }
+
+    public double worldHeightBlocks() {
+        return worldMaxZExclusive - worldMinZ;
+    }
+
+    public double blocksPerPixelX() {
+        return worldWidthBlocks() / contentWidth;
+    }
+
+    public double blocksPerPixelZ() {
+        return worldHeightBlocks() / contentHeight;
+    }
+
     public double absoluteWorldXToImageX(double worldX) {
         return contentX
                 + (worldX - worldMinX) * contentWidth
