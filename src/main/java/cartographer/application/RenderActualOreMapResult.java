@@ -28,7 +28,8 @@ public record RenderActualOreMapResult(
         List<ActualOreOverlayResult> actualOreOverlays,
         RenderDataCacheReport renderDataCacheReport,
         Optional<PreparedMapData> preparedMapData,
-        Optional<MapDecorationState> decorationState
+        Optional<MapDecorationState> decorationState,
+        Optional<MapRegionOverlayState> mapRegionOverlayState
 ) {
 
     public RenderActualOreMapResult {
@@ -51,6 +52,10 @@ public record RenderActualOreMapResult(
         decorationState = Objects.requireNonNull(
                 decorationState,
                 "decorationState is required; use Optional.empty() when unavailable"
+        );
+        mapRegionOverlayState = Objects.requireNonNull(
+                mapRegionOverlayState,
+                "mapRegionOverlayState is required; use Optional.empty() when unavailable"
         );
     }
 
@@ -134,6 +139,45 @@ public record RenderActualOreMapResult(
                 actualOreOverlays,
                 renderDataCacheReport,
                 preparedMapData,
+                Optional.empty()
+        );
+    }
+
+    public RenderActualOreMapResult(
+            BufferedImage image,
+            MapViewportGeometry geometry,
+            MapRenderReport renderReport,
+            SurfaceMapScanResult surface,
+            OverlayRenderReport environmentOverlay,
+            OverlayRenderReport geologyOverlay,
+            Optional<ActualBlockMap> actualOreMap,
+            ReadDiagnostics mapChunkDiagnostics,
+            ReadDiagnostics chunkDiagnostics,
+            ReadDiagnostics mapRegionDiagnostics,
+            ReadDiagnostics actualOreDiagnostics,
+            int userMarkersDrawn,
+            List<ActualOreOverlayResult> actualOreOverlays,
+            RenderDataCacheReport renderDataCacheReport,
+            Optional<PreparedMapData> preparedMapData,
+            Optional<MapDecorationState> decorationState
+    ) {
+        this(
+                image,
+                geometry,
+                renderReport,
+                surface,
+                environmentOverlay,
+                geologyOverlay,
+                actualOreMap,
+                mapChunkDiagnostics,
+                chunkDiagnostics,
+                mapRegionDiagnostics,
+                actualOreDiagnostics,
+                userMarkersDrawn,
+                actualOreOverlays,
+                renderDataCacheReport,
+                preparedMapData,
+                decorationState,
                 Optional.empty()
         );
     }
