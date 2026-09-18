@@ -33,6 +33,9 @@ public final class WorkstationView {
     private final Button rightToggle = new Button("Hide inspector");
     private Consumer<WorkstationTool> modeListener = ignored -> { };
     private Consumer<Integer> radiusListener = ignored -> { };
+    private boolean foregroundBusy;
+    private boolean discoveryBusy;
+    private boolean localBusy;
 
     public WorkstationView(Runnable onBrowse, Runnable onRender) {
         root.getStyleClass().add("workstation-root");
@@ -118,19 +121,32 @@ public final class WorkstationView {
     }
 
     public void setBusy(boolean busy) {
+        foregroundBusy = busy;
         worldPanel.setBusy(busy);
         toolNavigationPane.setBusy(busy);
         searchPanel.setBusy(busy);
-        layerPanel.setBusy(busy);
-        statusBar.setBusy(busy);
+        // Layer toggles remain interactive against the previously retained frame.
+        refreshOperationState();
     }
 
     public void setDiscoveryBusy(boolean busy) {
-        worldPanel.setBusy(busy);
-        toolNavigationPane.setBusy(busy);
+        discoveryBusy = busy;
         searchPanel.setDiscoveryBusy(busy);
-        layerPanel.setBusy(busy);
-        statusBar.setBusy(busy);
+        refreshOperationState();
+    }
+
+    public void setLocalBusy(boolean busy) {
+        localBusy = busy;
+        refreshOperationState();
+    }
+
+    public void setOnCancel(Runnable action) {
+        statusBar.setOnCancel(action);
+    }
+
+    private void refreshOperationState() {
+        boolean active = foregroundBusy || discoveryBusy || localBusy;
+        statusBar.setOperationActive(active, active);
     }
 
     public void setSurfaceObjectDiscoveryState(SurfaceObjectDiscoveryState state) {
