@@ -177,16 +177,12 @@ For at least R1024, R2048 and R4096 inspect:
 
 ## Evidence status
 
-Do not mark GUI-P10 complete until:
-
-1. automated tests pass on the accepted P10 HEAD;
-2. Workstation smoke passes on a real save;
-3. at least one R2048 render is visually inspected;
-4. one R4096 render is attempted and its actual outcome recorded;
-5. read-only safety validation passes.
-
-If R4096 is impractically slow or memory-heavy, record that result. The 4K
-raster contract is a correctness/memory bound, not a performance guarantee.
+The historical P10 checklist below has been superseded by the executable P14
+gate in this document. R2048 remains the primary scalability target and R4096
+remains stretch/headroom observation. If R4096 is impractically slow,
+controlled-failure, or memory-limited, record that factual result; the 4K
+raster contract is a correctness/memory bound, not a fabricated performance
+guarantee.
 
 ## GUI-P14 executable evidence workflow
 
