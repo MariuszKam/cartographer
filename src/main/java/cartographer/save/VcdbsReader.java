@@ -1953,7 +1953,15 @@ public class VcdbsReader {
             ProgressReporter progress
     ) {
         Objects.requireNonNull(session, "session is required");
-        List<SaveRecord> records = readPlayerRecords(session.connection(), progress);
+        List<SaveRecord> records;
+        try {
+            records = readPlayerRecords(session.connection(), progress);
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot read playerdata: " + exception.getMessage(),
+                    exception
+            );
+        }
         SaveRecord selected = selectDefaultPlayer(records)
                 .orElseThrow(() -> new CommandException(
                         "Table playerdata exists but contains no selectable rows"));
@@ -2026,7 +2034,7 @@ public class VcdbsReader {
     private List<SaveRecord> readPlayerRecords(
             Connection connection,
             ProgressReporter progress
-    ) {
+    ) throws SQLException {
         ensurePlayerDataTable(connection);
         List<SaveRecord> records = readRecords(
                 connection,

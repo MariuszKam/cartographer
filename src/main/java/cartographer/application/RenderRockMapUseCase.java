@@ -77,19 +77,19 @@ public final class RenderRockMapUseCase {
     }
 
     public RenderRockMapResult execute(
-            SaveSession session,
+            SaveSession saveSession,
             RenderRockMapRequest request,
             ProgressReporter progress
     ) {
-        Objects.requireNonNull(session, "session is required");
+        Objects.requireNonNull(saveSession, "session is required");
         Objects.requireNonNull(request, "rock map request is required");
         Objects.requireNonNull(progress, "progress is required");
-        WorldMetadata metadata = session.snapshot().metadata();
+        WorldMetadata metadata = saveSession.snapshot().metadata();
         WorldPosition center = request.center().orElseGet(
-                () -> reader.readPlayerPosition(session, progress)
+                () -> reader.readPlayerPosition(saveSession, progress)
         );
         RockCatalog catalog = RockCatalog.from(
-                session.snapshot().blockRegistry()
+                saveSession.snapshot().blockRegistry()
         );
         if (catalog.rocks().isEmpty()) {
             throw new IllegalArgumentException(
@@ -121,7 +121,7 @@ public final class RenderRockMapUseCase {
         if (positions.stream().anyMatch(position -> position.dimension() != dimension)) {
             throw new IllegalArgumentException("planned ROCK positions use multiple dimensions");
         }
-        RockStreamingSession session = RockStreamingSession.open(
+        RockStreamingSession rockSession = RockStreamingSession.open(
                 center,
                 request.radius(),
                 minY,
@@ -133,16 +133,16 @@ public final class RenderRockMapUseCase {
         ReadDiagnostics diagnostics = new ReadDiagnostics();
         SelectiveChunkStreamStats stats = reader
                 .forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                        session,
+                        saveSession,
                         positions,
                         catalog.rockBlockIds().stream()
                                 .mapToInt(Integer::intValue)
                                 .toArray(),
                         diagnostics,
-                        session::accept,
+                        rockSession::accept,
                         progress
                 );
-        RockMap map = session.finish();
+        RockMap map = rockSession.finish();
         progress.start("Rendering geology map");
         RockMapRenderResult rendered = renderer.render(map);
         return new RenderRockMapResult(
