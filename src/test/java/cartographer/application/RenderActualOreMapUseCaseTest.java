@@ -944,7 +944,7 @@ class RenderActualOreMapUseCaseTest {
     void environmentOverlayUsesSessionMapRegionReader() {
         FakeReader reader = new FakeReader(Map.of());
 
-        execute(
+        RenderActualOreMapResult result = execute(
                 reader,
                 List.of(),
                 Set.of(RenderLayer.TERRAIN, RenderLayer.ENVIRONMENT),
@@ -955,6 +955,9 @@ class RenderActualOreMapUseCaseTest {
 
         assertEquals(1, reader.sessionMapRegionCalls);
         assertEquals(0, reader.pathMapRegionCalls);
+        assertTrue(result.mapRegionOverlayState().isPresent());
+        assertTrue(result.mapRegionOverlayState().orElseThrow().environmentPrepared());
+        assertFalse(result.mapRegionOverlayState().orElseThrow().geologyPrepared());
     }
 
     @Test
