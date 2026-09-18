@@ -355,6 +355,13 @@ cache-root containment. Automated tests, real-save validation, and performance
 measurement are **NOT RUN** by Codex. PF-1.6 and PF-1.7 remain **PENDING
 MANUAL VALIDATION**.
 
+The D static-review gaps were corrected in a follow-up implementation commit:
+Surface healing now checks deterministic persisted payload bytes and semantic /
+image parity; incompatible manifests are complete documents whose version is
+the only incompatibility; cache-preparation fallback checks source parity; and
+successful cache scenarios check normalized cache-root containment. Tests remain
+**NOT RUN** and PF-1.6/PF-1.7 remain **PENDING MANUAL VALIDATION**.
+
 ## 10. Final evidence required for PF-1.6/PF-1.7 validation
 
 Before either PF-1.6 or PF-1.7 can be marked `VALIDATED`, the final PF-1.8
