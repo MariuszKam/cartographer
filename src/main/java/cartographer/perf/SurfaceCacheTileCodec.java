@@ -26,7 +26,7 @@ public final class SurfaceCacheTileCodec {
                 .order(ByteOrder.BIG_ENDIAN);
         buffer.putInt(MAGIC).putInt(VERSION).putInt(PROFILE_VERSION)
                 .putInt(tile.coordinate().x()).putInt(tile.coordinate().z())
-                .putInt(tile.width()).putInt(tile.height()).putInt(tile.sourceMode().code())
+                .putInt(tile.worldSizeX()).putInt(tile.worldSizeZ()).putInt(tile.sourceMode().code())
                 .putInt(tile.diagnosticColumnsScanned())
                 .putInt(tile.diagnosticEmptyColumns())
                 .putInt(tile.diagnosticLiquidUnavailableColumns())
@@ -53,14 +53,19 @@ public final class SurfaceCacheTileCodec {
             if (buffer.getInt() != PROFILE_VERSION) throw new IllegalArgumentException("unsupported Surface profile");
             int x = buffer.getInt();
             int z = buffer.getInt();
-            int width = buffer.getInt();
-            int height = buffer.getInt();
+            int worldSizeX = buffer.getInt();
+            int worldSizeZ = buffer.getInt();
             SurfaceCacheTile.SourceMode mode = SurfaceCacheTile.SourceMode.decode(buffer.getInt());
             int scanned = buffer.getInt();
             int empty = buffer.getInt();
             int unavailable = buffer.getInt();
             int count = buffer.getInt();
-            int expected = Math.multiplyExact(width, height);
+            if (worldSizeX <= 0 || worldSizeZ <= 0) {
+                throw new IllegalArgumentException("world dimensions must be positive");
+            }
+            SurfaceCacheTile.Geometry geometry = SurfaceCacheTile.deriveGeometry(
+                    new MapChunkCoordinate(x, z), worldSizeX, worldSizeZ);
+            int expected = geometry.cellCount();
             if (count != expected) throw new IllegalArgumentException("invalid Surface cell count");
             if (buffer.remaining() != Math.multiplyExact(count, 14)) {
                 throw new IllegalArgumentException("Surface tile payload has trailing or missing bytes");
@@ -78,10 +83,11 @@ public final class SurfaceCacheTileCodec {
                 classes[index] = buffer.get();
                 SurfaceClassCode.decode(classes[index]);
             }
-            return new SurfaceCacheTile(new MapChunkCoordinate(x, z), width, height, state,
+            return new SurfaceCacheTile(new MapChunkCoordinate(x, z), worldSizeX, worldSizeZ, state,
                     surfaceY, blockIds, liquidIds, classes, mode, scanned, empty, unavailable);
         } catch (BufferUnderflowException | ArithmeticException exception) {
             throw new IllegalArgumentException("Surface tile payload is invalid or truncated", exception);
         }
     }
+
 }

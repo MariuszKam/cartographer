@@ -4,6 +4,7 @@ import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.SurfaceClass;
 import cartographer.model.SurfaceClassCode;
+import cartographer.model.WorldMetadata;
 
 import java.util.Arrays;
 import java.util.Objects;
@@ -39,6 +40,8 @@ public final class SurfaceCacheTile {
     }
 
     private final MapChunkCoordinate coordinate;
+    private final int worldSizeX;
+    private final int worldSizeZ;
     private final int width;
     private final int height;
     private final byte[] state;
@@ -53,8 +56,8 @@ public final class SurfaceCacheTile {
 
     public SurfaceCacheTile(
             MapChunkCoordinate coordinate,
-            int width,
-            int height,
+            int worldSizeX,
+            int worldSizeZ,
             byte[] state,
             int[] surfaceY,
             int[] blockIds,
@@ -66,10 +69,15 @@ public final class SurfaceCacheTile {
             int diagnosticLiquidUnavailableColumns
     ) {
         this.coordinate = Objects.requireNonNull(coordinate, "coordinate is required");
-        if (width <= 0 || width > MapChunk.SIZE || height <= 0 || height > MapChunk.SIZE) {
-            throw new IllegalArgumentException("Surface tile dimensions are outside mapchunk bounds");
+        if (worldSizeX <= 0 || worldSizeZ <= 0) {
+            throw new IllegalArgumentException("world dimensions must be positive");
         }
+        Geometry geometry = deriveGeometry(coordinate, worldSizeX, worldSizeZ);
+        int width = geometry.width();
+        int height = geometry.height();
         int cells = Math.multiplyExact(width, height);
+        this.worldSizeX = worldSizeX;
+        this.worldSizeZ = worldSizeZ;
         this.width = width;
         this.height = height;
         this.state = copyExact(state, cells, "state");
@@ -92,6 +100,8 @@ public final class SurfaceCacheTile {
     }
 
     public MapChunkCoordinate coordinate() { return coordinate; }
+    public int worldSizeX() { return worldSizeX; }
+    public int worldSizeZ() { return worldSizeZ; }
     public int width() { return width; }
     public int height() { return height; }
     public int cellCount() { return state.length; }
@@ -104,6 +114,11 @@ public final class SurfaceCacheTile {
     public int diagnosticColumnsScanned() { return diagnosticColumnsScanned; }
     public int diagnosticEmptyColumns() { return diagnosticEmptyColumns; }
     public int diagnosticLiquidUnavailableColumns() { return diagnosticLiquidUnavailableColumns; }
+
+    public boolean matchesWorld(WorldMetadata metadata) {
+        Objects.requireNonNull(metadata, "metadata is required");
+        return worldSizeX == metadata.mapSizeX() && worldSizeZ == metadata.mapSizeZ();
+    }
 
     public SurfaceClass surfaceClassAt(int localX, int localZ) {
         return SurfaceClassCode.decode(surfaceClassCodes[index(localX, localZ)]);
@@ -149,5 +164,40 @@ public final class SurfaceCacheTile {
         Objects.requireNonNull(values, name + " is required");
         if (values.length != expected) throw new IllegalArgumentException(name + " length is invalid");
         return Arrays.copyOf(values, values.length);
+    }
+
+    static Geometry deriveGeometry(MapChunkCoordinate coordinate, int worldSizeX, int worldSizeZ) {
+        long tileStartX = checkedTileStart(coordinate.x(), "X");
+        long tileStartZ = checkedTileStart(coordinate.z(), "Z");
+        if (tileStartX < 0 || tileStartX >= worldSizeX
+                || tileStartZ < 0 || tileStartZ >= worldSizeZ) {
+            throw new IllegalArgumentException("mapchunk coordinate is outside world bounds");
+        }
+        return new Geometry(
+                derivedDimension(worldSizeX, tileStartX),
+                derivedDimension(worldSizeZ, tileStartZ)
+        );
+    }
+
+    private static long checkedTileStart(int coordinate, String axis) {
+        try {
+            return Math.multiplyExact((long) coordinate, (long) MapChunk.SIZE);
+        } catch (ArithmeticException exception) {
+            throw new IllegalArgumentException("mapchunk " + axis + " coordinate overflows", exception);
+        }
+    }
+
+    private static int derivedDimension(int worldSize, long tileStart) {
+        long remaining = worldSize - tileStart;
+        if (remaining <= 0 || remaining > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("derived Surface tile dimension is invalid");
+        }
+        return (int) Math.min((long) MapChunk.SIZE, remaining);
+    }
+
+    record Geometry(int width, int height) {
+        int cellCount() {
+            return Math.multiplyExact(width, height);
+        }
     }
 }

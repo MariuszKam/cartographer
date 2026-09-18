@@ -177,6 +177,14 @@ represents every valid local column of one mapchunk and never persists ACTIVE,
 center, radius, layout, pixels-per-block, render style, or render layers. A
 full tile can therefore be projected into multiple overlapping requests later.
 
+The reusable domain is proven by the mapchunk coordinate plus the save's
+absolute `worldSizeX` and `worldSizeZ`. The tile start is `coordinate * 32`;
+the coordinate must intersect the world, and width/height are derived as
+`min(32, worldSize - tileStart)` for each axis. Interior tiles are therefore
+32x32, while smaller tiles are legal only at an actual world edge. Request
+clipping never changes persistent artifact geometry, and an arbitrary clipped
+interior fragment cannot be constructed.
+
 The cache tile owns primitive arrays for state, surface Y, block ID, liquid
 block ID, and the explicit stable `SurfaceClassCode` mapping. It records the
 whole-tile source mode (`RAIN_HEIGHT_FAST` or `FALLBACK`) and the final
@@ -186,10 +194,13 @@ canonicalized by contract; decoded server chunks and registry metadata are
 never retained.
 
 `SurfaceCacheTileCodec` uses the independent `surface-render-v1` profile and a
-deterministic big-endian binary format. Invalid magic, versions, profile,
-dimensions, states, class codes, counters, cell counts, truncation, and
-trailing bytes are rejected. `SurfaceTileLookup` distinguishes HIT, MISS, and
-CORRUPT without exposing fabricated data.
+deterministic big-endian binary format. It persists world dimensions and
+re-derives the expected domain during decode rather than trusting serialized
+width/height. Invalid magic, versions, profile, world geometry, states, class
+codes, counters, cell counts, truncation, and trailing bytes are rejected.
+`SurfaceCacheTile.matchesWorld(WorldMetadata)` provides the narrow geometry
+compatibility check required at the future G+H hit boundary. `SurfaceTileLookup`
+distinguishes HIT, MISS, and CORRUPT without exposing fabricated data.
 
 ## Checkpoint F — persistent Surface store
 
