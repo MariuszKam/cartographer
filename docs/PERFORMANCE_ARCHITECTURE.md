@@ -368,6 +368,50 @@ persistent ROCK cache.
 A local highlight or hover is not a new geology analysis. Changing ROCK mode,
 Y, center or radius remains an explicit new source operation.
 
+### Responsive operation orchestration and cancellation
+
+The Workstation owns operation lifecycle through three explicit scopes:
+
+- `FOREGROUND` — save loading and authoritative Map/Ore/Surface/Geology/
+  Prospecting/Coverage work;
+- `DISCOVERY` — Surface Object discovery;
+- `LOCAL` — retained layer recomposition and retained ROCK highlighting.
+
+Each coordinated operation records a generation, type, request summary, state,
+stage/progress, result-delivery flag and failure. A completion is eligible to
+update the UI only while it is still the current operation for its scope.
+Superseded or cancelled work cannot publish a stale result.
+
+Busy state is scoped rather than application-global:
+
+- the existing map viewport, pan/zoom, cursor inspection and Result Inspector
+  remain usable while heavy source work runs;
+- retained layer toggles and ROCK highlight remain local operations and may
+  operate on the previous frame while a foreground source request is running;
+- a foreground request disables source-request controls that could conflict
+  with it, but does not disable the map or retained inspector;
+- Surface discovery leaves the viewport, inspector, tool navigation and local
+  retained interactions available while blocking save/radius/new source Render
+  actions that would conflict with that selective scan.
+
+Cancellation is cooperative but real. The status-bar Cancel action marks the
+current operation `CANCEL_REQUESTED` and interrupts the owned operation
+thread. It does not declare `CANCELLED` merely because the UI requested
+cancellation. The terminal cancellation state is published only after the
+operation call returns, so operation-scoped try-with-resources cleanup has
+completed first.
+
+The UI coordinator does not create decode worker pools. Existing backend
+pipelines remain responsible for bounded parallel decode. On interruption the
+bounded streaming decoder cancels outstanding futures, calls
+`shutdownNow()`, waits for worker termination and restores interruption as
+documented by its tests. `SaveSession` remains operation-scoped and closes
+when the interrupted use case exits.
+
+A cancelled operation is not reported as a user-facing analysis failure.
+Stale/cancelled callbacks are suppressed, the previous valid frame remains
+visible, and the next operation may start from a clean coordinator state.
+
 ## 11. Correctness and safety
 
 ### Correctness
