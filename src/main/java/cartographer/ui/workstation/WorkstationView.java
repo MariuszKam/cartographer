@@ -9,6 +9,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
+import cartographer.render.MapViewportGeometry;
 import cartographer.render.RenderLayer;
 import cartographer.resource.ObservedSurfaceResourceCatalog;
 import java.util.Set;
@@ -137,6 +138,14 @@ public final class WorkstationView {
     public void setProgress(double completed, double total) { statusBar.setProgress(completed, total); }
     public void setSavePath(java.nio.file.Path path) { worldBar.setSavePath(path); }
     public void setPlayerLoaded(boolean loaded) { worldBar.setPlayerLoaded(loaded); }
+    public void setMapGeometry(java.util.Optional<MapViewportGeometry> geometry) {
+        statusBar.setMapGeometry(geometry);
+    }
+
+    public void clearMapGeometry() {
+        statusBar.clearMapGeometry();
+    }
+
     public void setCursorCoordinates(double displayX, double displayZ) {
         statusBar.setCursorCoordinates(displayX, displayZ);
     }
