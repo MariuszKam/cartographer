@@ -1,6 +1,7 @@
 package cartographer.ui.workstation;
 
 import javafx.scene.control.Button;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 
 public final class MapToolbar extends HBox {
@@ -15,6 +16,16 @@ public final class MapToolbar extends HBox {
     public MapToolbar(Runnable onZoomOut, Runnable onZoomIn, Runnable onFit, Runnable onCenterPlayer, Runnable onReset) {
         super(4);
         getStyleClass().add("map-toolbar");
+        zoomOut.setTooltip(new Tooltip("Zoom out"));
+        zoomIn.setTooltip(new Tooltip("Zoom in"));
+        fit.setTooltip(new Tooltip("Fit the raster to the viewport"));
+        centerPlayer.setTooltip(new Tooltip("Center the viewport on the player"));
+        reset.setTooltip(new Tooltip("Reset to 100% zoom"));
+        zoomOut.getStyleClass().add("map-toolbar-button");
+        zoomIn.getStyleClass().add("map-toolbar-button");
+        fit.getStyleClass().add("map-toolbar-button");
+        centerPlayer.getStyleClass().add("map-toolbar-button");
+        reset.getStyleClass().add("map-toolbar-button");
         getChildren().addAll(zoomOut, zoomIn, fit, centerPlayer, reset);
         zoomOut.setOnAction(event -> onZoomOut.run());
         zoomIn.setOnAction(event -> onZoomIn.run());
