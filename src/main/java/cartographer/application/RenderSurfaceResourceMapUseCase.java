@@ -305,6 +305,12 @@ public class RenderSurfaceResourceMapUseCase {
                 request.style(),
                 request.layers()
         );
+        if (options.layers().contains(RenderLayer.MARKERS)
+                && !decorations.userMarkersAvailable()) {
+            throw new IllegalStateException(
+                    "retained marker state is unavailable; full render is required"
+            );
+        }
         Map<Integer, BlockInfo> registry = prepared.registry();
         SurfaceMapScanResult surface = prepared.surface();
 
