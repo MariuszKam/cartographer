@@ -479,6 +479,21 @@ overwritten. Resource evidence, JFR recording, JFR analysis, tests, and
 real-save validation are **NOT RUN** by Codex. PF-1.6, PF-1.7, and PF-1.8
 remain **PENDING MANUAL VALIDATION**.
 
+H-FIX corrects the evidence semantics. Present resource values must be
+non-negative; unsupported allocation and RSS remain `UNAVAILABLE`, and heap
+evidence is explicitly an aggregate of per-pool peak-used values rather than
+a simultaneous process high-water mark. JFR event summaries distinguish
+observed events, metadata-present zero observations, and event types whose
+availability is not established. Missing allocation weights and GC durations
+remain unavailable instead of being converted to invented values. Top-N
+analysis uses a bounded deterministic approximate heavy-hitter method. MAP
+JFR runs are declared `CACHE_WARM` only after an external cache preparation
+and source/cache semantic and image parity preflight; ROCK JFR runs are
+source-authoritative. Profiling status, measured fingerprints, source-safety
+AFTER capture, and campaign identity must all be valid before the recording
+is analyzed. These corrections are implementation-only; tests, profiling,
+and real-save validation remain **NOT RUN**.
+
 ## 10. Final evidence required for PF-1.6/PF-1.7 validation
 
 Before either PF-1.6 or PF-1.7 can be marked `VALIDATED`, the final PF-1.8

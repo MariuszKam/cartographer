@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.OptionalLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class Pf18ResourceEvidenceTest {
@@ -29,5 +30,34 @@ class Pf18ResourceEvidenceTest {
         assertEquals(12, evidence.processCpuNanoseconds().getAsLong());
         assertEquals(34, evidence.peakHeapBytes().getAsLong());
         assertEquals("test GC", evidence.gcMethod());
+    }
+
+    @Test
+    void negativePresentMeasurementsAreRejected() {
+        assertThrows(IllegalArgumentException.class, () -> evidence(OptionalLong.of(-1),
+                OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(),
+                OptionalLong.empty(), OptionalLong.empty()));
+        assertThrows(IllegalArgumentException.class, () -> evidence(OptionalLong.empty(),
+                OptionalLong.of(-1), OptionalLong.empty(), OptionalLong.empty(),
+                OptionalLong.empty(), OptionalLong.empty()));
+        assertThrows(IllegalArgumentException.class, () -> evidence(OptionalLong.empty(),
+                OptionalLong.empty(), OptionalLong.of(-1), OptionalLong.empty(),
+                OptionalLong.empty(), OptionalLong.empty()));
+        assertThrows(IllegalArgumentException.class, () -> evidence(OptionalLong.empty(),
+                OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(-1),
+                OptionalLong.empty(), OptionalLong.empty()));
+        assertThrows(IllegalArgumentException.class, () -> evidence(OptionalLong.empty(),
+                OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(),
+                OptionalLong.of(-1), OptionalLong.empty()));
+        assertThrows(IllegalArgumentException.class, () -> evidence(OptionalLong.empty(),
+                OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(),
+                OptionalLong.empty(), OptionalLong.of(-1)));
+    }
+
+    private static Pf18ResourceEvidence evidence(OptionalLong cpu, OptionalLong heap,
+                                                 OptionalLong gcCount, OptionalLong gcTime,
+                                                 OptionalLong allocation, OptionalLong rss) {
+        return new Pf18ResourceEvidence(cpu, heap, gcCount, gcTime, allocation, rss,
+                "CPU", "heap", "GC", "allocation", "RSS");
     }
 }

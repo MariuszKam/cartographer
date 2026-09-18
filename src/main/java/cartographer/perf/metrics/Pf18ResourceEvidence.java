@@ -29,6 +29,12 @@ public record Pf18ResourceEvidence(
         gcMethod = required(gcMethod, "gcMethod");
         allocationMethod = required(allocationMethod, "allocationMethod");
         rssMethod = required(rssMethod, "rssMethod");
+        requireNonNegative(processCpuNanoseconds, "processCpuNanoseconds");
+        requireNonNegative(peakHeapBytes, "peakHeapBytes");
+        requireNonNegative(gcCollectionCount, "gcCollectionCount");
+        requireNonNegative(gcCollectionTimeMilliseconds, "gcCollectionTimeMilliseconds");
+        requireNonNegative(allocatedBytes, "allocatedBytes");
+        requireNonNegative(rssBytes, "rssBytes");
     }
 
     public static Pf18ResourceEvidence unavailable() {
@@ -41,6 +47,12 @@ public record Pf18ResourceEvidence(
     public String render(String name, OptionalLong value, String method) {
         return name + ": " + (value.isPresent() ? value.getAsLong() : "UNAVAILABLE")
                 + " (method: " + method + ")";
+    }
+
+    private static void requireNonNegative(OptionalLong value, String name) {
+        if (value.isPresent() && value.getAsLong() < 0) {
+            throw new IllegalArgumentException(name + " must not be negative");
+        }
     }
 
     private static String required(String value, String name) {

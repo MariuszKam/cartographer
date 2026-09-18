@@ -9,6 +9,7 @@ public record Pf18JfrSummary(
         Path recording,
         Path summary,
         boolean diagnosticOnly,
+        Pf18JfrCampaignIdentity identity,
         List<String> lines
 ) {
     public Pf18JfrSummary {
@@ -17,6 +18,7 @@ public record Pf18JfrSummary(
         if (!diagnosticOnly) {
             throw new IllegalArgumentException("PF-1.8 JFR evidence is diagnostic only");
         }
+        Objects.requireNonNull(identity, "identity is required");
         lines = List.copyOf(Objects.requireNonNull(lines));
     }
 }

@@ -44,7 +44,8 @@ public final class Pf18ResourceSampler {
                 before.cpu().isPresent() && after.cpu().isPresent()
                         ? "OperatingSystemMXBean#getProcessCpuTime" : "UNAVAILABLE",
                 before.heapAvailable() && after.heapAvailable()
-                        ? "heap MemoryPoolMXBean peak usage" : "UNAVAILABLE",
+                        ? "aggregate per-heap-pool peak-used sum; not a simultaneous process high-water mark"
+                        : "UNAVAILABLE",
                 before.gcCount().isPresent() && after.gcCount().isPresent()
                         ? "GarbageCollectorMXBean delta" : "UNAVAILABLE",
                 "UNAVAILABLE; whole-process allocation is not collected here",
