@@ -15,6 +15,7 @@ public final class Pf18MacroReportRenderer {
         line(out, "Workload: " + report.workloadId());
         line(out, "Family: " + report.workloadFamily());
         line(out, "Radius: R" + report.radius());
+        line(out, "Workload contract: " + report.workloadContract());
         line(out, "Execution mode: " + report.executionMode());
         line(out, "Preparation: " + report.preparation());
         line(out, "OS filesystem cache state: uncontrolled");
@@ -48,11 +49,14 @@ public final class Pf18MacroReportRenderer {
             line(out, "Resource " + i + " RSS: " + resource.render(
                     "RSS", resource.rssBytes(), resource.rssMethod()));
         }
-        line(out, "Min: " + report.minNanoseconds() + " ns");
-        line(out, "P50: " + report.p50Nanoseconds() + " ns");
-        line(out, "P95: " + report.p95Nanoseconds() + " ns");
-        line(out, "Max: " + report.maxNanoseconds() + " ns");
-        line(out, "Source safety: " + report.sourceSafety().status());
+        line(out, "Min: " + duration(report.minNanoseconds()));
+        line(out, "P50: " + duration(report.p50Nanoseconds()));
+        line(out, "P95: " + duration(report.p95Nanoseconds()));
+        line(out, "Max: " + duration(report.maxNanoseconds()));
+        line(out, "Source safety: " + report.sourceSafety().map(value -> value.status().name())
+                .orElse("INCONCLUSIVE (inspection unavailable)"));
+        report.sourceSafetyInspectionFailure().ifPresent(failure ->
+                line(out, "Source safety inspection failure: " + failure));
         line(out, "BEFORE source: " + fileState(report.beforeSafety().mainSave()));
         line(out, "BEFORE WAL: " + fileState(report.beforeSafety().wal()));
         line(out, "BEFORE SHM: " + fileState(report.beforeSafety().shm()));
@@ -64,9 +68,10 @@ public final class Pf18MacroReportRenderer {
             line(out, "AFTER SHM: " + fileState(after.shm()));
             line(out, "AFTER journal: " + fileState(after.journal()));
         });
-        if (!report.sourceSafety().violations().isEmpty()) {
+        if (report.sourceSafety().isPresent()
+                && !report.sourceSafety().orElseThrow().violations().isEmpty()) {
             line(out, "Safety violations:");
-            report.sourceSafety().violations().forEach(violation ->
+            report.sourceSafety().orElseThrow().violations().forEach(violation ->
                     line(out, "- " + violation.type() + ": " + violation.path()));
         }
         line(out, "Cache HIT verified: " + report.cacheHitVerified());
@@ -96,6 +101,10 @@ public final class Pf18MacroReportRenderer {
 
     private static void line(StringBuilder out, String value) {
         out.append(value).append('\n');
+    }
+
+    private static String duration(java.util.OptionalLong value) {
+        return value.isPresent() ? value.getAsLong() + " ns" : "UNAVAILABLE";
     }
 
     private static String fileState(cartographer.perf.safety.SaveFileSnapshot file) {

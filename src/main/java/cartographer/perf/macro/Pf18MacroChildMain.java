@@ -27,7 +27,6 @@ public final class Pf18MacroChildMain {
         WorkloadSpec workload = MacroWorkloadResolver.resolve(args[2]);
         Pf18CacheMode cacheMode = Pf18CacheMode.valueOf(args[3]);
         Path evidence = Path.of(args[4]).toAbsolutePath().normalize();
-        long started = System.nanoTime();
         Pf18ResourceSampler.Measured<Pf18IterationEvidence> measured = new Pf18ResourceSampler()
                 .measure(new Pf18ProductionOperationFactory(
                         evidence.getParent().resolve("child-state"))
@@ -40,7 +39,6 @@ public final class Pf18MacroChildMain {
         properties.put("image", result.imageFingerprint().orElse("UNAVAILABLE"));
         properties.put("cacheHit", Boolean.toString(result.cacheHit()));
         properties.put("sourceWork", result.sourceWork());
-        properties.put("operationNanoseconds", Long.toString(System.nanoTime() - started));
         writeOptional(properties, "cpu", resources.processCpuNanoseconds());
         writeOptional(properties, "heap", resources.peakHeapBytes());
         writeOptional(properties, "gcCount", resources.gcCollectionCount());
@@ -57,21 +55,21 @@ public final class Pf18MacroChildMain {
     static Pf18IterationEvidence readEvidence(Path path) throws IOException {
         Map<String, String> properties = Pf18DeterministicEvidenceCodec.read(path);
         return new Pf18IterationEvidence(
-                optional(properties.getProperty("semantic")),
-                optional(properties.getProperty("image")),
-                Boolean.parseBoolean(required(properties, "cacheHit")),
+                optional(required(properties, "semantic")),
+                optional(required(properties, "image")),
+                parseBoolean(required(properties, "cacheHit"), "cacheHit"),
                 required(properties, "sourceWork"));
     }
 
     static Pf18ResourceEvidence readResourceEvidence(Path path) throws IOException {
         Map<String, String> properties = Pf18DeterministicEvidenceCodec.read(path);
         return new Pf18ResourceEvidence(
-                optionalLong(properties.getProperty("cpu")),
-                optionalLong(properties.getProperty("heap")),
-                optionalLong(properties.getProperty("gcCount")),
-                optionalLong(properties.getProperty("gcTime")),
-                optionalLong(properties.getProperty("allocation")),
-                optionalLong(properties.getProperty("rss")),
+                optionalLong(required(properties, "cpu")),
+                optionalLong(required(properties, "heap")),
+                optionalLong(required(properties, "gcCount")),
+                optionalLong(required(properties, "gcTime")),
+                optionalLong(required(properties, "allocation")),
+                optionalLong(required(properties, "rss")),
                 "child JVM OperatingSystemMXBean", "child JVM heap pools",
                 "child JVM GC beans", "UNAVAILABLE", "UNAVAILABLE");
     }
@@ -82,15 +80,30 @@ public final class Pf18MacroChildMain {
     }
 
     private static java.util.OptionalLong optionalLong(String value) {
-        if (value == null || value.equals("UNAVAILABLE")) return java.util.OptionalLong.empty();
-        return java.util.OptionalLong.of(Long.parseLong(value));
+        if (value.equals("UNAVAILABLE")) return java.util.OptionalLong.empty();
+        try {
+            long parsed = Long.parseLong(value);
+            if (parsed < 0) throw new IllegalArgumentException("negative child evidence value");
+            return java.util.OptionalLong.of(parsed);
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("invalid child evidence number: " + value, exception);
+        }
     }
 
     private static Optional<String> optional(String value) {
-        return value == null || value.equals("UNAVAILABLE") ? Optional.empty() : Optional.of(value);
+        return value.equals("UNAVAILABLE") ? Optional.empty() : Optional.of(value);
     }
 
     private static String required(Map<String, String> properties, String name) {
-        return Objects.requireNonNull(properties.get(name), name + " is missing");
+        String value = Objects.requireNonNull(properties.get(name), name + " is missing");
+        if (value.isBlank()) throw new IllegalArgumentException(name + " is blank");
+        return value;
+    }
+
+    private static boolean parseBoolean(String value, String name) {
+        if (!value.equals("true") && !value.equals("false")) {
+            throw new IllegalArgumentException(name + " must be true or false");
+        }
+        return Boolean.parseBoolean(value);
     }
 }

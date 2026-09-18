@@ -3,6 +3,7 @@ package cartographer.perf.macro;
 import cartographer.perf.metrics.ExecutionMode;
 import cartographer.perf.metrics.PerformanceEnvironment;
 import cartographer.perf.metrics.Pf18ResourceEvidence;
+import cartographer.perf.safety.SaveSafetySnapshotter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -13,6 +14,7 @@ import java.util.Map;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -31,10 +33,12 @@ class Pf18MacroRunnerTest {
     void processColdUsesOneExternalLaunchPerMeasuredSample() throws Exception {
         Path save = save();
         AtomicInteger launches = new AtomicInteger();
+        AtomicReference<Pf18CacheMode> mode = new AtomicReference<>();
         Pf18MacroOperationFactory factory = fixedFactory(false, new AtomicInteger());
         Pf18ProcessLauncher launcher = (ignoredSave, ignoredCache, ignoredWorkload, ignoredMode,
                                         ignoredEvidence) -> {
             launches.incrementAndGet();
+            mode.set(ignoredMode);
             return new Pf18ProcessLauncher.Pf18ProcessResult(
                     new Pf18IterationEvidence(Optional.of("semantic"), Optional.of("image"),
                             false, "source"), 10, Pf18ResourceEvidence.unavailable());
@@ -45,6 +49,7 @@ class Pf18MacroRunnerTest {
                 ExecutionMode.PROCESS_COLD, temporaryDirectory.resolve("evidence"));
 
         assertEquals(5, launches.get());
+        assertEquals(Pf18CacheMode.DISABLED, mode.get());
         assertEquals(5, report.measuredWallClockNanoseconds().size());
         assertTrue(report.preparation().contains("fresh JVM"));
     }
@@ -154,6 +159,68 @@ class Pf18MacroRunnerTest {
         Pf18DeterministicEvidenceCodec.write(second, values);
         assertEquals(Files.readString(first, StandardCharsets.UTF_8),
                 Files.readString(second, StandardCharsets.UTF_8));
+        assertEquals(Optional.of("semantic"), Pf18MacroChildMain.readEvidence(first)
+                .semanticFingerprint());
+        assertEquals("source", Pf18MacroChildMain.readEvidence(first).sourceWork());
+    }
+
+    @Test
+    void failedMiddleIterationKeepsLaterEvidenceAtItsDeclaredIndex() throws Exception {
+        Path save = save();
+        AtomicInteger calls = new AtomicInteger();
+        Pf18MacroOperationFactory factory = (a, b, c) -> () -> {
+            int call = calls.getAndIncrement();
+            if (call == 3) throw new IllegalStateException("middle measured failure");
+            return new Pf18IterationEvidence(Optional.of("semantic"), Optional.of("image"),
+                    false, "source-" + call);
+        };
+
+        Pf18MacroReport report = new Pf18MacroRunner(factory,
+                (a, b, c, d, e) -> { throw new AssertionError(); }, ENVIRONMENT).run(
+                save, temporaryDirectory.resolve("cache"), "MAP_R128", SHA,
+                ExecutionMode.JVM_WARM, temporaryDirectory.resolve("indexed-evidence"));
+
+        assertEquals(5, report.measuredEvidence().size());
+        assertTrue(!report.measuredEvidence().get(1).successful());
+        assertTrue(report.measuredEvidence().get(2).successful());
+        assertEquals("source-4", report.measuredEvidence().get(2).sourceWork().orElseThrow());
+        assertTrue(report.measuredEvidence().get(1).resourceEvidence().isEmpty());
+        assertTrue(report.measuredEvidence().get(2).resourceEvidence().isPresent());
+        assertFalse(report.evidenceIsValid());
+    }
+
+    @Test
+    void zeroSuccessfulSamplesRenderUnavailableTimingAndSafetyInspectionIsInconclusive()
+            throws Exception {
+        Path save = save();
+        Pf18SafetySnapshotProvider snapshots = new Pf18SafetySnapshotProvider() {
+            private int calls;
+            private final SaveSafetySnapshotter delegate = new SaveSafetySnapshotter();
+
+            @Override
+            public cartographer.perf.safety.SaveSafetySnapshot capture(Path path) {
+                if (++calls == 2) throw new IllegalStateException("inspection unavailable");
+                return delegate.capture(path);
+            }
+        };
+        Pf18MacroOperationFactory failing = (a, b, c) -> () -> {
+            throw new IllegalStateException("all samples fail");
+        };
+
+        Pf18MacroReport report = new Pf18MacroRunner(failing,
+                (a, b, c, d, e) -> { throw new AssertionError(); },
+                new cartographer.perf.benchmark.BenchmarkRunner(), snapshots,
+                new cartographer.perf.safety.SaveSafetyGate(), ENVIRONMENT).run(
+                save, temporaryDirectory.resolve("cache"), "MAP_R128", SHA,
+                ExecutionMode.JVM_WARM, temporaryDirectory.resolve("unavailable-evidence"));
+        String rendered = new Pf18MacroReportRenderer().render(report);
+
+        assertTrue(report.sourceSafety().isEmpty());
+        assertTrue(report.sourceSafetyInspectionFailure().isPresent());
+        assertTrue(rendered.contains("Min: UNAVAILABLE"));
+        assertTrue(rendered.contains("INCONCLUSIVE (inspection unavailable)"));
+        assertTrue(!rendered.contains("SAVE_CONTENT_CHANGED"));
+        assertFalse(report.evidenceIsValid());
     }
 
     private Pf18MacroOperationFactory fixedFactory(boolean cacheHit, AtomicInteger calls) {

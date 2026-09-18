@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 /** Immutable factual report for one PF-1.8 macro campaign. */
 public record Pf18MacroReport(
@@ -26,15 +27,17 @@ public record Pf18MacroReport(
         int measuredCount,
         Optional<String> semanticFingerprint,
         Optional<String> imageFingerprint,
+        String workloadContract,
         List<Pf18ResourceEvidence> resourceEvidence,
         List<Pf18MeasuredIterationEvidence> measuredEvidence,
         List<Long> measuredWallClockNanoseconds,
-        long minNanoseconds,
-        long p50Nanoseconds,
-        long p95Nanoseconds,
-        long maxNanoseconds,
+        OptionalLong minNanoseconds,
+        OptionalLong p50Nanoseconds,
+        OptionalLong p95Nanoseconds,
+        OptionalLong maxNanoseconds,
         List<String> failures,
-        SaveSafetyResult sourceSafety,
+        Optional<SaveSafetyResult> sourceSafety,
+        Optional<String> sourceSafetyInspectionFailure,
         SaveSafetySnapshot beforeSafety,
         Optional<SaveSafetySnapshot> afterSafety,
         boolean cacheHitVerified,
@@ -62,6 +65,7 @@ public record Pf18MacroReport(
                 "semantic fingerprint is required");
         imageFingerprint = Objects.requireNonNull(imageFingerprint,
                 "image fingerprint is required");
+        workloadContract = required(workloadContract, "workloadContract");
         resourceEvidence = List.copyOf(Objects.requireNonNull(resourceEvidence,
                 "resource evidence is required"));
         measuredEvidence = List.copyOf(Objects.requireNonNull(measuredEvidence,
@@ -69,15 +73,17 @@ public record Pf18MacroReport(
         failures = List.copyOf(Objects.requireNonNull(failures, "failures are required"));
         cacheEvidence = List.copyOf(Objects.requireNonNull(cacheEvidence,
                 "cache evidence is required"));
-        Objects.requireNonNull(sourceSafety, "source safety is required");
+        sourceSafety = Objects.requireNonNull(sourceSafety, "source safety is required");
+        sourceSafetyInspectionFailure = Objects.requireNonNull(sourceSafetyInspectionFailure,
+                "source safety inspection failure is required");
         Objects.requireNonNull(beforeSafety, "before safety is required");
         afterSafety = Objects.requireNonNull(afterSafety, "after safety is required");
         outputPath = Objects.requireNonNull(outputPath, "output path is required")
                 .toAbsolutePath().normalize();
-        requireNonNegative(minNanoseconds, "minNanoseconds");
-        requireNonNegative(p50Nanoseconds, "p50Nanoseconds");
-        requireNonNegative(p95Nanoseconds, "p95Nanoseconds");
-        requireNonNegative(maxNanoseconds, "maxNanoseconds");
+        Objects.requireNonNull(minNanoseconds, "minNanoseconds is required");
+        Objects.requireNonNull(p50Nanoseconds, "p50Nanoseconds is required");
+        Objects.requireNonNull(p95Nanoseconds, "p95Nanoseconds is required");
+        Objects.requireNonNull(maxNanoseconds, "maxNanoseconds is required");
     }
 
     public boolean evidenceIsValid() {
@@ -86,7 +92,8 @@ public record Pf18MacroReport(
                 && measuredEvidence.stream().allMatch(Pf18MeasuredIterationEvidence::successful)
                 && measuredWallClockNanoseconds.size() == measuredCount
                 && resourceEvidence.size() == measuredCount
-                && sourceSafety.status() == cartographer.perf.safety.SaveSafetyStatus.PASS
+                && sourceSafety.isPresent()
+                && sourceSafety.orElseThrow().status() == cartographer.perf.safety.SaveSafetyStatus.PASS
                 && afterSafety.isPresent()
                 && (executionMode != ExecutionMode.CACHE_WARM || cacheHitVerified)
                 && (executionMode != ExecutionMode.CACHE_WARM
@@ -101,9 +108,4 @@ public record Pf18MacroReport(
         return value.trim();
     }
 
-    private static void requireNonNegative(long value, String name) {
-        if (value < 0) {
-            throw new IllegalArgumentException(name + " must not be negative");
-        }
-    }
 }

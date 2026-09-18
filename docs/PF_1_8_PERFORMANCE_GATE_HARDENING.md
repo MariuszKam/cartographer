@@ -455,6 +455,18 @@ cache/source-work facts; incomplete or failed series cannot be `FACTUAL`.
 Child evidence uses deterministic key/value output without generated
 timestamps. Tests remain **NOT RUN**.
 
+G-FIX3 repairs macro evidence integrity. Child evidence is read through the
+deterministic `Map<String,String>` codec with explicit required-key and value
+validation; child-operation timing is not mixed into parent PROCESS_COLD
+timings. Measured evidence is indexed by declared measured iteration, retains
+operation/source-work/resource facts only for the corresponding invocation,
+and records failed slots without shifting later successes. Timing summaries
+use explicit `UNAVAILABLE` values when no successful samples exist. Source
+safety inspection failure is reported as inconclusive/unavailable and never
+fabricates a save mutation; an actual comparison failure remains a concrete
+FAIL with its violations. Workload contracts are persisted in the report.
+Tests, builds, and runtime validation remain **NOT RUN**.
+
 Checkpoint H is implemented as a separate resource and profiling evidence
 layer. Normal macro operations can report process CPU, heap-pool peak usage,
 GC deltas, and explicit `UNAVAILABLE` values for whole-process allocation or
