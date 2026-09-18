@@ -206,7 +206,7 @@ replace those gates.
 - **PF-1.2 Streaming Processing Engine** — [`IMPLEMENTED — VALIDATION PENDING`](PF_1_2_STREAMING_PROCESSING_ENGINE.md).
 - **PF-1.3 Streaming ROCK Engine** — [`IMPLEMENTED — VALIDATION PENDING`](PF_1_3_STREAMING_ROCK_ENGINE.md). Implementation checkpoints are complete through G; runtime validation and performance evidence remain pending.
 - **PF-1.4 Surface Tile Engine** — [`IMPLEMENTED — VALIDATION PENDING`](PF_1_4_SURFACE_TILE_ENGINE.md). Checkpoints A-G are implemented; runtime validation and performance evidence remain pending.
-- **PF-1.5 Fused Prospecting Engine** — `PLANNED`.
+- **PF-1.5 Fused Prospecting Engine** — [`IMPLEMENTED — VALIDATION PENDING`](PF_1_5_FUSED_PROSPECTING_ENGINE.md). The production saved prospecting path now uses one shared selective chunk stream for upper-rock and all requested ore resources; runtime parity, save-safety, and JFR gates remain pending.
 - **PF-1.6 SaveSession / Snapshot** — `PLANNED`.
 - **PF-1.7 Render Data Cache** — `PLANNED`.
 - **PF-1.8 Performance Gate / Hardening** — `PLANNED`.
