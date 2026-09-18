@@ -6,7 +6,8 @@ import java.nio.file.Path;
 /** External process boundary used by PROCESS_COLD; never falls back in-process. */
 @FunctionalInterface
 public interface Pf18ProcessLauncher {
-    Pf18ProcessResult launch(Path save, Path cacheRoot, String workloadId, Path evidence)
+    Pf18ProcessResult launch(Path save, Path cacheRoot, String workloadId,
+                             Pf18CacheMode cacheMode, Path evidence)
             throws Exception;
 
     record Pf18ProcessResult(Pf18IterationEvidence evidence, long parentElapsedNanoseconds,

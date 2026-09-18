@@ -435,6 +435,16 @@ The command does not invent thresholds or throughput claims. Runtime macro
 evidence, tests, and real-save validation are **NOT RUN** by Codex. PF-1.6,
 PF-1.7, and PF-1.8 remain **PENDING MANUAL VALIDATION**.
 
+G-FIX1 isolates execution states. `JVM_WARM` and `PROCESS_COLD` use the
+authoritative cache-disabled/source operation; PROCESS_COLD still launches one
+fresh Java 25 child per measured sample and passes an explicit `DISABLED` cache
+mode. `CACHE_WARM` is supported only for MAP, prepares a new campaign-scoped
+cache below the supplied campaign-state root, verifies the compatible manifest
+and HIT preflight outside timing, and proves HIT state for every measured
+iteration. Existing campaign cache destinations fail closed, and output/cache
+roots are rejected when they overlap the protected source directory. Tests
+remain **NOT RUN**.
+
 Checkpoint H is implemented as a separate resource and profiling evidence
 layer. Normal macro operations can report process CPU, heap-pool peak usage,
 GC deltas, and explicit `UNAVAILABLE` values for whole-process allocation or

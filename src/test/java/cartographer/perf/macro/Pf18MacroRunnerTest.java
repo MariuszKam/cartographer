@@ -30,7 +30,8 @@ class Pf18MacroRunnerTest {
         Path save = save();
         AtomicInteger launches = new AtomicInteger();
         Pf18MacroOperationFactory factory = fixedFactory(false, new AtomicInteger());
-        Pf18ProcessLauncher launcher = (ignoredSave, ignoredCache, ignoredWorkload, ignoredEvidence) -> {
+        Pf18ProcessLauncher launcher = (ignoredSave, ignoredCache, ignoredWorkload, ignoredMode,
+                                        ignoredEvidence) -> {
             launches.incrementAndGet();
             return new Pf18ProcessLauncher.Pf18ProcessResult(
                     new Pf18IterationEvidence(Optional.of("semantic"), Optional.of("image"),
@@ -74,7 +75,7 @@ class Pf18MacroRunnerTest {
             }
         };
         Pf18MacroReport report = new Pf18MacroRunner(factory,
-                (a, b, c, d) -> { throw new AssertionError("PROCESS_COLD was not requested"); },
+                (a, b, c, d, e) -> { throw new AssertionError("PROCESS_COLD was not requested"); },
                 ENVIRONMENT).run(save, temporaryDirectory.resolve("cache"), "MAP_R128", SHA,
                 ExecutionMode.CACHE_WARM, temporaryDirectory.resolve("cache-evidence"));
 
@@ -91,7 +92,7 @@ class Pf18MacroRunnerTest {
         Files.createDirectories(output.resolve("MAP_R128-jvm_warm"));
         Pf18MacroOperationFactory factory = fixedFactory(false, new AtomicInteger());
         Pf18MacroRunner runner = new Pf18MacroRunner(factory,
-                (a, b, c, d) -> { throw new AssertionError(); }, ENVIRONMENT);
+                (a, b, c, d, e) -> { throw new AssertionError(); }, ENVIRONMENT);
 
         assertThrows(IllegalArgumentException.class, () -> runner.run(save,
                 temporaryDirectory.resolve("cache"), "MAP_R128", SHA,
@@ -99,6 +100,19 @@ class Pf18MacroRunnerTest {
         assertThrows(IllegalArgumentException.class, () -> runner.run(save,
                 temporaryDirectory.resolve("cache"), "MAP_R128", "short",
                 ExecutionMode.JVM_WARM, temporaryDirectory.resolve("other")));
+    }
+
+    @Test
+    void rockCacheWarmIsRejectedBeforeCampaignStateIsCreated() throws Exception {
+        Path save = save();
+        Path cache = temporaryDirectory.resolve("cache");
+        Pf18MacroRunner runner = new Pf18MacroRunner(fixedFactory(false, new AtomicInteger()),
+                (a, b, c, d, e) -> { throw new AssertionError(); }, ENVIRONMENT);
+
+        assertThrows(IllegalArgumentException.class, () -> runner.run(save, cache,
+                "ROCK_UPPER_R1024", SHA, ExecutionMode.CACHE_WARM,
+                temporaryDirectory.resolve("evidence")));
+        assertFalse(Files.exists(cache));
     }
 
     private Pf18MacroOperationFactory fixedFactory(boolean cacheHit, AtomicInteger calls) {

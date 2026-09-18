@@ -19,18 +19,21 @@ public final class Pf18MacroChildMain {
     }
 
     public static void main(String[] args) {
-        if (args == null || args.length != 4) {
-            throw new IllegalArgumentException("Usage: child <save> <cacheRoot> <workload> <evidence>");
+        if (args == null || args.length != 5) {
+            throw new IllegalArgumentException(
+                    "Usage: child <save> <cacheRoot> <workload> <cacheMode> <evidence>");
         }
         Path save = Path.of(args[0]).toAbsolutePath().normalize();
         Path cache = Path.of(args[1]).toAbsolutePath().normalize();
         WorkloadSpec workload = MacroWorkloadResolver.resolve(args[2]);
-        Path evidence = Path.of(args[3]).toAbsolutePath().normalize();
+        Pf18CacheMode cacheMode = Pf18CacheMode.valueOf(args[3]);
+        Path evidence = Path.of(args[4]).toAbsolutePath().normalize();
         long started = System.nanoTime();
         Pf18ResourceSampler.Measured<Pf18IterationEvidence> measured = new Pf18ResourceSampler()
                 .measure(new Pf18ProductionOperationFactory(
                         evidence.getParent().resolve("child-state"))
-                        .create(save, cache, workload)::execute);
+                        .create(save, cacheMode == Pf18CacheMode.ENABLED ? cache : null,
+                                workload)::execute);
         Pf18IterationEvidence result = measured.result();
         Pf18ResourceEvidence resources = measured.evidence();
         Properties properties = new Properties();

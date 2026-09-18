@@ -75,6 +75,15 @@ public final class Pf18MacroRunner {
         }
         WorkloadSpec workload = MacroWorkloadResolver.resolve(workloadId);
         String sha = exactSha(gitSha);
+        if (mode == ExecutionMode.CACHE_WARM
+                && workload.family() != cartographer.perf.workload.WorkloadFamily.MAP) {
+            throw new IllegalArgumentException(
+                    "CACHE_WARM is supported only for MAP workloads; ROCK is source-only");
+        }
+        if (output.startsWith(sourceDirectory) || sourceDirectory.startsWith(output)) {
+            throw new IllegalArgumentException(
+                    "outputRoot must be external to the source save directory");
+        }
         Path campaign = output.resolve(workload.id() + "-" + mode.name().toLowerCase(Locale.ROOT));
         if (Files.exists(campaign)) {
             throw new IllegalArgumentException("PF-1.8 campaign evidence already exists: " + campaign);
@@ -84,6 +93,20 @@ public final class Pf18MacroRunner {
             Files.createDirectories(campaign);
         } catch (IOException exception) {
             throw new IllegalStateException("Cannot create PF-1.8 campaign directory", exception);
+        }
+
+        Path campaignCache = cache.resolve("pf18-" + sha + "-" + workload.id()
+                + "-" + mode.name().toLowerCase(Locale.ROOT));
+        if (mode == ExecutionMode.CACHE_WARM) {
+            if (Files.exists(campaignCache)) {
+                throw new IllegalArgumentException(
+                        "PF-1.8 campaign cache already exists: " + campaignCache);
+            }
+            try {
+                Files.createDirectories(campaignCache);
+            } catch (IOException exception) {
+                throw new IllegalStateException("Cannot create PF-1.8 campaign cache", exception);
+            }
         }
 
         SaveSafetySnapshot before = snapshotter.capture(save);
@@ -97,9 +120,9 @@ public final class Pf18MacroRunner {
         String preparation;
 
         if (mode == ExecutionMode.CACHE_WARM) {
-            operationFactory.prepareCache(save, cache, workload);
-            cacheEvidence = List.copyOf(operationFactory.cacheEvidence(save, cache, workload));
-            Pf18IterationEvidence prepared = operationFactory.create(save, cache, workload).execute();
+            operationFactory.prepareCache(save, campaignCache, workload);
+            cacheEvidence = List.copyOf(operationFactory.cacheEvidence(save, campaignCache, workload));
+            Pf18IterationEvidence prepared = operationFactory.create(save, campaignCache, workload).execute();
             assertParity(authoritative, prepared, "cache preparation");
             cacheHit.set(prepared.cacheHit());
             if (!cacheHit.get() || cacheEvidence.isEmpty()) {
@@ -117,7 +140,7 @@ public final class Pf18MacroRunner {
                 Path childEvidence = campaign.resolve("child-" + index + ".properties");
                 try {
                     Pf18ProcessLauncher.Pf18ProcessResult result = processLauncher.launch(
-                            save, cache, workload.id(), childEvidence);
+                            save, cache, workload.id(), Pf18CacheMode.DISABLED, childEvidence);
                     assertParity(authoritative, result.evidence(), "PROCESS_COLD sample " + index);
                     cacheHit.set(cacheHit.get() && result.evidence().cacheHit());
                     samples.add(result.parentElapsedNanoseconds());
@@ -128,7 +151,7 @@ public final class Pf18MacroRunner {
             }
         } else {
             Pf18MacroOperationFactory.Pf18MacroOperation operation =
-                    operationFactory.create(save, mode == ExecutionMode.CACHE_WARM ? cache : null,
+                    operationFactory.create(save, mode == ExecutionMode.CACHE_WARM ? campaignCache : null,
                             workload);
             java.util.concurrent.atomic.AtomicInteger operationCount =
                     new java.util.concurrent.atomic.AtomicInteger();

@@ -22,14 +22,15 @@ public final class Pf18JavaProcessLauncher implements Pf18ProcessLauncher {
 
     @Override
     public Pf18ProcessResult launch(Path save, Path cacheRoot, String workloadId,
-                                    Path evidence) throws Exception {
+                                    Pf18CacheMode cacheMode, Path evidence) throws Exception {
         long started = System.nanoTime();
         Process process = new ProcessBuilder(
                 javaExecutable,
                 "--enable-native-access=ALL-UNNAMED",
                 "-cp", classPath,
                 Pf18MacroChildMain.class.getName(),
-                save.toString(), cacheRoot.toString(), workloadId, evidence.toString())
+                save.toString(), cacheRoot.toString(), workloadId, cacheMode.name(),
+                evidence.toString())
                 .redirectErrorStream(true)
                 .start();
         String output = new String(process.getInputStream().readAllBytes(),
