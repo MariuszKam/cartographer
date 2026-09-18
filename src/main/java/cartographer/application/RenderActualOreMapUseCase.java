@@ -51,6 +51,7 @@ import cartographer.scanner.SurfaceFallbackChunkPlanner;
 import cartographer.scanner.SurfaceMap;
 import cartographer.scanner.SurfaceMapScanResult;
 import cartographer.scanner.SurfaceStreamingSession;
+import cartographer.scanner.SurfaceTile;
 import cartographer.scanner.SurfaceTileAccumulator;
 import cartographer.scanner.SurfaceTileLayout;
 
@@ -366,12 +367,15 @@ public class RenderActualOreMapUseCase {
                         )
                         : null;
         List<TerrainHeightTile> terrainWriteBuffer = new ArrayList<>(CACHE_WRITE_BATCH_SIZE);
-        Set<MapChunkCoordinate> deliveredSurfaceMapChunks = new LinkedHashSet<>();
+        Set<MapChunkCoordinate> surfacePlanningInputsAvailable = new LinkedHashSet<>();
         for (MapChunkCoordinate coordinate : terrainRequiredCoordinates) {
             TerrainHeightTile tile = terrainHits.get(coordinate);
             if (tile == null) continue;
             if (renderMapChunkSet.contains(coordinate)) terrainBuilder.accept(tile);
-            if (surfaceMissSet.contains(coordinate)) surfaceSession.acceptMapChunk(tile);
+            if (surfaceMissSet.contains(coordinate)) {
+                surfaceSession.acceptMapChunk(tile);
+                surfacePlanningInputsAvailable.add(coordinate);
+            }
         }
         reader.forEachMapChunkByCoordinate(
                 saveSession,
@@ -380,6 +384,7 @@ public class RenderActualOreMapUseCase {
                 mapChunk -> {
                     MapChunkCoordinate coordinate = mapChunk.coordinate();
                     if (terrainMissSet.contains(coordinate)) {
+                        cache.terrain.sourceLoaded++;
                         terrainWriteBuffer.add(TerrainHeightTile.from(mapChunk));
                         if (terrainWriteBuffer.size() >= CACHE_WRITE_BATCH_SIZE) {
                             publishTerrain(cache, terrainWriteBuffer);
@@ -391,7 +396,7 @@ public class RenderActualOreMapUseCase {
                     if (surfaceDataRequired
                             && surfaceMissSet.contains(mapChunk.coordinate())) {
                         surfaceSession.acceptMapChunk(mapChunk);
-                        deliveredSurfaceMapChunks.add(mapChunk.coordinate());
+                        surfacePlanningInputsAvailable.add(mapChunk.coordinate());
                     }
                 },
                 progress
@@ -406,7 +411,7 @@ public class RenderActualOreMapUseCase {
                         surfaceRegistry,
                         surfaceMissSet,
                         surfaceHits,
-                        deliveredSurfaceMapChunks,
+                        surfacePlanningInputsAvailable,
                         cache,
                         chunkDiagnostics,
                         progress
@@ -552,7 +557,7 @@ public class RenderActualOreMapUseCase {
             Map<Integer, BlockInfo> registry,
             Set<MapChunkCoordinate> surfaceMisses,
             Map<MapChunkCoordinate, SurfaceCacheTile> surfaceHits,
-            Set<MapChunkCoordinate> deliveredSurfaceMapChunks,
+            Set<MapChunkCoordinate> surfacePlanningInputsAvailable,
             CacheContext cache,
             ReadDiagnostics chunkDiagnostics,
             ProgressReporter progress
@@ -601,7 +606,8 @@ public class RenderActualOreMapUseCase {
         );
         SurfaceMap map = result.surface();
         SurfaceRainHeightDiagnosticCounters diagnostics = result.diagnostics();
-        publishSurfaceTiles(cache, metadata, map, result, surfaceMisses, deliveredSurfaceMapChunks);
+        publishSurfaceTiles(cache, metadata, map, result, surfaceMisses,
+                surfacePlanningInputsAvailable);
         return new SurfaceMapScanResult(
                 map,
                 registry,
@@ -694,13 +700,13 @@ public class RenderActualOreMapUseCase {
             SurfaceMap map,
             SurfaceRainHeightScanResult result,
             Set<MapChunkCoordinate> surfaceMisses,
-            Set<MapChunkCoordinate> deliveredSurfaceMapChunks
+            Set<MapChunkCoordinate> surfacePlanningInputsAvailable
     ) {
         if (!cache.enabled || !cache.writesEnabled || surfaceMisses.isEmpty()) return;
         Set<MapChunkCoordinate> fallback = new HashSet<>(result.fallbackMapChunks());
         List<SurfaceCacheTile> buffer = new ArrayList<>(CACHE_WRITE_BATCH_SIZE);
         for (MapChunkCoordinate coordinate : surfaceMisses) {
-            if (!deliveredSurfaceMapChunks.contains(coordinate)) {
+            if (!surfacePlanningInputsAvailable.contains(coordinate)) {
                 cache.surface.skippedIncompleteForPublish++;
                 continue;
             }
@@ -743,7 +749,7 @@ public class RenderActualOreMapUseCase {
         buffer.clear();
     }
 
-    private static int countActiveConsidered(cartographer.scanner.SurfaceTile tile) {
+    private static int countActiveConsidered(SurfaceTile tile) {
         int count = 0;
         for (int localZ = 0; localZ < tile.height(); localZ++) {
             for (int localX = 0; localX < tile.width(); localX++) {
@@ -753,7 +759,7 @@ public class RenderActualOreMapUseCase {
         return count;
     }
 
-    private static CacheTileDiagnostics fallbackDiagnostics(cartographer.scanner.SurfaceTile tile) {
+    private static CacheTileDiagnostics fallbackDiagnostics(SurfaceTile tile) {
         int scanned = 0;
         int empty = 0;
         int unavailable = 0;

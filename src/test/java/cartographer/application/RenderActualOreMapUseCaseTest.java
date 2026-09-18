@@ -10,6 +10,11 @@ import cartographer.model.ParsedChunk;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
+import cartographer.perf.RenderDataCacheRevision;
+import cartographer.perf.RenderDataCacheStore;
+import cartographer.perf.TerrainHeightTile;
+import cartographer.perf.TerrainTileStore;
+import cartographer.perf.SurfaceTileStore;
 import cartographer.render.ActualOreOverlayPainter;
 import cartographer.render.MapRenderer;
 import cartographer.render.RenderLayer;
@@ -33,7 +38,10 @@ import org.junit.jupiter.api.io.TempDir;
 import java.awt.Color;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.Statement;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -202,6 +210,112 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(0, reader.pathPlayerCalls);
         assertEquals(0, reader.pathMapChunkCalls);
         assertEquals(0, reader.pathRegistryCalls);
+    }
+
+    @Test
+    void terrainHitCanProvideSurfacePlanningAndPopulateSurfaceCache() throws Exception {
+        Path savePath = temporaryDirectory.resolve("cached-surface-save.vcdbs");
+        Files.write(savePath, new byte[]{1});
+        RenderDataCacheStore cacheStore = new RenderDataCacheStore(
+                temporaryDirectory.resolve("render-data-cache")
+        );
+        RenderDataCacheRevision revision = cacheStore.observe(savePath);
+        cacheStore.publish(revision);
+        new TerrainTileStore(cacheStore, revision).publish(List.of(
+                new TerrainHeightTile(
+                        new MapChunkCoordinate(0, 0), true, true, filledHeights()
+                )
+        ));
+
+        FakeReader firstReader = surfaceReader(true);
+        RenderActualOreMapResult first = useCase(
+                firstReader,
+                new WorldMetadata(128, 256, 128),
+                temporaryDirectory.resolve("cached-home.properties"),
+                temporaryDirectory.resolve("cached-markers.csv"),
+                cacheStore
+        ).execute(new RenderActualOreMapRequest(
+                savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.SURFACE), Optional.empty(),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(16, 64, 16))
+        ));
+
+        assertTrue(first.renderDataCacheReport().terrain().hits() >= 1);
+        assertEquals(0, firstReader.directMapChunkRequests.getLast().size());
+        assertEquals(1, firstReader.adaptiveExactChunkCalls);
+        assertEquals(1, first.renderDataCacheReport().surface().published());
+
+        corruptSurfaceRow(cacheStore, revision);
+
+        FakeReader secondReader = surfaceReader(true);
+        RenderActualOreMapResult second = useCase(
+                secondReader,
+                new WorldMetadata(128, 256, 128),
+                temporaryDirectory.resolve("cached-home.properties"),
+                temporaryDirectory.resolve("cached-markers.csv"),
+                cacheStore
+        ).execute(new RenderActualOreMapRequest(
+                savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.SURFACE), Optional.empty(),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(16, 64, 16))
+        ));
+
+        assertEquals(1, second.renderDataCacheReport().surface().corruptOrIncompatible());
+        assertEquals(1, second.renderDataCacheReport().surface().published());
+        assertEquals(1, secondReader.adaptiveExactChunkCalls);
+        assertEquals(0, secondReader.directMapChunkRequests.getLast().size());
+
+        FakeReader thirdReader = surfaceReader(true);
+        RenderActualOreMapResult third = useCase(
+                thirdReader,
+                new WorldMetadata(128, 256, 128),
+                temporaryDirectory.resolve("cached-home.properties"),
+                temporaryDirectory.resolve("cached-markers.csv"),
+                cacheStore
+        ).execute(new RenderActualOreMapRequest(
+                savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.SURFACE), Optional.empty(),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(16, 64, 16))
+        ));
+
+        assertEquals(1, third.renderDataCacheReport().surface().hits());
+        assertEquals(0, thirdReader.adaptiveExactChunkCalls);
+        assertSurfaceParity(first.surface().map(), third.surface().map());
+    }
+
+    @Test
+    void clippedSurfaceResultIsNotPublishedAsReusableTile() throws Exception {
+        Path savePath = temporaryDirectory.resolve("clipped-surface-save.vcdbs");
+        Files.write(savePath, new byte[]{1});
+        RenderDataCacheStore cacheStore = new RenderDataCacheStore(
+                temporaryDirectory.resolve("clipped-render-data-cache")
+        );
+        RenderDataCacheRevision revision = cacheStore.observe(savePath);
+        cacheStore.publish(revision);
+        new TerrainTileStore(cacheStore, revision).publish(List.of(
+                new TerrainHeightTile(
+                        new MapChunkCoordinate(0, 0), true, true, filledHeights()
+                )
+        ));
+
+        RenderActualOreMapResult result = useCase(
+                surfaceReader(true),
+                new WorldMetadata(128, 256, 128),
+                temporaryDirectory.resolve("clipped-home.properties"),
+                temporaryDirectory.resolve("clipped-markers.csv"),
+                cacheStore
+        ).execute(new RenderActualOreMapRequest(
+                savePath, 16, 1, RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.SURFACE), Optional.empty(),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(16, 64, 16))
+        ));
+
+        assertEquals(0, result.renderDataCacheReport().surface().published());
+        assertTrue(result.renderDataCacheReport().surface().skippedIncompleteForPublish() >= 1);
     }
 
     @Test
@@ -566,6 +680,77 @@ class RenderActualOreMapUseCaseTest {
                 new OreChunkPositionPlanner(),
                 new SaveSessionFactory(new TestConnectionFactory(), reader, metadataReader)
         );
+    }
+
+    private RenderActualOreMapUseCase useCase(
+            FakeReader reader,
+            WorldMetadata metadata,
+            Path homePath,
+            Path markerPath,
+            RenderDataCacheStore renderDataCacheStore
+    ) {
+        WorldMetadataReader metadataReader = new WorldMetadataReader() {
+            @Override
+            public WorldMetadata read(Path savePath) {
+                return metadata;
+            }
+
+            @Override
+            protected WorldMetadata read(Connection connection, ProgressReporter progress) {
+                return metadata;
+            }
+        };
+        return new RenderActualOreMapUseCase(
+                reader,
+                metadataReader,
+                new HomeStore(homePath),
+                new MarkerStore(markerPath),
+                new MapRenderer(),
+                new UserMarkerRenderer(),
+                new ActualBlockMapScanner(),
+                new ActualOreOverlayPainter(),
+                new cartographer.scanner.MultiActualBlockMapScanner(),
+                new OreChunkPositionPlanner(),
+                new SaveSessionFactory(new TestConnectionFactory(), reader, metadataReader),
+                renderDataCacheStore
+        );
+    }
+
+    private static void assertSurfaceParity(
+            cartographer.scanner.SurfaceMap expected,
+            cartographer.scanner.SurfaceMap actual
+    ) {
+        assertEquals(expected.layout().tileCount(), actual.layout().tileCount());
+        for (int tileIndex = 0; tileIndex < expected.layout().tileCount(); tileIndex++) {
+            cartographer.scanner.SurfaceTile expectedTile = expected.tileAt(tileIndex);
+            cartographer.scanner.SurfaceTile actualTile = actual.tileAt(tileIndex);
+            assertEquals(expectedTile.width(), actualTile.width());
+            assertEquals(expectedTile.height(), actualTile.height());
+            for (int localZ = 0; localZ < expectedTile.height(); localZ++) {
+                for (int localX = 0; localX < expectedTile.width(); localX++) {
+                    assertEquals(expectedTile.isActive(localX, localZ), actualTile.isActive(localX, localZ));
+                    assertEquals(expectedTile.isConsidered(localX, localZ), actualTile.isConsidered(localX, localZ));
+                    assertEquals(expectedTile.isResolved(localX, localZ), actualTile.isResolved(localX, localZ));
+                    assertEquals(expectedTile.isLiquidUnavailable(localX, localZ), actualTile.isLiquidUnavailable(localX, localZ));
+                    assertEquals(expectedTile.surfaceYAt(localX, localZ), actualTile.surfaceYAt(localX, localZ));
+                    assertEquals(expectedTile.blockIdAt(localX, localZ), actualTile.blockIdAt(localX, localZ));
+                    assertEquals(expectedTile.liquidBlockIdAt(localX, localZ), actualTile.liquidBlockIdAt(localX, localZ));
+                    assertEquals(expectedTile.surfaceClassAt(localX, localZ), actualTile.surfaceClassAt(localX, localZ));
+                }
+            }
+        }
+    }
+
+    private static void corruptSurfaceRow(
+            RenderDataCacheStore cacheStore,
+            RenderDataCacheRevision revision
+    ) throws Exception {
+        Path database = new SurfaceTileStore(cacheStore, revision).databasePath();
+        try (Connection connection = DriverManager.getConnection(
+                "jdbc:sqlite:" + database.toAbsolutePath().normalize());
+             Statement statement = connection.createStatement()) {
+            statement.executeUpdate("UPDATE surface_tile SET payload = X'00'");
+        }
     }
 
     private FakeReader surfaceReader(boolean liquidAvailable) {

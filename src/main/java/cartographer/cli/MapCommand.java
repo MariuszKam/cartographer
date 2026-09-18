@@ -98,8 +98,6 @@ public class MapCommand implements Command {
             MapRenderer renderer,
             UserMarkerRenderer userMarkerRenderer,
             PngWriter pngWriter,
-            ActualBlockMapScanner actualBlockMapScanner,
-            ActualOreOverlayPainter actualOreOverlayPainter,
             RenderDataCacheStore renderDataCacheStore,
             String subcommand
     ) {
