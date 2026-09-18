@@ -70,4 +70,31 @@ public record RenderSurfaceResourceMapResult(
                 java.util.Optional.empty()
         );
     }
+    public RenderSurfaceResourceMapResult(
+            BufferedImage image,
+            MapViewportGeometry geometry,
+            SurfaceRenderAnalysis analysis,
+            SurfaceMapScanResult surface,
+            MapRenderReport renderReport,
+            ReadDiagnostics mapChunkDiagnostics,
+            ReadDiagnostics chunkDiagnostics,
+            int userMarkersDrawn,
+            RenderDataCacheReport renderDataCacheReport,
+            java.util.Optional<PreparedMapData> preparedMapData
+    ) {
+        this(
+                image,
+                geometry,
+                analysis,
+                surface,
+                renderReport,
+                mapChunkDiagnostics,
+                chunkDiagnostics,
+                userMarkersDrawn,
+                renderDataCacheReport,
+                preparedMapData,
+                java.util.Optional.empty()
+        );
+    }
+
 }
