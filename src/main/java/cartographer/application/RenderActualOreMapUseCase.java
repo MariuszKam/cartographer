@@ -371,6 +371,12 @@ public class RenderActualOreMapUseCase {
                 request.style(),
                 request.layers()
         );
+        if (options.layers().contains(RenderLayer.MARKERS)
+                && !decorations.userMarkersAvailable()) {
+            throw new IllegalStateException(
+                    "retained marker state is unavailable; full render is required"
+            );
+        }
         SurfaceMapScanResult compactSurface = prepared.surface();
 
         RenderedMap rendered = renderer.render(
