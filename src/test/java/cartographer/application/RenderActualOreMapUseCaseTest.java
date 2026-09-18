@@ -144,6 +144,57 @@ class RenderActualOreMapUseCaseTest {
     }
 
     @Test
+    void retainedOreRenderSkipsBasePreparationButStillScansOreAuthoritatively() {
+        FakeReader reader = new FakeReader(
+                Map.of(1, new BlockInfo(1, "ore-cassiterite-granite"))
+        );
+        RenderActualOreMapUseCase useCase = useCase(
+                reader,
+                new WorldMetadata(128, 256, 128),
+                temporaryDirectory.resolve("retained-ore-home.properties"),
+                temporaryDirectory.resolve("retained-ore-markers.csv")
+        );
+        RenderActualOreMapRequest request = new RenderActualOreMapRequest(
+                temporaryDirectory.resolve("retained-ore-save.vcdbs"),
+                16,
+                1,
+                RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.TERRAIN),
+                Optional.of("cassiterite"),
+                ActualBlockYFilter.unbounded(),
+                Optional.of(new WorldPosition(64, 64, 64)),
+                List.of(new ActualOreOverlaySpec(
+                        "Cassiterite",
+                        "cassiterite",
+                        Color.ORANGE,
+                        ActualBlockMatchMode.ORE_CODE
+                ))
+        );
+
+        RenderActualOreMapResult first = useCase.execute(request);
+        int baseMapChunkCalls = reader.directMapChunkCalls;
+        int baseAdaptiveExactCalls = reader.adaptiveExactChunkCalls;
+        int baseSelectiveCalls = reader.adaptiveSelectiveCalls;
+
+        RenderActualOreMapResult retained = useCase.executeRetained(
+                request,
+                first.preparedMapData().orElseThrow(),
+                first.decorationState().orElseThrow(),
+                first.mapRegionOverlayState(),
+                ProgressReporter.NONE
+        );
+
+        assertEquals(baseMapChunkCalls, reader.directMapChunkCalls);
+        assertEquals(baseAdaptiveExactCalls, reader.adaptiveExactChunkCalls);
+        assertEquals(baseSelectiveCalls + 1, reader.adaptiveSelectiveCalls);
+        assertEquals(0, retained.mapChunkDiagnostics().rowsVisited());
+        assertEquals(0, retained.chunkDiagnostics().rowsVisited());
+        assertEquals(1, retained.actualOreOverlays().getFirst().map().matchingBlocks());
+        assertTrue(retained.renderDataCacheReport().notes().stream()
+                .anyMatch(note -> note.contains("retained PreparedMapData reused")));
+    }
+
+    @Test
     void avoidsSelectiveReaderWhenRegistryHasNoMatchingIds() {
         FakeReader reader = new FakeReader(Map.of());
         RenderActualOreMapResult result = execute(reader);
