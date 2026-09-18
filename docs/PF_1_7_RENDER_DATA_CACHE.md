@@ -269,8 +269,8 @@ misses with no delivered source contribution count as zero.
 For a source FALLBACK result, the persisted diagnostic summary is captured from
 the PF-1.4 `SurfaceFallbackDiagnosticState` per mapchunk. It is not
 reconstructed from the request-shaped, circle-clipped `SurfaceTile`. This
-preserves diagnostics for world-edge mapchunks where a 32-column fallback
-server chunk is wider than the valid Surface tile domain.
+preserves diagnostics for world-edge mapchunks where a 32×32 horizontal
+server-chunk column domain is wider than the valid Surface tile domain.
 
 ## Legacy cache compatibility
 
