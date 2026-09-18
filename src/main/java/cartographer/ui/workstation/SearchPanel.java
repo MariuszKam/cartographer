@@ -212,7 +212,7 @@ public final class SearchPanel extends VBox {
         surfacePane.setBusy(busy);
         geologyPane.setBusy(busy);
         prospectingPane.setBusy(busy);
-        radiusPane.setBusy(busy);
+        radiusPane.setBusy(foregroundBusy || discoveryBusy);
         // Rock highlight works entirely from retained RockMap state and remains local.
         rockHighlightPane.setBusy(false);
         updateRenderAvailability();
@@ -220,8 +220,8 @@ public final class SearchPanel extends VBox {
 
     public void setDiscoveryBusy(boolean busy) {
         discoveryBusy = busy;
-        surfacePane.setDiscoveryBusy(busy);
-        radiusPane.setDiscoveryBusy(busy);
+        surfacePane.setDiscoveryBusy(discoveryBusy);
+        radiusPane.setBusy(foregroundBusy || discoveryBusy);
         updateRenderAvailability();
     }
 
