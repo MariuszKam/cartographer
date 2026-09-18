@@ -465,6 +465,7 @@ public final class WorkstationController {
             RenderCoverageMapRequest request
     ) {
         mapPanel.show(result.image(), result.geometry(), loadedPlayerAbsolute);
+        mapFrameState.clear();
         result.geometry().ifPresent(geometry ->
                 mapFrameState.retain(MapFrame.coverage(request.savePath(), geometry)));
         workstation.setMapGeometry(result.geometry());
