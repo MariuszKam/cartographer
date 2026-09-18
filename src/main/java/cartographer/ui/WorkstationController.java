@@ -5,6 +5,7 @@ import cartographer.application.AnalyzeProspectingAreaUseCase;
 import cartographer.application.DiscoverObservedSurfaceResourcesRequest;
 import cartographer.application.DiscoverObservedSurfaceResourcesResult;
 import cartographer.application.DiscoverObservedSurfaceResourcesUseCase;
+import cartographer.application.LoadWorldOverviewUseCase;
 import cartographer.application.ProspectingAreaRequest;
 import cartographer.application.ProspectingAreaResult;
 import cartographer.application.RenderActualOreMapRequest;
@@ -24,13 +25,12 @@ import cartographer.application.SurfaceDiscoveryCacheKey;
 import cartographer.application.SurfaceDiscoveryPolicy;
 import cartographer.application.SurfaceDiscoveryRequestGate;
 import cartographer.application.SurfaceMaterialMatch;
+import cartographer.application.WorldOverview;
 import cartographer.geology.rock.RockMapMode;
-import cartographer.model.BlockInfo;
 import cartographer.model.WorldMetadata;
+import cartographer.model.WorldPosition;
 import cartographer.render.RenderStyle;
 import cartographer.resource.ObservedSurfaceResource;
-import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockYFilter;
 import cartographer.ui.workstation.MapCursorPosition;
 import cartographer.ui.workstation.MapPanel;
@@ -45,7 +45,6 @@ import javafx.scene.Parent;
 
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -74,10 +73,8 @@ public final class WorkstationController {
     private final DiscoverObservedSurfaceResourcesUseCase surfaceDiscoveryUseCase;
     private final RenderRockMapUseCase rockUseCase;
     private final AnalyzeProspectingAreaUseCase prospectingUseCase;
-    private final VcdbsReader reader;
-    private final WorldMetadataReader metadataReader;
-    private final ResourceCatalogService resourceCatalogService;
-    private final PlayerPositionService playerPositionService;
+    private final LoadWorldOverviewUseCase worldOverviewUseCase;
+    private final OreResourceResolver resourceResolver = new OreResourceResolver();
 
     private DiscoverObservedSurfaceResourcesResult surfaceDiscoveryResult;
     private SurfaceObjectDiscoveryState surfaceObjectDiscoveryState =
@@ -101,10 +98,7 @@ public final class WorkstationController {
             DiscoverObservedSurfaceResourcesUseCase surfaceDiscoveryUseCase,
             RenderRockMapUseCase rockUseCase,
             AnalyzeProspectingAreaUseCase prospectingUseCase,
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            ResourceCatalogService resourceCatalogService,
-            PlayerPositionService playerPositionService
+            LoadWorldOverviewUseCase worldOverviewUseCase
     ) {
         this.saveChooser = Objects.requireNonNull(saveChooser, "save chooser is required");
         this.useCase = Objects.requireNonNull(useCase, "map/ore use case is required");
@@ -115,12 +109,8 @@ public final class WorkstationController {
         this.rockUseCase = Objects.requireNonNull(rockUseCase, "rock use case is required");
         this.prospectingUseCase = Objects.requireNonNull(
                 prospectingUseCase, "prospecting use case is required");
-        this.reader = Objects.requireNonNull(reader, "reader is required");
-        this.metadataReader = Objects.requireNonNull(metadataReader, "metadata reader is required");
-        this.resourceCatalogService = Objects.requireNonNull(
-                resourceCatalogService, "resource catalog service is required");
-        this.playerPositionService = Objects.requireNonNull(
-                playerPositionService, "player position service is required");
+        this.worldOverviewUseCase = Objects.requireNonNull(
+                worldOverviewUseCase, "world overview use case is required");
 
         workstation = new WorkstationView(this::chooseSave, this::render);
         worldPanel = workstation.worldPanel();
@@ -161,37 +151,22 @@ public final class WorkstationController {
 
         operationCoordinator.submit(
                 "cartographer-resource-discovery",
-                () -> {
-                    List<OreResource> resources = resourceCatalogService.discover(savePath);
-                    Map<Integer, BlockInfo> registry = reader.readBlockRegistry(savePath);
-                    Optional<WorldMetadata> metadata;
-                    try {
-                        metadata = Optional.of(metadataReader.read(savePath));
-                    } catch (RuntimeException exception) {
-                        metadata = Optional.empty();
-                    }
-                    try {
-                        return new SaveLoadResult(
-                                resources,
-                                Optional.of(playerPositionService.loadSnapshot(savePath)),
-                                metadata,
-                                registry
-                        );
-                    } catch (RuntimeException exception) {
-                        return new SaveLoadResult(resources, Optional.empty(), metadata, registry);
-                    }
-                },
+                () -> worldOverviewUseCase.execute(savePath),
                 loaded -> {
-                    List<OreResource> discovered = loaded.resources();
-                    searchPanel.setResources(discovered, loaded.registry());
-                    loadedPlayerAbsolute = loaded.player()
-                            .map(PlayerPositionSnapshot::absolute);
-                    loadedWorldMetadata = loaded.metadata();
+                    List<OreResource> discovered = resourceResolver.resolve(
+                            loaded.resourceKeys(),
+                            loaded.blockRegistry()
+                    );
+                    searchPanel.setResources(discovered, loaded.blockRegistry());
+                    loadedPlayerAbsolute = loaded.playerAbsolute();
+                    loadedWorldMetadata = Optional.of(loaded.metadata());
+                    Optional<PlayerPositionSnapshot> player = loaded.playerAbsolute()
+                            .map(position -> playerSnapshot(loaded.metadata(), position));
                     worldPanel.setPlayerStatus(
-                            loaded.player().map(snapshot -> formatPlayer(snapshot.display()))
+                            player.map(snapshot -> formatPlayer(snapshot.display()))
                                     .orElse("Player: unavailable")
                     );
-                    workstation.setPlayerLoaded(loaded.player().isPresent());
+                    workstation.setPlayerLoaded(player.isPresent());
                     workstation.setStatus(
                             discovered.isEmpty()
                                     ? "No resource maps found; custom matches are available."
@@ -642,6 +617,24 @@ public final class WorkstationController {
         setBusy(false);
     }
 
+    private PlayerPositionSnapshot playerSnapshot(
+            WorldMetadata metadata,
+            WorldPosition absolute
+    ) {
+        var display = metadata.toDisplay(absolute);
+        var chunk = absolute.chunkCoordinate();
+        return new PlayerPositionSnapshot(
+                absolute,
+                new PlayerPositionView(
+                        display.x(),
+                        display.y(),
+                        display.z(),
+                        chunk.x(),
+                        chunk.z()
+                )
+        );
+    }
+
     private String formatPlayer(PlayerPositionView player) {
         return String.format(
                 java.util.Locale.ROOT,
@@ -706,12 +699,4 @@ public final class WorkstationController {
         }
     }
 
-
-    private record SaveLoadResult(
-            List<OreResource> resources,
-            Optional<PlayerPositionSnapshot> player,
-            Optional<WorldMetadata> metadata,
-            Map<Integer, BlockInfo> registry
-    ) {
-    }
 }
