@@ -139,9 +139,22 @@ Do not move JavaFX types into parser, save, scanner, application or render code.
 
 Do not add mock analytical data or infer missing save metadata. Any future viewport metadata must come from verified renderer geometry.
 
-## Next work
+## Final P13/P14 state
 
-Complete the acceptance matrix in `docs/GUI_PERFORMANCE_VALIDATION.md` on the
-accepted GUI-P10 HEAD. In particular, record real-save R2048/R4096 behavior,
-local recomposition smoke results, cache diagnostics, and source-safety
-evidence before declaring the performance-oriented GUI redesign DONE.
+GUI-P13 implements the final map-first Workstation shell while preserving the
+P1-P12 backend, retained-state and scoped-operation contracts.
+
+GUI-P14 implements the executable acceptance workflow described in
+`docs/GUI_PERFORMANCE_VALIDATION.md`.
+
+Implementation is complete, but reviewer runtime evidence is intentionally not
+invented here. The final factual status remains:
+
+```text
+IMPLEMENTATION COMPLETE
+VALIDATION PENDING
+```
+
+Run the GUI-P14 workflow on the exact accepted candidate SHA. Only a PASS from
+`guiReleaseGate` after the manual real-save campaign changes the redesign
+status to validated/done.
