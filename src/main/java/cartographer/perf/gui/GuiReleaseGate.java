@@ -301,11 +301,19 @@ public final class GuiReleaseGate {
             return false;
         }
         String actualWorkload = properties.getProperty("workload");
+        String actualMode = properties.getProperty("mode");
         String outcome = properties.getProperty("outcome");
         if (!workload.equals(actualWorkload)) {
             failures.add(
                     "stretch workload mismatch in " + file
                             + ": " + actualWorkload
+            );
+            return false;
+        }
+        if (!mode.toUpperCase(java.util.Locale.ROOT).equals(actualMode)) {
+            failures.add(
+                    "stretch mode mismatch in " + file
+                            + ": " + actualMode
             );
             return false;
         }
