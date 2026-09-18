@@ -15,6 +15,7 @@ import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.perf.IncrementalRenderIndex;
 import cartographer.perf.RenderCache;
+import cartographer.perf.RenderDataCacheStore;
 import cartographer.render.MapRenderer;
 import cartographer.render.PngWriter;
 import cartographer.render.UserMarkerRenderer;
@@ -148,6 +149,10 @@ public class CommandRouter {
                         cachePath
                 );
 
+        RenderDataCacheStore renderDataCache = new RenderDataCacheStore(
+                cachePath.resolve("render-data")
+        );
+
         return switch (args[0]) {
             case "whereami" ->
                     new WhereamiCommand(
@@ -190,6 +195,7 @@ public class CommandRouter {
                             new MapRenderer(),
                             new UserMarkerRenderer(),
                             new PngWriter(),
+                            renderDataCache,
                             subcommand(
                                     args,
                                     "map"

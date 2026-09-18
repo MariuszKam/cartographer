@@ -39,7 +39,10 @@ import cartographer.scanner.SurfaceTileLayout;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.MapChunkStreamStats;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
 import cartographer.save.SelectiveChunkStreamStats;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import org.junit.jupiter.api.Test;
@@ -48,7 +51,9 @@ import org.junit.jupiter.api.io.TempDir;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.lang.reflect.Proxy;
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -97,20 +102,15 @@ class MapCommandTest {
         CapturingRenderer renderer =
                 new CapturingRenderer();
 
-        MapCommand command =
-                new MapCommand(
-                        new PrintStream(
-                                new ByteArrayOutputStream()
-                        ),
-                        new FakeReader(),
-                        new FakeMetadataReader(),
-                        homeStore,
-                        markerStore,
-                        renderer,
-                        new UserMarkerRenderer(),
-                        new NoopPngWriter(),
-                        "render"
-                );
+        MapCommand command = realMapCommand(
+                new PrintStream(new ByteArrayOutputStream()),
+                new FakeReader(),
+                new FakeMetadataReader(),
+                homeStore,
+                markerStore,
+                renderer,
+                new NoopPngWriter()
+        );
 
         command.run(
                 new String[]{
@@ -155,28 +155,15 @@ class MapCommandTest {
         ByteArrayOutputStream buffer =
                 new ByteArrayOutputStream();
 
-        MapCommand command =
-                new MapCommand(
-                        new PrintStream(
-                                buffer
-                        ),
-                        new FakeReader(),
-                        new FakeMetadataReader(),
-                        new HomeStore(
-                                tempDir.resolve(
-                                        "home.properties"
-                                )
-                        ),
-                        new MarkerStore(
-                                tempDir.resolve(
-                                        "markers.csv"
-                                )
-                        ),
-                        new CapturingRenderer(),
-                        new UserMarkerRenderer(),
-                        writer,
-                        "render"
-                );
+        MapCommand command = realMapCommand(
+                new PrintStream(buffer),
+                new FakeReader(),
+                new FakeMetadataReader(),
+                new HomeStore(tempDir.resolve("home.properties")),
+                new MarkerStore(tempDir.resolve("markers.csv")),
+                new CapturingRenderer(),
+                writer
+        );
 
         command.run(
                 new String[]{
@@ -414,6 +401,31 @@ class MapCommandTest {
         );
     }
 
+    private MapCommand realMapCommand(
+            PrintStream out,
+            FakeReader reader,
+            FakeMetadataReader metadataReader,
+            HomeStore homeStore,
+            MarkerStore markerStore,
+            MapRenderer renderer,
+            PngWriter pngWriter
+    ) {
+        RenderActualOreMapUseCase useCase = new RenderActualOreMapUseCase(
+                reader,
+                metadataReader,
+                homeStore,
+                markerStore,
+                renderer,
+                new UserMarkerRenderer(),
+                new ActualBlockMapScanner(),
+                new ActualOreOverlayPainter(),
+                new cartographer.scanner.MultiActualBlockMapScanner(),
+                new cartographer.application.OreChunkPositionPlanner(),
+                new SaveSessionFactory(new TestConnectionFactory(), reader, metadataReader)
+        );
+        return new MapCommand(out, pngWriter, useCase, "render");
+    }
+
     private static class FakeReader
             extends VcdbsReader {
 
@@ -436,6 +448,14 @@ class MapCommandTest {
                     100.0,
                     512.0
             );
+        }
+
+        @Override
+        public WorldPosition readPlayerPosition(
+                SaveSession session,
+                cartographer.application.ProgressReporter progress
+        ) {
+            return readPlayerPosition((Path) null, progress);
         }
 
         @Override
@@ -481,6 +501,19 @@ class MapCommandTest {
 
         @Override
         public MapChunkStreamStats forEachMapChunkByCoordinate(
+                SaveSession session,
+                java.util.Collection<cartographer.model.MapChunkCoordinate> coordinates,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<MapChunk> consumer,
+                cartographer.application.ProgressReporter progress
+        ) {
+            return forEachMapChunkByCoordinate(
+                    (Path) null, coordinates, diagnostics, consumer, progress
+            );
+        }
+
+        @Override
+        public MapChunkStreamStats forEachMapChunkByCoordinate(
                 Path savePath,
                 java.util.Collection<cartographer.model.MapChunkCoordinate> coordinates,
                 ReadDiagnostics diagnostics,
@@ -514,6 +547,19 @@ class MapCommandTest {
         ) {
             return forEachChunkByPositionAdaptive(
                     savePath, positions, diagnostics, consumer
+            );
+        }
+
+        @Override
+        public ChunkStreamStats forEachChunkByPositionAdaptive(
+                SaveSession session,
+                java.util.Collection<ChunkPosition> positions,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer,
+                cartographer.application.ProgressReporter progress
+        ) {
+            return forEachChunkByPositionAdaptive(
+                    (Path) null, positions, diagnostics, consumer, progress
             );
         }
 
@@ -564,6 +610,20 @@ class MapCommandTest {
         ) {
             return forEachChunkByPositionMatchingBlockIdsAdaptive(
                     savePath, positions, wantedBlockIds, diagnostics, consumer
+            );
+        }
+
+        @Override
+        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
+                SaveSession session,
+                java.util.Collection<cartographer.model.ChunkPosition> positions,
+                int[] wantedBlockIds,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer,
+                cartographer.application.ProgressReporter progress
+        ) {
+            return forEachChunkByPositionMatchingBlockIdsAdaptive(
+                    (Path) null, positions, wantedBlockIds, diagnostics, consumer, progress
             );
         }
 
@@ -640,6 +700,11 @@ class MapCommandTest {
                     )
             );
         }
+
+        @Override
+        protected Map<Integer, BlockInfo> readBlockRegistry(Connection connection) {
+            return readBlockRegistry((Path) null, cartographer.application.ProgressReporter.NONE);
+        }
     }
 
     private static ParsedChunk oreChunk() {
@@ -692,6 +757,14 @@ class MapCommandTest {
                     256,
                     1024
             );
+        }
+
+        @Override
+        protected WorldMetadata read(
+                Connection connection,
+                cartographer.application.ProgressReporter progress
+        ) {
+            return read((Path) null, progress);
         }
     }
 
@@ -816,6 +889,17 @@ class MapCommandTest {
                 BufferedImage image,
                 Path output
         ) {
+        }
+    }
+
+    private static final class TestConnectionFactory extends SqliteSaveConnection {
+        @Override
+        public Connection openReadOnly(Path savePath) {
+            return (Connection) Proxy.newProxyInstance(
+                    Connection.class.getClassLoader(),
+                    new Class<?>[]{Connection.class},
+                    (proxy, method, args) -> null
+            );
         }
     }
 

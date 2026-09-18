@@ -3,6 +3,7 @@ package cartographer.scanner;
 import cartographer.model.ChunkPosition;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.MapChunk;
+import cartographer.model.MapChunkHeightView;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;
 
@@ -64,7 +65,7 @@ public final class SurfaceRainHeightPlanner {
             }
         }
 
-        public void accept(MapChunk mapChunk) {
+        public void accept(MapChunkHeightView mapChunk) {
             ensureMutable();
             Objects.requireNonNull(mapChunk, "mapchunk is required");
             int tileIndex = tileIndex(mapChunk.coordinate());
@@ -72,7 +73,7 @@ public final class SurfaceRainHeightPlanner {
                 return;
             }
             accepted[tileIndex] = true;
-            if (!mapChunk.hasRainHeightMap()) {
+            if (!mapChunk.hasRainHeight()) {
                 promote(tileIndex);
                 return;
             }

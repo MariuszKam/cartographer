@@ -18,6 +18,7 @@ import cartographer.render.UserMarkerRenderer;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
+import cartographer.perf.RenderDataCacheStore;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockYFilter;
@@ -84,6 +85,62 @@ public class MapCommand implements Command {
                 userMarkerRenderer,
                 actualBlockMapScanner,
                 actualOreOverlayPainter
+        );
+        this.subcommand = subcommand;
+    }
+
+    public MapCommand(
+            PrintStream out,
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            HomeStore homeStore,
+            MarkerStore markerStore,
+            MapRenderer renderer,
+            UserMarkerRenderer userMarkerRenderer,
+            PngWriter pngWriter,
+            RenderDataCacheStore renderDataCacheStore,
+            String subcommand
+    ) {
+        this(
+                out,
+                reader,
+                metadataReader,
+                homeStore,
+                markerStore,
+                renderer,
+                userMarkerRenderer,
+                pngWriter,
+                new ActualBlockMapScanner(),
+                new ActualOreOverlayPainter(),
+                renderDataCacheStore,
+                subcommand
+        );
+    }
+
+    public MapCommand(
+            PrintStream out,
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            HomeStore homeStore,
+            MarkerStore markerStore,
+            MapRenderer renderer,
+            UserMarkerRenderer userMarkerRenderer,
+            PngWriter pngWriter,
+            ActualBlockMapScanner actualBlockMapScanner,
+            ActualOreOverlayPainter actualOreOverlayPainter,
+            RenderDataCacheStore renderDataCacheStore,
+            String subcommand
+    ) {
+        this.out = out;
+        this.pngWriter = pngWriter;
+        this.renderActualOreMapUseCase = new RenderActualOreMapUseCase(
+                reader, metadataReader, homeStore, markerStore, renderer, userMarkerRenderer,
+                actualBlockMapScanner, actualOreOverlayPainter,
+                new cartographer.scanner.MultiActualBlockMapScanner(),
+                new cartographer.application.OreChunkPositionPlanner(),
+                new cartographer.save.SaveSessionFactory(
+                        new cartographer.save.SqliteSaveConnection(), reader, metadataReader),
+                renderDataCacheStore
         );
         this.subcommand = subcommand;
     }
@@ -213,7 +270,8 @@ public class MapCommand implements Command {
                 result.surface(),
                 result.environmentOverlay(),
                 result.geologyOverlay(),
-                result.actualOreMap().orElse(null)
+                result.actualOreMap().orElse(null),
+                result.renderDataCacheReport()
         );
     }
 
@@ -241,7 +299,8 @@ public class MapCommand implements Command {
             SurfaceMapScanResult surface,
             OverlayRenderReport environmentOverlay,
             OverlayRenderReport geologyOverlay,
-            ActualBlockMap actualOreMap
+            ActualBlockMap actualOreMap,
+            cartographer.application.RenderDataCacheReport cacheReport
     ) {
         out.println(
                 "MAP"
@@ -283,6 +342,13 @@ public class MapCommand implements Command {
                 "User markers: "
                         + userMarkersDrawn
         );
+
+        out.println("Render-data cache: " + (cacheReport.enabled() ? "enabled" : "disabled"));
+        printCacheStats("Terrain cache", cacheReport.terrain());
+        printCacheStats("Surface cache", cacheReport.surface());
+        for (String note : cacheReport.notes()) {
+            out.println("Render-data cache note: " + note);
+        }
 
         out.println(
                 "Parsed mapchunks: "
@@ -445,6 +511,19 @@ public class MapCommand implements Command {
         printNotes(
                 mapRegionDiagnostics
         );
+    }
+
+    private void printCacheStats(
+            String name,
+            cartographer.application.RenderDataCacheReport.ArtifactStats stats
+    ) {
+        out.println(name + ": requested=" + stats.requested()
+                + " hit=" + stats.hits()
+                + " miss=" + stats.misses()
+                + " corrupt=" + stats.corruptOrIncompatible()
+                + " source=" + stats.sourceLoaded()
+                + " published=" + stats.published()
+                + " skipped-incomplete=" + stats.skippedIncompleteForPublish());
     }
 
     private void printOverlayReport(

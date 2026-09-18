@@ -6,7 +6,7 @@ public record MapChunk(
         MapChunkCoordinate coordinate,
         int[] rainHeightMap,
         int[] worldGenTerrainHeightMap
-) {
+) implements MapChunkHeightView {
     public static final int SIZE =
             32;
 
@@ -28,6 +28,21 @@ public record MapChunk(
     public boolean hasRainHeightMap() {
         return rainHeightMap.length
                 == HEIGHT_VALUE_COUNT;
+    }
+
+    @Override
+    public boolean hasRainHeight() {
+        return hasRainHeightMap();
+    }
+
+    @Override
+    public boolean hasEffectiveHeight() {
+        return hasRainHeightMap() || hasWorldGenTerrainHeightMap();
+    }
+
+    @Override
+    public int effectiveHeightAt(int localX, int localZ) {
+        return heightAt(localX, localZ);
     }
 
     public boolean hasWorldGenTerrainHeightMap() {

@@ -1,7 +1,8 @@
 package cartographer.render;
 
 import cartographer.application.ProgressReporter;
-import cartographer.model.MapChunk;
+import cartographer.model.MapChunkHeightView;
+import cartographer.model.MapChunkCoordinate;
 
 import java.util.BitSet;
 import java.util.List;
@@ -39,7 +40,7 @@ final class DenseHeightGrid {
     }
 
     static DenseHeightGrid fromMapChunks(
-            List<MapChunk> chunks,
+            List<? extends MapChunkHeightView> chunks,
             int minWorldX,
             int minWorldZ,
             int width,
@@ -60,7 +61,7 @@ final class DenseHeightGrid {
                 ProgressReporter.NONE,
                 chunks.size()
         );
-        for (MapChunk chunk : chunks) {
+        for (MapChunkHeightView chunk : chunks) {
             builder.accept(chunk);
         }
         return builder.finish();
@@ -119,7 +120,7 @@ final class DenseHeightGrid {
             this.expectedChunks = expectedChunks;
         }
 
-        void accept(MapChunk chunk) {
+        void accept(MapChunkHeightView chunk) {
             Objects.requireNonNull(chunk, "chunks cannot contain null");
             acceptedChunks++;
             progress.progress(
@@ -128,10 +129,10 @@ final class DenseHeightGrid {
                     expectedChunks
             );
 
-            long originX = (long) chunk.coordinate().x() * MapChunk.SIZE;
-            long originZ = (long) chunk.coordinate().z() * MapChunk.SIZE;
-            for (int localZ = 0; localZ < MapChunk.SIZE; localZ++) {
-                for (int localX = 0; localX < MapChunk.SIZE; localX++) {
+            long originX = (long) chunk.coordinate().x() * MapChunkCoordinate.SIZE_BLOCKS;
+            long originZ = (long) chunk.coordinate().z() * MapChunkCoordinate.SIZE_BLOCKS;
+            for (int localZ = 0; localZ < MapChunkCoordinate.SIZE_BLOCKS; localZ++) {
+                for (int localX = 0; localX < MapChunkCoordinate.SIZE_BLOCKS; localX++) {
                     long relativeX = originX + localX - minWorldX;
                     long relativeZ = originZ + localZ - minWorldZ;
                     if (relativeX < 0 || relativeX >= width
@@ -139,7 +140,10 @@ final class DenseHeightGrid {
                         continue;
                     }
                     int index = Math.toIntExact(relativeZ * width + relativeX);
-                    values[index] = chunk.heightAt(localX, localZ);
+                    if (!chunk.hasEffectiveHeight()) {
+                        continue;
+                    }
+                    values[index] = chunk.effectiveHeightAt(localX, localZ);
                     present.set(index);
                 }
             }

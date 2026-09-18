@@ -2,9 +2,11 @@ package cartographer.scanner;
 
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
+import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParsedChunk;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -66,6 +68,29 @@ final class SurfaceFallbackDiagnosticState {
                 Math.subtractExact(considered, resolved), liquidUnavailable);
     }
 
+    Map<MapChunkCoordinate, SurfaceTileDiagnosticSummary> summariesByMapChunk() {
+        Map<MapChunkCoordinate, MutableSummary> summaries = new LinkedHashMap<>();
+        for (Map.Entry<ChunkPosition, byte[]> entry : chunks.entrySet()) {
+            MapChunkCoordinate coordinate = new MapChunkCoordinate(
+                    entry.getKey().x(), entry.getKey().z());
+            MutableSummary summary = summaries.computeIfAbsent(
+                    coordinate, ignored -> new MutableSummary());
+            for (byte state : entry.getValue()) {
+                if ((state & CONSIDERED) != 0) summary.columnsScanned++;
+                if ((state & RESOLVED) == 0 && (state & CONSIDERED) != 0) summary.emptyColumns++;
+                if ((state & LIQUID_UNAVAILABLE) != 0) summary.liquidUnavailableColumns++;
+            }
+        }
+        Map<MapChunkCoordinate, SurfaceTileDiagnosticSummary> result = new LinkedHashMap<>();
+        for (Map.Entry<MapChunkCoordinate, MutableSummary> entry : summaries.entrySet()) {
+            MutableSummary summary = entry.getValue();
+            result.put(entry.getKey(), new SurfaceTileDiagnosticSummary(
+                    summary.columnsScanned, summary.emptyColumns,
+                    summary.liquidUnavailableColumns));
+        }
+        return Map.copyOf(result);
+    }
+
     private static ChunkPosition horizontalKey(ParsedChunk chunk) {
         return new ChunkPosition(
                 chunk.coordinate().x(), 0, chunk.coordinate().z(), 0);
@@ -77,5 +102,11 @@ final class SurfaceFallbackDiagnosticState {
             int emptyColumns,
             int liquidUnavailableColumns
     ) {
+    }
+
+    private static final class MutableSummary {
+        private int columnsScanned;
+        private int emptyColumns;
+        private int liquidUnavailableColumns;
     }
 }
