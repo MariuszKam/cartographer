@@ -5,8 +5,8 @@ import cartographer.model.ChunkPosition;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
-import cartographer.perf.RenderDataCacheRevision;
 import cartographer.perf.RenderDataCacheStore;
+import cartographer.perf.WorldDataSnapshot;
 import cartographer.perf.SurfaceCacheTile;
 import cartographer.perf.SurfaceTileLookup;
 import cartographer.perf.SurfaceTileStore;
@@ -628,20 +628,21 @@ public final class PrepareMapDataUseCase {
         }
         try {
             RenderDataCacheStore store = renderDataCacheStore.orElseThrow();
-            RenderDataCacheRevision revision = store.observe(savePath);
-            store.publish(revision);
-            if (store.find(revision).isEmpty()) {
+            Optional<WorldDataSnapshot> snapshot =
+                    WorldDataSnapshot.openOrCreate(store, savePath);
+            if (snapshot.isEmpty()) {
                 return CacheContext.disabled(
-                        "render-data cache unavailable or incompatible manifest"
+                        "world-data snapshot unavailable or incompatible manifest"
                 );
             }
+            WorldDataSnapshot world = snapshot.orElseThrow();
             return CacheContext.enabled(
-                    new TerrainTileStore(store, revision),
-                    new SurfaceTileStore(store, revision)
+                    world.terrainStore(),
+                    world.surfaceStore()
             );
         } catch (RuntimeException exception) {
             return CacheContext.disabled(
-                    "render-data cache unavailable: " + exception.getMessage()
+                    "world-data snapshot unavailable: " + exception.getMessage()
             );
         }
     }
