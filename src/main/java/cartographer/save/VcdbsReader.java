@@ -279,20 +279,19 @@ public class VcdbsReader {
             ProgressReporter progress
     ) {
         long strategyProbeStart = System.nanoTime();
-        List<PackedPositionRun> runs =
-                packedPositionRunPlanner.plan(packedPositions);
-        if (packedPositionRunPlanner.rangeStrategyClearlyBetter(
-                packedPositions.size(),
-                runs,
-                DIRECT_CHUNK_BATCH_SIZE,
-                RANGE_RUNS_PER_STATEMENT
-        )) {
+        Optional<List<PackedPositionRun>> rangeRuns =
+                packedPositionRunPlanner.planIfClearlyBetter(
+                        packedPositions,
+                        DIRECT_CHUNK_BATCH_SIZE,
+                        RANGE_RUNS_PER_STATEMENT
+                );
+        if (rangeRuns.isPresent()) {
             long strategyProbeNanos = elapsedNanos(strategyProbeStart);
             try {
                 return forEachChunkByPackedRuns(
                         connection,
                         packedPositions.size(),
-                        runs,
+                        rangeRuns.orElseThrow(),
                         diagnostics,
                         consumer,
                         progress,
