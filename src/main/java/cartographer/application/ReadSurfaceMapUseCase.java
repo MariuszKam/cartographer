@@ -61,7 +61,7 @@ public final class ReadSurfaceMapUseCase {
         Set<ChunkPosition> liquidFailureChunks = new HashSet<>();
         ChunkStreamStats fast = emptyChunkStats();
         if (!plan.chunkPositions().isEmpty()) {
-            fast = reader.forEachChunkByPositionAdaptive(savePath, plan.chunkPositions(),
+            fast = reader.forEachSurfaceChunkByPositionAdaptive(savePath, plan.chunkPositions(),
                     chunkDiagnostics,
                     chunk -> consumeSurfaceChunk(chunk, chunkDiagnostics, liquidFailureChunks,
                             session::acceptFastChunk), progress);
@@ -70,7 +70,7 @@ public final class ReadSurfaceMapUseCase {
         List<ChunkPosition> fallbackPositions = fallbackChunkPlanner.plan(metadata, fallbackMapChunks);
         ChunkStreamStats fallback = emptyChunkStats();
         if (!fallbackPositions.isEmpty()) {
-            fallback = reader.forEachChunkByPositionAdaptive(savePath, fallbackPositions,
+            fallback = reader.forEachSurfaceChunkByPositionAdaptive(savePath, fallbackPositions,
                     chunkDiagnostics,
                     chunk -> consumeSurfaceChunk(chunk, chunkDiagnostics, liquidFailureChunks,
                             session::acceptFallbackChunk), progress);
