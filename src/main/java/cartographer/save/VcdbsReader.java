@@ -48,6 +48,11 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class VcdbsReader {
 
+    private enum ChunkDecodeMode {
+        FULL,
+        SURFACE_COMPACT
+    }
+
     private static final int DIRECT_CHUNK_BATCH_SIZE =
             256;
 
@@ -229,7 +234,12 @@ public class VcdbsReader {
 
         try (Connection connection = connectionFactory.openReadOnly(savePath)) {
             return forEachChunkByPositionAdaptive(
-                    connection, packedPositions, diagnostics, consumer, progress
+                    connection,
+                    packedPositions,
+                    diagnostics,
+                    consumer,
+                    progress,
+                    ChunkDecodeMode.FULL
             );
         } catch (SQLException exception) {
             throw new CommandException(
@@ -257,7 +267,70 @@ public class VcdbsReader {
             return new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         }
         return forEachChunkByPositionAdaptive(
-                session.connection(), packedPositions, diagnostics, consumer, progress
+                session.connection(),
+                packedPositions,
+                diagnostics,
+                consumer,
+                progress,
+                ChunkDecodeMode.FULL
+        );
+    }
+
+    /**
+     * Surface-only adaptive traversal. SQL strategy selection is identical to
+     * the normal adaptive path; only the worker-side decoded-layer
+     * representation changes to compact palette/bit-plane point lookup.
+     */
+    public ChunkStreamStats forEachSurfaceChunkByPositionAdaptive(
+            SaveSession session,
+            Collection<ChunkPosition> positions,
+            ReadDiagnostics diagnostics,
+            Consumer<ParsedChunk> consumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(
+                session,
+                "session is required"
+        );
+        Objects.requireNonNull(
+                positions,
+                "positions is required"
+        );
+        Objects.requireNonNull(
+                diagnostics,
+                "diagnostics is required"
+        );
+        Objects.requireNonNull(
+                consumer,
+                "consumer is required"
+        );
+        Objects.requireNonNull(
+                progress,
+                "progress is required"
+        );
+
+        Set<Long> packedPositions =
+                packedUniquePositions(
+                        positions
+                );
+        if (packedPositions.isEmpty()) {
+            return new ChunkStreamStats(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+            );
+        }
+
+        return forEachChunkByPositionAdaptive(
+                session.connection(),
+                packedPositions,
+                diagnostics,
+                consumer,
+                progress,
+                ChunkDecodeMode.SURFACE_COMPACT
         );
     }
 
@@ -277,8 +350,13 @@ public class VcdbsReader {
             Set<Long> packedPositions,
             ReadDiagnostics diagnostics,
             Consumer<ParsedChunk> consumer,
-            ProgressReporter progress
+            ProgressReporter progress,
+            ChunkDecodeMode decodeMode
     ) {
+        Objects.requireNonNull(
+                decodeMode,
+                "decode mode is required"
+        );
         if (packedPositions.size() <= DIRECT_CHUNK_BATCH_SIZE) {
             try {
                 return forEachChunkByPosition(
@@ -287,7 +365,8 @@ public class VcdbsReader {
                         diagnostics,
                         consumer,
                         progress,
-                        0L
+                        0L,
+                        decodeMode
                 );
             } catch (SQLException exception) {
                 throw new CommandException(
@@ -315,7 +394,8 @@ public class VcdbsReader {
                         diagnostics,
                         consumer,
                         progress,
-                        strategyProbeNanos
+                        strategyProbeNanos,
+                        decodeMode
                 );
             } catch (SQLException exception) {
                 throw new CommandException(
@@ -344,7 +424,8 @@ public class VcdbsReader {
                         diagnostics,
                         consumer,
                         progress,
-                        strategyProbeNanos
+                        strategyProbeNanos,
+                        decodeMode
                 );
             } catch (SQLException exception) {
                 throw new CommandException(
@@ -842,7 +923,8 @@ public class VcdbsReader {
                     diagnostics,
                     consumer,
                     progress,
-                    0L
+                    0L,
+                    ChunkDecodeMode.FULL
             );
         } catch (SQLException exception) {
             throw new CommandException(
@@ -921,7 +1003,8 @@ public class VcdbsReader {
                     diagnostics,
                     consumer,
                     progress,
-                    0L
+                    0L,
+                    ChunkDecodeMode.FULL
             );
         } catch (SQLException exception) {
             throw new CommandException(
