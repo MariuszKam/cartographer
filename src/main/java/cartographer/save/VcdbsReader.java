@@ -442,7 +442,8 @@ public class VcdbsReader {
                     diagnostics,
                     consumer,
                     progress,
-                    strategyProbeNanos
+                    strategyProbeNanos,
+                    decodeMode
             );
         } catch (SQLException exception) {
             throw new CommandException(
@@ -1133,7 +1134,8 @@ public class VcdbsReader {
             ReadDiagnostics diagnostics,
             Consumer<ParsedChunk> consumer,
             ProgressReporter progress,
-            long strategyProbeNanos
+            long strategyProbeNanos,
+            ChunkDecodeMode decodeMode
     ) throws SQLException {
         long totalStart = System.nanoTime();
         progress.start("Reading chunks by packed position ranges");
@@ -1211,7 +1213,8 @@ public class VcdbsReader {
                             batchRuns,
                             diagnostics,
                             pipeline,
-                            workspaces
+                            workspaces,
+                            decodeMode
                     );
                     batchesExecuted++;
                     rowsFound += batch.rowsFound();
@@ -1274,7 +1277,8 @@ public class VcdbsReader {
             ReadDiagnostics diagnostics,
             Consumer<ParsedChunk> consumer,
             ProgressReporter progress,
-            long strategyProbeNanos
+            long strategyProbeNanos,
+            ChunkDecodeMode decodeMode
     ) throws SQLException {
         long totalStart = System.nanoTime();
         progress.start("Scanning chunk table for exact positions");
@@ -1331,7 +1335,8 @@ public class VcdbsReader {
                 pipeline.submit(() -> decodeChunk(
                         coordinate,
                         payload,
-                        workspaces
+                        workspaces,
+                        decodeMode
                 ));
                 pipelineWaitNanos += elapsedNanos(submitStart);
             }
@@ -1378,7 +1383,8 @@ public class VcdbsReader {
             ReadDiagnostics diagnostics,
             Consumer<ParsedChunk> consumer,
             ProgressReporter progress,
-            long strategyProbeNanos
+            long strategyProbeNanos,
+            ChunkDecodeMode decodeMode
     ) throws SQLException {
         long totalStart = System.nanoTime();
         progress.start("Reading chunks by exact position");
@@ -1447,7 +1453,8 @@ public class VcdbsReader {
                             batchPositions,
                             diagnostics,
                             pipeline,
-                            workspaces
+                            workspaces,
+                            decodeMode
                     );
                     batchesExecuted++;
                     rowsFound += batch.rowsFound();
@@ -1619,7 +1626,8 @@ public class VcdbsReader {
             List<PackedPositionRun> runs,
             ReadDiagnostics diagnostics,
             BoundedStreamingDecodePipeline<ChunkDecodeOutcome> pipeline,
-            ChunkDecodeWorkspacePool workspaces
+            ChunkDecodeWorkspacePool workspaces,
+            ChunkDecodeMode decodeMode
     ) throws SQLException {
         Objects.requireNonNull(statement, "statement is required");
         long batchStart = System.nanoTime();
@@ -1658,7 +1666,8 @@ public class VcdbsReader {
                 pipeline.submit(() -> decodeChunk(
                         coordinate,
                         payload,
-                        workspaces
+                        workspaces,
+                        decodeMode
                 ));
                 pipelineWaitNanos += elapsedNanos(submitStart);
             }
@@ -1694,7 +1703,8 @@ public class VcdbsReader {
             List<Long> packedPositions,
             ReadDiagnostics diagnostics,
             BoundedStreamingDecodePipeline<ChunkDecodeOutcome> pipeline,
-            ChunkDecodeWorkspacePool workspaces
+            ChunkDecodeWorkspacePool workspaces,
+            ChunkDecodeMode decodeMode
     ) throws SQLException {
         Objects.requireNonNull(statement, "statement is required");
         long batchStart = System.nanoTime();
@@ -1744,7 +1754,8 @@ public class VcdbsReader {
                 pipeline.submit(() -> decodeChunk(
                         coordinate,
                         payload,
-                        workspaces
+                        workspaces,
+                        decodeMode
                 ));
                 pipelineWaitNanos += elapsedNanos(submitStart);
             }
@@ -2158,29 +2169,56 @@ public class VcdbsReader {
     private ChunkDecodeOutcome decodeChunk(
             ChunkCoordinate coordinate,
             byte[] payload,
-            ChunkDecodeWorkspacePool workspaces
+            ChunkDecodeWorkspacePool workspaces,
+            ChunkDecodeMode decodeMode
     ) {
-        ChunkDecodeWorkspace workspace = workspaces.borrow();
+        ChunkDecodeWorkspace workspace =
+                workspaces.borrow();
         try {
-            return decodeChunk(coordinate, payload, workspace);
+            return decodeChunk(
+                    coordinate,
+                    payload,
+                    workspace,
+                    decodeMode
+            );
         } finally {
-            workspaces.release(workspace);
+            workspaces.release(
+                    workspace
+            );
         }
     }
 
     private ChunkDecodeOutcome decodeChunk(
             ChunkCoordinate coordinate,
             byte[] payload,
-            ChunkDecodeWorkspace workspace
+            ChunkDecodeWorkspace workspace,
+            ChunkDecodeMode decodeMode
     ) {
-        ParseResult<ParsedChunk> parsed = chunkParser.parse(
-                coordinate, payload, ChunkDecodeProfile.BLOCKS_AND_LIQUIDS, workspace
-        );
+        ParseResult<ParsedChunk> parsed =
+                switch (decodeMode) {
+                    case FULL -> chunkParser.parse(
+                            coordinate,
+                            payload,
+                            ChunkDecodeProfile.BLOCKS_AND_LIQUIDS,
+                            workspace
+                    );
+                    case SURFACE_COMPACT ->
+                            chunkParser.parseSurfaceCompact(
+                                    coordinate,
+                                    payload,
+                                    workspace
+                            );
+                };
+
         if (parsed.isSuccess()) {
-            return ChunkDecodeOutcome.success(parsed.value().orElseThrow());
+            return ChunkDecodeOutcome.success(
+                    parsed.value().orElseThrow()
+            );
         }
         return ChunkDecodeOutcome.failure(
-                parsed.error().orElse("unknown chunk parse error")
+                parsed.error().orElse(
+                        "unknown chunk parse error"
+                )
         );
     }
 
