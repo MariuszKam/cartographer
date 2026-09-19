@@ -43,6 +43,7 @@ class VcdbsReaderObservedMapChunkTest {
                 insert(insert, new cartographer.model.ChunkPosition(2, 0, 3, 0));
                 insert(insert, new cartographer.model.ChunkPosition(4, 1, 5, 0));
                 insert(insert, new cartographer.model.ChunkPosition(6, 0, 7, 1));
+                insert(insert, new cartographer.model.ChunkPosition(8, 0, 9, 0));
             }
         }
 
@@ -53,6 +54,7 @@ class VcdbsReaderObservedMapChunkTest {
                 new ChunkParser(),
                 new RegistryParser()
         );
+        List<MapChunkCoordinate> observed = new ArrayList<>();
         List<MapChunkCoordinate> delivered = new ArrayList<>();
         ReadDiagnostics diagnostics = new ReadDiagnostics();
 
@@ -70,12 +72,21 @@ class VcdbsReaderObservedMapChunkTest {
             MapChunkStreamStats stats = reader.forEachObservedMapChunk(
                     session,
                     diagnostics,
+                    observed::add,
                     mapChunk -> delivered.add(mapChunk.coordinate()),
                     ProgressReporter.NONE
             );
 
-            assertEquals(3, stats.rowsFound());
+            assertEquals(4, stats.rowsFound());
             assertEquals(1, stats.parsedMapChunks());
+            assertEquals(1, stats.failedMapChunks());
+            assertEquals(
+                    List.of(
+                            new MapChunkCoordinate(2, 3),
+                            new MapChunkCoordinate(8, 9)
+                    ),
+                    observed
+            );
             assertEquals(
                     List.of(new MapChunkCoordinate(2, 3)),
                     delivered
@@ -98,6 +109,9 @@ class VcdbsReaderObservedMapChunkTest {
                 MapChunkCoordinate coordinate,
                 byte[] payload
         ) {
+            if (coordinate.equals(new MapChunkCoordinate(8, 9))) {
+                return ParseResult.failure("synthetic parser failure");
+            }
             return ParseResult.success(new MapChunk(
                     coordinate,
                     new int[MapChunk.HEIGHT_VALUE_COUNT],
