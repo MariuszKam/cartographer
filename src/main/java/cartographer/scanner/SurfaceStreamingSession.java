@@ -64,6 +64,41 @@ public final class SurfaceStreamingSession {
         );
     }
 
+    public static SurfaceStreamingSession beginForMapChunks(
+            WorldMetadata metadata,
+            Collection<MapChunkCoordinate> requestedMapChunks,
+            Map<Integer, BlockInfo> registry,
+            boolean ignoreFoliage,
+            boolean requireLiquidLayer
+    ) {
+        Objects.requireNonNull(metadata, "metadata is required");
+        Objects.requireNonNull(requestedMapChunks, "requested mapchunks are required");
+        MapChunkCoordinate[] requested = requestedMapChunks.toArray(
+                MapChunkCoordinate[]::new
+        );
+        if (requested.length == 0) {
+            throw new IllegalArgumentException(
+                    "requested mapchunks cannot be empty"
+            );
+        }
+        for (MapChunkCoordinate coordinate : requested) {
+            Objects.requireNonNull(
+                    coordinate,
+                    "requested mapchunks cannot contain null"
+            );
+        }
+        return new SurfaceStreamingSession(
+                new SurfaceRainHeightPlanner().beginForMapChunks(
+                        metadata,
+                        java.util.List.of(requested)
+                ),
+                requested,
+                Objects.requireNonNull(registry, "registry is required"),
+                ignoreFoliage,
+                requireLiquidLayer
+        );
+    }
+
     public void acceptMapChunk(MapChunkHeightView mapChunk) {
         ensurePlanning();
         planner.accept(mapChunk);
