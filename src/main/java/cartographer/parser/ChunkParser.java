@@ -7,6 +7,7 @@ import cartographer.model.ParsedChunk;
 import cartographer.model.ServerChunkPayload;
 import cartographer.save.ProtobufWireReader;
 
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -66,10 +67,10 @@ public class ChunkParser {
     /**
      * Hot-path parse from the original ServerChunk protobuf bytes.
      *
-     * <p>The length-delimited fields copied by ProtobufWireReader are owned by
-     * this parse operation and are passed directly to the layer decoder. This
-     * avoids constructing a defensive-copy ServerChunkPayload only to clone the
-     * same compressed arrays again.</p>
+     * <p>Length-delimited block/liquid fields are represented as slices of the
+     * original source protobuf and passed directly to the layer decoder. The
+     * internal hot path therefore avoids both the public ServerChunkPayload
+     * defensive copies and a copyOfRange of each compressed field.</p>
      */
     public ParseResult<ParsedChunk> parse(
             ChunkCoordinate coordinate,
@@ -114,8 +115,12 @@ public class ChunkParser {
         return parseOwned(
                 coordinate,
                 new OwnedServerChunkPayload(
-                        serverChunk.blocksCompressed(),
-                        serverChunk.liquidsCompressed(),
+                        PayloadSlice.whole(
+                                serverChunk.blocksCompressed()
+                        ),
+                        PayloadSlice.whole(
+                                serverChunk.liquidsCompressed()
+                        ),
                         serverChunk.savedCompressionVersion()
                 ),
                 profile,
@@ -139,9 +144,13 @@ public class ChunkParser {
         Objects.requireNonNull(serverChunk, "serverChunk is required");
         Objects.requireNonNull(workspace, "workspace is required");
         try {
+            PayloadSlice blocks =
+                    serverChunk.blocksCompressed();
             return ParseResult.success(
                     layerDecoder.probePalette(
-                            serverChunk.blocksCompressed(),
+                            blocks.source(),
+                            blocks.offset(),
+                            blocks.length(),
                             serverChunk.savedCompressionVersion(),
                             workspace
                     )
@@ -214,8 +223,12 @@ public class ChunkParser {
                 parsedPayload.value().orElseThrow();
         final boolean wanted;
         try {
+            PayloadSlice blocks =
+                    serverChunk.blocksCompressed();
             wanted = layerDecoder.paletteContainsAny(
-                    serverChunk.blocksCompressed(),
+                    blocks.source(),
+                    blocks.offset(),
+                    blocks.length(),
                     serverChunk.savedCompressionVersion(),
                     wantedBlockIds,
                     workspace
@@ -263,8 +276,8 @@ public class ChunkParser {
         OwnedServerChunkPayload value = owned.value().orElseThrow();
         return ParseResult.success(
                 new ServerChunkPayload(
-                        value.blocksCompressed(),
-                        value.liquidsCompressed(),
+                        value.blocksCompressed().copy(),
+                        value.liquidsCompressed().copy(),
                         value.savedCompressionVersion()
                 )
         );
@@ -281,9 +294,13 @@ public class ChunkParser {
         Objects.requireNonNull(profile, "profile is required");
 
         try {
+            PayloadSlice blocks =
+                    serverChunk.blocksCompressed();
             DecodedChunkLayer blockLayer =
                     layerDecoder.decodeOwned(
-                            serverChunk.blocksCompressed(),
+                            blocks.source(),
+                            blocks.offset(),
+                            blocks.length(),
                             serverChunk.savedCompressionVersion(),
                             workspace
                     );
@@ -343,7 +360,9 @@ public class ChunkParser {
             OwnedServerChunkPayload serverChunk,
             ChunkDecodeWorkspace workspace
     ) {
-        if (serverChunk.liquidsCompressed().length == 0) {
+        PayloadSlice liquids =
+                serverChunk.liquidsCompressed();
+        if (liquids.length() == 0) {
             return DecodedLiquids.available(
                     DecodedChunkLayer.empty(
                             ChunkDataLayerDecoder.VALUE_COUNT
@@ -354,7 +373,9 @@ public class ChunkParser {
         try {
             return DecodedLiquids.available(
                     layerDecoder.decodeOwned(
-                            serverChunk.liquidsCompressed(),
+                            liquids.source(),
+                            liquids.offset(),
+                            liquids.length(),
                             serverChunk.savedCompressionVersion(),
                             workspace
                     )
@@ -375,14 +396,15 @@ public class ChunkParser {
         }
 
         try {
-            Optional<byte[]> blocksCompressed =
-                    ProtobufWireReader.readLengthDelimitedField(
+            Optional<ProtobufWireReader.LengthDelimitedFieldRange>
+                    blocksCompressed =
+                    ProtobufWireReader.findLengthDelimitedFieldRange(
                             payload,
                             BLOCKS_COMPRESSED_FIELD
                     );
 
             if (blocksCompressed.isEmpty()
-                    || blocksCompressed.get().length == 0) {
+                    || blocksCompressed.get().length() == 0) {
                 return ParseResult.failure(
                         "ServerChunk has no blocksCompressed field"
                 );
@@ -394,17 +416,34 @@ public class ChunkParser {
                             SAVED_COMPRESSION_VERSION_FIELD
                     );
 
-            byte[] liquidsCompressed =
-                    ProtobufWireReader.readLengthDelimitedField(
+            ProtobufWireReader.LengthDelimitedFieldRange liquidsRange =
+                    ProtobufWireReader.findLengthDelimitedFieldRange(
                                     payload,
                                     LIQUIDS_COMPRESSED_FIELD
                             )
-                            .orElseGet(() -> new byte[0]);
+                            .orElse(
+                                    new ProtobufWireReader
+                                            .LengthDelimitedFieldRange(
+                                            0,
+                                            0
+                                    )
+                            );
+
+            ProtobufWireReader.LengthDelimitedFieldRange blocksRange =
+                    blocksCompressed.orElseThrow();
 
             return ParseResult.success(
                     new OwnedServerChunkPayload(
-                            blocksCompressed.get(),
-                            liquidsCompressed,
+                            new PayloadSlice(
+                                    payload,
+                                    blocksRange.offset(),
+                                    blocksRange.length()
+                            ),
+                            new PayloadSlice(
+                                    payload,
+                                    liquidsRange.offset(),
+                                    liquidsRange.length()
+                            ),
                             (int) savedCompressionVersion.orElse(0)
                     )
             );
@@ -417,8 +456,8 @@ public class ChunkParser {
     }
 
     private record OwnedServerChunkPayload(
-            byte[] blocksCompressed,
-            byte[] liquidsCompressed,
+            PayloadSlice blocksCompressed,
+            PayloadSlice liquidsCompressed,
             int savedCompressionVersion
     ) {
         private OwnedServerChunkPayload {
@@ -429,6 +468,46 @@ public class ChunkParser {
             Objects.requireNonNull(
                     liquidsCompressed,
                     "liquidsCompressed is required"
+            );
+        }
+    }
+
+    private record PayloadSlice(
+            byte[] source,
+            int offset,
+            int length
+    ) {
+        private PayloadSlice {
+            Objects.requireNonNull(
+                    source,
+                    "slice source is required"
+            );
+            if (offset < 0
+                    || length < 0
+                    || offset > source.length - length) {
+                throw new IllegalArgumentException(
+                        "payload slice is out of bounds"
+                );
+            }
+        }
+
+        static PayloadSlice whole(byte[] source) {
+            Objects.requireNonNull(
+                    source,
+                    "slice source is required"
+            );
+            return new PayloadSlice(
+                    source,
+                    0,
+                    source.length
+            );
+        }
+
+        byte[] copy() {
+            return Arrays.copyOfRange(
+                    source,
+                    offset,
+                    offset + length
             );
         }
     }
