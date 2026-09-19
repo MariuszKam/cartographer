@@ -185,7 +185,7 @@ public class ChunkParser {
      * <p>Success with Optional.empty() means an authoritative palette reject,
      * not a parse failure.</p>
      */
-    public ParseResult<Optional<ParsedChunk>> parseBlocksIfPaletteContains(
+    public SelectiveChunkParseResult parseBlocksIfPaletteContains(
             ChunkCoordinate coordinate,
             byte[] payload,
             int[] wantedBlockIds,
@@ -203,7 +203,7 @@ public class ChunkParser {
         ParseResult<OwnedServerChunkPayload> parsedPayload =
                 parseOwnedPayload(payload);
         if (!parsedPayload.isSuccess()) {
-            return ParseResult.failure(
+            return SelectiveChunkParseResult.payloadFailure(
                     parsedPayload.error().orElse(
                             "unable to parse ServerChunk"
                     )
@@ -212,26 +212,23 @@ public class ChunkParser {
 
         OwnedServerChunkPayload serverChunk =
                 parsedPayload.value().orElseThrow();
-        ParseResult<ChunkPaletteProbe> palette =
-                probeBlockPaletteOwned(serverChunk, workspace);
-        if (!palette.isSuccess()) {
-            return ParseResult.failure(
-                    palette.error().orElse(
-                            "unable to probe block palette"
-                    )
+        final boolean wanted;
+        try {
+            wanted = layerDecoder.paletteContainsAny(
+                    serverChunk.blocksCompressed(),
+                    serverChunk.savedCompressionVersion(),
+                    wantedBlockIds,
+                    workspace
+            );
+        } catch (IllegalArgumentException exception) {
+            return SelectiveChunkParseResult.decodeFailure(
+                    "blocksCompressed palette: "
+                            + exception.getMessage()
             );
         }
 
-        ChunkPaletteProbe probe = palette.value().orElseThrow();
-        boolean wanted = false;
-        for (int wantedBlockId : wantedBlockIds) {
-            if (probe.contains(wantedBlockId)) {
-                wanted = true;
-                break;
-            }
-        }
         if (!wanted) {
-            return ParseResult.success(Optional.empty());
+            return SelectiveChunkParseResult.rejected();
         }
 
         ParseResult<ParsedChunk> parsedChunk = parseOwned(
@@ -241,12 +238,14 @@ public class ChunkParser {
                 workspace
         );
         if (!parsedChunk.isSuccess()) {
-            return ParseResult.failure(
-                    parsedChunk.error().orElse("unable to decode block layer")
+            return SelectiveChunkParseResult.decodeFailure(
+                    parsedChunk.error().orElse(
+                            "unable to decode block layer"
+                    )
             );
         }
-        return ParseResult.success(
-                Optional.of(parsedChunk.value().orElseThrow())
+        return SelectiveChunkParseResult.decoded(
+                parsedChunk.value().orElseThrow()
         );
     }
 
