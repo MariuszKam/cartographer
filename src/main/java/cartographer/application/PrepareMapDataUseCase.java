@@ -254,29 +254,31 @@ public final class PrepareMapDataUseCase {
             }
         }
 
-        reader.forEachMapChunkByCoordinate(
-                session,
-                sourceMapChunkCoordinates,
-                mapChunkDiagnostics,
-                mapChunk -> {
-                    MapChunkCoordinate coordinate = mapChunk.coordinate();
-                    if (terrainMissSet.contains(coordinate)) {
-                        cache.terrain.sourceLoaded++;
-                        terrainWriteBuffer.add(TerrainHeightTile.from(mapChunk));
-                        if (terrainWriteBuffer.size() >= CACHE_WRITE_BATCH_SIZE) {
-                            publishTerrain(cache, terrainWriteBuffer);
+        if (!sourceMapChunkCoordinates.isEmpty()) {
+            reader.forEachMapChunkByCoordinate(
+                    session,
+                    sourceMapChunkCoordinates,
+                    mapChunkDiagnostics,
+                    mapChunk -> {
+                        MapChunkCoordinate coordinate = mapChunk.coordinate();
+                        if (terrainMissSet.contains(coordinate)) {
+                            cache.terrain.sourceLoaded++;
+                            terrainWriteBuffer.add(TerrainHeightTile.from(mapChunk));
+                            if (terrainWriteBuffer.size() >= CACHE_WRITE_BATCH_SIZE) {
+                                publishTerrain(cache, terrainWriteBuffer);
+                            }
                         }
-                    }
-                    if (renderMapChunkSet.contains(coordinate)) {
-                        terrainBuilder.accept(mapChunk);
-                    }
-                    if (surfaceDataRequired && surfaceMissSet.contains(coordinate)) {
-                        surfaceSession.acceptMapChunk(mapChunk);
-                        surfacePlanningInputsAvailable.add(coordinate);
-                    }
-                },
-                progress
-        );
+                        if (renderMapChunkSet.contains(coordinate)) {
+                            terrainBuilder.accept(mapChunk);
+                        }
+                        if (surfaceDataRequired && surfaceMissSet.contains(coordinate)) {
+                            surfaceSession.acceptMapChunk(mapChunk);
+                            surfacePlanningInputsAvailable.add(coordinate);
+                        }
+                    },
+                    progress
+            );
+        }
         publishTerrain(cache, terrainWriteBuffer);
 
         MapTerrainPreparation terrain = terrainBuilder.finish();
