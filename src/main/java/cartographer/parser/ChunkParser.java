@@ -341,9 +341,13 @@ public class ChunkParser {
             ChunkDecodeWorkspace workspace
     ) {
         try {
+            PayloadSlice blocks =
+                    serverChunk.blocksCompressed();
             return ParseResult.success(
                     layerDecoder.probePalette(
-                            serverChunk.blocksCompressed(),
+                            blocks.source(),
+                            blocks.offset(),
+                            blocks.length(),
                             serverChunk.savedCompressionVersion(),
                             workspace
                     )
@@ -422,8 +426,7 @@ public class ChunkParser {
                                     LIQUIDS_COMPRESSED_FIELD
                             )
                             .orElse(
-                                    new ProtobufWireReader
-                                            .LengthDelimitedFieldRange(
+                                    new ProtobufWireReader.LengthDelimitedFieldRange(
                                             0,
                                             0
                                     )
