@@ -43,6 +43,7 @@ import java.util.Optional;
 import java.util.Collection;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class VcdbsReader {
 
@@ -60,6 +61,9 @@ public class VcdbsReader {
     private final SqliteSaveConnection connectionFactory;
     private final int chunkDecodeWorkerCount;
     private final int chunkDecodeMaxInFlight;
+    private final ChunkReadMetricsProbe chunkReadMetricsProbe;
+    private final AtomicReference<ChunkReadMetrics> lastChunkReadMetrics =
+            new AtomicReference<>();
 
     public WorldPosition readPlayerPosition(
             Path savePath
@@ -1908,7 +1912,28 @@ public class VcdbsReader {
                 registryParser,
                 connectionFactory,
                 defaultChunkDecodeWorkerCount(),
-                defaultChunkDecodeMaxInFlight(defaultChunkDecodeWorkerCount())
+                defaultChunkDecodeMaxInFlight(defaultChunkDecodeWorkerCount()),
+                ChunkReadMetricsProbe.NONE
+        );
+    }
+
+    public VcdbsReader(
+            PlayerDataParser playerDataParser,
+            MapChunkParser mapChunkParser,
+            ChunkParser chunkParser,
+            RegistryParser registryParser,
+            SqliteSaveConnection connectionFactory,
+            ChunkReadMetricsProbe chunkReadMetricsProbe
+    ) {
+        this(
+                playerDataParser,
+                mapChunkParser,
+                chunkParser,
+                registryParser,
+                connectionFactory,
+                defaultChunkDecodeWorkerCount(),
+                defaultChunkDecodeMaxInFlight(defaultChunkDecodeWorkerCount()),
+                chunkReadMetricsProbe
         );
     }
 
@@ -1920,6 +1945,28 @@ public class VcdbsReader {
             SqliteSaveConnection connectionFactory,
             int chunkDecodeWorkerCount,
             int chunkDecodeMaxInFlight
+    ) {
+        this(
+                playerDataParser,
+                mapChunkParser,
+                chunkParser,
+                registryParser,
+                connectionFactory,
+                chunkDecodeWorkerCount,
+                chunkDecodeMaxInFlight,
+                ChunkReadMetricsProbe.NONE
+        );
+    }
+
+    VcdbsReader(
+            PlayerDataParser playerDataParser,
+            MapChunkParser mapChunkParser,
+            ChunkParser chunkParser,
+            RegistryParser registryParser,
+            SqliteSaveConnection connectionFactory,
+            int chunkDecodeWorkerCount,
+            int chunkDecodeMaxInFlight,
+            ChunkReadMetricsProbe chunkReadMetricsProbe
     ) {
         if (chunkDecodeWorkerCount <= 0) {
             throw new IllegalArgumentException(
@@ -1951,6 +1998,14 @@ public class VcdbsReader {
 
         this.chunkDecodeWorkerCount = chunkDecodeWorkerCount;
         this.chunkDecodeMaxInFlight = chunkDecodeMaxInFlight;
+        this.chunkReadMetricsProbe = Objects.requireNonNull(
+                chunkReadMetricsProbe,
+                "chunkReadMetricsProbe is required"
+        );
+    }
+
+    public Optional<ChunkReadMetrics> lastChunkReadMetrics() {
+        return Optional.ofNullable(lastChunkReadMetrics.get());
     }
 
     private static int defaultChunkDecodeWorkerCount() {
