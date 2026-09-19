@@ -951,6 +951,83 @@ class ChunkParserTest {
     }
 
     @Test
+    void surfaceCompactKeepsCorruptOptionalLiquidsUnavailable() {
+        ByteBuffer corruptLiquid =
+                ByteBuffer.allocate(16)
+                        .order(
+                                ByteOrder.LITTLE_ENDIAN
+                        );
+        corruptLiquid.putInt(-8);
+        corruptLiquid.putInt(0);
+        corruptLiquid.putInt(1);
+        corruptLiquid.putInt(12345);
+
+        byte[] source =
+                serverChunk(
+                        encodedLayer(
+                                new int[]{0, 9},
+                                index -> index == 0
+                                        ? 1
+                                        : 0
+                        ),
+                        corruptLiquid.array(),
+                        2
+                );
+
+        ParseResult<ParsedChunk> result;
+        try (ChunkDecodeWorkspace workspace =
+                     new ChunkDecodeWorkspace()) {
+            result =
+                    new ChunkParser()
+                            .parseSurfaceCompact(
+                                    new ChunkCoordinate(
+                                            0,
+                                            0,
+                                            0
+                                    ),
+                                    source,
+                                    workspace
+                            );
+        }
+
+        assertTrue(
+                result.isSuccess(),
+                () -> result.error()
+                        .orElse(
+                                "unknown error"
+                        )
+        );
+        ParsedChunk chunk =
+                result.value()
+                        .orElseThrow();
+        assertEquals(
+                9,
+                chunk.blockIdAt(
+                        0,
+                        0,
+                        0
+                )
+        );
+        assertFalse(
+                chunk.liquidLayerAvailable()
+        );
+        assertTrue(
+                chunk.liquidDecodeError()
+                        .contains(
+                                "liquidsCompressed"
+                        )
+        );
+        assertThrows(
+                IllegalStateException.class,
+                () -> chunk.liquidIdAt(
+                        0,
+                        0,
+                        0
+                )
+        );
+    }
+
+    @Test
     void ignoresCorruptOptionalLiquidLayerWhenBlocksDecode() {
         ByteBuffer corruptLiquid =
                 ByteBuffer.allocate(
