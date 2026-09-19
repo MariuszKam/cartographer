@@ -55,6 +55,10 @@ class WorldDataSnapshotTest {
                 second.surfaceStore().databasePath()
                         .startsWith(root.resolve("cache").toAbsolutePath().normalize())
         );
+        assertTrue(
+                second.indexCatalogStore().databasePath()
+                        .startsWith(root.resolve("cache").toAbsolutePath().normalize())
+        );
         assertArrayEquals(source, Files.readAllBytes(save));
     }
 
