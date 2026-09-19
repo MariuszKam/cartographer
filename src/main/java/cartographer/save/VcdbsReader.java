@@ -278,6 +278,25 @@ public class VcdbsReader {
             Consumer<ParsedChunk> consumer,
             ProgressReporter progress
     ) {
+        if (packedPositions.size() <= DIRECT_CHUNK_BATCH_SIZE) {
+            try {
+                return forEachChunkByPosition(
+                        connection,
+                        packedPositions,
+                        diagnostics,
+                        consumer,
+                        progress,
+                        0L
+                );
+            } catch (SQLException exception) {
+                throw new CommandException(
+                        "Cannot read chunk table by exact position: "
+                                + exception.getMessage(),
+                        exception
+                );
+            }
+        }
+
         long strategyProbeStart = System.nanoTime();
         Optional<List<PackedPositionRun>> rangeRuns =
                 packedPositionRunPlanner.planIfClearlyBetter(
