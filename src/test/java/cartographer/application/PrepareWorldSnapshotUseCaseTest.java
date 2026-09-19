@@ -7,11 +7,14 @@ import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParsedChunk;
 import cartographer.model.WorldMetadata;
+import cartographer.model.WorldPosition;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.perf.RenderDataCacheStore;
+import cartographer.render.RenderLayer;
+import cartographer.render.RenderStyle;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.MapChunkStreamStats;
 import cartographer.save.ReadDiagnostics;
@@ -31,6 +34,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -59,11 +64,13 @@ class PrepareWorldSnapshotUseCaseTest {
                 reader,
                 metadataReader
         );
+        RenderDataCacheStore cacheStore =
+                new RenderDataCacheStore(root.resolve("cache"));
         PrepareWorldSnapshotUseCase useCase =
                 new PrepareWorldSnapshotUseCase(
                         reader,
                         sessionFactory,
-                        new RenderDataCacheStore(root.resolve("cache")),
+                        cacheStore,
                         new WorldIndexBatchPlanner(16)
                 );
         PrepareWorldSnapshotRequest request =
@@ -105,6 +112,35 @@ class PrepareWorldSnapshotUseCaseTest {
                 reader.surfaceReads.get(),
                 "valid Surface coverage must avoid another server-chunk traversal"
         );
+
+        PrepareMapDataUseCase renderUseCase = new PrepareMapDataUseCase(
+                reader,
+                sessionFactory,
+                Optional.of(cacheStore)
+        );
+        renderUseCase.execute(
+                new PrepareMapDataRequest(
+                        save,
+                        47,
+                        1,
+                        RenderStyle.SIMPLE,
+                        Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
+                        Optional.of(new WorldPosition(48, 0, 16)),
+                        true
+                ),
+                ProgressReporter.NONE
+        );
+
+        assertEquals(
+                0,
+                reader.exactMapChunkReads.get(),
+                "complete catalog must skip known-unobserved mapchunk lookups"
+        );
+        assertEquals(
+                1,
+                reader.surfaceReads.get(),
+                "snapshot-backed warm render must not reopen source server chunks"
+        );
     }
 
     private static MapChunk mapChunk(int x, int z) {
@@ -131,6 +167,14 @@ class PrepareWorldSnapshotUseCaseTest {
                     new RegistryParser()
             );
             this.mapChunks = List.copyOf(mapChunks);
+        }
+
+        @Override
+        public WorldPosition readPlayerPosition(
+                SaveSession session,
+                ProgressReporter progress
+        ) {
+            return new WorldPosition(16, 0, 16);
         }
 
         @Override
@@ -250,7 +294,7 @@ class PrepareWorldSnapshotUseCaseTest {
                 Connection connection,
                 ProgressReporter progress
         ) {
-            return new WorldMetadata(64, 64, 32);
+            return new WorldMetadata(96, 64, 32);
         }
     }
 
