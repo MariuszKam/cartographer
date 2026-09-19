@@ -125,7 +125,7 @@ class PrepareWorldSnapshotUseCaseTest {
                         1,
                         RenderStyle.SIMPLE,
                         Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
-                        Optional.of(new WorldPosition(48, 0, 16)),
+                        Optional.of(new WorldPosition(32, 0, 16)),
                         true
                 ),
                 ProgressReporter.NONE
@@ -134,12 +134,12 @@ class PrepareWorldSnapshotUseCaseTest {
         assertEquals(
                 0,
                 reader.exactMapChunkReads.get(),
-                "complete catalog must skip known-unobserved mapchunk lookups"
+                "prepared Terrain coverage must avoid source mapchunk lookups"
         );
         assertEquals(
                 1,
                 reader.surfaceReads.get(),
-                "snapshot-backed warm render must not reopen source server chunks"
+                "prepared Surface coverage must avoid source server-chunk reads"
         );
     }
 
@@ -191,11 +191,13 @@ class PrepareWorldSnapshotUseCaseTest {
         public MapChunkStreamStats forEachObservedMapChunk(
                 SaveSession session,
                 ReadDiagnostics diagnostics,
+                Consumer<MapChunkCoordinate> observedCoordinateConsumer,
                 Consumer<MapChunk> consumer,
                 ProgressReporter progress
         ) {
             observedScans.incrementAndGet();
             mapChunks.forEach(mapChunk -> {
+                observedCoordinateConsumer.accept(mapChunk.coordinate());
                 diagnostics.recordParsed();
                 consumer.accept(mapChunk);
             });
