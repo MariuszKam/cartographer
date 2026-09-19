@@ -21,6 +21,7 @@ import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.parser.ServerMapRegionParser;
+import cartographer.parser.SelectiveChunkParseResult;
 
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -46,6 +47,11 @@ import java.util.function.Consumer;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class VcdbsReader {
+
+    private enum ChunkDecodeMode {
+        FULL,
+        SURFACE_COMPACT
+    }
 
     private static final int DIRECT_CHUNK_BATCH_SIZE =
             256;
@@ -228,11 +234,85 @@ public class VcdbsReader {
 
         try (Connection connection = connectionFactory.openReadOnly(savePath)) {
             return forEachChunkByPositionAdaptive(
-                    connection, packedPositions, diagnostics, consumer, progress
+                    connection,
+                    packedPositions,
+                    diagnostics,
+                    consumer,
+                    progress,
+                    ChunkDecodeMode.FULL
             );
         } catch (SQLException exception) {
             throw new CommandException(
                     "Cannot open save for adaptive chunk traversal: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
+    /**
+     * Path-scoped Surface traversal for legacy callers. It keeps the same
+     * adaptive SQL strategy and read-only connection lifecycle while using
+     * compact Surface decode workers.
+     */
+    public ChunkStreamStats forEachSurfaceChunkByPositionAdaptive(
+            Path savePath,
+            Collection<ChunkPosition> positions,
+            ReadDiagnostics diagnostics,
+            Consumer<ParsedChunk> consumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(
+                savePath,
+                "savePath is required"
+        );
+        Objects.requireNonNull(
+                positions,
+                "positions is required"
+        );
+        Objects.requireNonNull(
+                diagnostics,
+                "diagnostics is required"
+        );
+        Objects.requireNonNull(
+                consumer,
+                "consumer is required"
+        );
+        Objects.requireNonNull(
+                progress,
+                "progress is required"
+        );
+
+        Set<Long> packedPositions =
+                packedUniquePositions(
+                        positions
+                );
+        if (packedPositions.isEmpty()) {
+            return new ChunkStreamStats(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+            );
+        }
+
+        try (Connection connection =
+                     connectionFactory.openReadOnly(
+                             savePath
+                     )) {
+            return forEachChunkByPositionAdaptive(
+                    connection,
+                    packedPositions,
+                    diagnostics,
+                    consumer,
+                    progress,
+                    ChunkDecodeMode.SURFACE_COMPACT
+            );
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot open save for adaptive Surface chunk traversal: "
                             + exception.getMessage(),
                     exception
             );
@@ -256,7 +336,70 @@ public class VcdbsReader {
             return new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         }
         return forEachChunkByPositionAdaptive(
-                session.connection(), packedPositions, diagnostics, consumer, progress
+                session.connection(),
+                packedPositions,
+                diagnostics,
+                consumer,
+                progress,
+                ChunkDecodeMode.FULL
+        );
+    }
+
+    /**
+     * Surface-only adaptive traversal. SQL strategy selection is identical to
+     * the normal adaptive path; only the worker-side decoded-layer
+     * representation changes to compact palette/bit-plane point lookup.
+     */
+    public ChunkStreamStats forEachSurfaceChunkByPositionAdaptive(
+            SaveSession session,
+            Collection<ChunkPosition> positions,
+            ReadDiagnostics diagnostics,
+            Consumer<ParsedChunk> consumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(
+                session,
+                "session is required"
+        );
+        Objects.requireNonNull(
+                positions,
+                "positions is required"
+        );
+        Objects.requireNonNull(
+                diagnostics,
+                "diagnostics is required"
+        );
+        Objects.requireNonNull(
+                consumer,
+                "consumer is required"
+        );
+        Objects.requireNonNull(
+                progress,
+                "progress is required"
+        );
+
+        Set<Long> packedPositions =
+                packedUniquePositions(
+                        positions
+                );
+        if (packedPositions.isEmpty()) {
+            return new ChunkStreamStats(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+            );
+        }
+
+        return forEachChunkByPositionAdaptive(
+                session.connection(),
+                packedPositions,
+                diagnostics,
+                consumer,
+                progress,
+                ChunkDecodeMode.SURFACE_COMPACT
         );
     }
 
@@ -276,8 +419,13 @@ public class VcdbsReader {
             Set<Long> packedPositions,
             ReadDiagnostics diagnostics,
             Consumer<ParsedChunk> consumer,
-            ProgressReporter progress
+            ProgressReporter progress,
+            ChunkDecodeMode decodeMode
     ) {
+        Objects.requireNonNull(
+                decodeMode,
+                "decode mode is required"
+        );
         if (packedPositions.size() <= DIRECT_CHUNK_BATCH_SIZE) {
             try {
                 return forEachChunkByPosition(
@@ -286,7 +434,8 @@ public class VcdbsReader {
                         diagnostics,
                         consumer,
                         progress,
-                        0L
+                        0L,
+                        decodeMode
                 );
             } catch (SQLException exception) {
                 throw new CommandException(
@@ -314,7 +463,8 @@ public class VcdbsReader {
                         diagnostics,
                         consumer,
                         progress,
-                        strategyProbeNanos
+                        strategyProbeNanos,
+                        decodeMode
                 );
             } catch (SQLException exception) {
                 throw new CommandException(
@@ -343,7 +493,8 @@ public class VcdbsReader {
                         diagnostics,
                         consumer,
                         progress,
-                        strategyProbeNanos
+                        strategyProbeNanos,
+                        decodeMode
                 );
             } catch (SQLException exception) {
                 throw new CommandException(
@@ -360,7 +511,8 @@ public class VcdbsReader {
                     diagnostics,
                     consumer,
                     progress,
-                    strategyProbeNanos
+                    strategyProbeNanos,
+                    decodeMode
             );
         } catch (SQLException exception) {
             throw new CommandException(
@@ -841,7 +993,8 @@ public class VcdbsReader {
                     diagnostics,
                     consumer,
                     progress,
-                    0L
+                    0L,
+                    ChunkDecodeMode.FULL
             );
         } catch (SQLException exception) {
             throw new CommandException(
@@ -920,7 +1073,8 @@ public class VcdbsReader {
                     diagnostics,
                     consumer,
                     progress,
-                    0L
+                    0L,
+                    ChunkDecodeMode.FULL
             );
         } catch (SQLException exception) {
             throw new CommandException(
@@ -1049,7 +1203,8 @@ public class VcdbsReader {
             ReadDiagnostics diagnostics,
             Consumer<ParsedChunk> consumer,
             ProgressReporter progress,
-            long strategyProbeNanos
+            long strategyProbeNanos,
+            ChunkDecodeMode decodeMode
     ) throws SQLException {
         long totalStart = System.nanoTime();
         progress.start("Reading chunks by packed position ranges");
@@ -1127,7 +1282,8 @@ public class VcdbsReader {
                             batchRuns,
                             diagnostics,
                             pipeline,
-                            workspaces
+                            workspaces,
+                            decodeMode
                     );
                     batchesExecuted++;
                     rowsFound += batch.rowsFound();
@@ -1190,7 +1346,8 @@ public class VcdbsReader {
             ReadDiagnostics diagnostics,
             Consumer<ParsedChunk> consumer,
             ProgressReporter progress,
-            long strategyProbeNanos
+            long strategyProbeNanos,
+            ChunkDecodeMode decodeMode
     ) throws SQLException {
         long totalStart = System.nanoTime();
         progress.start("Scanning chunk table for exact positions");
@@ -1247,7 +1404,8 @@ public class VcdbsReader {
                 pipeline.submit(() -> decodeChunk(
                         coordinate,
                         payload,
-                        workspaces
+                        workspaces,
+                        decodeMode
                 ));
                 pipelineWaitNanos += elapsedNanos(submitStart);
             }
@@ -1294,7 +1452,8 @@ public class VcdbsReader {
             ReadDiagnostics diagnostics,
             Consumer<ParsedChunk> consumer,
             ProgressReporter progress,
-            long strategyProbeNanos
+            long strategyProbeNanos,
+            ChunkDecodeMode decodeMode
     ) throws SQLException {
         long totalStart = System.nanoTime();
         progress.start("Reading chunks by exact position");
@@ -1363,7 +1522,8 @@ public class VcdbsReader {
                             batchPositions,
                             diagnostics,
                             pipeline,
-                            workspaces
+                            workspaces,
+                            decodeMode
                     );
                     batchesExecuted++;
                     rowsFound += batch.rowsFound();
@@ -1535,7 +1695,8 @@ public class VcdbsReader {
             List<PackedPositionRun> runs,
             ReadDiagnostics diagnostics,
             BoundedStreamingDecodePipeline<ChunkDecodeOutcome> pipeline,
-            ChunkDecodeWorkspacePool workspaces
+            ChunkDecodeWorkspacePool workspaces,
+            ChunkDecodeMode decodeMode
     ) throws SQLException {
         Objects.requireNonNull(statement, "statement is required");
         long batchStart = System.nanoTime();
@@ -1574,7 +1735,8 @@ public class VcdbsReader {
                 pipeline.submit(() -> decodeChunk(
                         coordinate,
                         payload,
-                        workspaces
+                        workspaces,
+                        decodeMode
                 ));
                 pipelineWaitNanos += elapsedNanos(submitStart);
             }
@@ -1610,7 +1772,8 @@ public class VcdbsReader {
             List<Long> packedPositions,
             ReadDiagnostics diagnostics,
             BoundedStreamingDecodePipeline<ChunkDecodeOutcome> pipeline,
-            ChunkDecodeWorkspacePool workspaces
+            ChunkDecodeWorkspacePool workspaces,
+            ChunkDecodeMode decodeMode
     ) throws SQLException {
         Objects.requireNonNull(statement, "statement is required");
         long batchStart = System.nanoTime();
@@ -1660,7 +1823,8 @@ public class VcdbsReader {
                 pipeline.submit(() -> decodeChunk(
                         coordinate,
                         payload,
-                        workspaces
+                        workspaces,
+                        decodeMode
                 ));
                 pipelineWaitNanos += elapsedNanos(submitStart);
             }
@@ -2074,29 +2238,56 @@ public class VcdbsReader {
     private ChunkDecodeOutcome decodeChunk(
             ChunkCoordinate coordinate,
             byte[] payload,
-            ChunkDecodeWorkspacePool workspaces
+            ChunkDecodeWorkspacePool workspaces,
+            ChunkDecodeMode decodeMode
     ) {
-        ChunkDecodeWorkspace workspace = workspaces.borrow();
+        ChunkDecodeWorkspace workspace =
+                workspaces.borrow();
         try {
-            return decodeChunk(coordinate, payload, workspace);
+            return decodeChunk(
+                    coordinate,
+                    payload,
+                    workspace,
+                    decodeMode
+            );
         } finally {
-            workspaces.release(workspace);
+            workspaces.release(
+                    workspace
+            );
         }
     }
 
     private ChunkDecodeOutcome decodeChunk(
             ChunkCoordinate coordinate,
             byte[] payload,
-            ChunkDecodeWorkspace workspace
+            ChunkDecodeWorkspace workspace,
+            ChunkDecodeMode decodeMode
     ) {
-        ParseResult<ParsedChunk> parsed = chunkParser.parse(
-                coordinate, payload, ChunkDecodeProfile.BLOCKS_AND_LIQUIDS, workspace
-        );
+        ParseResult<ParsedChunk> parsed =
+                switch (decodeMode) {
+                    case FULL -> chunkParser.parse(
+                            coordinate,
+                            payload,
+                            ChunkDecodeProfile.BLOCKS_AND_LIQUIDS,
+                            workspace
+                    );
+                    case SURFACE_COMPACT ->
+                            chunkParser.parseSurfaceCompact(
+                                    coordinate,
+                                    payload,
+                                    workspace
+                            );
+                };
+
         if (parsed.isSuccess()) {
-            return ChunkDecodeOutcome.success(parsed.value().orElseThrow());
+            return ChunkDecodeOutcome.success(
+                    parsed.value().orElseThrow()
+            );
         }
         return ChunkDecodeOutcome.failure(
-                parsed.error().orElse("unknown chunk parse error")
+                parsed.error().orElse(
+                        "unknown chunk parse error"
+                )
         );
     }
 
@@ -2120,39 +2311,26 @@ public class VcdbsReader {
             int[] wantedBlockIds,
             ChunkDecodeWorkspace workspace
     ) {
-        ParseResult<ServerChunkPayload> parsedPayload = chunkParser.parsePayload(payload);
-        if (!parsedPayload.isSuccess()) {
-            return SelectiveDecodeOutcome.failure(
-                    false,
-                    parsedPayload.error().orElse("unknown ServerChunk parse error")
-            );
-        }
-
-        ServerChunkPayload serverChunk = parsedPayload.value().orElseThrow();
-        ParseResult<ChunkPaletteProbe> palette = chunkParser.probeBlockPalette(serverChunk, workspace);
-        if (!palette.isSuccess()) {
-            return SelectiveDecodeOutcome.failure(
-                    true,
-                    palette.error().orElse("unknown block palette probe error")
-            );
-        }
-
-        if (!containsWantedBlock(palette.value().orElseThrow(), wantedBlockIds)) {
+        SelectiveChunkParseResult parsed =
+                chunkParser.parseBlocksIfPaletteContains(
+                        coordinate,
+                        payload,
+                        wantedBlockIds,
+                        workspace
+                );
+        if (parsed.paletteRejected()) {
             return SelectiveDecodeOutcome.rejected();
         }
-
-        ParseResult<ParsedChunk> parsedChunk = chunkParser.parse(
-                coordinate,
-                serverChunk,
-                ChunkDecodeProfile.BLOCKS_ONLY,
-                workspace
-        );
-        if (parsedChunk.isSuccess()) {
-            return SelectiveDecodeOutcome.success(parsedChunk.value().orElseThrow());
+        if (parsed.chunk().isPresent()) {
+            return SelectiveDecodeOutcome.success(
+                    parsed.chunk().orElseThrow()
+            );
         }
         return SelectiveDecodeOutcome.failure(
-                true,
-                parsedChunk.error().orElse("unknown chunk decode error")
+                parsed.payloadParsed(),
+                parsed.error().orElse(
+                        "unknown selective chunk decode error"
+                )
         );
     }
 

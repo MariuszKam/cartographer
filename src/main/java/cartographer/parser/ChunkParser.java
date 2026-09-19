@@ -7,6 +7,7 @@ import cartographer.model.ParsedChunk;
 import cartographer.model.ServerChunkPayload;
 import cartographer.save.ProtobufWireReader;
 
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -19,19 +20,20 @@ public class ChunkParser {
     private final ChunkDataLayerDecoder layerDecoder;
 
     public ChunkParser() {
-        this(
-                new ChunkDataLayerDecoder()
+        this(new ChunkDataLayerDecoder());
+    }
+
+    public ChunkParser(ChunkDataLayerDecoder layerDecoder) {
+        this.layerDecoder = Objects.requireNonNull(
+                layerDecoder,
+                "layerDecoder is required"
         );
     }
 
-    public ChunkParser(
-            ChunkDataLayerDecoder layerDecoder
+    public ParseResult<ParsedChunk> parse(
+            ChunkCoordinate coordinate,
+            byte[] payload
     ) {
-        this.layerDecoder =
-                layerDecoder;
-    }
-
-    public ParseResult<ParsedChunk> parse(ChunkCoordinate coordinate, byte[] payload) {
         return parse(
                 coordinate,
                 payload,
@@ -44,30 +46,9 @@ public class ChunkParser {
             byte[] payload,
             ChunkDecodeProfile profile
     ) {
-        Objects.requireNonNull(
-                profile,
-                "profile is required"
-        );
-
-        ParseResult<ServerChunkPayload> parsedPayload =
-                parsePayload(
-                        payload
-                );
-
-        if (!parsedPayload.isSuccess()) {
-            return ParseResult.failure(
-                    parsedPayload.error()
-                            .orElse("unable to parse ServerChunk")
-            );
-        }
-
+        Objects.requireNonNull(profile, "profile is required");
         try (ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace()) {
-            return parse(
-                    coordinate,
-                    parsedPayload.value().orElseThrow(),
-                    profile,
-                    workspace
-            );
+            return parse(coordinate, payload, profile, workspace);
         }
     }
 
@@ -76,20 +57,21 @@ public class ChunkParser {
             ServerChunkPayload serverChunk,
             ChunkDecodeProfile profile
     ) {
-        Objects.requireNonNull(
-                serverChunk,
-                "serverChunk is required"
-        );
-        Objects.requireNonNull(
-                profile,
-                "profile is required"
-        );
-
+        Objects.requireNonNull(serverChunk, "serverChunk is required");
+        Objects.requireNonNull(profile, "profile is required");
         try (ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace()) {
             return parse(coordinate, serverChunk, profile, workspace);
         }
     }
 
+    /**
+     * Hot-path parse from the original ServerChunk protobuf bytes.
+     *
+     * <p>Length-delimited block/liquid fields are represented as slices of the
+     * original source protobuf and passed directly to the layer decoder. The
+     * internal hot path therefore avoids both the public ServerChunkPayload
+     * defensive copies and a copyOfRange of each compressed field.</p>
+     */
     public ParseResult<ParsedChunk> parse(
             ChunkCoordinate coordinate,
             byte[] payload,
@@ -98,24 +80,262 @@ public class ChunkParser {
     ) {
         Objects.requireNonNull(profile, "profile is required");
         Objects.requireNonNull(workspace, "workspace is required");
-        ParseResult<ServerChunkPayload> parsedPayload = parsePayload(payload);
+
+        ParseResult<OwnedServerChunkPayload> parsedPayload =
+                parseOwnedPayload(payload);
         if (!parsedPayload.isSuccess()) {
-            return ParseResult.failure(parsedPayload.error().orElse("unable to parse ServerChunk"));
+            return ParseResult.failure(
+                    parsedPayload.error().orElse(
+                            "unable to parse ServerChunk"
+                    )
+            );
         }
-        return parse(coordinate, parsedPayload.value().orElseThrow(), profile, workspace);
+        return parseOwned(
+                coordinate,
+                parsedPayload.value().orElseThrow(),
+                profile,
+                workspace
+        );
     }
 
+    /**
+     * Surface-oriented parse that preserves ParsedChunk semantics while
+     * publishing compact palette/bit-plane layers for point lookups.
+     */
+    public ParseResult<ParsedChunk> parseSurfaceCompact(
+            ChunkCoordinate coordinate,
+            byte[] payload,
+            ChunkDecodeWorkspace workspace
+    ) {
+        Objects.requireNonNull(
+                coordinate,
+                "coordinate is required"
+        );
+        Objects.requireNonNull(
+                workspace,
+                "workspace is required"
+        );
+
+        ParseResult<OwnedServerChunkPayload> parsedPayload =
+                parseOwnedPayload(payload);
+        if (!parsedPayload.isSuccess()) {
+            return ParseResult.failure(
+                    parsedPayload.error().orElse(
+                            "unable to parse ServerChunk"
+                    )
+            );
+        }
+
+        return parseSurfaceCompactOwned(
+                coordinate,
+                parsedPayload.value().orElseThrow(),
+                workspace
+        );
+    }
+
+    /**
+     * Compatibility path for already materialized public ServerChunkPayload.
+     * Public defensive-copy semantics remain unchanged.
+     */
     public ParseResult<ParsedChunk> parse(
             ChunkCoordinate coordinate,
             ServerChunkPayload serverChunk,
             ChunkDecodeProfile profile,
             ChunkDecodeWorkspace workspace
     ) {
+        Objects.requireNonNull(serverChunk, "serverChunk is required");
+        Objects.requireNonNull(profile, "profile is required");
+        Objects.requireNonNull(workspace, "workspace is required");
+
+        return parseOwned(
+                coordinate,
+                new OwnedServerChunkPayload(
+                        PayloadSlice.whole(
+                                serverChunk.blocksCompressed()
+                        ),
+                        PayloadSlice.whole(
+                                serverChunk.liquidsCompressed()
+                        ),
+                        serverChunk.savedCompressionVersion()
+                ),
+                profile,
+                workspace
+        );
+    }
+
+    public ParseResult<ChunkPaletteProbe> probeBlockPalette(
+            ServerChunkPayload serverChunk
+    ) {
+        Objects.requireNonNull(serverChunk, "serverChunk is required");
+        try (ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace()) {
+            return probeBlockPalette(serverChunk, workspace);
+        }
+    }
+
+    public ParseResult<ChunkPaletteProbe> probeBlockPalette(
+            ServerChunkPayload serverChunk,
+            ChunkDecodeWorkspace workspace
+    ) {
+        Objects.requireNonNull(serverChunk, "serverChunk is required");
         Objects.requireNonNull(workspace, "workspace is required");
         try {
+            PayloadSlice blocks =
+                    serverChunk.blocksCompressed();
+            return ParseResult.success(
+                    layerDecoder.probePalette(
+                            blocks.source(),
+                            blocks.offset(),
+                            blocks.length(),
+                            serverChunk.savedCompressionVersion(),
+                            workspace
+                    )
+            );
+        } catch (IllegalArgumentException exception) {
+            return ParseResult.failure(
+                    "blocksCompressed palette: "
+                            + exception.getMessage()
+            );
+        }
+    }
+
+    /**
+     * Palette probe directly from source protobuf bytes without materializing
+     * the public defensive-copy payload object.
+     */
+    public ParseResult<ChunkPaletteProbe> probeBlockPalette(
+            byte[] payload,
+            ChunkDecodeWorkspace workspace
+    ) {
+        Objects.requireNonNull(workspace, "workspace is required");
+        ParseResult<OwnedServerChunkPayload> parsedPayload =
+                parseOwnedPayload(payload);
+        if (!parsedPayload.isSuccess()) {
+            return ParseResult.failure(
+                    parsedPayload.error().orElse(
+                            "unable to parse ServerChunk"
+                    )
+            );
+        }
+        return probeBlockPaletteOwned(
+                parsedPayload.value().orElseThrow(),
+                workspace
+        );
+    }
+
+    /**
+     * Selective hot path: parse the protobuf once, inspect the block palette,
+     * and only decode the full block layer when one of the wanted IDs exists.
+     *
+     * <p>Success with Optional.empty() means an authoritative palette reject,
+     * not a parse failure.</p>
+     */
+    public SelectiveChunkParseResult parseBlocksIfPaletteContains(
+            ChunkCoordinate coordinate,
+            byte[] payload,
+            int[] wantedBlockIds,
+            ChunkDecodeWorkspace workspace
+    ) {
+        Objects.requireNonNull(coordinate, "coordinate is required");
+        Objects.requireNonNull(wantedBlockIds, "wantedBlockIds are required");
+        Objects.requireNonNull(workspace, "workspace is required");
+        if (wantedBlockIds.length == 0) {
+            throw new IllegalArgumentException(
+                    "wantedBlockIds cannot be empty"
+            );
+        }
+
+        ParseResult<OwnedServerChunkPayload> parsedPayload =
+                parseOwnedPayload(payload);
+        if (!parsedPayload.isSuccess()) {
+            return SelectiveChunkParseResult.payloadFailure(
+                    parsedPayload.error().orElse(
+                            "unable to parse ServerChunk"
+                    )
+            );
+        }
+
+        OwnedServerChunkPayload serverChunk =
+                parsedPayload.value().orElseThrow();
+        final boolean wanted;
+        try {
+            PayloadSlice blocks =
+                    serverChunk.blocksCompressed();
+            wanted = layerDecoder.paletteContainsAny(
+                    blocks.source(),
+                    blocks.offset(),
+                    blocks.length(),
+                    serverChunk.savedCompressionVersion(),
+                    wantedBlockIds,
+                    workspace
+            );
+        } catch (IllegalArgumentException exception) {
+            return SelectiveChunkParseResult.decodeFailure(
+                    "blocksCompressed palette: "
+                            + exception.getMessage()
+            );
+        }
+
+        if (!wanted) {
+            return SelectiveChunkParseResult.rejected();
+        }
+
+        ParseResult<ParsedChunk> parsedChunk = parseOwned(
+                coordinate,
+                serverChunk,
+                ChunkDecodeProfile.BLOCKS_ONLY,
+                workspace
+        );
+        if (!parsedChunk.isSuccess()) {
+            return SelectiveChunkParseResult.decodeFailure(
+                    parsedChunk.error().orElse(
+                            "unable to decode block layer"
+                    )
+            );
+        }
+        return SelectiveChunkParseResult.decoded(
+                parsedChunk.value().orElseThrow()
+        );
+    }
+
+    /**
+     * Public compatibility parser retains defensive-array ownership.
+     */
+    public ParseResult<ServerChunkPayload> parsePayload(byte[] payload) {
+        ParseResult<OwnedServerChunkPayload> owned =
+                parseOwnedPayload(payload);
+        if (!owned.isSuccess()) {
+            return ParseResult.failure(
+                    owned.error().orElse("unable to parse ServerChunk")
+            );
+        }
+        OwnedServerChunkPayload value = owned.value().orElseThrow();
+        return ParseResult.success(
+                new ServerChunkPayload(
+                        value.blocksCompressed().copy(),
+                        value.liquidsCompressed().copy(),
+                        value.savedCompressionVersion()
+                )
+        );
+    }
+
+    private ParseResult<ParsedChunk> parseOwned(
+            ChunkCoordinate coordinate,
+            OwnedServerChunkPayload serverChunk,
+            ChunkDecodeProfile profile,
+            ChunkDecodeWorkspace workspace
+    ) {
+        Objects.requireNonNull(coordinate, "coordinate is required");
+        Objects.requireNonNull(serverChunk, "serverChunk is required");
+        Objects.requireNonNull(profile, "profile is required");
+
+        try {
+            PayloadSlice blocks =
+                    serverChunk.blocksCompressed();
             DecodedChunkLayer blockLayer =
                     layerDecoder.decodeOwned(
-                            serverChunk.blocksCompressed(),
+                            blocks.source(),
+                            blocks.offset(),
+                            blocks.length(),
                             serverChunk.savedCompressionVersion(),
                             workspace
                     );
@@ -123,9 +343,56 @@ public class ChunkParser {
             DecodedLiquids liquids =
                     profile == ChunkDecodeProfile.BLOCKS_ONLY
                             ? DecodedLiquids.unavailable(
-                            "liquid layer not decoded"
+                                    "liquid layer not decoded"
+                            )
+                            : decodeLiquidsOrEmpty(
+                                    serverChunk,
+                                    workspace
+                            );
+
+            return ParseResult.success(
+                    ParsedChunk.fromDecodedLayers(
+                            coordinate,
+                            coordinate.y() * ChunkDataLayerDecoder.SIZE,
+                            ChunkDataLayerDecoder.SIZE,
+                            ChunkDataLayerDecoder.SIZE,
+                            ChunkDataLayerDecoder.SIZE,
+                            blockLayer,
+                            liquids.layer(),
+                            serverChunk.savedCompressionVersion(),
+                            liquids.available(),
+                            liquids.error()
                     )
-                            : decodeLiquidsOrEmpty(serverChunk, workspace);
+            );
+        } catch (IllegalArgumentException exception) {
+            return ParseResult.failure(
+                    "blocksCompressed: " + exception.getMessage()
+            );
+        }
+    }
+
+    private ParseResult<ParsedChunk> parseSurfaceCompactOwned(
+            ChunkCoordinate coordinate,
+            OwnedServerChunkPayload serverChunk,
+            ChunkDecodeWorkspace workspace
+    ) {
+        try {
+            PayloadSlice blocks =
+                    serverChunk.blocksCompressed();
+            DecodedChunkLayer blockLayer =
+                    layerDecoder.decodeCompactOwned(
+                            blocks.source(),
+                            blocks.offset(),
+                            blocks.length(),
+                            serverChunk.savedCompressionVersion(),
+                            workspace
+                    );
+
+            DecodedLiquids liquids =
+                    decodeCompactLiquidsOrEmpty(
+                            serverChunk,
+                            workspace
+                    );
 
             return ParseResult.success(
                     ParsedChunk.fromDecodedLayers(
@@ -142,7 +409,6 @@ public class ChunkParser {
                             liquids.error()
                     )
             );
-
         } catch (IllegalArgumentException exception) {
             return ParseResult.failure(
                     "blocksCompressed: "
@@ -151,28 +417,18 @@ public class ChunkParser {
         }
     }
 
-    public ParseResult<ChunkPaletteProbe> probeBlockPalette(
-            ServerChunkPayload serverChunk
-    ) {
-        Objects.requireNonNull(
-                serverChunk,
-                "serverChunk is required"
-        );
-
-        try (ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace()) {
-            return probeBlockPalette(serverChunk, workspace);
-        }
-    }
-
-    public ParseResult<ChunkPaletteProbe> probeBlockPalette(
-            ServerChunkPayload serverChunk,
+    private ParseResult<ChunkPaletteProbe> probeBlockPaletteOwned(
+            OwnedServerChunkPayload serverChunk,
             ChunkDecodeWorkspace workspace
     ) {
-        Objects.requireNonNull(workspace, "workspace is required");
         try {
+            PayloadSlice blocks =
+                    serverChunk.blocksCompressed();
             return ParseResult.success(
                     layerDecoder.probePalette(
-                            serverChunk.blocksCompressed(),
+                            blocks.source(),
+                            blocks.offset(),
+                            blocks.length(),
                             serverChunk.savedCompressionVersion(),
                             workspace
                     )
@@ -186,10 +442,12 @@ public class ChunkParser {
     }
 
     private DecodedLiquids decodeLiquidsOrEmpty(
-            ServerChunkPayload serverChunk,
+            OwnedServerChunkPayload serverChunk,
             ChunkDecodeWorkspace workspace
     ) {
-        if (serverChunk.liquidsCompressed().length == 0) {
+        PayloadSlice liquids =
+                serverChunk.liquidsCompressed();
+        if (liquids.length() == 0) {
             return DecodedLiquids.available(
                     DecodedChunkLayer.empty(
                             ChunkDataLayerDecoder.VALUE_COUNT
@@ -200,12 +458,13 @@ public class ChunkParser {
         try {
             return DecodedLiquids.available(
                     layerDecoder.decodeOwned(
-                            serverChunk.liquidsCompressed(),
+                            liquids.source(),
+                            liquids.offset(),
+                            liquids.length(),
                             serverChunk.savedCompressionVersion(),
                             workspace
                     )
             );
-
         } catch (IllegalArgumentException exception) {
             return DecodedLiquids.unavailable(
                     "liquidsCompressed: "
@@ -214,7 +473,39 @@ public class ChunkParser {
         }
     }
 
-    public ParseResult<ServerChunkPayload> parsePayload(
+    private DecodedLiquids decodeCompactLiquidsOrEmpty(
+            OwnedServerChunkPayload serverChunk,
+            ChunkDecodeWorkspace workspace
+    ) {
+        PayloadSlice liquids =
+                serverChunk.liquidsCompressed();
+        if (liquids.length() == 0) {
+            return DecodedLiquids.available(
+                    DecodedChunkLayer.empty(
+                            ChunkDataLayerDecoder.VALUE_COUNT
+                    )
+            );
+        }
+
+        try {
+            return DecodedLiquids.available(
+                    layerDecoder.decodeCompactOwned(
+                            liquids.source(),
+                            liquids.offset(),
+                            liquids.length(),
+                            serverChunk.savedCompressionVersion(),
+                            workspace
+                    )
+            );
+        } catch (IllegalArgumentException exception) {
+            return DecodedLiquids.unavailable(
+                    "liquidsCompressed: "
+                            + exception.getMessage()
+            );
+        }
+    }
+
+    private ParseResult<OwnedServerChunkPayload> parseOwnedPayload(
             byte[] payload
     ) {
         if (payload == null || payload.length == 0) {
@@ -222,14 +513,15 @@ public class ChunkParser {
         }
 
         try {
-            Optional<byte[]> blocksCompressed =
-                    ProtobufWireReader.readLengthDelimitedField(
+            Optional<ProtobufWireReader.LengthDelimitedFieldRange>
+                    blocksCompressed =
+                    ProtobufWireReader.findLengthDelimitedFieldRange(
                             payload,
                             BLOCKS_COMPRESSED_FIELD
                     );
 
             if (blocksCompressed.isEmpty()
-                    || blocksCompressed.get().length == 0) {
+                    || blocksCompressed.get().length() == 0) {
                 return ParseResult.failure(
                         "ServerChunk has no blocksCompressed field"
                 );
@@ -241,27 +533,97 @@ public class ChunkParser {
                             SAVED_COMPRESSION_VERSION_FIELD
                     );
 
-            byte[] liquidsCompressed =
-                    ProtobufWireReader.readLengthDelimitedField(
+            ProtobufWireReader.LengthDelimitedFieldRange liquidsRange =
+                    ProtobufWireReader.findLengthDelimitedFieldRange(
                                     payload,
                                     LIQUIDS_COMPRESSED_FIELD
                             )
                             .orElse(
-                                    new byte[0]
+                                    new ProtobufWireReader.LengthDelimitedFieldRange(
+                                            0,
+                                            0
+                                    )
                             );
 
+            ProtobufWireReader.LengthDelimitedFieldRange blocksRange =
+                    blocksCompressed.orElseThrow();
+
             return ParseResult.success(
-                    new ServerChunkPayload(
-                            blocksCompressed.get(),
-                            liquidsCompressed,
+                    new OwnedServerChunkPayload(
+                            new PayloadSlice(
+                                    payload,
+                                    blocksRange.offset(),
+                                    blocksRange.length()
+                            ),
+                            new PayloadSlice(
+                                    payload,
+                                    liquidsRange.offset(),
+                                    liquidsRange.length()
+                            ),
                             (int) savedCompressionVersion.orElse(0)
                     )
             );
-
         } catch (IllegalArgumentException | IllegalStateException exception) {
             return ParseResult.failure(
                     "invalid ServerChunk protobuf: "
                             + exception.getMessage()
+            );
+        }
+    }
+
+    private record OwnedServerChunkPayload(
+            PayloadSlice blocksCompressed,
+            PayloadSlice liquidsCompressed,
+            int savedCompressionVersion
+    ) {
+        private OwnedServerChunkPayload {
+            Objects.requireNonNull(
+                    blocksCompressed,
+                    "blocksCompressed is required"
+            );
+            Objects.requireNonNull(
+                    liquidsCompressed,
+                    "liquidsCompressed is required"
+            );
+        }
+    }
+
+    private record PayloadSlice(
+            byte[] source,
+            int offset,
+            int length
+    ) {
+        private PayloadSlice {
+            Objects.requireNonNull(
+                    source,
+                    "slice source is required"
+            );
+            if (offset < 0
+                    || length < 0
+                    || offset > source.length - length) {
+                throw new IllegalArgumentException(
+                        "payload slice is out of bounds"
+                );
+            }
+        }
+
+        static PayloadSlice whole(byte[] source) {
+            Objects.requireNonNull(
+                    source,
+                    "slice source is required"
+            );
+            return new PayloadSlice(
+                    source,
+                    0,
+                    source.length
+            );
+        }
+
+        byte[] copy() {
+            return Arrays.copyOfRange(
+                    source,
+                    offset,
+                    offset + length
             );
         }
     }
@@ -271,24 +633,12 @@ public class ChunkParser {
             boolean available,
             String error
     ) {
-        static DecodedLiquids available(
-                DecodedChunkLayer layer
-        ) {
-            return new DecodedLiquids(
-                    layer,
-                    true,
-                    ""
-            );
+        static DecodedLiquids available(DecodedChunkLayer layer) {
+            return new DecodedLiquids(layer, true, "");
         }
 
-        static DecodedLiquids unavailable(
-                String error
-        ) {
-            return new DecodedLiquids(
-                    null,
-                    false,
-                    error
-            );
+        static DecodedLiquids unavailable(String error) {
+            return new DecodedLiquids(null, false, error);
         }
     }
 }

@@ -104,11 +104,28 @@ source authority.
 
 ### PF-2.2 — decode/allocation reduction
 
-- remove redundant compressed-payload copies on internal trusted paths;
-- add Surface-oriented compact decoding so Surface ingest does not require
-  retaining two full `int[32768]` layers when the complete decoded chunk is
-  unnecessary;
-- validate with JFR allocation evidence before changing decode worker counts.
+Implemented on the PF-2.2 branch:
+
+- internal ServerChunk parsing keeps block/liquid protobuf fields as owned
+  source-buffer slices and passes offset/length directly to Zstd; the public
+  `ServerChunkPayload` compatibility API keeps its defensive-copy contract;
+- empty and uniform decoded layers use constant storage instead of allocating
+  an `int[32768]`;
+- Surface source reads use an immutable compact palette + decoded-bitplane
+  representation for non-uniform block/liquid layers. Point lookups preserve
+  `ParsedChunk` semantics without publishing the reusable decoder workspace;
+- both operation-scoped `PrepareMapDataUseCase` Surface reads and the legacy
+  `ReadSurfaceMapUseCase` use the compact Surface decode path;
+- normal adaptive traversal remains on the full materialized decoder and the
+  selective Ore/ROCK/Prospecting paths retain their existing selective decode;
+- PF-2.1 SQL strategy selection, requested chunk sets, Surface fallback
+  ordering and Surface scanner semantics are unchanged;
+- JMH now contains compact sparse-access and dense full-scan comparisons
+  alongside the materialized decoder. The existing MAP JFR workload provides
+  real-save allocation evidence for the compact Surface path.
+
+Decode worker counts remain unchanged. Collect JFR/JMH allocation evidence
+before considering worker-count or in-flight-limit tuning.
 
 ### PF-2.3 — Terrain + Surface world indexing
 

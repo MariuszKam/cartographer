@@ -133,6 +133,30 @@ class ReadSurfaceMapUseCaseTest {
             return new ChunkStreamStats(positions.size(), 1, 1, 1, 0, 0);
         }
 
+        @Override
+        public ChunkStreamStats forEachSurfaceChunkByPositionAdaptive(
+                Path savePath,
+                Collection<cartographer.model.ChunkPosition> positions,
+                ReadDiagnostics diagnostics,
+                Consumer<ParsedChunk> consumer,
+                ProgressReporter progress
+        ) {
+            adaptiveReadCalls++;
+            consumer.accept(
+                    liquidAvailable
+                            ? filledChunk()
+                            : unavailableChunk()
+            );
+            return new ChunkStreamStats(
+                    positions.size(),
+                    1,
+                    1,
+                    1,
+                    0,
+                    0
+            );
+        }
+
         private ParsedChunk unavailableChunk() {
             int size = ChunkCoordinate.SIZE_BLOCKS;
             return new ParsedChunk(new ChunkCoordinate(0, 0, 0), 0,

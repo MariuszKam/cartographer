@@ -11,6 +11,63 @@ public final class ProtobufWireReader {
     private ProtobufWireReader() {
     }
 
+    /**
+     * Locates the first matching length-delimited field without copying its
+     * bytes. The returned range always points into the caller-owned source
+     * array supplied to this method.
+     */
+    public static Optional<LengthDelimitedFieldRange>
+    findLengthDelimitedFieldRange(
+            byte[] data,
+            int wantedFieldNumber
+    ) {
+        if (data == null || data.length == 0) {
+            return Optional.empty();
+        }
+
+        Cursor cursor = new Cursor();
+        LengthDelimitedFieldRange found = null;
+
+        while (cursor.position < data.length) {
+            long key = readVarInt(data, cursor);
+            int fieldNumber = (int) (key >>> 3);
+            int wireType = (int) (key & 0b111);
+
+            switch (wireType) {
+                case 0 -> readVarInt(data, cursor);
+
+                case 1 -> skip(data, cursor, 8);
+
+                case 2 -> {
+                    int length = readLength(data, cursor);
+                    int offset = cursor.position;
+
+                    if (fieldNumber == wantedFieldNumber
+                            && found == null) {
+                        found =
+                                new LengthDelimitedFieldRange(
+                                        offset,
+                                        length
+                                );
+                    }
+
+                    skip(data, cursor, length);
+                }
+
+                case 5 -> skip(data, cursor, 4);
+
+                default -> throw new IllegalStateException(
+                        "Unsupported protobuf wire type "
+                                + wireType
+                                + " at byte "
+                                + cursor.position
+                );
+            }
+        }
+
+        return Optional.ofNullable(found);
+    }
+
     public static Optional<byte[]> readLengthDelimitedField(
             byte[] data,
             int wantedFieldNumber
@@ -356,6 +413,43 @@ public final class ProtobufWireReader {
         }
 
         cursor.position += byteCount;
+    }
+
+    public record LengthDelimitedFieldRange(
+            int offset,
+            int length
+    ) {
+        public LengthDelimitedFieldRange {
+            if (offset < 0) {
+                throw new IllegalArgumentException(
+                        "protobuf field offset must not be negative"
+                );
+            }
+            if (length < 0) {
+                throw new IllegalArgumentException(
+                        "protobuf field length must not be negative"
+                );
+            }
+        }
+
+        public int endExclusive() {
+            return Math.addExact(offset, length);
+        }
+
+        public byte[] copyFrom(byte[] source) {
+            if (source == null) {
+                throw new IllegalArgumentException(
+                        "protobuf source is required"
+                );
+            }
+            int end = endExclusive();
+            if (end > source.length) {
+                throw new IllegalArgumentException(
+                        "protobuf field range exceeds source length"
+                );
+            }
+            return Arrays.copyOfRange(source, offset, end);
+        }
     }
 
     private static final class Cursor {

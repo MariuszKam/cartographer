@@ -4,6 +4,7 @@ import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
 import cartographer.model.ParseResult;
 import cartographer.model.ParsedChunk;
+import cartographer.model.WorldMetadata;
 import cartographer.cli.ProgressReporter;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.ChunkDecodeProfile;
@@ -19,6 +20,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -49,6 +51,93 @@ class VcdbsReaderDirectChunkLookupTest {
         assertEquals(2, stats.rowsFound());
         assertEquals(2, stats.parsedChunks());
         assertEquals(Set.of(a.x(), c.x()), Set.copyOf(parser.xCoordinates()));
+    }
+
+    @Test
+    void normalAdaptiveTraversalKeepsFullParser() throws Exception {
+        ChunkPosition position =
+                new ChunkPosition(1, 0, 2, 0);
+        Path database =
+                databaseWithRows(position);
+        StubChunkParser parser =
+                new StubChunkParser();
+
+        ChunkStreamStats stats =
+                new VcdbsReader(
+                        null,
+                        null,
+                        parser,
+                        null
+                ).forEachChunkByPositionAdaptive(
+                        database,
+                        List.of(position),
+                        new ReadDiagnostics(),
+                        ignored -> { }
+                );
+
+        assertEquals(1, stats.parsedChunks());
+        assertEquals(
+                0,
+                parser.surfaceCompactCalls()
+        );
+    }
+
+    @Test
+    void surfaceAdaptiveTraversalUsesCompactParser() throws Exception {
+        ChunkPosition position =
+                new ChunkPosition(1, 0, 2, 0);
+        Path database =
+                databaseWithRows(position);
+        StubChunkParser parser =
+                new StubChunkParser();
+        VcdbsReader reader =
+                new VcdbsReader(
+                        null,
+                        null,
+                        parser,
+                        null
+                );
+        SaveSnapshot snapshot =
+                new SaveSnapshot(
+                        database,
+                        new WorldMetadata(
+                                64,
+                                256,
+                                64
+                        ),
+                        Map.of()
+                );
+        List<ParsedChunk> delivered =
+                new ArrayList<>();
+
+        try (SaveSession session =
+                     new SaveSession(
+                             database,
+                             new SqliteSaveConnection()
+                                     .openReadOnly(database),
+                             snapshot
+                     )) {
+            ChunkStreamStats stats =
+                    reader.forEachSurfaceChunkByPositionAdaptive(
+                            session,
+                            List.of(position),
+                            new ReadDiagnostics(),
+                            delivered::add,
+                            cartographer.application.ProgressReporter.NONE
+                    );
+
+            assertEquals(1, stats.rowsFound());
+            assertEquals(1, stats.parsedChunks());
+        }
+
+        assertEquals(
+                1,
+                parser.surfaceCompactCalls()
+        );
+        assertEquals(
+                1,
+                delivered.size()
+        );
     }
 
     @Test
@@ -782,6 +871,8 @@ class VcdbsReaderDirectChunkLookupTest {
         private final List<ParsedChunk> delivered =
                 Collections.synchronizedList(new ArrayList<>());
         private byte[] failurePayload;
+        private final AtomicInteger surfaceCompactCalls =
+                new AtomicInteger();
 
         @Override
         public ParseResult<ParsedChunk> parse(
@@ -799,6 +890,19 @@ class VcdbsReaderDirectChunkLookupTest {
                 ChunkDecodeWorkspace workspace
         ) {
             return parseStub(coordinate, payload);
+        }
+
+        @Override
+        public ParseResult<ParsedChunk> parseSurfaceCompact(
+                ChunkCoordinate coordinate,
+                byte[] payload,
+                ChunkDecodeWorkspace workspace
+        ) {
+            surfaceCompactCalls.incrementAndGet();
+            return parseStub(
+                    coordinate,
+                    payload
+            );
         }
 
         private ParseResult<ParsedChunk> parseStub(
@@ -819,6 +923,10 @@ class VcdbsReaderDirectChunkLookupTest {
                     new int[]{1}
             );
             return ParseResult.success(parsed);
+        }
+
+        private int surfaceCompactCalls() {
+            return surfaceCompactCalls.get();
         }
 
         private List<ChunkCoordinate> coordinates() {

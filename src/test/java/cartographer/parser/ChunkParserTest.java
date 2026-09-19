@@ -15,6 +15,7 @@ import java.nio.ByteOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -109,6 +110,75 @@ class ChunkParserTest {
     }
 
     @Test
+    void selectiveProbeAndDecodeReuseSameOwnedCompressedBuffer() {
+        byte[] blocks = encodedLayer(
+                new int[]{0, 11},
+                index -> index == 0 ? 1 : 0
+        );
+        SelectiveRecordingLayerDecoder decoder =
+                new SelectiveRecordingLayerDecoder();
+        ChunkParser parser = new ChunkParser(decoder);
+
+        SelectiveChunkParseResult result =
+                parser.parseBlocksIfPaletteContains(
+                        new ChunkCoordinate(0, 0, 0),
+                        serverChunk(blocks, emptyLayer(), 2),
+                        new int[]{11},
+                        new ChunkDecodeWorkspace()
+                );
+
+        assertTrue(result.chunk().isPresent());
+        assertEquals(1, decoder.paletteContainsCalls);
+        assertEquals(1, decoder.ownedDecodeCalls);
+        assertSame(decoder.probedPayload, decoder.decodedPayload);
+        assertEquals(decoder.probedOffset, decoder.decodedOffset);
+        assertEquals(decoder.probedLength, decoder.decodedLength);
+    }
+
+    @Test
+    void selectivePaletteRejectDoesNotDecodeFullBlockLayer() {
+        byte[] blocks = encodedLayer(
+                new int[]{0, 11},
+                index -> index == 0 ? 1 : 0
+        );
+        SelectiveRecordingLayerDecoder decoder =
+                new SelectiveRecordingLayerDecoder();
+        ChunkParser parser = new ChunkParser(decoder);
+
+        SelectiveChunkParseResult result =
+                parser.parseBlocksIfPaletteContains(
+                        new ChunkCoordinate(0, 0, 0),
+                        serverChunk(blocks, emptyLayer(), 2),
+                        new int[]{999},
+                        new ChunkDecodeWorkspace()
+                );
+
+        assertTrue(result.paletteRejected());
+        assertTrue(result.payloadParsed());
+        assertTrue(result.chunk().isEmpty());
+        assertTrue(result.error().isEmpty());
+        assertEquals(1, decoder.paletteContainsCalls);
+        assertEquals(0, decoder.ownedDecodeCalls);
+    }
+
+    @Test
+    void publicParsedPayloadRemainsDefensive() {
+        byte[] blocks = encodedLayer(
+                new int[]{0, 11},
+                index -> index == 0 ? 1 : 0
+        );
+        ServerChunkPayload payload = new ChunkParser()
+                .parsePayload(serverChunk(blocks, emptyLayer(), 2))
+                .value()
+                .orElseThrow();
+
+        byte[] exposed = payload.blocksCompressed();
+        exposed[0] ^= 0x7f;
+
+        assertArrayEquals(blocks, payload.blocksCompressed());
+    }
+
+    @Test
     void publicDecoderStillReturnsIndependentArrays() {
         byte[] payload = encodedLayer(
                 new int[]{0, 11},
@@ -121,6 +191,77 @@ class ChunkParserTest {
         int[] second = decoder.decode(payload, 2);
 
         assertEquals(11, second[0]);
+    }
+
+    @Test
+    void surfaceCompactParseMatchesMaterializedVoxelSemantics() {
+        byte[] blocks =
+                encodedLayer(
+                        new int[]{0, 11, 17},
+                        index -> switch (index % 3) {
+                            case 0 -> 0;
+                            case 1 -> 1;
+                            default -> 2;
+                        }
+                );
+        byte[] liquids =
+                encodedLayer(
+                        new int[]{0, 200},
+                        index -> index % 7 == 0 ? 1 : 0
+                );
+        byte[] source =
+                serverChunk(
+                        blocks,
+                        liquids,
+                        2
+                );
+        ChunkCoordinate coordinate =
+                new ChunkCoordinate(3, 2, 4);
+        ChunkParser parser =
+                new ChunkParser();
+
+        ParsedChunk full =
+                parser.parse(
+                                coordinate,
+                                source,
+                                ChunkDecodeProfile.BLOCKS_AND_LIQUIDS
+                        )
+                        .value()
+                        .orElseThrow();
+
+        ParsedChunk compact;
+        try (ChunkDecodeWorkspace workspace =
+                     new ChunkDecodeWorkspace()) {
+            compact =
+                    parser.parseSurfaceCompact(
+                                    coordinate,
+                                    source,
+                                    workspace
+                            )
+                            .value()
+                            .orElseThrow();
+        }
+
+        assertArrayEquals(
+                full.blockIds(),
+                compact.blockIds()
+        );
+        assertArrayEquals(
+                full.liquidIds(),
+                compact.liquidIds()
+        );
+        assertEquals(
+                full.liquidLayerAvailable(),
+                compact.liquidLayerAvailable()
+        );
+        assertEquals(
+                full.blockIdAt(5, 7, 9),
+                compact.blockIdAt(5, 7, 9)
+        );
+        assertEquals(
+                full.liquidIdAt(5, 7, 9),
+                compact.liquidIdAt(5, 7, 9)
+        );
     }
 
     @Test
@@ -304,6 +445,62 @@ class ChunkParserTest {
         assertTrue(result.isSuccess());
     }
 
+    private static final class SelectiveRecordingLayerDecoder
+            extends ChunkDataLayerDecoder {
+        private int paletteContainsCalls;
+        private int ownedDecodeCalls;
+        private byte[] probedPayload;
+        private byte[] decodedPayload;
+        private int probedOffset;
+        private int decodedOffset;
+        private int probedLength;
+        private int decodedLength;
+
+        @Override
+        boolean paletteContainsAny(
+                byte[] payload,
+                int sourceOffset,
+                int sourceLength,
+                int savedCompressionVersion,
+                int[] wantedBlockIds,
+                ChunkDecodeWorkspace workspace
+        ) {
+            paletteContainsCalls++;
+            probedPayload = payload;
+            probedOffset = sourceOffset;
+            probedLength = sourceLength;
+            return super.paletteContainsAny(
+                    payload,
+                    sourceOffset,
+                    sourceLength,
+                    savedCompressionVersion,
+                    wantedBlockIds,
+                    workspace
+            );
+        }
+
+        @Override
+        DecodedChunkLayer decodeOwned(
+                byte[] payload,
+                int sourceOffset,
+                int sourceLength,
+                int savedCompressionVersion,
+                ChunkDecodeWorkspace workspace
+        ) {
+            ownedDecodeCalls++;
+            decodedPayload = payload;
+            decodedOffset = sourceOffset;
+            decodedLength = sourceLength;
+            return super.decodeOwned(
+                    payload,
+                    sourceOffset,
+                    sourceLength,
+                    savedCompressionVersion,
+                    workspace
+            );
+        }
+    }
+
     private static final class RecordingLayerDecoder
             extends ChunkDataLayerDecoder {
         private int ownedDecodeCalls;
@@ -333,12 +530,16 @@ class ChunkParserTest {
         @Override
         DecodedChunkLayer decodeOwned(
                 byte[] payload,
+                int sourceOffset,
+                int sourceLength,
                 int savedCompressionVersion,
                 ChunkDecodeWorkspace workspace
         ) {
             ownedDecodeCalls++;
             return super.decodeOwned(
                     payload,
+                    sourceOffset,
+                    sourceLength,
                     savedCompressionVersion,
                     workspace
             );
@@ -746,6 +947,83 @@ class ChunkParserTest {
                                 4,
                                 5
                         )
+        );
+    }
+
+    @Test
+    void surfaceCompactKeepsCorruptOptionalLiquidsUnavailable() {
+        ByteBuffer corruptLiquid =
+                ByteBuffer.allocate(16)
+                        .order(
+                                ByteOrder.LITTLE_ENDIAN
+                        );
+        corruptLiquid.putInt(-8);
+        corruptLiquid.putInt(0);
+        corruptLiquid.putInt(1);
+        corruptLiquid.putInt(12345);
+
+        byte[] source =
+                serverChunk(
+                        encodedLayer(
+                                new int[]{0, 9},
+                                index -> index == 0
+                                        ? 1
+                                        : 0
+                        ),
+                        corruptLiquid.array(),
+                        2
+                );
+
+        ParseResult<ParsedChunk> result;
+        try (ChunkDecodeWorkspace workspace =
+                     new ChunkDecodeWorkspace()) {
+            result =
+                    new ChunkParser()
+                            .parseSurfaceCompact(
+                                    new ChunkCoordinate(
+                                            0,
+                                            0,
+                                            0
+                                    ),
+                                    source,
+                                    workspace
+                            );
+        }
+
+        assertTrue(
+                result.isSuccess(),
+                () -> result.error()
+                        .orElse(
+                                "unknown error"
+                        )
+        );
+        ParsedChunk chunk =
+                result.value()
+                        .orElseThrow();
+        assertEquals(
+                9,
+                chunk.blockIdAt(
+                        0,
+                        0,
+                        0
+                )
+        );
+        assertFalse(
+                chunk.liquidLayerAvailable()
+        );
+        assertTrue(
+                chunk.liquidDecodeError()
+                        .contains(
+                                "liquidsCompressed"
+                        )
+        );
+        assertThrows(
+                IllegalStateException.class,
+                () -> chunk.liquidIdAt(
+                        0,
+                        0,
+                        0
+                )
         );
     }
 
