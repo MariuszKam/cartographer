@@ -769,6 +769,15 @@ public class VcdbsReader {
                     }
 
                     MapChunkCoordinate observed = coordinate.orElseThrow();
+                    if (!mapChunkWithinWorld(
+                            observed,
+                            session.snapshot().metadata()
+                    )) {
+                        diagnostics.recordSkipped(
+                                "main-world mapchunk is outside world metadata bounds"
+                        );
+                        continue;
+                    }
                     // Catalog membership describes source existence, not
                     // parser success. Publish the coordinate before reading
                     // or parsing the row payload so failed derived decoding
@@ -3563,6 +3572,18 @@ public class VcdbsReader {
         }
 
         return chunks;
+    }
+
+    private boolean mapChunkWithinWorld(
+            MapChunkCoordinate coordinate,
+            WorldMetadata metadata
+    ) {
+        long worldX = (long) coordinate.x() * MapChunk.SIZE;
+        long worldZ = (long) coordinate.z() * MapChunk.SIZE;
+        return worldX >= 0L
+                && worldX < metadata.mapSizeX()
+                && worldZ >= 0L
+                && worldZ < metadata.mapSizeZ();
     }
 
     private Optional<MapChunkCoordinate>
