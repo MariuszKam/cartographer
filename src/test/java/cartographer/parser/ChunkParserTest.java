@@ -15,6 +15,7 @@ import java.nio.ByteOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -106,6 +107,73 @@ class ChunkParserTest {
 
         assertTrue(result.isSuccess());
         assertEquals(1, decoder.ownedDecodeCalls);
+    }
+
+    @Test
+    void selectiveProbeAndDecodeReuseSameOwnedCompressedBuffer() {
+        byte[] blocks = encodedLayer(
+                new int[]{0, 11},
+                index -> index == 0 ? 1 : 0
+        );
+        SelectiveRecordingLayerDecoder decoder =
+                new SelectiveRecordingLayerDecoder();
+        ChunkParser parser = new ChunkParser(decoder);
+
+        SelectiveChunkParseResult result =
+                parser.parseBlocksIfPaletteContains(
+                        new ChunkCoordinate(0, 0, 0),
+                        serverChunk(blocks, emptyLayer(), 2),
+                        new int[]{11},
+                        new ChunkDecodeWorkspace()
+                );
+
+        assertTrue(result.chunk().isPresent());
+        assertEquals(1, decoder.paletteContainsCalls);
+        assertEquals(1, decoder.ownedDecodeCalls);
+        assertSame(decoder.probedPayload, decoder.decodedPayload);
+    }
+
+    @Test
+    void selectivePaletteRejectDoesNotDecodeFullBlockLayer() {
+        byte[] blocks = encodedLayer(
+                new int[]{0, 11},
+                index -> index == 0 ? 1 : 0
+        );
+        SelectiveRecordingLayerDecoder decoder =
+                new SelectiveRecordingLayerDecoder();
+        ChunkParser parser = new ChunkParser(decoder);
+
+        SelectiveChunkParseResult result =
+                parser.parseBlocksIfPaletteContains(
+                        new ChunkCoordinate(0, 0, 0),
+                        serverChunk(blocks, emptyLayer(), 2),
+                        new int[]{999},
+                        new ChunkDecodeWorkspace()
+                );
+
+        assertTrue(result.paletteRejected());
+        assertTrue(result.payloadParsed());
+        assertTrue(result.chunk().isEmpty());
+        assertTrue(result.error().isEmpty());
+        assertEquals(1, decoder.paletteContainsCalls);
+        assertEquals(0, decoder.ownedDecodeCalls);
+    }
+
+    @Test
+    void publicParsedPayloadRemainsDefensive() {
+        byte[] blocks = encodedLayer(
+                new int[]{0, 11},
+                index -> index == 0 ? 1 : 0
+        );
+        ServerChunkPayload payload = new ChunkParser()
+                .parsePayload(serverChunk(blocks, emptyLayer(), 2))
+                .value()
+                .orElseThrow();
+
+        byte[] exposed = payload.blocksCompressed();
+        exposed[0] ^= 0x7f;
+
+        assertArrayEquals(blocks, payload.blocksCompressed());
     }
 
     @Test
@@ -302,6 +370,46 @@ class ChunkParserTest {
                 );
 
         assertTrue(result.isSuccess());
+    }
+
+    private static final class SelectiveRecordingLayerDecoder
+            extends ChunkDataLayerDecoder {
+        private int paletteContainsCalls;
+        private int ownedDecodeCalls;
+        private byte[] probedPayload;
+        private byte[] decodedPayload;
+
+        @Override
+        boolean paletteContainsAny(
+                byte[] payload,
+                int savedCompressionVersion,
+                int[] wantedBlockIds,
+                ChunkDecodeWorkspace workspace
+        ) {
+            paletteContainsCalls++;
+            probedPayload = payload;
+            return super.paletteContainsAny(
+                    payload,
+                    savedCompressionVersion,
+                    wantedBlockIds,
+                    workspace
+            );
+        }
+
+        @Override
+        DecodedChunkLayer decodeOwned(
+                byte[] payload,
+                int savedCompressionVersion,
+                ChunkDecodeWorkspace workspace
+        ) {
+            ownedDecodeCalls++;
+            decodedPayload = payload;
+            return super.decodeOwned(
+                    payload,
+                    savedCompressionVersion,
+                    workspace
+            );
+        }
     }
 
     private static final class RecordingLayerDecoder
