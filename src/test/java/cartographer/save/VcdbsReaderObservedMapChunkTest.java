@@ -1,6 +1,7 @@
 package cartographer.save;
 
 import cartographer.application.ProgressReporter;
+import cartographer.cli.CommandException;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParseResult;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class VcdbsReaderObservedMapChunkTest {
 
@@ -44,6 +46,7 @@ class VcdbsReaderObservedMapChunkTest {
                 insert(insert, new cartographer.model.ChunkPosition(4, 1, 5, 0));
                 insert(insert, new cartographer.model.ChunkPosition(6, 0, 7, 1));
                 insert(insert, new cartographer.model.ChunkPosition(8, 0, 9, 0));
+                insert(insert, new cartographer.model.ChunkPosition(40, 0, 1, 0));
             }
         }
 
@@ -77,7 +80,7 @@ class VcdbsReaderObservedMapChunkTest {
                     ProgressReporter.NONE
             );
 
-            assertEquals(4, stats.rowsFound());
+            assertEquals(5, stats.rowsFound());
             assertEquals(1, stats.parsedMapChunks());
             assertEquals(1, stats.failedMapChunks());
             assertEquals(
@@ -90,6 +93,46 @@ class VcdbsReaderObservedMapChunkTest {
             assertEquals(
                     List.of(new MapChunkCoordinate(2, 3)),
                     delivered
+            );
+        }
+    }
+
+    @Test
+    void missingMapchunkTableCannotBeMarkedAsCompleteDiscovery() throws Exception {
+        Path database = root.resolve("missing-mapchunk.vcdbs");
+        try (Connection ignored = DriverManager.getConnection(
+                "jdbc:sqlite:" + database
+        )) {
+            // Intentionally empty database.
+        }
+
+        VcdbsReader reader = new VcdbsReader(
+                new PlayerDataParser(),
+                new StubMapChunkParser(),
+                new ChunkParser(),
+                new RegistryParser()
+        );
+
+        try (Connection connection = DriverManager.getConnection(
+                "jdbc:sqlite:" + database
+        ); SaveSession session = new SaveSession(
+                database,
+                connection,
+                new SaveSnapshot(
+                        database,
+                        new WorldMetadata(1024, 256, 1024),
+                        Map.of()
+                )
+        )) {
+            assertThrows(
+                    CommandException.class,
+                    () -> reader.forEachObservedMapChunk(
+                            session,
+                            new ReadDiagnostics(),
+                            ignoredCoordinate -> { },
+                            ignoredMapChunk -> { },
+                            ProgressReporter.NONE
+                    )
             );
         }
     }
