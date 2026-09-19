@@ -53,6 +53,9 @@ public class VcdbsReader {
     private static final int DIRECT_MAPCHUNK_BATCH_SIZE =
             256;
 
+    private static final int RANGE_RUNS_PER_STATEMENT =
+            64;
+
     private final PlayerDataParser playerDataParser;
     private final MapChunkParser mapChunkParser;
     private final ChunkParser chunkParser;
@@ -64,6 +67,8 @@ public class VcdbsReader {
     private final ChunkReadMetricsProbe chunkReadMetricsProbe;
     private final AtomicReference<ChunkReadMetrics> lastChunkReadMetrics =
             new AtomicReference<>();
+    private final PackedPositionRunPlanner packedPositionRunPlanner =
+            new PackedPositionRunPlanner();
 
     public WorldPosition readPlayerPosition(
             Path savePath
@@ -273,10 +278,59 @@ public class VcdbsReader {
             Consumer<ParsedChunk> consumer,
             ProgressReporter progress
     ) {
+        if (packedPositions.size() <= DIRECT_CHUNK_BATCH_SIZE) {
+            try {
+                return forEachChunkByPosition(
+                        connection,
+                        packedPositions,
+                        diagnostics,
+                        consumer,
+                        progress,
+                        0L
+                );
+            } catch (SQLException exception) {
+                throw new CommandException(
+                        "Cannot read chunk table by exact position: "
+                                + exception.getMessage(),
+                        exception
+                );
+            }
+        }
+
         long strategyProbeStart = System.nanoTime();
+        Optional<List<PackedPositionRun>> rangeRuns =
+                packedPositionRunPlanner.planIfClearlyBetter(
+                        packedPositions,
+                        DIRECT_CHUNK_BATCH_SIZE,
+                        RANGE_RUNS_PER_STATEMENT
+                );
+        if (rangeRuns.isPresent()) {
+            long strategyProbeNanos = elapsedNanos(strategyProbeStart);
+            try {
+                return forEachChunkByPackedRuns(
+                        connection,
+                        packedPositions.size(),
+                        rangeRuns.orElseThrow(),
+                        diagnostics,
+                        consumer,
+                        progress,
+                        strategyProbeNanos
+                );
+            } catch (SQLException exception) {
+                throw new CommandException(
+                        "Cannot read chunk table by packed position ranges: "
+                                + exception.getMessage(),
+                        exception
+                );
+            }
+        }
+
         boolean tableStream;
         try {
-            tableStream = shouldUseChunkTableStream(connection, packedPositions.size());
+            tableStream = shouldUseChunkTableStream(
+                    connection,
+                    packedPositions.size()
+            );
         } catch (SQLException exception) {
             tableStream = false;
         }
@@ -988,6 +1042,148 @@ public class VcdbsReader {
         );
     }
 
+    private ChunkStreamStats forEachChunkByPackedRuns(
+            Connection connection,
+            int uniquePositionsRequested,
+            List<PackedPositionRun> runs,
+            ReadDiagnostics diagnostics,
+            Consumer<ParsedChunk> consumer,
+            ProgressReporter progress,
+            long strategyProbeNanos
+    ) throws SQLException {
+        long totalStart = System.nanoTime();
+        progress.start("Reading chunks by packed position ranges");
+        int batchesExecuted = 0;
+        int statementsPrepared = 0;
+        int rowsFound = 0;
+        long sourceReadNanos = 0L;
+        long pipelineWaitNanos = 0L;
+        long finalDrainNanos = 0L;
+        ChunkDecodeCounters counters = new ChunkDecodeCounters();
+
+        if (tableMissing(connection, SaveTable.CHUNK.tableName())) {
+            diagnostics.missingTable(SaveTable.CHUNK.tableName());
+            progress.done("Packed range lookup unavailable: chunk table missing");
+            return new ChunkStreamStats(
+                    uniquePositionsRequested,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+            );
+        }
+
+        int tailRunCount = runs.size() % RANGE_RUNS_PER_STATEMENT;
+        PreparedStatement fullStatement = null;
+        PreparedStatement tailStatement = null;
+        long prepareStart = System.nanoTime();
+        try {
+            if (runs.size() >= RANGE_RUNS_PER_STATEMENT) {
+                fullStatement = prepareRangeChunkStatement(
+                        connection,
+                        RANGE_RUNS_PER_STATEMENT
+                );
+                statementsPrepared++;
+            }
+            if (tailRunCount > 0) {
+                tailStatement = prepareRangeChunkStatement(
+                        connection,
+                        tailRunCount
+                );
+                statementsPrepared++;
+            }
+            sourceReadNanos += elapsedNanos(prepareStart);
+
+            try (ChunkDecodeWorkspacePool workspaces =
+                         new ChunkDecodeWorkspacePool(chunkDecodeWorkerCount);
+                 BoundedStreamingDecodePipeline<ChunkDecodeOutcome> pipeline =
+                         new BoundedStreamingDecodePipeline<>(
+                                 chunkDecodeWorkerCount,
+                                 chunkDecodeMaxInFlight,
+                                 outcome -> applyChunkOutcome(
+                                         outcome,
+                                         diagnostics,
+                                         consumer,
+                                         counters
+                                 )
+                         )) {
+                int processedPositions = 0;
+                for (int start = 0;
+                     start < runs.size();
+                     start += RANGE_RUNS_PER_STATEMENT) {
+                    int end = Math.min(
+                            start + RANGE_RUNS_PER_STATEMENT,
+                            runs.size()
+                    );
+                    List<PackedPositionRun> batchRuns =
+                            runs.subList(start, end);
+                    PreparedStatement statement =
+                            batchRuns.size() == RANGE_RUNS_PER_STATEMENT
+                                    ? fullStatement
+                                    : tailStatement;
+                    BatchStats batch = readChunkRangeBatch(
+                            statement,
+                            batchRuns,
+                            diagnostics,
+                            pipeline,
+                            workspaces
+                    );
+                    batchesExecuted++;
+                    rowsFound += batch.rowsFound();
+                    counters.payloadBytes += batch.payloadBytes();
+                    sourceReadNanos += batch.sourceReadNanos();
+                    pipelineWaitNanos += batch.pipelineWaitNanos();
+                    for (PackedPositionRun run : batchRuns) {
+                        processedPositions += run.positionCount();
+                    }
+                    progress.progress(
+                            "Reading chunks by packed position ranges",
+                            processedPositions,
+                            uniquePositionsRequested
+                    );
+                }
+                long drainStart = System.nanoTime();
+                pipeline.finish();
+                finalDrainNanos = elapsedNanos(drainStart);
+            }
+        } finally {
+            if (tailStatement != null) {
+                tailStatement.close();
+            }
+            if (fullStatement != null) {
+                fullStatement.close();
+            }
+        }
+
+        progress.done("Packed range lookup complete");
+        ChunkStreamStats stats = new ChunkStreamStats(
+                uniquePositionsRequested,
+                batchesExecuted,
+                rowsFound,
+                counters.parsedChunks,
+                counters.failedChunks,
+                counters.payloadBytes
+        );
+        recordChunkReadMetrics(new ChunkReadMetrics(
+                ChunkReadStrategy.RANGE_RUN_BATCHES,
+                uniquePositionsRequested,
+                batchesExecuted,
+                statementsPrepared,
+                batchesExecuted,
+                rowsFound,
+                counters.parsedChunks,
+                counters.failedChunks,
+                counters.payloadBytes,
+                strategyProbeNanos,
+                sourceReadNanos,
+                pipelineWaitNanos,
+                finalDrainNanos,
+                elapsedNanos(totalStart)
+        ));
+        return stats;
+    }
+
     private ChunkStreamStats forEachChunkByPositionTableStream(
             Connection connection,
             Set<Long> packedPositions,
@@ -1078,6 +1274,7 @@ public class VcdbsReader {
                 packedPositions.size(),
                 1,
                 1,
+                1,
                 rowsFound,
                 counters.parsedChunks,
                 counters.failedChunks,
@@ -1102,6 +1299,7 @@ public class VcdbsReader {
         long totalStart = System.nanoTime();
         progress.start("Reading chunks by exact position");
         int batchesExecuted = 0;
+        int statementsPrepared = 0;
         int rowsFound = 0;
         long sourceReadNanos = 0L;
         long pipelineWaitNanos = 0L;
@@ -1112,49 +1310,85 @@ public class VcdbsReader {
             progress.done("Exact chunk lookup unavailable: chunk table missing");
             return new ChunkStreamStats(packedPositions.size(), 0, 0, 0, 0, 0);
         }
+
         List<Long> requested = new ArrayList<>(packedPositions);
-        try (ChunkDecodeWorkspacePool workspaces =
-                     new ChunkDecodeWorkspacePool(chunkDecodeWorkerCount);
-             BoundedStreamingDecodePipeline<ChunkDecodeOutcome> pipeline =
-                     new BoundedStreamingDecodePipeline<>(
-                             chunkDecodeWorkerCount,
-                             chunkDecodeMaxInFlight,
-                             outcome -> applyChunkOutcome(
-                                     outcome,
-                                     diagnostics,
-                                     consumer,
-                                     counters
-                             )
-                     )) {
-            for (int start = 0;
-                 start < requested.size();
-                 start += DIRECT_CHUNK_BATCH_SIZE) {
-                int end = Math.min(
-                        start + DIRECT_CHUNK_BATCH_SIZE,
-                        requested.size()
-                );
-                BatchStats batch = readChunkBatch(
+        int tailSize = requested.size() % DIRECT_CHUNK_BATCH_SIZE;
+        PreparedStatement fullStatement = null;
+        PreparedStatement tailStatement = null;
+        long prepareStart = System.nanoTime();
+        try {
+            if (requested.size() >= DIRECT_CHUNK_BATCH_SIZE) {
+                fullStatement = prepareExactChunkStatement(
                         connection,
-                        requested.subList(start, end),
-                        diagnostics,
-                        pipeline,
-                        workspaces
+                        DIRECT_CHUNK_BATCH_SIZE
                 );
-                batchesExecuted++;
-                rowsFound += batch.rowsFound();
-                counters.payloadBytes += batch.payloadBytes();
-                sourceReadNanos += batch.sourceReadNanos();
-                pipelineWaitNanos += batch.pipelineWaitNanos();
-                progress.progress(
-                        "Reading chunks by exact position",
-                        end,
-                        requested.size()
-                );
+                statementsPrepared++;
             }
-            long drainStart = System.nanoTime();
-            pipeline.finish();
-            finalDrainNanos = elapsedNanos(drainStart);
+            if (tailSize > 0) {
+                tailStatement = prepareExactChunkStatement(
+                        connection,
+                        tailSize
+                );
+                statementsPrepared++;
+            }
+            sourceReadNanos += elapsedNanos(prepareStart);
+
+            try (ChunkDecodeWorkspacePool workspaces =
+                         new ChunkDecodeWorkspacePool(chunkDecodeWorkerCount);
+                 BoundedStreamingDecodePipeline<ChunkDecodeOutcome> pipeline =
+                         new BoundedStreamingDecodePipeline<>(
+                                 chunkDecodeWorkerCount,
+                                 chunkDecodeMaxInFlight,
+                                 outcome -> applyChunkOutcome(
+                                         outcome,
+                                         diagnostics,
+                                         consumer,
+                                         counters
+                                 )
+                         )) {
+                for (int start = 0;
+                     start < requested.size();
+                     start += DIRECT_CHUNK_BATCH_SIZE) {
+                    int end = Math.min(
+                            start + DIRECT_CHUNK_BATCH_SIZE,
+                            requested.size()
+                    );
+                    List<Long> batchPositions = requested.subList(start, end);
+                    PreparedStatement statement =
+                            batchPositions.size() == DIRECT_CHUNK_BATCH_SIZE
+                                    ? fullStatement
+                                    : tailStatement;
+                    BatchStats batch = readChunkBatch(
+                            statement,
+                            batchPositions,
+                            diagnostics,
+                            pipeline,
+                            workspaces
+                    );
+                    batchesExecuted++;
+                    rowsFound += batch.rowsFound();
+                    counters.payloadBytes += batch.payloadBytes();
+                    sourceReadNanos += batch.sourceReadNanos();
+                    pipelineWaitNanos += batch.pipelineWaitNanos();
+                    progress.progress(
+                            "Reading chunks by exact position",
+                            end,
+                            requested.size()
+                    );
+                }
+                long drainStart = System.nanoTime();
+                pipeline.finish();
+                finalDrainNanos = elapsedNanos(drainStart);
+            }
+        } finally {
+            if (tailStatement != null) {
+                tailStatement.close();
+            }
+            if (fullStatement != null) {
+                fullStatement.close();
+            }
         }
+
         progress.done("Exact chunk lookup complete");
         ChunkStreamStats stats = new ChunkStreamStats(
                 packedPositions.size(),
@@ -1168,6 +1402,7 @@ public class VcdbsReader {
                 ChunkReadStrategy.EXACT_POSITION_BATCHES,
                 packedPositions.size(),
                 batchesExecuted,
+                statementsPrepared,
                 batchesExecuted,
                 rowsFound,
                 counters.parsedChunks,
@@ -1208,21 +1443,15 @@ public class VcdbsReader {
             return false;
         }
 
-        long limit = (long) uniqueRequestedPositions + 1L;
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT 1 FROM \"" + SaveTable.CHUNK.tableName()
-                        + "\" LIMIT ?"
+                        + "\" LIMIT 1 OFFSET ?"
         )) {
-            statement.setLong(1, limit);
+            statement.setInt(1, uniqueRequestedPositions);
             try (ResultSet resultSet = statement.executeQuery()) {
-                int rowsSeen = 0;
-                while (resultSet.next()) {
-                    rowsSeen++;
-                    if (rowsSeen > uniqueRequestedPositions) {
-                        return false;
-                    }
-                }
-                return true;
+                // OFFSET is zero-based: a row here means table cardinality is
+                // greater than the requested unique-position count.
+                return !resultSet.next();
             }
         }
     }
@@ -1280,74 +1509,160 @@ public class VcdbsReader {
         );
     }
 
-    private BatchStats readChunkBatch(
+    private PreparedStatement prepareRangeChunkStatement(
             Connection connection,
+            int runCount
+    ) throws SQLException {
+        if (runCount <= 0) {
+            throw new IllegalArgumentException("runCount must be positive");
+        }
+        StringBuilder sql = new StringBuilder(
+                "SELECT position, data FROM \""
+                        + SaveTable.CHUNK.tableName()
+                        + "\" WHERE "
+        );
+        for (int index = 0; index < runCount; index++) {
+            if (index > 0) {
+                sql.append(" OR ");
+            }
+            sql.append("(position BETWEEN ? AND ?)");
+        }
+        return connection.prepareStatement(sql.toString());
+    }
+
+    private BatchStats readChunkRangeBatch(
+            PreparedStatement statement,
+            List<PackedPositionRun> runs,
+            ReadDiagnostics diagnostics,
+            BoundedStreamingDecodePipeline<ChunkDecodeOutcome> pipeline,
+            ChunkDecodeWorkspacePool workspaces
+    ) throws SQLException {
+        Objects.requireNonNull(statement, "statement is required");
+        long batchStart = System.nanoTime();
+        long pipelineWaitNanos = 0L;
+        int rowsFound = 0;
+        long payloadBytes = 0;
+
+        statement.clearParameters();
+        int parameter = 1;
+        for (PackedPositionRun run : runs) {
+            statement.setLong(parameter++, run.firstInclusive());
+            statement.setLong(parameter++, run.lastInclusive());
+        }
+
+        try (ResultSet resultSet = statement.executeQuery()) {
+            while (resultSet.next()) {
+                rowsFound++;
+                ChunkPosition position = ChunkPosDecoder.decode(
+                        resultSet.getLong("position")
+                );
+                ChunkCoordinate coordinate = new ChunkCoordinate(
+                        position.x(),
+                        position.y(),
+                        position.z()
+                );
+                byte[] payload = resultSet.getBytes("data");
+                if (payload == null) {
+                    diagnostics.recordSkipped(
+                            "chunk row has null payload"
+                    );
+                    continue;
+                }
+
+                payloadBytes += payload.length;
+                long submitStart = System.nanoTime();
+                pipeline.submit(() -> decodeChunk(
+                        coordinate,
+                        payload,
+                        workspaces
+                ));
+                pipelineWaitNanos += elapsedNanos(submitStart);
+            }
+        }
+
+        long totalBatchNanos = elapsedNanos(batchStart);
+        return new BatchStats(
+                rowsFound,
+                payloadBytes,
+                Math.max(0L, totalBatchNanos - pipelineWaitNanos),
+                pipelineWaitNanos
+        );
+    }
+
+    private PreparedStatement prepareExactChunkStatement(
+            Connection connection,
+            int positionCount
+    ) throws SQLException {
+        if (positionCount <= 0) {
+            throw new IllegalArgumentException("positionCount must be positive");
+        }
+        return connection.prepareStatement(
+                "SELECT position, data FROM \""
+                        + SaveTable.CHUNK.tableName()
+                        + "\" WHERE position IN ("
+                        + sqlPlaceholders(positionCount)
+                        + ")"
+        );
+    }
+
+    private BatchStats readChunkBatch(
+            PreparedStatement statement,
             List<Long> packedPositions,
             ReadDiagnostics diagnostics,
             BoundedStreamingDecodePipeline<ChunkDecodeOutcome> pipeline,
             ChunkDecodeWorkspacePool workspaces
     ) throws SQLException {
+        Objects.requireNonNull(statement, "statement is required");
         long batchStart = System.nanoTime();
         long pipelineWaitNanos = 0L;
-        String sql =
-                "SELECT position, data FROM \""
-                        + SaveTable.CHUNK.tableName()
-                        + "\" WHERE position IN ("
-                        + sqlPlaceholders(packedPositions.size())
-                        + ")";
-
         int rowsFound = 0;
         long payloadBytes = 0;
 
-        try (PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
+        statement.clearParameters();
+        for (int index = 0;
+             index < packedPositions.size();
+             index++) {
+            statement.setLong(
+                    index + 1,
+                    packedPositions.get(index)
+            );
+        }
 
-            for (int index = 0;
-                 index < packedPositions.size();
-                 index++) {
-                statement.setLong(
-                        index + 1,
-                        packedPositions.get(index)
-                );
-            }
+        try (ResultSet resultSet = statement.executeQuery()) {
+            while (resultSet.next()) {
+                rowsFound++;
 
-            try (ResultSet resultSet =
-                         statement.executeQuery()) {
-                while (resultSet.next()) {
-                    rowsFound++;
-
-                    ChunkPosition position =
-                            ChunkPosDecoder.decode(
-                                    resultSet.getLong("position")
-                            );
-
-                    ChunkCoordinate coordinate =
-                            new ChunkCoordinate(
-                                    position.x(),
-                                    position.y(),
-                                    position.z()
-                            );
-
-                    byte[] payload =
-                            resultSet.getBytes("data");
-
-                    if (payload == null) {
-                        diagnostics.recordSkipped(
-                                "chunk row has null payload"
+                ChunkPosition position =
+                        ChunkPosDecoder.decode(
+                                resultSet.getLong("position")
                         );
-                        continue;
-                    }
 
-                    payloadBytes += payload.length;
+                ChunkCoordinate coordinate =
+                        new ChunkCoordinate(
+                                position.x(),
+                                position.y(),
+                                position.z()
+                        );
 
-                    long submitStart = System.nanoTime();
-                    pipeline.submit(() -> decodeChunk(
-                            coordinate,
-                            payload,
-                            workspaces
-                    ));
-                    pipelineWaitNanos += elapsedNanos(submitStart);
+                byte[] payload =
+                        resultSet.getBytes("data");
+
+                if (payload == null) {
+                    diagnostics.recordSkipped(
+                            "chunk row has null payload"
+                    );
+                    continue;
                 }
+
+                payloadBytes += payload.length;
+
+                long submitStart = System.nanoTime();
+                pipeline.submit(() -> decodeChunk(
+                        coordinate,
+                        payload,
+                        workspaces
+                ));
+                pipelineWaitNanos += elapsedNanos(submitStart);
             }
         }
 
