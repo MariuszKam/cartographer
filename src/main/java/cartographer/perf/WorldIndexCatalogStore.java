@@ -149,7 +149,11 @@ public final class WorldIndexCatalogStore {
             }
             return List.copyOf(result);
         } catch (SQLException exception) {
-            return List.of();
+            throw new CommandException(
+                    "Cannot read observed world-index mapchunks: "
+                            + exception.getMessage(),
+                    exception
+            );
         }
     }
 
