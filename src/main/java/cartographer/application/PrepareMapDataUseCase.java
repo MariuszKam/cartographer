@@ -336,7 +336,7 @@ public final class PrepareMapDataUseCase {
         ChunkStreamStats fastChunkStats =
                 new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         if (!rainPlan.chunkPositions().isEmpty()) {
-            fastChunkStats = reader.forEachChunkByPositionAdaptive(
+            fastChunkStats = reader.forEachSurfaceChunkByPositionAdaptive(
                     session,
                     rainPlan.chunkPositions(),
                     chunkDiagnostics,
@@ -353,7 +353,7 @@ public final class PrepareMapDataUseCase {
         ChunkStreamStats fallbackChunkStats =
                 new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         if (!fallbackPositions.isEmpty()) {
-            fallbackChunkStats = reader.forEachChunkByPositionAdaptive(
+            fallbackChunkStats = reader.forEachSurfaceChunkByPositionAdaptive(
                     session,
                     fallbackPositions,
                     chunkDiagnostics,
