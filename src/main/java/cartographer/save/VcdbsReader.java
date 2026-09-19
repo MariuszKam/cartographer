@@ -1425,21 +1425,15 @@ public class VcdbsReader {
             return false;
         }
 
-        long limit = (long) uniqueRequestedPositions + 1L;
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT 1 FROM \"" + SaveTable.CHUNK.tableName()
-                        + "\" LIMIT ?"
+                        + "\" LIMIT 1 OFFSET ?"
         )) {
-            statement.setLong(1, limit);
+            statement.setInt(1, uniqueRequestedPositions);
             try (ResultSet resultSet = statement.executeQuery()) {
-                int rowsSeen = 0;
-                while (resultSet.next()) {
-                    rowsSeen++;
-                    if (rowsSeen > uniqueRequestedPositions) {
-                        return false;
-                    }
-                }
-                return true;
+                // OFFSET is zero-based: a row here means table cardinality is
+                // greater than the requested unique-position count.
+                return !resultSet.next();
             }
         }
     }
