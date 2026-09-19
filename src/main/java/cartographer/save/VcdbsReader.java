@@ -53,6 +53,9 @@ public class VcdbsReader {
     private static final int DIRECT_MAPCHUNK_BATCH_SIZE =
             256;
 
+    private static final int RANGE_RUNS_PER_STATEMENT =
+            64;
+
     private final PlayerDataParser playerDataParser;
     private final MapChunkParser mapChunkParser;
     private final ChunkParser chunkParser;
@@ -64,6 +67,8 @@ public class VcdbsReader {
     private final ChunkReadMetricsProbe chunkReadMetricsProbe;
     private final AtomicReference<ChunkReadMetrics> lastChunkReadMetrics =
             new AtomicReference<>();
+    private final PackedPositionRunPlanner packedPositionRunPlanner =
+            new PackedPositionRunPlanner();
 
     public WorldPosition readPlayerPosition(
             Path savePath
@@ -274,9 +279,40 @@ public class VcdbsReader {
             ProgressReporter progress
     ) {
         long strategyProbeStart = System.nanoTime();
+        List<PackedPositionRun> runs =
+                packedPositionRunPlanner.plan(packedPositions);
+        if (packedPositionRunPlanner.rangeStrategyClearlyBetter(
+                packedPositions.size(),
+                runs,
+                DIRECT_CHUNK_BATCH_SIZE,
+                RANGE_RUNS_PER_STATEMENT
+        )) {
+            long strategyProbeNanos = elapsedNanos(strategyProbeStart);
+            try {
+                return forEachChunkByPackedRuns(
+                        connection,
+                        packedPositions.size(),
+                        runs,
+                        diagnostics,
+                        consumer,
+                        progress,
+                        strategyProbeNanos
+                );
+            } catch (SQLException exception) {
+                throw new CommandException(
+                        "Cannot read chunk table by packed position ranges: "
+                                + exception.getMessage(),
+                        exception
+                );
+            }
+        }
+
         boolean tableStream;
         try {
-            tableStream = shouldUseChunkTableStream(connection, packedPositions.size());
+            tableStream = shouldUseChunkTableStream(
+                    connection,
+                    packedPositions.size()
+            );
         } catch (SQLException exception) {
             tableStream = false;
         }
