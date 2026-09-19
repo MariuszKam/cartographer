@@ -12,6 +12,7 @@ import cartographer.model.MapRegionCoordinate;
 import cartographer.model.ParseResult;
 import cartographer.model.ParsedChunk;
 import cartographer.model.ServerMapRegion;
+import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.ChunkDecodeWorkspace;
