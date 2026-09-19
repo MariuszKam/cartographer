@@ -50,8 +50,9 @@ public class ChunkDataLayerDecoder {
                 );
 
         if (bitSize == 0) {
-            return decodePaletteBits(
-                    palette, null, 0, roundedPaletteLength, workspace
+            return DecodedChunkLayer.constant(
+                    VALUE_COUNT,
+                    palette[0]
             );
         }
 
