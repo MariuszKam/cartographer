@@ -91,6 +91,42 @@ public class ChunkDataLayerDecoderWorkspaceBenchmark {
     }
 
     @Benchmark
+    public int decodeMaterializedAndScanAllCells() {
+        DecodedChunkLayer layer =
+                decoder.decodeOwned(
+                        payload,
+                        2,
+                        workspace
+                );
+        int checksum = 0;
+        for (int index = 0;
+             index < layer.length();
+             index++) {
+            checksum += layer.valueAt(index);
+        }
+        return checksum;
+    }
+
+    @Benchmark
+    public int decodeCompactAndScanAllCells() {
+        DecodedChunkLayer layer =
+                decoder.decodeCompactOwned(
+                        payload,
+                        0,
+                        payload.length,
+                        2,
+                        workspace
+                );
+        int checksum = 0;
+        for (int index = 0;
+             index < layer.length();
+             index++) {
+            checksum += layer.valueAt(index);
+        }
+        return checksum;
+    }
+
+    @Benchmark
     public DecodedChunkLayer decodeWithFreshWorkspace() {
         try (ChunkDecodeWorkspace freshWorkspace = new ChunkDecodeWorkspace()) {
             return decoder.decodeOwned(payload, 2, freshWorkspace);
