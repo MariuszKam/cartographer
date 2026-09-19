@@ -26,6 +26,7 @@ public final class ProtobufWireReader {
         }
 
         Cursor cursor = new Cursor();
+        LengthDelimitedFieldRange found = null;
 
         while (cursor.position < data.length) {
             long key = readVarInt(data, cursor);
@@ -41,13 +42,13 @@ public final class ProtobufWireReader {
                     int length = readLength(data, cursor);
                     int offset = cursor.position;
 
-                    if (fieldNumber == wantedFieldNumber) {
-                        return Optional.of(
+                    if (fieldNumber == wantedFieldNumber
+                            && found == null) {
+                        found =
                                 new LengthDelimitedFieldRange(
                                         offset,
                                         length
-                                )
-                        );
+                                );
                     }
 
                     skip(data, cursor, length);
@@ -64,7 +65,7 @@ public final class ProtobufWireReader {
             }
         }
 
-        return Optional.empty();
+        return Optional.ofNullable(found);
     }
 
     public static Optional<byte[]> readLengthDelimitedField(
