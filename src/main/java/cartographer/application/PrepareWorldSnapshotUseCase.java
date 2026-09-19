@@ -130,7 +130,8 @@ public final class PrepareWorldSnapshotUseCase {
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
         Counters counters = new Counters();
 
-        if (!indexStore.mapChunkScanComplete()) {
+        boolean catalogWasComplete = indexStore.mapChunkScanComplete();
+        if (!catalogWasComplete) {
             discoverObservedMapChunks(
                     session,
                     terrainStore,
@@ -145,8 +146,7 @@ public final class PrepareWorldSnapshotUseCase {
         List<MapChunkCoordinate> observed =
                 indexStore.observedMapChunks();
 
-        if (indexStore.mapChunkScanComplete()
-                && counters.discoverySourceRows == 0) {
+        if (catalogWasComplete) {
             repairTerrainCoverage(
                     session,
                     terrainStore,
@@ -215,35 +215,47 @@ public final class PrepareWorldSnapshotUseCase {
             Counters counters,
             ProgressReporter progress
     ) {
-        List<MapChunk> buffer = new ArrayList<>(TERRAIN_BATCH_SIZE);
+        List<MapChunkCoordinate> observedBuffer =
+                new ArrayList<>(TERRAIN_BATCH_SIZE);
+        List<MapChunk> terrainBuffer =
+                new ArrayList<>(TERRAIN_BATCH_SIZE);
         reader.forEachObservedMapChunk(
                 session,
                 diagnostics,
+                coordinate -> {
+                    observedBuffer.add(coordinate);
+                    if (observedBuffer.size() >= TERRAIN_BATCH_SIZE) {
+                        indexStore.recordObserved(
+                                List.copyOf(observedBuffer)
+                        );
+                        observedBuffer.clear();
+                    }
+                },
                 mapChunk -> {
-                    counters.discoverySourceRows++;
-                    buffer.add(mapChunk);
-                    if (buffer.size() >= TERRAIN_BATCH_SIZE) {
+                    terrainBuffer.add(mapChunk);
+                    if (terrainBuffer.size() >= TERRAIN_BATCH_SIZE) {
                         publishDiscoveryTerrainBatch(
                                 terrainStore,
-                                indexStore,
-                                buffer,
+                                terrainBuffer,
                                 counters
                         );
                     }
                 },
                 progress
         );
+        if (!observedBuffer.isEmpty()) {
+            indexStore.recordObserved(List.copyOf(observedBuffer));
+            observedBuffer.clear();
+        }
         publishDiscoveryTerrainBatch(
                 terrainStore,
-                indexStore,
-                buffer,
+                terrainBuffer,
                 counters
         );
     }
 
     private void publishDiscoveryTerrainBatch(
             TerrainTileStore terrainStore,
-            WorldIndexCatalogStore indexStore,
             List<MapChunk> buffer,
             Counters counters
     ) {
@@ -253,7 +265,6 @@ public final class PrepareWorldSnapshotUseCase {
         List<MapChunkCoordinate> coordinates = buffer.stream()
                 .map(MapChunk::coordinate)
                 .toList();
-        indexStore.recordObserved(coordinates);
 
         Map<MapChunkCoordinate, TerrainTileLookup> lookups =
                 terrainStore.read(coordinates);
@@ -523,7 +534,6 @@ public final class PrepareWorldSnapshotUseCase {
     }
 
     private static final class Counters {
-        private int discoverySourceRows;
         private int terrainHits;
         private int terrainPublished;
         private int surfaceHits;
