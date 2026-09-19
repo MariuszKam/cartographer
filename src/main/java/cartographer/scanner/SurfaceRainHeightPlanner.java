@@ -31,6 +31,17 @@ public final class SurfaceRainHeightPlanner {
         return new StreamingSession(metadata, layout);
     }
 
+    public StreamingSession beginForMapChunks(
+            WorldMetadata metadata,
+            java.util.Collection<MapChunkCoordinate> mapChunks
+    ) {
+        Objects.requireNonNull(metadata, "metadata is required");
+        return new StreamingSession(
+                metadata,
+                SurfaceTileLayout.forMapChunks(mapChunks, metadata)
+        );
+    }
+
     public static final class StreamingSession {
         private static final Comparator<ChunkPosition> CHUNK_ORDER =
                 Comparator.comparingInt(ChunkPosition::y)
