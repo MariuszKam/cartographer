@@ -13,8 +13,11 @@ import cartographer.resource.SurfaceObjectSelectionAnalysis;
 import cartographer.resource.SurfaceObjectPresentation;
 import cartographer.resource.SurfaceRenderAnalysis;
 import cartographer.save.ReadDiagnostics;
+import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.geometry.Insets;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -29,23 +32,53 @@ public final class ResultInspectorPane extends VBox {
     private final Label cursorInspection = new Label();
     private final VBox content = new VBox(8);
     private final DiagnosticsPane diagnostics = new DiagnosticsPane();
+    private final LayerPanel layerPanel;
+    private final TabPane tabs = new TabPane();
+    private final Tab inspectTab = new Tab("Inspect");
+    private final Tab resultsTab = new Tab("Results");
+    private final Tab layersTab = new Tab("Layers");
+    private final Tab diagnosticsTab = new Tab("Diagnostics");
 
     public ResultInspectorPane() {
+        this(new LayerPanel());
+    }
+
+    public ResultInspectorPane(LayerPanel layerPanel) {
         super(8);
+        this.layerPanel = java.util.Objects.requireNonNull(
+                layerPanel,
+                "layerPanel is required"
+        );
         getStyleClass().add("result-inspector");
-        setPrefWidth(290);
+        setPrefWidth(340);
+        setMinWidth(260);
+
         cursorInspection.setWrapText(true);
         cursorInspection.getStyleClass().add("cursor-inspection");
-        cursorInspection.setVisible(false);
-        cursorInspection.setManaged(false);
-        VBox scrollContent = new VBox(8, cursorInspection, content, diagnostics);
-        scrollContent.setPadding(new Insets(4));
-        ScrollPane scroll = new ScrollPane(scrollContent);
-        scroll.setFitToWidth(true);
-        VBox.setVgrow(scroll, Priority.ALWAYS);
-        Label header = label("RESULT INSPECTOR");
+
+        inspectTab.setClosable(false);
+        resultsTab.setClosable(false);
+        layersTab.setClosable(false);
+        diagnosticsTab.setClosable(false);
+
+        inspectTab.setContent(scroll(new VBox(8, cursorInspection)));
+        resultsTab.setContent(scroll(content));
+        layersTab.setContent(scroll(layerPanel));
+        diagnosticsTab.setContent(scroll(diagnostics));
+
+        tabs.getTabs().setAll(
+                inspectTab,
+                resultsTab,
+                layersTab,
+                diagnosticsTab
+        );
+        tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        tabs.getStyleClass().add("inspector-tabs");
+        VBox.setVgrow(tabs, Priority.ALWAYS);
+
+        Label header = label("INSPECTOR");
         header.getStyleClass().add("inspector-title");
-        getChildren().addAll(header, scroll);
+        getChildren().addAll(header, tabs);
         clear();
     }
 
@@ -53,12 +86,21 @@ public final class ResultInspectorPane extends VBox {
         clearCursorInspection();
         content.getChildren().setAll(label("No result yet."));
         diagnostics.show(List.of());
+        tabs.getSelectionModel().select(resultsTab);
+    }
+
+    public void setLayersAvailable(boolean available) {
+        layersTab.setDisable(!available);
+        if (!available && tabs.getSelectionModel().getSelectedItem() == layersTab) {
+            tabs.getSelectionModel().select(resultsTab);
+        }
     }
 
     public void showError(Throwable failure) {
         clearCursorInspection();
         content.getChildren().setAll(label("ERROR"), label(message(failure)));
         diagnostics.show(List.of());
+        tabs.getSelectionModel().select(resultsTab);
     }
 
     public void showOreResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
@@ -75,6 +117,7 @@ public final class ResultInspectorPane extends VBox {
         nodes.add(label("Radius: " + request.radius()));
         content.getChildren().setAll(nodes);
         diagnostics.show(oreDiagnostics(result));
+        tabs.getSelectionModel().select(resultsTab);
     }
 
     public void showMapResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
@@ -90,6 +133,7 @@ public final class ResultInspectorPane extends VBox {
         }
         content.getChildren().setAll(nodes);
         diagnostics.show(mapDiagnostics(result, request));
+        tabs.getSelectionModel().select(resultsTab);
     }
 
     public void showCoverageResult(RenderCoverageMapResult result) {
@@ -116,6 +160,7 @@ public final class ResultInspectorPane extends VBox {
         }
         content.getChildren().setAll(nodes);
         diagnostics.show(diagnostics(result.mapRegionDiagnostics()));
+        tabs.getSelectionModel().select(resultsTab);
     }
 
     public void showSurfaceResult(RenderSurfaceResourceMapResult result, RenderSurfaceResourceMapRequest request) {
@@ -145,6 +190,7 @@ public final class ResultInspectorPane extends VBox {
             throw new IllegalStateException("Unsupported surface analysis type");
         }
         diagnostics.show(surfaceDiagnostics(result));
+        tabs.getSelectionModel().select(resultsTab);
     }
 
     public void showRockResult(RenderRockMapResult result, RenderRockMapRequest request) {
@@ -167,6 +213,7 @@ public final class ResultInspectorPane extends VBox {
                 "Palette rejected: " + result.chunkStats().paletteRejectedChunks(),
                 "Failed chunks: " + result.chunkStats().failedChunks(),
                 "Y range: " + result.minY() + ".." + result.maxYExclusive()));
+        tabs.getSelectionModel().select(resultsTab);
     }
 
     public void showProspectingResult(ProspectingAreaResult result, ProspectingAreaRequest request) {
@@ -193,6 +240,7 @@ public final class ResultInspectorPane extends VBox {
         }
         content.getChildren().setAll(nodes);
         diagnostics.show(List.of("Assessments: " + result.assessments().size()));
+        tabs.getSelectionModel().select(resultsTab);
     }
 
     public void showRockCursor(Optional<RockColumnSample> sample) {
@@ -215,14 +263,19 @@ public final class ResultInspectorPane extends VBox {
                     + "\nUnavailable";
         };
         cursorInspection.setText(details);
-        cursorInspection.setVisible(true);
-        cursorInspection.setManaged(true);
     }
 
     public void clearCursorInspection() {
-        cursorInspection.setText("");
-        cursorInspection.setVisible(false);
-        cursorInspection.setManaged(false);
+        cursorInspection.setText("Move the cursor over a retained geology or prospecting map to inspect the compact ROCK state.");
+    }
+
+    private ScrollPane scroll(Node node) {
+        VBox wrapper = new VBox(node);
+        wrapper.setPadding(new Insets(6));
+        ScrollPane scroll = new ScrollPane(wrapper);
+        scroll.setFitToWidth(true);
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        return scroll;
     }
 
     private VBox card(String title, String key1, String value1, String key2, String value2, String key3, String value3) {

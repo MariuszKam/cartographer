@@ -412,6 +412,23 @@ A cancelled operation is not reported as a user-facing analysis failure.
 Stale/cancelled callbacks are suppressed, the previous valid frame remains
 visible, and the next operation may start from a clean coordinator state.
 
+### Final Workstation presentation shell
+
+GUI-P13 changes presentation hierarchy only. The Tool Rail, collapsible
+source-control dock, tabbed Inspector, floating map toolbar and split
+operation/telemetry bar remain consumers of the P1-P12 contracts.
+
+Collapsing or revealing UI docks is not an analytical operation. It must not
+open the save, consult the render-data cache, alter retained compact state,
+allocate a replacement map raster, or reset viewport navigation. The map is
+the primary expanding region and continues to display the same bounded raster
+owned by `MapPanel`.
+
+The Inspector separates retained/local view controls from source-request
+controls by placing Layers beside Inspect/Results/Diagnostics. This is a UX
+representation of the existing architectural distinction; it does not change
+layer authority or cache semantics.
+
 ## 11. Correctness and safety
 
 ### Correctness
@@ -510,6 +527,38 @@ The MAP cache comparison has a different meaning: candidate SHA plus
 `JVM_WARM` cache-disabled/source-authoritative configuration is compared with
 the same candidate SHA plus `CACHE_WARM`. It is a same-SHA cache effect
 comparison, not a historical cross-SHA MAP comparison.
+
+## GUI-P14 integrated release evidence
+
+GUI-P14 adds an executable acceptance layer over the existing performance and
+source-safety tooling; it does not create a second benchmark engine.
+
+The final evidence workflow consists of:
+
+- `guiValidationInit` — creates the SHA-bound manual evidence template;
+- `guiValidationPreflight` — depends on the full unit-test suite and writes a
+  PASS marker only after tests complete successfully;
+- `guiSourceSafetyEvidence` — runs the narrow real-save safety smoke and the
+  PF-1.8 production render/cache source-safety workload;
+- `guiMacroEvidence` — uses the production PF-1.8 macro harness for factual
+  R2048 Map/ROCK evidence plus R4096 stretch attempts;
+- `guiReleaseGate` — checks SHA identity and completeness across automated,
+  source-safety, macro and reviewer-entered manual evidence.
+
+Mandatory R2048 macro reports must be factual. R4096 remains stretch/headroom
+evidence: a terminal attempt is mandatory, but `FAILED` or
+`OUT_OF_MEMORY` is retained as that factual outcome rather than converted
+into a fabricated performance pass or threshold failure.
+
+The manual manifest covers final Workstation behavior that unit/macro tooling
+cannot establish by itself: visual alignment, retained local recomposition,
+fused Prospecting UX, responsive cancellation, source safety after cancel, and
+the P13 map-first dock/viewport interaction contract.
+
+All evidence roots remain outside the protected source-save directory. A
+declared `-PgitSha` is evidence metadata and does not itself prove the local
+checkout identity; the reviewer must independently confirm the executed
+worktree SHA.
 
 ## 13. Current validation status
 

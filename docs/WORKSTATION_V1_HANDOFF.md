@@ -96,15 +96,65 @@ Progress is hidden on both success and failure. No fake time-based or weighted p
 - Map rendering reuses the existing `RenderActualOreMapUseCase` and render pipeline.
 - No JavaFX dependency was introduced into application, render, scanner or save code.
 
+## Post-v1 extension — GUI-P13 final Workstation shell
+
+GUI-P13 is a presentation/interaction redesign on top of the accepted P1-P12
+performance architecture. It does not introduce a new source reader, cache,
+session lifecycle, renderer authority, or worker pool.
+
+The final shell is map-first:
+
+```text
+WorkstationView
+├── WorkstationWorldBar
+│   └── compact WorldPanel / save chooser
+├── ToolNavigationPane (persistent Tool Rail)
+├── workspace
+│   ├── collapsible Context Dock
+│   │   └── SearchPanel / source controls
+│   ├── MapPanel (primary expanding region)
+│   │   └── floating MapToolbar
+│   └── collapsible ResultInspectorPane
+│       ├── Inspect
+│       ├── Results
+│       ├── Layers
+│       └── Diagnostics
+└── WorkstationStatusBar
+    ├── operation / progress / cancel
+    └── viewport telemetry
+```
+
+The Layer panel is physically located in the Inspector dock because those
+controls are retained/local view state. Collapsing either dock only changes the
+JavaFX layout; it does not clear `MapFrame`, reopen the save, re-render the
+raster, or reset viewport zoom/pan.
+
+The source-control dock remains scoped by the P12 foreground/discovery rules.
+The map, inspector and retained local interactions remain available according
+to the existing responsive-operation contract.
+
 ## Important boundaries
 
 Do not move JavaFX types into parser, save, scanner, application or render code. Keep DISPLAY and ABSOLUTE coordinates distinct. Preserve the separation between parsing, scanning, analysis and rendering.
 
 Do not add mock analytical data or infer missing save metadata. Any future viewport metadata must come from verified renderer geometry.
 
-## Next work
+## Final P13/P14 state
 
-Complete the acceptance matrix in `docs/GUI_PERFORMANCE_VALIDATION.md` on the
-accepted GUI-P10 HEAD. In particular, record real-save R2048/R4096 behavior,
-local recomposition smoke results, cache diagnostics, and source-safety
-evidence before declaring the performance-oriented GUI redesign DONE.
+GUI-P13 implements the final map-first Workstation shell while preserving the
+P1-P12 backend, retained-state and scoped-operation contracts.
+
+GUI-P14 implements the executable acceptance workflow described in
+`docs/GUI_PERFORMANCE_VALIDATION.md`.
+
+Implementation is complete, but reviewer runtime evidence is intentionally not
+invented here. The final factual status remains:
+
+```text
+IMPLEMENTATION COMPLETE
+VALIDATION PENDING
+```
+
+Run the GUI-P14 workflow on the exact accepted candidate SHA. Only a PASS from
+`guiReleaseGate` after the manual real-save campaign changes the redesign
+status to validated/done.

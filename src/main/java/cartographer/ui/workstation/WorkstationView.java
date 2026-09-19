@@ -1,36 +1,35 @@
 package cartographer.ui.workstation;
 
-import javafx.geometry.Insets;
-import javafx.scene.Parent;
-import javafx.scene.control.Button;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.VBox;
-
 import cartographer.render.MapViewportGeometry;
 import cartographer.render.RenderLayer;
 import cartographer.resource.ObservedSurfaceResourceCatalog;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Parent;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
+
 import java.util.Set;
 import java.util.function.Consumer;
 
 public final class WorkstationView {
     private final BorderPane root = new BorderPane();
+    private final BorderPane workspace = new BorderPane();
     private final WorldPanel worldPanel;
     private final ToolNavigationPane toolNavigationPane;
     private final SearchPanel searchPanel;
     private final LayerPanel layerPanel;
     private final ResultInspectorPane resultInspectorPane;
     private final MapPanel mapPanel = new MapPanel();
-    private final WorkstationWorldBar worldBar = new WorkstationWorldBar();
+    private final WorkstationWorldBar worldBar;
     private final WorkstationStatusBar statusBar = new WorkstationStatusBar();
-    private final VBox leftContent;
-    private final ScrollPane leftScroll;
-    private final VBox left;
-    private final VBox rightContent;
-    private final Button leftToggle = new Button("Hide tools");
-    private final Button rightToggle = new Button("Hide inspector");
+    private final VBox contextDock = new VBox(8);
+    private WorkstationDockState dockState = WorkstationDockState.expanded();
     private Consumer<WorkstationTool> modeListener = ignored -> { };
     private Consumer<Integer> radiusListener = ignored -> { };
     private boolean foregroundBusy;
@@ -39,36 +38,61 @@ public final class WorkstationView {
 
     public WorkstationView(Runnable onBrowse, Runnable onRender) {
         root.getStyleClass().add("workstation-root");
+        workspace.getStyleClass().add("workspace-body");
+
         worldPanel = new WorldPanel(panel -> onBrowse.run());
+        worldBar = new WorkstationWorldBar(worldPanel);
         searchPanel = new SearchPanel(onRender);
-        toolNavigationPane = new ToolNavigationPane(this::setMode);
         layerPanel = new LayerPanel();
-        resultInspectorPane = new ResultInspectorPane();
-        setMode(WorkstationTool.ORE);
+        resultInspectorPane = new ResultInspectorPane(layerPanel);
+        toolNavigationPane = new ToolNavigationPane(this::setMode);
+
         searchPanel.setOnRadiusChanged(this::handleRadiusChanged);
         mapPanel.setOnZoomChanged(statusBar::setZoomFactor);
+        toolNavigationPane.setOnContextToggle(this::toggleContextDock);
+        toolNavigationPane.setOnInspectorToggle(this::toggleInspectorDock);
 
-        leftContent = new VBox(8, worldPanel, toolNavigationPane, searchPanel, layerPanel);
-        leftToggle.setOnAction(event -> toggleLeft());
-        leftContent.getStyleClass().add("sidebar");
-        leftScroll = new ScrollPane(leftContent);
-        leftScroll.setFitToWidth(true);
-        leftScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        VBox.setVgrow(leftScroll, Priority.ALWAYS);
-        left = new VBox(4, leftToggle, leftScroll);
-        left.getStyleClass().add("sidebar-container");
-        left.setPrefWidth(290);
-        rightContent = new VBox(4, rightToggle, resultInspectorPane);
-        rightContent.getStyleClass().add("inspector-container");
-        rightToggle.setOnAction(event -> toggleRight());
+        ScrollPane contextScroll = new ScrollPane(searchPanel);
+        contextScroll.setFitToWidth(true);
+        contextScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        contextScroll.getStyleClass().add("context-scroll");
+        VBox.setVgrow(contextScroll, Priority.ALWAYS);
+
+        Button hideControls = new Button("×");
+        hideControls.getStyleClass().add("dock-close");
+        hideControls.setOnAction(event -> toggleContextDock());
+        Label contextHeader = new Label("SOURCE CONTROLS");
+        contextHeader.getStyleClass().add("dock-title");
+        HBox contextTitleBar = new HBox(8, contextHeader);
+        contextTitleBar.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(contextHeader, Priority.ALWAYS);
+        contextTitleBar.getChildren().add(hideControls);
+        contextTitleBar.getStyleClass().add("dock-header");
+
+        contextDock.getStyleClass().add("context-dock");
+        contextDock.setPrefWidth(304);
+        contextDock.setMinWidth(248);
+        contextDock.setMaxWidth(360);
+        contextDock.getChildren().addAll(contextTitleBar, contextScroll);
+
+        resultInspectorPane.setPrefWidth(348);
+        resultInspectorPane.setMinWidth(276);
+        resultInspectorPane.setMaxWidth(420);
+
+        workspace.setLeft(contextDock);
+        workspace.setCenter(mapPanel);
+        workspace.setRight(resultInspectorPane);
+        BorderPane.setMargin(contextDock, new Insets(10, 8, 10, 10));
+        BorderPane.setMargin(mapPanel, new Insets(10, 0, 10, 0));
+        BorderPane.setMargin(resultInspectorPane, new Insets(10, 10, 10, 8));
 
         root.setTop(worldBar);
-        root.setLeft(left);
-        root.setCenter(mapPanel);
-        root.setRight(rightContent);
+        root.setLeft(toolNavigationPane);
+        root.setCenter(workspace);
         root.setBottom(statusBar);
-        BorderPane.setMargin(root.getLeft(), new Insets(12));
-        BorderPane.setMargin(mapPanel, new Insets(12, 12, 12, 0));
+
+        setMode(WorkstationTool.ORE);
+        refreshDockState();
     }
 
     public Parent root() {
@@ -91,9 +115,12 @@ public final class WorkstationView {
         toolNavigationPane.setMode(mode);
         searchPanel.setMode(mode);
         layerPanel.setMode(mode);
-        boolean layersVisible = mode != WorkstationTool.COVERAGE;
-        layerPanel.setVisible(layersVisible);
-        layerPanel.setManaged(layersVisible);
+        worldBar.setTool(mode);
+
+        boolean layersAvailable = mode == WorkstationTool.MAP
+                || mode == WorkstationTool.ORE
+                || mode == WorkstationTool.SURFACE;
+        resultInspectorPane.setLayersAvailable(layersAvailable);
         statusBar.setRadiusVisible(mode != WorkstationTool.COVERAGE);
         modeListener.accept(mode);
     }
@@ -125,7 +152,7 @@ public final class WorkstationView {
         worldPanel.setBusy(foregroundBusy || discoveryBusy);
         toolNavigationPane.setBusy(foregroundBusy);
         searchPanel.setBusy(foregroundBusy);
-        // Layer toggles remain interactive against the previously retained frame.
+        // Layer toggles stay available against the previous retained frame.
         refreshOperationState();
     }
 
@@ -150,15 +177,32 @@ public final class WorkstationView {
         statusBar.setOperationActive(active, active);
     }
 
-    public void setSurfaceObjectDiscoveryState(SurfaceObjectDiscoveryState state) {
+    public void setSurfaceObjectDiscoveryState(
+            SurfaceObjectDiscoveryState state
+    ) {
         searchPanel.setSurfaceObjectDiscoveryState(state);
     }
 
-    public void setStatus(String text) { statusBar.setStatus(text); }
-    public void setIndeterminateProgress() { statusBar.setIndeterminateProgress(); }
-    public void setProgress(double completed, double total) { statusBar.setProgress(completed, total); }
-    public void setSavePath(java.nio.file.Path path) { worldBar.setSavePath(path); }
-    public void setPlayerLoaded(boolean loaded) { worldBar.setPlayerLoaded(loaded); }
+    public void setStatus(String text) {
+        statusBar.setStatus(text);
+    }
+
+    public void setIndeterminateProgress() {
+        statusBar.setIndeterminateProgress();
+    }
+
+    public void setProgress(double completed, double total) {
+        statusBar.setProgress(completed, total);
+    }
+
+    public void setSavePath(java.nio.file.Path path) {
+        worldBar.setSavePath(path);
+    }
+
+    public void setPlayerLoaded(boolean loaded) {
+        worldBar.setPlayerLoaded(loaded);
+    }
+
     public void setMapGeometry(java.util.Optional<MapViewportGeometry> geometry) {
         statusBar.setMapGeometry(geometry);
     }
@@ -170,23 +214,28 @@ public final class WorkstationView {
     public void setCursorCoordinates(double displayX, double displayZ) {
         statusBar.setCursorCoordinates(displayX, displayZ);
     }
-    public void clearCursorCoordinates() { statusBar.clearCursorCoordinates(); }
 
-    private void toggleLeft() {
-        boolean visible = leftScroll.isVisible();
-        leftScroll.setVisible(!visible);
-        leftScroll.setManaged(!visible);
-        left.setPrefWidth(visible ? Region.USE_COMPUTED_SIZE : 290);
-        leftToggle.setText(visible ? "Show tools" : "Hide tools");
+    public void clearCursorCoordinates() {
+        statusBar.clearCursorCoordinates();
     }
 
-    private void toggleRight() {
-        boolean visible = resultInspectorPane.isVisible();
-        resultInspectorPane.setVisible(!visible);
-        resultInspectorPane.setManaged(!visible);
-        rightToggle.setText(visible ? "Show inspector" : "Hide inspector");
-        if (visible) rightContent.setPrefWidth(Region.USE_COMPUTED_SIZE);
-        else rightContent.setPrefWidth(290);
+    private void toggleContextDock() {
+        dockState = dockState.toggleContext();
+        refreshDockState();
+    }
+
+    private void toggleInspectorDock() {
+        dockState = dockState.toggleInspector();
+        refreshDockState();
+    }
+
+    private void refreshDockState() {
+        workspace.setLeft(dockState.contextVisible() ? contextDock : null);
+        workspace.setRight(
+                dockState.inspectorVisible() ? resultInspectorPane : null
+        );
+        toolNavigationPane.setContextVisible(dockState.contextVisible());
+        toolNavigationPane.setInspectorVisible(dockState.inspectorVisible());
     }
 
     public Set<RenderLayer> selectedRenderLayers() {
@@ -201,7 +250,9 @@ public final class WorkstationView {
         return resultInspectorPane;
     }
 
-    public void setObservedSurfaceResources(ObservedSurfaceResourceCatalog catalog) {
+    public void setObservedSurfaceResources(
+            ObservedSurfaceResourceCatalog catalog
+    ) {
         searchPanel.setObservedSurfaceResources(catalog);
     }
 

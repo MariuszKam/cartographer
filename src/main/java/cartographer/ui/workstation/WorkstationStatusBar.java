@@ -1,12 +1,15 @@
 package cartographer.ui.workstation;
 
+import cartographer.render.MapViewportGeometry;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.layout.HBox;
-import cartographer.render.MapViewportGeometry;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+
 import java.util.Locale;
 import java.util.Optional;
 
@@ -15,35 +18,51 @@ public final class WorkstationStatusBar extends HBox {
     private final ProgressBar progress = new ProgressBar();
     private final Label progressText = new Label();
     private final Button cancel = new Button("Cancel");
-    private final Label zoom = new Label("Zoom 100%");
-    private final Label radius = new Label("Radius 256");
-    private final Label mapScale = new Label("Map —");
-    private final Label cursor = new Label("Cursor —");
+    private final Label zoom = telemetry("Zoom 100%");
+    private final Label radius = telemetry("Radius 256");
+    private final Label mapScale = telemetry("Map —");
+    private final Label cursor = telemetry("Cursor —");
 
     public WorkstationStatusBar() {
-        super(12);
-        getStyleClass().add("status-bar");
+        super(10);
+        getStyleClass().addAll("status-bar", "operation-bar");
         setAlignment(Pos.CENTER_LEFT);
+
+        operation.getStyleClass().add("operation-status");
         progress.getStyleClass().add("status-progress");
-        progress.setPrefWidth(160);
-        progress.setMaxWidth(160);
+        progress.setPrefWidth(170);
+        progress.setMaxWidth(170);
         progress.setVisible(false);
         progress.setManaged(false);
+
         progressText.getStyleClass().add("status-progress-text");
         progressText.setVisible(false);
         progressText.setManaged(false);
+
+        cancel.getStyleClass().add("cancel-button");
         cancel.setVisible(false);
         cancel.setManaged(false);
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
         getChildren().addAll(
                 operation,
                 progress,
                 progressText,
                 cancel,
+                spacer,
                 zoom,
                 radius,
                 mapScale,
                 cursor
         );
+    }
+
+    private Label telemetry(String text) {
+        Label label = new Label(text);
+        label.getStyleClass().add("telemetry-pill");
+        return label;
     }
 
     public void setStatus(String text) {
@@ -65,6 +84,10 @@ public final class WorkstationStatusBar extends HBox {
         cancel.setVisible(active && cancellable);
         cancel.setManaged(active && cancellable);
         cancel.setDisable(!active || !cancellable);
+        operation.pseudoClassStateChanged(
+                javafx.css.PseudoClass.getPseudoClass("busy"),
+                active
+        );
     }
 
     public void setOnCancel(Runnable action) {
@@ -77,11 +100,13 @@ public final class WorkstationStatusBar extends HBox {
 
     public void setIndeterminateProgress() {
         progress.setProgress(ProgressIndicator.INDETERMINATE_PROGRESS);
-        progressText.setText("Working...");
+        progressText.setText("Working…");
     }
 
     public void setProgress(double completed, double total) {
-        if (total <= 0.0 || !Double.isFinite(completed) || !Double.isFinite(total)) {
+        if (total <= 0.0
+                || !Double.isFinite(completed)
+                || !Double.isFinite(total)) {
             setIndeterminateProgress();
             return;
         }
@@ -95,7 +120,7 @@ public final class WorkstationStatusBar extends HBox {
     }
 
     public void setRadius(int value) {
-        radius.setText("Radius " + value);
+        radius.setText("R" + value);
     }
 
     public void setRadiusVisible(boolean visible) {
@@ -117,7 +142,12 @@ public final class WorkstationStatusBar extends HBox {
     }
 
     public void setCursorCoordinates(double displayX, double displayZ) {
-        cursor.setText(String.format(Locale.ROOT, "Cursor X %.1f  Z %.1f", displayX, displayZ));
+        cursor.setText(String.format(
+                Locale.ROOT,
+                "X %.1f  Z %.1f",
+                displayX,
+                displayZ
+        ));
     }
 
     public void clearCursorCoordinates() {

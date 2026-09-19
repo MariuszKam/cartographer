@@ -231,6 +231,100 @@ tasks.register<JavaExec>("pf18Jfr") {
     }
 }
 
+tasks.register<JavaExec>("guiValidationInit") {
+    group = "verification"
+    description = "Initializes GUI-P14 evidence and manual-validation checklist"
+    dependsOn("classes")
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("cartographer.perf.gui.GuiValidationInitMain")
+    javaLauncher.set(jpackageJavaLauncher)
+    doFirst {
+        val gitSha = project.findProperty("gitSha")?.toString()
+            ?: throw GradleException("guiValidationInit requires -PgitSha=<40-character-sha>")
+        val evidenceRoot = project.findProperty("evidenceRoot")?.toString()
+            ?: throw GradleException("guiValidationInit requires -PevidenceRoot=<path>")
+        args(gitSha, evidenceRoot)
+    }
+}
+
+tasks.register("guiValidationPreflight") {
+    group = "verification"
+    description = "Runs the full unit-test gate and writes GUI-P14 preflight evidence"
+    dependsOn("test")
+    doLast {
+        val gitSha = project.findProperty("gitSha")?.toString()?.trim()
+            ?: throw GradleException("guiValidationPreflight requires -PgitSha=<40-character-sha>")
+        if (!gitSha.matches(Regex("[0-9a-fA-F]{40}"))) {
+            throw GradleException("-PgitSha must be a full 40-character SHA")
+        }
+        val evidenceRoot = project.findProperty("evidenceRoot")?.toString()
+            ?: throw GradleException("guiValidationPreflight requires -PevidenceRoot=<path>")
+        val root = File(evidenceRoot).absoluteFile
+        root.mkdirs()
+        File(root, "preflight.properties").writeText(
+            "candidateSha=${gitSha.lowercase(Locale.ROOT)}\nunitTests=PASS\n"
+        )
+    }
+}
+
+tasks.register<JavaExec>("guiSourceSafetyEvidence") {
+    group = "verification"
+    description = "Runs real-save and PF-1.8 source-safety gates for GUI-P14"
+    dependsOn("classes")
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("cartographer.perf.gui.GuiSourceSafetyEvidenceMain")
+    javaLauncher.set(jpackageJavaLauncher)
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    doFirst {
+        val save = project.findProperty("save")?.toString()
+            ?: throw GradleException("guiSourceSafetyEvidence requires -Psave=<path>")
+        val cacheRoot = project.findProperty("cacheRoot")?.toString()
+            ?: throw GradleException("guiSourceSafetyEvidence requires -PcacheRoot=<path>")
+        val gitSha = project.findProperty("gitSha")?.toString()
+            ?: throw GradleException("guiSourceSafetyEvidence requires -PgitSha=<40-character-sha>")
+        val evidenceRoot = project.findProperty("evidenceRoot")?.toString()
+            ?: throw GradleException("guiSourceSafetyEvidence requires -PevidenceRoot=<path>")
+        args(save, cacheRoot, gitSha, evidenceRoot)
+    }
+}
+
+tasks.register<JavaExec>("guiMacroEvidence") {
+    group = "verification"
+    description = "Runs GUI-P14 R2048 mandatory and R4096 stretch macro campaigns"
+    dependsOn("classes")
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("cartographer.perf.gui.GuiMacroEvidenceMain")
+    javaLauncher.set(jpackageJavaLauncher)
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    doFirst {
+        val save = project.findProperty("save")?.toString()
+            ?: throw GradleException("guiMacroEvidence requires -Psave=<path>")
+        val cacheRoot = project.findProperty("cacheRoot")?.toString()
+            ?: throw GradleException("guiMacroEvidence requires -PcacheRoot=<path>")
+        val gitSha = project.findProperty("gitSha")?.toString()
+            ?: throw GradleException("guiMacroEvidence requires -PgitSha=<40-character-sha>")
+        val evidenceRoot = project.findProperty("evidenceRoot")?.toString()
+            ?: throw GradleException("guiMacroEvidence requires -PevidenceRoot=<path>")
+        args(save, cacheRoot, gitSha, evidenceRoot)
+    }
+}
+
+tasks.register<JavaExec>("guiReleaseGate") {
+    group = "verification"
+    description = "Evaluates the complete GUI-P14 automated, real-save, macro and manual evidence"
+    dependsOn("classes")
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("cartographer.perf.gui.GuiReleaseGateMain")
+    javaLauncher.set(jpackageJavaLauncher)
+    doFirst {
+        val gitSha = project.findProperty("gitSha")?.toString()
+            ?: throw GradleException("guiReleaseGate requires -PgitSha=<40-character-sha>")
+        val evidenceRoot = project.findProperty("evidenceRoot")?.toString()
+            ?: throw GradleException("guiReleaseGate requires -PevidenceRoot=<path>")
+        args(gitSha, evidenceRoot)
+    }
+}
+
 tasks.register<JavaExec>("runGui") {
     group = "application"
     description = "Launches the VS Cartographer desktop UI"
