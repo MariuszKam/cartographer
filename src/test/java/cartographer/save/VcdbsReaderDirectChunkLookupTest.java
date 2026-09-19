@@ -298,6 +298,41 @@ class VcdbsReaderDirectChunkLookupTest {
     }
 
     @Test
+    void packedRangeStrategyDoesNotReadGapRows() throws Exception {
+        List<ChunkPosition> allRows = positions(512);
+        List<ChunkPosition> requested = new ArrayList<>(allRows);
+        requested.remove(256);
+        Path database = databaseWithRows(
+                allRows.toArray(ChunkPosition[]::new)
+        );
+        StubChunkParser parser = new StubChunkParser();
+        AtomicReference<ChunkReadMetrics> observed = new AtomicReference<>();
+        VcdbsReader reader = new VcdbsReader(
+                null,
+                null,
+                parser,
+                null,
+                new CountingSqliteSaveConnection(),
+                observed::set
+        );
+
+        ChunkStreamStats stats = reader.forEachChunkByPositionAdaptive(
+                database,
+                requested,
+                new ReadDiagnostics(),
+                ignored -> { }
+        );
+
+        assertEquals(511, stats.rowsFound());
+        assertEquals(511, stats.parsedChunks());
+        assertEquals(
+                ChunkReadStrategy.RANGE_RUN_BATCHES,
+                observed.get().strategy()
+        );
+        assertTrue(parser.xCoordinates().stream().noneMatch(x -> x == 256));
+    }
+
+    @Test
     void explicitDirectLookupReusesFullBatchPreparedStatement()
             throws Exception {
         List<ChunkPosition> requested = positions(600);
