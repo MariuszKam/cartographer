@@ -710,11 +710,16 @@ public class VcdbsReader {
     public MapChunkStreamStats forEachObservedMapChunk(
             SaveSession session,
             ReadDiagnostics diagnostics,
+            Consumer<MapChunkCoordinate> observedCoordinateConsumer,
             Consumer<MapChunk> consumer,
             ProgressReporter progress
     ) {
         Objects.requireNonNull(session, "session is required");
         Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(
+                observedCoordinateConsumer,
+                "observedCoordinateConsumer is required"
+        );
         Objects.requireNonNull(consumer, "consumer is required");
         Objects.requireNonNull(progress, "progress is required");
 
@@ -723,8 +728,10 @@ public class VcdbsReader {
         try {
             if (tableMissing(connection, SaveTable.MAPCHUNK.tableName())) {
                 diagnostics.missingTable(SaveTable.MAPCHUNK.tableName());
-                progress.done("Observed mapchunk discovery unavailable");
-                return new MapChunkStreamStats(0, 0, 0, 0, 0, 0);
+                throw new CommandException(
+                        "Save contains no mapchunk table; "
+                                + "world snapshot discovery cannot be completed"
+                );
             }
 
             int expectedRows = countRows(
@@ -761,6 +768,13 @@ public class VcdbsReader {
                         continue;
                     }
 
+                    MapChunkCoordinate observed = coordinate.orElseThrow();
+                    // Catalog membership describes source existence, not
+                    // parser success. Publish the coordinate before reading
+                    // or parsing the row payload so failed derived decoding
+                    // can never be misclassified as source absence.
+                    observedCoordinateConsumer.accept(observed);
+
                     byte[] payload = resultSet.getBytes("data");
                     if (payload == null) {
                         diagnostics.recordSkipped(
@@ -775,7 +789,7 @@ public class VcdbsReader {
 
                     ParseResult<MapChunk> parsedMapChunk =
                             mapChunkParser.parse(
-                                    coordinate.orElseThrow(),
+                                    observed,
                                     payload
                             );
                     if (parsedMapChunk.isSuccess()) {
@@ -814,11 +828,42 @@ public class VcdbsReader {
     public MapChunkStreamStats forEachObservedMapChunk(
             SaveSession session,
             ReadDiagnostics diagnostics,
+            Consumer<MapChunk> consumer,
+            ProgressReporter progress
+    ) {
+        return forEachObservedMapChunk(
+                session,
+                diagnostics,
+                ignored -> { },
+                consumer,
+                progress
+        );
+    }
+
+    public MapChunkStreamStats forEachObservedMapChunk(
+            SaveSession session,
+            ReadDiagnostics diagnostics,
+            Consumer<MapChunkCoordinate> observedCoordinateConsumer,
             Consumer<MapChunk> consumer
     ) {
         return forEachObservedMapChunk(
                 session,
                 diagnostics,
+                observedCoordinateConsumer,
+                consumer,
+                ProgressReporter.NONE
+        );
+    }
+
+    public MapChunkStreamStats forEachObservedMapChunk(
+            SaveSession session,
+            ReadDiagnostics diagnostics,
+            Consumer<MapChunk> consumer
+    ) {
+        return forEachObservedMapChunk(
+                session,
+                diagnostics,
+                ignored -> { },
                 consumer,
                 ProgressReporter.NONE
         );
