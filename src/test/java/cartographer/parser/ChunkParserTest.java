@@ -131,6 +131,8 @@ class ChunkParserTest {
         assertEquals(1, decoder.paletteContainsCalls);
         assertEquals(1, decoder.ownedDecodeCalls);
         assertSame(decoder.probedPayload, decoder.decodedPayload);
+        assertEquals(decoder.probedOffset, decoder.decodedOffset);
+        assertEquals(decoder.probedLength, decoder.decodedLength);
     }
 
     @Test
@@ -378,18 +380,28 @@ class ChunkParserTest {
         private int ownedDecodeCalls;
         private byte[] probedPayload;
         private byte[] decodedPayload;
+        private int probedOffset;
+        private int decodedOffset;
+        private int probedLength;
+        private int decodedLength;
 
         @Override
         boolean paletteContainsAny(
                 byte[] payload,
+                int sourceOffset,
+                int sourceLength,
                 int savedCompressionVersion,
                 int[] wantedBlockIds,
                 ChunkDecodeWorkspace workspace
         ) {
             paletteContainsCalls++;
             probedPayload = payload;
+            probedOffset = sourceOffset;
+            probedLength = sourceLength;
             return super.paletteContainsAny(
                     payload,
+                    sourceOffset,
+                    sourceLength,
                     savedCompressionVersion,
                     wantedBlockIds,
                     workspace
@@ -399,13 +411,19 @@ class ChunkParserTest {
         @Override
         DecodedChunkLayer decodeOwned(
                 byte[] payload,
+                int sourceOffset,
+                int sourceLength,
                 int savedCompressionVersion,
                 ChunkDecodeWorkspace workspace
         ) {
             ownedDecodeCalls++;
             decodedPayload = payload;
+            decodedOffset = sourceOffset;
+            decodedLength = sourceLength;
             return super.decodeOwned(
                     payload,
+                    sourceOffset,
+                    sourceLength,
                     savedCompressionVersion,
                     workspace
             );
@@ -441,12 +459,16 @@ class ChunkParserTest {
         @Override
         DecodedChunkLayer decodeOwned(
                 byte[] payload,
+                int sourceOffset,
+                int sourceLength,
                 int savedCompressionVersion,
                 ChunkDecodeWorkspace workspace
         ) {
             ownedDecodeCalls++;
             return super.decodeOwned(
                     payload,
+                    sourceOffset,
+                    sourceLength,
                     savedCompressionVersion,
                     workspace
             );
