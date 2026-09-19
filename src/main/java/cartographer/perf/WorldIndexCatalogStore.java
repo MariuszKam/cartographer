@@ -16,6 +16,7 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Revision-scoped catalog of observed main-world mapchunks.
@@ -27,6 +28,7 @@ import java.util.Objects;
  */
 public final class WorldIndexCatalogStore {
     private static final String DATABASE_FILE = "world-index.sqlite";
+    private static final int SELECT_BATCH_SIZE = 400;
     private static final String MAPCHUNK_SCAN_COMPLETE = "mapchunk-scan-complete";
 
     private final RenderDataCacheStore cacheStore;
@@ -126,6 +128,57 @@ public final class WorldIndexCatalogStore {
             }
         } catch (SQLException exception) {
             return false;
+        }
+    }
+
+    public Set<MapChunkCoordinate> observedAmong(
+            Collection<MapChunkCoordinate> coordinates
+    ) {
+        List<MapChunkCoordinate> requested = uniqueCoordinates(coordinates);
+        if (requested.isEmpty() || !mapChunkScanComplete()) {
+            return Set.of();
+        }
+        LinkedHashSet<MapChunkCoordinate> observed = new LinkedHashSet<>();
+        try (Connection connection = openDatabase(false)) {
+            ensureSchema(connection);
+            for (int start = 0; start < requested.size(); start += SELECT_BATCH_SIZE) {
+                List<MapChunkCoordinate> batch = requested.subList(
+                        start,
+                        Math.min(start + SELECT_BATCH_SIZE, requested.size())
+                );
+                StringBuilder sql = new StringBuilder(
+                        "SELECT mapchunk_x, mapchunk_z FROM observed_mapchunk WHERE "
+                );
+                for (int index = 0; index < batch.size(); index++) {
+                    if (index > 0) {
+                        sql.append(" OR ");
+                    }
+                    sql.append("(mapchunk_x = ? AND mapchunk_z = ?)");
+                }
+                try (PreparedStatement statement =
+                             connection.prepareStatement(sql.toString())) {
+                    int parameter = 1;
+                    for (MapChunkCoordinate coordinate : batch) {
+                        statement.setInt(parameter++, coordinate.x());
+                        statement.setInt(parameter++, coordinate.z());
+                    }
+                    try (ResultSet resultSet = statement.executeQuery()) {
+                        while (resultSet.next()) {
+                            observed.add(new MapChunkCoordinate(
+                                    resultSet.getInt("mapchunk_x"),
+                                    resultSet.getInt("mapchunk_z")
+                            ));
+                        }
+                    }
+                }
+            }
+            return Set.copyOf(observed);
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot query observed world-index membership: "
+                            + exception.getMessage(),
+                    exception
+            );
         }
     }
 
