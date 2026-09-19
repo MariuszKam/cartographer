@@ -194,6 +194,77 @@ class ChunkParserTest {
     }
 
     @Test
+    void surfaceCompactParseMatchesMaterializedVoxelSemantics() {
+        byte[] blocks =
+                encodedLayer(
+                        new int[]{0, 11, 17},
+                        index -> switch (index % 3) {
+                            case 0 -> 0;
+                            case 1 -> 1;
+                            default -> 2;
+                        }
+                );
+        byte[] liquids =
+                encodedLayer(
+                        new int[]{0, 200},
+                        index -> index % 7 == 0 ? 1 : 0
+                );
+        byte[] source =
+                serverChunk(
+                        blocks,
+                        liquids,
+                        2
+                );
+        ChunkCoordinate coordinate =
+                new ChunkCoordinate(3, 2, 4);
+        ChunkParser parser =
+                new ChunkParser();
+
+        ParsedChunk full =
+                parser.parse(
+                                coordinate,
+                                source,
+                                ChunkDecodeProfile.BLOCKS_AND_LIQUIDS
+                        )
+                        .value()
+                        .orElseThrow();
+
+        ParsedChunk compact;
+        try (ChunkDecodeWorkspace workspace =
+                     new ChunkDecodeWorkspace()) {
+            compact =
+                    parser.parseSurfaceCompact(
+                                    coordinate,
+                                    source,
+                                    workspace
+                            )
+                            .value()
+                            .orElseThrow();
+        }
+
+        assertArrayEquals(
+                full.blockIds(),
+                compact.blockIds()
+        );
+        assertArrayEquals(
+                full.liquidIds(),
+                compact.liquidIds()
+        );
+        assertEquals(
+                full.liquidLayerAvailable(),
+                compact.liquidLayerAvailable()
+        );
+        assertEquals(
+                full.blockIdAt(5, 7, 9),
+                compact.blockIdAt(5, 7, 9)
+        );
+        assertEquals(
+                full.liquidIdAt(5, 7, 9),
+                compact.liquidIdAt(5, 7, 9)
+        );
+    }
+
+    @Test
     void blocksOnlyMarksLiquidsUnavailableAndKeepsSolidBlocks() {
         byte[] blocks =
                 encodedLayer(
