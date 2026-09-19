@@ -13,6 +13,7 @@ public record ChunkReadMetrics(
         ChunkReadStrategy strategy,
         int uniquePositionsRequested,
         int batchesExecuted,
+        int statementsPrepared,
         int statementsExecuted,
         int rowsFound,
         int parsedChunks,
@@ -28,6 +29,7 @@ public record ChunkReadMetrics(
         strategy = Objects.requireNonNull(strategy, "strategy is required");
         if (uniquePositionsRequested < 0
                 || batchesExecuted < 0
+                || statementsPrepared < 0
                 || statementsExecuted < 0
                 || rowsFound < 0
                 || parsedChunks < 0
