@@ -409,13 +409,15 @@ public final class PrepareMapDataUseCase {
         double mib = metrics.payloadBytes() / (1024.0 * 1024.0);
         return String.format(
                 java.util.Locale.ROOT,
-                "%s read: %s, positions %d, batches %d, rows %d, payload %.1f MiB, "
-                        + "strategy %.1f ms, source %.1f ms, pipeline-wait %.1f ms, "
-                        + "drain %.1f ms, total %.1f ms",
+                "%s read: %s, positions %d, batches %d, prepared %d, executed %d, "
+                        + "rows %d, payload %.1f MiB, strategy %.1f ms, source %.1f ms, "
+                        + "pipeline-wait %.1f ms, drain %.1f ms, total %.1f ms",
                 label,
                 metrics.strategy(),
                 metrics.uniquePositionsRequested(),
                 metrics.batchesExecuted(),
+                metrics.statementsPrepared(),
+                metrics.statementsExecuted(),
                 metrics.rowsFound(),
                 mib,
                 metrics.strategyProbeNanos() / 1_000_000.0,
