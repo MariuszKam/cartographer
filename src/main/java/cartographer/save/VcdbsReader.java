@@ -21,6 +21,7 @@ import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.parser.ServerMapRegionParser;
+import cartographer.parser.SelectiveChunkParseResult;
 
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -2120,39 +2121,26 @@ public class VcdbsReader {
             int[] wantedBlockIds,
             ChunkDecodeWorkspace workspace
     ) {
-        ParseResult<ServerChunkPayload> parsedPayload = chunkParser.parsePayload(payload);
-        if (!parsedPayload.isSuccess()) {
-            return SelectiveDecodeOutcome.failure(
-                    false,
-                    parsedPayload.error().orElse("unknown ServerChunk parse error")
-            );
-        }
-
-        ServerChunkPayload serverChunk = parsedPayload.value().orElseThrow();
-        ParseResult<ChunkPaletteProbe> palette = chunkParser.probeBlockPalette(serverChunk, workspace);
-        if (!palette.isSuccess()) {
-            return SelectiveDecodeOutcome.failure(
-                    true,
-                    palette.error().orElse("unknown block palette probe error")
-            );
-        }
-
-        if (!containsWantedBlock(palette.value().orElseThrow(), wantedBlockIds)) {
+        SelectiveChunkParseResult parsed =
+                chunkParser.parseBlocksIfPaletteContains(
+                        coordinate,
+                        payload,
+                        wantedBlockIds,
+                        workspace
+                );
+        if (parsed.paletteRejected()) {
             return SelectiveDecodeOutcome.rejected();
         }
-
-        ParseResult<ParsedChunk> parsedChunk = chunkParser.parse(
-                coordinate,
-                serverChunk,
-                ChunkDecodeProfile.BLOCKS_ONLY,
-                workspace
-        );
-        if (parsedChunk.isSuccess()) {
-            return SelectiveDecodeOutcome.success(parsedChunk.value().orElseThrow());
+        if (parsed.chunk().isPresent()) {
+            return SelectiveDecodeOutcome.success(
+                    parsed.chunk().orElseThrow()
+            );
         }
         return SelectiveDecodeOutcome.failure(
-                true,
-                parsedChunk.error().orElse("unknown chunk decode error")
+                parsed.payloadParsed(),
+                parsed.error().orElse(
+                        "unknown selective chunk decode error"
+                )
         );
     }
 
