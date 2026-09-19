@@ -1287,6 +1287,8 @@ public class VcdbsReader {
             BoundedStreamingDecodePipeline<ChunkDecodeOutcome> pipeline,
             ChunkDecodeWorkspacePool workspaces
     ) throws SQLException {
+        long batchStart = System.nanoTime();
+        long pipelineWaitNanos = 0L;
         String sql =
                 "SELECT position, data FROM \""
                         + SaveTable.CHUNK.tableName()
@@ -1338,14 +1340,23 @@ public class VcdbsReader {
 
                     payloadBytes += payload.length;
 
-                    pipeline.submit(() -> decodeChunk(coordinate, payload, workspaces));
+                    long submitStart = System.nanoTime();
+                    pipeline.submit(() -> decodeChunk(
+                            coordinate,
+                            payload,
+                            workspaces
+                    ));
+                    pipelineWaitNanos += elapsedNanos(submitStart);
                 }
             }
         }
 
+        long totalBatchNanos = elapsedNanos(batchStart);
         return new BatchStats(
                 rowsFound,
-                payloadBytes
+                payloadBytes,
+                Math.max(0L, totalBatchNanos - pipelineWaitNanos),
+                pipelineWaitNanos
         );
     }
 
@@ -1869,6 +1880,19 @@ public class VcdbsReader {
         counters.failedChunks++;
     }
 
+    private void recordChunkReadMetrics(ChunkReadMetrics metrics) {
+        lastChunkReadMetrics.set(metrics);
+        try {
+            chunkReadMetricsProbe.record(metrics);
+        } catch (RuntimeException ignored) {
+            // Instrumentation must never change source-read correctness.
+        }
+    }
+
+    private long elapsedNanos(long startedAt) {
+        return Math.max(0L, System.nanoTime() - startedAt);
+    }
+
     private String sqlPlaceholders(
             int count
     ) {
@@ -1877,7 +1901,9 @@ public class VcdbsReader {
 
     private record BatchStats(
             int rowsFound,
-            long payloadBytes
+            long payloadBytes,
+            long sourceReadNanos,
+            long pipelineWaitNanos
     ) {
     }
 
