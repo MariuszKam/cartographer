@@ -54,6 +54,35 @@ class VcdbsReaderDirectChunkLookupTest {
     }
 
     @Test
+    void normalAdaptiveTraversalKeepsFullParser() throws Exception {
+        ChunkPosition position =
+                new ChunkPosition(1, 0, 2, 0);
+        Path database =
+                databaseWithRows(position);
+        StubChunkParser parser =
+                new StubChunkParser();
+
+        ChunkStreamStats stats =
+                new VcdbsReader(
+                        null,
+                        null,
+                        parser,
+                        null
+                ).forEachChunkByPositionAdaptive(
+                        database,
+                        List.of(position),
+                        new ReadDiagnostics(),
+                        ignored -> { }
+                );
+
+        assertEquals(1, stats.parsedChunks());
+        assertEquals(
+                0,
+                parser.surfaceCompactCalls()
+        );
+    }
+
+    @Test
     void surfaceAdaptiveTraversalUsesCompactParser() throws Exception {
         ChunkPosition position =
                 new ChunkPosition(1, 0, 2, 0);
