@@ -580,6 +580,21 @@ documentation-only cleanup does not create new runtime evidence and does not
 mark PF-1.6, PF-1.7, PF-1.8, or the performance foundation `VALIDATED` or
 `DONE`.
 
+## 13a. PF-2 World Snapshot direction
+
+The next performance generation is documented in
+[`docs/PF2_WORLD_SNAPSHOT_ARCHITECTURE.md`](PF2_WORLD_SNAPSHOT_ARCHITECTURE.md).
+
+PF-2 shifts the target from repeatedly optimizing every source-backed render to
+building revision-scoped compact derived world data once and rendering many
+times from that snapshot. PF-2.0 reuses the existing PF-1.7 Terrain/Surface
+stores through a `WorldDataSnapshot` facade and adds exact-position traversal
+cost instrumentation.
+
+This remains derived-cache architecture: source authority, read-only safety,
+operation-scoped source sessions and fallback-to-source correctness are
+unchanged. No global collection of decoded source chunks is retained.
+
 ## 14. Explicit non-goals and current boundaries
 
 - There is no global decoded-world cache.
