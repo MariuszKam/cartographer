@@ -170,9 +170,6 @@ public final class PrepareMapDataUseCase {
         Set<MapChunkCoordinate> renderMapChunkSet =
                 new HashSet<>(renderMapChunkCoordinates);
         CacheContext cache = prepareCache(request.savePath());
-        Set<MapChunkCoordinate> knownAbsentSurface = surfaceDataRequired
-                ? cache.knownAbsent(surfaceMapChunkCoordinates)
-                : Set.of();
 
         Map<MapChunkCoordinate, SurfaceTileLookup> surfaceLookups = surfaceDataRequired
                 ? lookupSurface(cache, surfaceMapChunkCoordinates, metadata)
@@ -182,7 +179,10 @@ public final class PrepareMapDataUseCase {
         for (Map.Entry<MapChunkCoordinate, SurfaceTileLookup> entry : surfaceLookups.entrySet()) {
             if (entry.getValue().status() == SurfaceTileLookup.Status.HIT) {
                 surfaceHits.put(entry.getKey(), entry.getValue().tile());
-            } else if (!knownAbsentSurface.contains(entry.getKey())) {
+            } else {
+                // A missing mapchunk does not prove the absence of server
+                // chunks. Surface therefore retains its authoritative source
+                // fallback unless a complete Surface tile is already cached.
                 surfaceMissSet.add(entry.getKey());
             }
         }
