@@ -49,6 +49,54 @@ class DecodedChunkLayerTest {
     }
 
     @Test
+    void constantLayerProvidesValuesWithoutChangingDefensiveArraySemantics() {
+        DecodedChunkLayer layer =
+                DecodedChunkLayer.constant(4, 7);
+
+        assertEquals(4, layer.length());
+        assertEquals(7, layer.valueAt(0));
+        assertEquals(7, layer.valueAt(3));
+        assertArrayEquals(
+                new int[]{7, 7, 7, 7},
+                layer.toArray()
+        );
+
+        int[] returned = layer.toArray();
+        returned[0] = 99;
+
+        assertEquals(7, layer.valueAt(0));
+        assertArrayEquals(
+                new int[]{7, 7, 7, 7},
+                layer.toArray()
+        );
+    }
+
+    @Test
+    void emptyLayerIsAZeroConstantLayer() {
+        DecodedChunkLayer layer =
+                DecodedChunkLayer.empty(3);
+
+        assertEquals(0, layer.valueAt(0));
+        assertEquals(0, layer.valueAt(2));
+        assertArrayEquals(new int[]{0, 0, 0}, layer.toArray());
+    }
+
+    @Test
+    void constantLayerPreservesBoundsChecks() {
+        DecodedChunkLayer layer =
+                DecodedChunkLayer.constant(2, 5);
+
+        assertThrows(
+                IndexOutOfBoundsException.class,
+                () -> layer.valueAt(-1)
+        );
+        assertThrows(
+                IndexOutOfBoundsException.class,
+                () -> layer.valueAt(2)
+        );
+    }
+
+    @Test
     void equalContentsDoNotProvideValueEquality() {
         DecodedChunkLayer first =
                 DecodedChunkLayer.builder(1)
