@@ -744,6 +744,25 @@ class RenderSurfaceResourceMapUseCaseTest {
         }
 
         @Override
+        public ChunkStreamStats forEachSurfaceChunkByPositionAdaptive(
+                SaveSession session,
+                java.util.Collection<ChunkPosition> positions,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer,
+                ProgressReporter progress
+        ) {
+            adaptiveExactChunkCalls++;
+            exactChunkCalls++;
+            exactRequests.add(
+                    List.copyOf(positions)
+            );
+            return deliverChunks(
+                    positions,
+                    consumer
+            );
+        }
+
+        @Override
         public ChunkStreamStats forEachChunkByPositionAdaptive(
                 Path savePath,
                 java.util.Collection<ChunkPosition> positions,
