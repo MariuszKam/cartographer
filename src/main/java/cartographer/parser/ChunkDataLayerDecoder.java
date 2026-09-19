@@ -118,6 +118,81 @@ public class ChunkDataLayerDecoder {
         );
     }
 
+    DecodedChunkLayer decodeCompactOwned(
+            byte[] payload,
+            int sourceOffset,
+            int sourceLength,
+            int savedCompressionVersion,
+            ChunkDecodeWorkspace workspace
+    ) {
+        int sourceLimit = validateSlice(
+                payload,
+                sourceOffset,
+                sourceLength
+        );
+        DecodedPalette decodedPalette = readPalette(
+                payload,
+                sourceOffset,
+                sourceLength,
+                savedCompressionVersion,
+                workspace
+        );
+
+        if (decodedPalette.length() == 0) {
+            return DecodedChunkLayer.empty(
+                    VALUE_COUNT
+            );
+        }
+
+        int[] palette =
+                workspace.paletteBuffer();
+        int roundedPaletteLength =
+                roundedPalette(
+                        palette,
+                        decodedPalette.length(),
+                        workspace
+                );
+        int bitSize =
+                bitSize(
+                        roundedPaletteLength
+                );
+
+        if (bitSize == 0) {
+            return DecodedChunkLayer.constant(
+                    VALUE_COUNT,
+                    palette[0]
+            );
+        }
+
+        byte[] dataBitsBytes =
+                readCompressedDataBits(
+                        payload,
+                        decodedPalette.nextOffset(),
+                        sourceLimit,
+                        bitSize,
+                        workspace
+                );
+        int bitPlaneLength =
+                Math.multiplyExact(
+                        Math.multiplyExact(
+                                bitSize,
+                                SLICE_COUNT
+                        ),
+                        Integer.BYTES
+                );
+
+        return DecodedChunkLayer.compactPaletteBits(
+                VALUE_COUNT,
+                palette,
+                roundedPaletteLength,
+                dataBitsBytes,
+                bitPlaneLength,
+                bitSize,
+                SLICE_COUNT,
+                SIZE
+        );
+    }
+
     public ChunkPaletteProbe probePalette(
             byte[] payload,
             int savedCompressionVersion
