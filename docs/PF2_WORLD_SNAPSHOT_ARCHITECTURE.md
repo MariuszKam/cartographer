@@ -86,11 +86,21 @@ must not alter source-read correctness.
 
 ### PF-2.1 — source ingest SQL strategy
 
-- reuse prepared statements where query shapes repeat;
-- add packed-position run analysis;
-- choose between point batches, range runs and whole-table stream using measured
-  request shape/cost rather than the current binary heuristic;
-- improve progress to separate source submission from decode drain.
+Implemented on the PF-2.1 branch:
+
+- repeated full-size point batches reuse a prepared statement; a distinct tail
+  shape is prepared at most once;
+- dense packed primary-key requests are compressed into exact consecutive runs;
+- clearly beneficial run sets use batched `BETWEEN` predicates without
+  reading gaps between runs;
+- sparse requests retain the point-batch/table-stream decision;
+- the table-cardinality probe preserves prior semantics while avoiding Java
+  iteration over `requested + 1` JDBC rows;
+- diagnostics distinguish statements prepared from statements executed.
+
+The range strategy changes only SQL traversal shape. It does not change the
+requested packed-position set, fallback ordering, chunk decode semantics, or
+source authority.
 
 ### PF-2.2 — decode/allocation reduction
 
