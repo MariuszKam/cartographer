@@ -15,6 +15,7 @@ import cartographer.perf.TerrainTileLookup;
 import cartographer.perf.TerrainTileStore;
 import cartographer.render.MapTerrainPreparation;
 import cartographer.render.RenderOptions;
+import cartographer.save.ChunkReadMetrics;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
@@ -342,6 +343,7 @@ public final class PrepareMapDataUseCase {
                     surfaceSession::acceptFastChunk,
                     progress
             );
+            recordChunkReadDiagnostics(cache, "Surface fast");
         }
 
         List<MapChunkCoordinate> fallbackMapChunks =
@@ -358,6 +360,7 @@ public final class PrepareMapDataUseCase {
                     surfaceSession::acceptFallbackChunk,
                     progress
             );
+            recordChunkReadDiagnostics(cache, "Surface fallback");
         }
 
         SurfaceRainHeightScanResult result = surfaceSession.finish();
@@ -387,6 +390,39 @@ public final class PrepareMapDataUseCase {
                 diagnostics.columnsScanned(),
                 diagnostics.emptyColumns(),
                 diagnostics.liquidUnavailableColumns()
+        );
+    }
+
+    private void recordChunkReadDiagnostics(
+            CacheContext cache,
+            String label
+    ) {
+        reader.lastChunkReadMetrics().ifPresent(metrics ->
+                cache.notes.add(formatChunkReadMetrics(label, metrics))
+        );
+    }
+
+    private String formatChunkReadMetrics(
+            String label,
+            ChunkReadMetrics metrics
+    ) {
+        double mib = metrics.payloadBytes() / (1024.0 * 1024.0);
+        return String.format(
+                java.util.Locale.ROOT,
+                "%s read: %s, positions %d, batches %d, rows %d, payload %.1f MiB, "
+                        + "strategy %.1f ms, source %.1f ms, pipeline-wait %.1f ms, "
+                        + "drain %.1f ms, total %.1f ms",
+                label,
+                metrics.strategy(),
+                metrics.uniquePositionsRequested(),
+                metrics.batchesExecuted(),
+                metrics.rowsFound(),
+                mib,
+                metrics.strategyProbeNanos() / 1_000_000.0,
+                metrics.sourceReadNanos() / 1_000_000.0,
+                metrics.decodePipelineWaitNanos() / 1_000_000.0,
+                metrics.finalDrainNanos() / 1_000_000.0,
+                metrics.totalNanos() / 1_000_000.0
         );
     }
 
