@@ -4,6 +4,7 @@ import com.github.luben.zstd.Zstd;
 import cartographer.model.DecodedChunkLayer;
 
 import java.util.Arrays;
+import java.util.Objects;
 
 public class ChunkDataLayerDecoder {
     public static final int SIZE = 32;
@@ -86,6 +87,32 @@ public class ChunkDataLayerDecoder {
         return new ChunkPaletteProbe(
                 Arrays.copyOf(workspace.paletteBuffer(), palette.length())
         );
+    }
+
+    boolean paletteContainsAny(
+            byte[] payload,
+            int savedCompressionVersion,
+            int[] wantedBlockIds,
+            ChunkDecodeWorkspace workspace
+    ) {
+        Objects.requireNonNull(wantedBlockIds, "wantedBlockIds are required");
+        if (wantedBlockIds.length == 0) {
+            return false;
+        }
+        DecodedPalette decoded =
+                readPalette(payload, savedCompressionVersion, workspace);
+        int[] palette = workspace.paletteBuffer();
+        for (int paletteIndex = 0;
+             paletteIndex < decoded.length();
+             paletteIndex++) {
+            int value = palette[paletteIndex];
+            for (int wantedBlockId : wantedBlockIds) {
+                if (value == wantedBlockId) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private DecodedPalette readPalette(
