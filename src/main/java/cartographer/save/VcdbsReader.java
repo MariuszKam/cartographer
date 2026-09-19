@@ -273,16 +273,23 @@ public class VcdbsReader {
             Consumer<ParsedChunk> consumer,
             ProgressReporter progress
     ) {
+        long strategyProbeStart = System.nanoTime();
         boolean tableStream;
         try {
             tableStream = shouldUseChunkTableStream(connection, packedPositions.size());
         } catch (SQLException exception) {
             tableStream = false;
         }
+        long strategyProbeNanos = elapsedNanos(strategyProbeStart);
         if (tableStream) {
             try {
                 return forEachChunkByPositionTableStream(
-                        connection, packedPositions, diagnostics, consumer, progress
+                        connection,
+                        packedPositions,
+                        diagnostics,
+                        consumer,
+                        progress,
+                        strategyProbeNanos
                 );
             } catch (SQLException exception) {
                 throw new CommandException(
@@ -294,7 +301,12 @@ public class VcdbsReader {
         }
         try {
             return forEachChunkByPosition(
-                    connection, packedPositions, diagnostics, consumer, progress
+                    connection,
+                    packedPositions,
+                    diagnostics,
+                    consumer,
+                    progress,
+                    strategyProbeNanos
             );
         } catch (SQLException exception) {
             throw new CommandException(
@@ -770,7 +782,12 @@ public class VcdbsReader {
 
         try (Connection connection = connectionFactory.openReadOnly(savePath)) {
             return forEachChunkByPositionTableStream(
-                    connection, packedPositions, diagnostics, consumer, progress
+                    connection,
+                    packedPositions,
+                    diagnostics,
+                    consumer,
+                    progress,
+                    0L
             );
         } catch (SQLException exception) {
             throw new CommandException(
@@ -844,7 +861,12 @@ public class VcdbsReader {
         }
         try (Connection connection = connectionFactory.openReadOnly(savePath)) {
             return forEachChunkByPosition(
-                    connection, packedPositions, diagnostics, consumer, progress
+                    connection,
+                    packedPositions,
+                    diagnostics,
+                    consumer,
+                    progress,
+                    0L
             );
         } catch (SQLException exception) {
             throw new CommandException(
