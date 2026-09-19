@@ -43,6 +43,13 @@ class WorldIndexCatalogStoreTest {
         store.markMapChunkScanComplete();
 
         assertTrue(store.mapChunkScanComplete());
+        assertEquals(
+                java.util.Set.of(new MapChunkCoordinate(3, 2)),
+                store.observedAmong(List.of(
+                        new MapChunkCoordinate(3, 2),
+                        new MapChunkCoordinate(9, 9)
+                ))
+        );
     }
 
     @Test
