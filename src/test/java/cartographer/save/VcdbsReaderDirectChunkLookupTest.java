@@ -87,9 +87,11 @@ class VcdbsReaderDirectChunkLookupTest {
     }
 
     @Test
-    void adaptiveUsesDirectLookupWhenTableContainsMoreRowsThanRequest() throws Exception {
-        Path database = databaseWithRowCount(300);
-        List<ChunkPosition> requested = positions(257);
+    void adaptiveUsesDirectLookupForSparseRequestWhenTableContainsMoreRows()
+            throws Exception {
+        List<ChunkPosition> allRows = spacedPositions(300);
+        Path database = databaseWithRows(allRows.toArray(ChunkPosition[]::new));
+        List<ChunkPosition> requested = allRows.subList(0, 257);
         CountingSqliteSaveConnection connections = new CountingSqliteSaveConnection();
 
         ChunkStreamStats stats = new VcdbsReader(
@@ -106,14 +108,19 @@ class VcdbsReaderDirectChunkLookupTest {
     }
 
     @Test
-    void adaptiveUsesTableStreamWhenRequestExceedsTableCardinality() throws Exception {
-        Path database = databaseWithRowCount(300);
+    void adaptiveUsesTableStreamForSparseRequestExceedingTableCardinality()
+            throws Exception {
+        List<ChunkPosition> existing = spacedPositions(300);
+        Path database = databaseWithRows(existing.toArray(ChunkPosition[]::new));
         CountingSqliteSaveConnection connections = new CountingSqliteSaveConnection();
 
         ChunkStreamStats stats = new VcdbsReader(
                 null, null, new StubChunkParser(), null, connections
         ).forEachChunkByPositionAdaptive(
-                database, positions(320), new ReadDiagnostics(), ignored -> { }
+                database,
+                spacedPositions(320),
+                new ReadDiagnostics(),
+                ignored -> { }
         );
 
         assertEquals(320, stats.uniquePositionsRequested());
@@ -125,13 +132,15 @@ class VcdbsReaderDirectChunkLookupTest {
     }
 
     @Test
-    void adaptiveUsesTableStreamWhenRequestEqualsTableCardinality() throws Exception {
-        Path database = databaseWithRowCount(300);
+    void adaptiveUsesTableStreamForSparseRequestEqualToTableCardinality()
+            throws Exception {
+        List<ChunkPosition> requested = spacedPositions(300);
+        Path database = databaseWithRows(requested.toArray(ChunkPosition[]::new));
 
         ChunkStreamStats stats = new VcdbsReader(
                 null, null, new StubChunkParser(), null, new CountingSqliteSaveConnection()
         ).forEachChunkByPositionAdaptive(
-                database, positions(300), new ReadDiagnostics(), ignored -> { }
+                database, requested, new ReadDiagnostics(), ignored -> { }
         );
 
         assertEquals(1, stats.batchesExecuted());
@@ -197,7 +206,8 @@ class VcdbsReaderDirectChunkLookupTest {
 
     @Test
     void adaptiveTableStreamPublishesChosenStrategyMetrics() throws Exception {
-        Path database = databaseWithRowCount(300);
+        List<ChunkPosition> existing = spacedPositions(300);
+        Path database = databaseWithRows(existing.toArray(ChunkPosition[]::new));
         AtomicReference<ChunkReadMetrics> observed = new AtomicReference<>();
         VcdbsReader reader = new VcdbsReader(
                 null,
@@ -210,7 +220,7 @@ class VcdbsReaderDirectChunkLookupTest {
 
         ChunkStreamStats stats = reader.forEachChunkByPositionAdaptive(
                 database,
-                positions(320),
+                spacedPositions(320),
                 new ReadDiagnostics(),
                 ignored -> { }
         );
@@ -251,6 +261,71 @@ class VcdbsReaderDirectChunkLookupTest {
                 ChunkReadStrategy.EXACT_POSITION_BATCHES,
                 reader.lastChunkReadMetrics().orElseThrow().strategy()
         );
+    }
+
+    @Test
+    void adaptiveDenseRequestUsesPackedRangeRuns() throws Exception {
+        List<ChunkPosition> requested = positions(1024);
+        Path database = databaseWithRows(
+                requested.toArray(ChunkPosition[]::new)
+        );
+        AtomicReference<ChunkReadMetrics> observed = new AtomicReference<>();
+        VcdbsReader reader = new VcdbsReader(
+                null,
+                null,
+                new StubChunkParser(),
+                null,
+                new CountingSqliteSaveConnection(),
+                observed::set
+        );
+
+        ChunkStreamStats stats = reader.forEachChunkByPositionAdaptive(
+                database,
+                requested,
+                new ReadDiagnostics(),
+                ignored -> { }
+        );
+
+        assertEquals(1024, stats.rowsFound());
+        assertEquals(1024, stats.parsedChunks());
+        assertEquals(1, stats.batchesExecuted());
+        assertEquals(
+                ChunkReadStrategy.RANGE_RUN_BATCHES,
+                observed.get().strategy()
+        );
+        assertEquals(1, observed.get().statementsPrepared());
+        assertEquals(1, observed.get().statementsExecuted());
+    }
+
+    @Test
+    void explicitDirectLookupReusesFullBatchPreparedStatement()
+            throws Exception {
+        List<ChunkPosition> requested = positions(600);
+        Path database = databaseWithRows(
+                requested.toArray(ChunkPosition[]::new)
+        );
+        AtomicReference<ChunkReadMetrics> observed = new AtomicReference<>();
+        VcdbsReader reader = new VcdbsReader(
+                null,
+                null,
+                new StubChunkParser(),
+                null,
+                new CountingSqliteSaveConnection(),
+                observed::set
+        );
+
+        ChunkStreamStats stats = reader.forEachChunkByPosition(
+                database,
+                requested,
+                new ReadDiagnostics(),
+                ignored -> { }
+        );
+
+        ChunkReadMetrics metrics = observed.get();
+        assertEquals(3, stats.batchesExecuted());
+        assertEquals(2, metrics.statementsPrepared());
+        assertEquals(3, metrics.statementsExecuted());
+        assertEquals(ChunkReadStrategy.EXACT_POSITION_BATCHES, metrics.strategy());
     }
 
     @Test
@@ -620,6 +695,14 @@ class VcdbsReaderDirectChunkLookupTest {
         List<ChunkPosition> positions = new ArrayList<>();
         for (int index = 0; index < count; index++) {
             positions.add(new ChunkPosition(index, 0, 0, 0));
+        }
+        return positions;
+    }
+
+    private List<ChunkPosition> spacedPositions(int count) {
+        List<ChunkPosition> positions = new ArrayList<>();
+        for (int index = 0; index < count; index++) {
+            positions.add(new ChunkPosition(index * 2, 0, 0, 0));
         }
         return positions;
     }
