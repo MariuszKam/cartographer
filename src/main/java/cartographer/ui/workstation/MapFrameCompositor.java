@@ -95,12 +95,20 @@ public final class MapFrameCompositor {
                 layers
         );
 
+        cartographer.application.PreparedSurfaceData surface =
+                prepared.surface();
+        cartographer.scanner.SurfaceMap exactSoil =
+                layers.contains(RenderLayer.SOIL_FERTILITY)
+                        ? surface.requireAnalysis().map()
+                        : null;
+
         RenderedMap rendered = mapRenderer.render(
                 prepared.center(),
                 prepared.player(),
                 decorations.home(),
                 prepared.terrain(),
-                prepared.surface().map(),
+                surface.renderData(),
+                exactSoil,
                 prepared.registry(),
                 options,
                 progress

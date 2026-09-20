@@ -461,8 +461,11 @@ public record MapFrame(
                 && (!terrainDataPrepared || !surfaceDataPrepared)) {
             return false;
         }
-        return !layers.contains(RenderLayer.SOIL_FERTILITY)
-                || surfaceDataPrepared;
+        if (layers.contains(RenderLayer.SOIL_FERTILITY)) {
+            return surfaceDataPrepared
+                    && prepared.surface().analysis().isPresent();
+        }
+        return true;
     }
 
     private static void requirePreparedOnly(
