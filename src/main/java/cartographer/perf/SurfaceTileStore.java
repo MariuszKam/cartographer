@@ -22,6 +22,17 @@ public final class SurfaceTileStore {
     private static final String DATABASE_FILE = "surface-cache.sqlite";
     private static final int SELECT_BATCH_SIZE = 400;
 
+    @FunctionalInterface
+    public interface LookupVisitor {
+        /**
+         * @return true to continue visiting, false to stop after this lookup
+         */
+        boolean visit(
+                MapChunkCoordinate coordinate,
+                SurfaceTileLookup lookup
+        );
+    }
+
     private final RenderDataCacheStore cacheStore;
     private final RenderDataCacheRevision revision;
     private final Path databasePath;
@@ -50,6 +61,81 @@ public final class SurfaceTileStore {
         } catch (SQLException exception) {
             requested.forEach(coordinate -> results.put(coordinate, SurfaceTileLookup.corrupt()));
             return results;
+        }
+    }
+
+    /**
+     * Visits requested lookups in first-occurrence request order while keeping
+     * at most one SELECT batch of decoded tiles live at a time.
+     *
+     * @return true when every unique requested coordinate was visited; false
+     * when the visitor stopped iteration early
+     */
+    public boolean forEachLookup(
+            Collection<MapChunkCoordinate> coordinates,
+            LookupVisitor visitor
+    ) {
+        List<MapChunkCoordinate> requested = uniqueCoordinates(coordinates);
+        Objects.requireNonNull(visitor, "lookup visitor is required");
+        if (requested.isEmpty()) {
+            return true;
+        }
+        if (cacheStore.find(revision).isEmpty()
+                || !Files.isRegularFile(databasePath)) {
+            return emit(
+                    requested,
+                    0,
+                    SurfaceTileLookup.miss(),
+                    visitor
+            );
+        }
+
+        try (Connection connection = openDatabase(false)) {
+            ensureSchema(connection);
+            for (int start = 0;
+                 start < requested.size();
+                 start += SELECT_BATCH_SIZE) {
+                int end = Math.min(
+                        start + SELECT_BATCH_SIZE,
+                        requested.size()
+                );
+                List<MapChunkCoordinate> batch =
+                        requested.subList(start, end);
+                Map<MapChunkCoordinate, SurfaceTileLookup> results =
+                        new LinkedHashMap<>();
+                batch.forEach(
+                        coordinate -> results.put(
+                                coordinate,
+                                SurfaceTileLookup.miss()
+                        )
+                );
+                try {
+                    readBatch(connection, batch, results);
+                } catch (SQLException exception) {
+                    return emit(
+                            requested,
+                            start,
+                            SurfaceTileLookup.corrupt(),
+                            visitor
+                    );
+                }
+                for (MapChunkCoordinate coordinate : batch) {
+                    if (!visitor.visit(
+                            coordinate,
+                            results.get(coordinate)
+                    )) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        } catch (SQLException exception) {
+            return emit(
+                    requested,
+                    0,
+                    SurfaceTileLookup.corrupt(),
+                    visitor
+            );
         }
     }
 
@@ -131,6 +217,20 @@ public final class SurfaceTileStore {
                     + "mapchunk_x INTEGER NOT NULL, mapchunk_z INTEGER NOT NULL, payload BLOB NOT NULL,"
                     + "PRIMARY KEY (mapchunk_x, mapchunk_z))");
         }
+    }
+
+    private static boolean emit(
+            List<MapChunkCoordinate> requested,
+            int start,
+            SurfaceTileLookup lookup,
+            LookupVisitor visitor
+    ) {
+        for (int index = start; index < requested.size(); index++) {
+            if (!visitor.visit(requested.get(index), lookup)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static List<MapChunkCoordinate> uniqueCoordinates(Collection<MapChunkCoordinate> coordinates) {

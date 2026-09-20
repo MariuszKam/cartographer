@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -91,6 +92,42 @@ class TerrainTileStoreTest {
                 result.get(new MapChunkCoordinate(8, 9)).status()
         );
         assertTrue(tileStore.databasePath().startsWith(cacheRoot.toAbsolutePath().normalize()));
+    }
+
+    @Test
+    void streamingLookupVisitsInRequestOrderAndCanStopEarly(@TempDir Path cacheRoot) {
+        RenderDataCacheStore cacheStore = new RenderDataCacheStore(cacheRoot);
+        RenderDataCacheRevision revision = revision(6);
+        cacheStore.publish(revision);
+        TerrainTileStore tileStore = new TerrainTileStore(cacheStore, revision);
+        MapChunkCoordinate first = new MapChunkCoordinate(1, 2);
+        MapChunkCoordinate missing = new MapChunkCoordinate(8, 9);
+        MapChunkCoordinate third = new MapChunkCoordinate(3, 4);
+        tileStore.publish(List.of(
+                new TerrainHeightTile(first, false, true, filled(5)),
+                new TerrainHeightTile(third, false, true, filled(7))
+        ));
+
+        List<MapChunkCoordinate> visited = new ArrayList<>();
+        List<TerrainTileLookup.Status> statuses = new ArrayList<>();
+        boolean exhausted = tileStore.forEachLookup(
+                List.of(first, missing, third, first),
+                (coordinate, lookup) -> {
+                    visited.add(coordinate);
+                    statuses.add(lookup.status());
+                    return visited.size() < 2;
+                }
+        );
+
+        assertFalse(exhausted);
+        assertEquals(List.of(first, missing), visited);
+        assertEquals(
+                List.of(
+                        TerrainTileLookup.Status.HIT,
+                        TerrainTileLookup.Status.MISS
+                ),
+                statuses
+        );
     }
 
     @Test
