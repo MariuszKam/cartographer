@@ -35,6 +35,7 @@ import cartographer.scanner.SurfaceTile;
 import cartographer.scanner.SurfaceTileAccumulator;
 import cartographer.scanner.SurfaceTileDiagnosticSummary;
 import cartographer.scanner.SurfaceTileLayout;
+import cartographer.snapshot.SnapshotPreparedMapDataReader;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -60,6 +61,7 @@ public final class PrepareMapDataUseCase {
     private final VcdbsReader reader;
     private final SaveSessionFactory sessionFactory;
     private final Optional<RenderDataCacheStore> renderDataCacheStore;
+    private final Optional<SnapshotPreparedMapDataReader> snapshotReader;
     private final MapChunkRenderWindowPlanner mapChunkRenderWindowPlanner =
             new MapChunkRenderWindowPlanner();
     private final MapChunkPositionPlanner mapChunkPositionPlanner =
@@ -112,6 +114,9 @@ public final class PrepareMapDataUseCase {
                 renderDataCacheStore,
                 "render data cache option is required"
         );
+        this.snapshotReader = this.renderDataCacheStore.map(
+                SnapshotPreparedMapDataReader::new
+        );
     }
 
     public PreparedMapData execute(
@@ -120,9 +125,28 @@ public final class PrepareMapDataUseCase {
     ) {
         Objects.requireNonNull(request, "request is required");
         Objects.requireNonNull(progress, "progress is required");
+
+        Optional<PreparedMapData> snapshot =
+                executeSnapshot(request, progress);
+        if (snapshot.isPresent()) {
+            return snapshot.orElseThrow();
+        }
+
         try (SaveSession session = sessionFactory.open(request.savePath())) {
             return execute(session, request, progress);
         }
+    }
+
+    public Optional<PreparedMapData> executeSnapshot(
+            PrepareMapDataRequest request,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(request, "request is required");
+        Objects.requireNonNull(progress, "progress is required");
+        if (snapshotReader.isEmpty()) {
+            return Optional.empty();
+        }
+        return snapshotReader.orElseThrow().read(request, progress);
     }
 
     public PreparedMapData execute(

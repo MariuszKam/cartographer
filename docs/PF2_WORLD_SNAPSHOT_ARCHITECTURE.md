@@ -207,9 +207,8 @@ Implemented on the PF-2.4 branch:
   retained after the operation. All new databases remain below the external
   revision cache namespace.
 
-PF-2.4 builds the derived data but does **not** yet route Geology/Map overlays
-through it. Consumer routing remains PF-2.6, so source reads are still the
-authoritative fallback until that stage.
+PF-2.4 builds the derived data; PF-2.6 now routes compatible Geology/Map
+consumers through it while preserving authoritative source fallback.
 
 Surface planning/fallback code is untouched by PF-2.4. In particular, the
 explicit no-top-down-early-stop correctness boundary remains unchanged.
@@ -269,9 +268,67 @@ Runtime tests and real-save validation remain reviewer-controlled.
 
 ### PF-2.6 — snapshot-backed operations
 
-Route compatible Map, Surface, Geology and Prospecting operations to the
-derived snapshot. Source reads remain the authoritative fallback for missing
-snapshot coverage.
+Implemented on the PF-2.6 branch:
+
+- the revision namespace now persists a small `WorldSnapshotHeader` containing
+  `WorldMetadata`, the block registry and optional PLAYER position. The
+  header is derived during snapshot preparation and is never source authority;
+- `SnapshotPreparedMapDataReader` can compose existing
+  `PreparedMapData` entirely from Terrain/Surface snapshot stores. It
+  requires a compatible header, complete authoritative mapchunk catalog, all
+  required Terrain evidence and complete Surface tiles. A missing/corrupt
+  required artifact returns a snapshot MISS instead of guessing;
+- known-unobserved mapchunks may satisfy missing Terrain rows only when the
+  authoritative mapchunk catalog has published its scan-complete marker.
+  Missing mapchunks are deliberately **not** used to infer server-chunk or
+  Surface absence;
+- compatible Map renders are resolved before opening a source
+  `SaveSession`. Terrain/Surface, mapregion Environment/Geology and
+  `ORE_CODE` actual-ore overlays can therefore render from the current
+  revision snapshot. Generic substring ore queries remain source-authoritative;
+- Surface resource renders use the same snapshot-prepared compact Surface
+  state and existing analyzers/renderers. A complete warm Surface render no
+  longer enters the source exact-position chunk reader;
+- full-range `UPPER_ROCK` Geology resolves metadata/registry/center from the
+  snapshot header and ROCK tiles before source-session creation. `AT_Y` and
+  custom vertical ranges remain source-authoritative because PF-2.4 does not
+  claim authority for those views;
+- Prospecting can consume snapshot mapregion OreMaps, UPPER_ROCK and the PF-2.5
+  actual-resource occurrence index without opening the game database. The same
+  `ResourceAnalyzer` and evaluation logic are reused so worldgen-signal
+  semantics are unchanged;
+- every snapshot consumer keeps the established source implementation as the
+  authoritative fallback. Derived read errors are treated as MISS/CORRUPT, but
+  cancellation/interruption is propagated and must never be converted into a
+  hidden source fallback;
+- use-case-level tests pin the core warm-path invariant by using source
+  connections that fail if opened, plus incomplete-coverage tests that require
+  fallback.
+
+PF-2.6 changes only where compatible data are read from. It does **not** change
+Surface planning, fallback Y ordering, fallback scan semantics or the explicit
+ban on top-down early-stop fallback.
+
+The intended warm path is now:
+
+```text
+revision check
+    -> WorldSnapshotHeader
+    -> compact Terrain / Surface / Mapregion / ROCK / Resource stores
+    -> existing analysis/renderers
+    -> raster/result
+```
+
+rather than:
+
+```text
+open source SQLite
+    -> parse/decode source chunks
+    -> analyze
+    -> render
+```
+
+Any missing compatibility/coverage proof selects the second path.
 
 ### PF-2.7 — Prepare World UX
 

@@ -29,6 +29,7 @@ import cartographer.perf.UpperRockTileBatchIndexer;
 import cartographer.perf.UpperRockTileLookup;
 import cartographer.perf.UpperRockTileStore;
 import cartographer.perf.WorldDataSnapshot;
+import cartographer.perf.WorldSnapshotHeader;
 import cartographer.perf.WorldIndexCatalogStore;
 import cartographer.save.MapRegionStreamStats;
 import cartographer.save.ReadDiagnostics;
@@ -147,6 +148,23 @@ public final class PrepareWorldSnapshotUseCase {
         ));
         WorldMetadata metadata = session.snapshot().metadata();
         Map<Integer, BlockInfo> registry = session.snapshot().blockRegistry();
+        if (snapshot.headerStore().read().isEmpty()) {
+            Optional<cartographer.model.WorldPosition> player;
+            try {
+                player = Optional.of(
+                        reader.readPlayerPosition(session, progress)
+                );
+            } catch (RuntimeException unavailable) {
+                player = Optional.empty();
+            }
+            snapshot.headerStore().publish(
+                    new WorldSnapshotHeader(
+                            metadata,
+                            registry,
+                            player
+                    )
+            );
+        }
         TerrainTileStore terrainStore = snapshot.terrainStore();
         SurfaceTileStore surfaceStore = snapshot.surfaceStore();
         WorldIndexCatalogStore indexStore = snapshot.indexCatalogStore();
@@ -586,7 +604,8 @@ public final class PrepareWorldSnapshotUseCase {
                             new MapRegionSnapshotEntry(
                                     region.coordinate(),
                                     environmentInterpreter.interpret(region),
-                                    geologicProvinceInterpreter.summarize(region)
+                                    geologicProvinceInterpreter.summarize(region),
+                                    region.oreMaps()
                             )
                     );
                     if (buffer.size() >= MAPREGION_BATCH_SIZE) {

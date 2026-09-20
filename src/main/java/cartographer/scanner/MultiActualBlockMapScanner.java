@@ -2,6 +2,7 @@ package cartographer.scanner;
 
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
+import cartographer.model.ChunkPosition;
 import cartographer.model.ParsedChunk;
 
 import java.util.ArrayList;
@@ -252,6 +253,83 @@ public class MultiActualBlockMapScanner {
                         }
                     }
                 }
+            }
+        }
+
+        /**
+         * Feeds one compact PF-2.5 occurrence column without materializing a
+         * ParsedChunk. Semantics match accept(ParsedChunk): circle and Y
+         * filtering are applied before the same mutable maps are updated.
+         */
+        public void acceptIndexedOccurrence(
+                ChunkPosition position,
+                int blockId,
+                int localX,
+                int localZ,
+                long localYMask
+        ) {
+            Objects.requireNonNull(position, "position is required");
+            if (position.dimension() != 0) {
+                throw new IllegalArgumentException(
+                        "indexed ore occurrences require main-world dimension 0"
+                );
+            }
+            if (localX < 0 || localX >= ChunkCoordinate.SIZE_BLOCKS
+                    || localZ < 0 || localZ >= ChunkCoordinate.SIZE_BLOCKS) {
+                throw new IllegalArgumentException(
+                        "indexed ore local X/Z must be within 0..31"
+                );
+            }
+            if (localYMask == 0L
+                    || (localYMask & ~0xffff_ffffL) != 0L) {
+                throw new IllegalArgumentException(
+                        "indexed ore Y mask must contain bits only within 0..31"
+                );
+            }
+
+            int[] resourceIndexes = blockMatches.get(blockId);
+            if (resourceIndexes == null || resourceIndexes.length == 0) {
+                return;
+            }
+            int baseX = Math.multiplyExact(
+                    position.x(),
+                    ChunkCoordinate.SIZE_BLOCKS
+            );
+            int baseZ = Math.multiplyExact(
+                    position.z(),
+                    ChunkCoordinate.SIZE_BLOCKS
+            );
+            int worldX = Math.addExact(baseX, localX);
+            int worldZ = Math.addExact(baseZ, localZ);
+            int radius = maps.isEmpty() ? 0 : maps.getFirst().radius;
+            int centerX = maps.isEmpty() ? 0 : maps.getFirst().centerX;
+            int centerZ = maps.isEmpty() ? 0 : maps.getFirst().centerZ;
+            long dx = (long) worldX - centerX;
+            long dz = (long) worldZ - centerZ;
+            if (dx * dx + dz * dz > (long) radius * radius) {
+                return;
+            }
+            ActualBlockYFilter yFilter = maps.isEmpty()
+                    ? ActualBlockYFilter.unbounded()
+                    : maps.getFirst().yFilter;
+            int chunkMinY = Math.multiplyExact(
+                    position.y(),
+                    ChunkCoordinate.SIZE_BLOCKS
+            );
+            long remaining = localYMask;
+            while (remaining != 0L) {
+                int localY = Long.numberOfTrailingZeros(remaining);
+                int worldY = Math.addExact(chunkMinY, localY);
+                if (yFilter.includes(worldY)) {
+                    for (int resourceIndex : resourceIndexes) {
+                        maps.get(resourceIndex).add(
+                                worldX,
+                                worldZ,
+                                worldY
+                        );
+                    }
+                }
+                remaining &= remaining - 1L;
             }
         }
 

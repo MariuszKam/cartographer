@@ -12,6 +12,9 @@ import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
 import cartographer.perf.RenderDataCacheRevision;
 import cartographer.perf.RenderDataCacheStore;
+import cartographer.perf.ResourceChunkIndexEntry;
+import cartographer.perf.ResourceOccurrence;
+import cartographer.perf.WorldDataSnapshot;
 import cartographer.perf.TerrainHeightTile;
 import cartographer.perf.TerrainTileStore;
 import cartographer.perf.SurfaceTileStore;
@@ -288,6 +291,156 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(
                 ImageFingerprinter.fingerprint(first.image()),
                 ImageFingerprinter.fingerprint(retained.image())
+        );
+    }
+
+    @Test
+    void completeResourceSnapshotSkipsSelectiveOreSourceTraversal()
+            throws Exception {
+        Path savePath = temporaryDirectory.resolve(
+                "pf26-resource-save.vcdbs"
+        );
+        Files.write(savePath, new byte[]{1, 2, 3});
+        RenderDataCacheStore cacheStore = new RenderDataCacheStore(
+                temporaryDirectory.resolve("pf26-resource-cache")
+        );
+        WorldMetadata metadata = new WorldMetadata(128, 256, 128);
+        FakeReader reader = new FakeReader(Map.of(
+                1,
+                new BlockInfo(1, "ore-cassiterite-granite")
+        ));
+        WorldDataSnapshot snapshot =
+                WorldDataSnapshot.openOrCreate(
+                        cacheStore,
+                        savePath
+                ).orElseThrow();
+        snapshot.resourceIndexStore().publishBlockCatalog(List.of(
+                new BlockInfo(1, "ore-cassiterite-granite")
+        ));
+
+        List<ChunkPosition> positions = new OreChunkPositionPlanner().plan(
+                metadata,
+                64,
+                64,
+                16,
+                ActualBlockYFilter.unbounded()
+        );
+        List<ResourceChunkIndexEntry> entries =
+                new ArrayList<>();
+        for (ChunkPosition position : positions) {
+            if (position.x() == 2
+                    && position.y() == 0
+                    && position.z() == 2) {
+                entries.add(ResourceChunkIndexEntry.available(
+                        position,
+                        List.of(new ResourceOccurrence(
+                                position,
+                                1,
+                                0,
+                                0,
+                                1L << 5
+                        ))
+                ));
+            } else {
+                entries.add(ResourceChunkIndexEntry.available(
+                        position,
+                        List.of()
+                ));
+            }
+        }
+        snapshot.resourceIndexStore().publish(entries);
+
+        RenderActualOreMapUseCase useCase = useCase(
+                reader,
+                metadata,
+                temporaryDirectory.resolve("pf26-resource-home.properties"),
+                temporaryDirectory.resolve("pf26-resource-markers.csv"),
+                cacheStore
+        );
+        RenderActualOreMapResult result = useCase.execute(
+                new RenderActualOreMapRequest(
+                        savePath,
+                        16,
+                        1,
+                        RenderStyle.TOPOGRAPHIC,
+                        Set.of(RenderLayer.TERRAIN),
+                        Optional.of("cassiterite"),
+                        ActualBlockYFilter.unbounded(),
+                        Optional.of(new WorldPosition(64, 64, 64)),
+                        List.of(new ActualOreOverlaySpec(
+                                "Cassiterite",
+                                "cassiterite",
+                                Color.ORANGE,
+                                ActualBlockMatchMode.ORE_CODE
+                        ))
+                )
+        );
+
+        assertEquals(0, reader.adaptiveSelectiveCalls);
+        assertEquals(
+                1,
+                result.actualOreOverlays()
+                        .getFirst()
+                        .map()
+                        .matchingBlocks()
+        );
+        assertEquals(
+                5,
+                result.actualOreOverlays()
+                        .getFirst()
+                        .map()
+                        .minMatchedY()
+        );
+    }
+
+    @Test
+    void healthyCompleteMapregionSnapshotSkipsSourceMapregionRead()
+            throws Exception {
+        Path savePath = temporaryDirectory.resolve(
+                "pf26-mapregion-save.vcdbs"
+        );
+        Files.write(savePath, new byte[]{4, 5, 6});
+        RenderDataCacheStore cacheStore = new RenderDataCacheStore(
+                temporaryDirectory.resolve("pf26-mapregion-cache")
+        );
+        WorldDataSnapshot snapshot =
+                WorldDataSnapshot.openOrCreate(
+                        cacheStore,
+                        savePath
+                ).orElseThrow();
+        snapshot.mapRegionStore().markScanComplete();
+
+        FakeReader reader = new FakeReader(Map.of());
+        RenderActualOreMapUseCase useCase = useCase(
+                reader,
+                new WorldMetadata(128, 256, 128),
+                temporaryDirectory.resolve("pf26-region-home.properties"),
+                temporaryDirectory.resolve("pf26-region-markers.csv"),
+                cacheStore
+        );
+
+        RenderActualOreMapResult result = useCase.execute(
+                new RenderActualOreMapRequest(
+                        savePath,
+                        16,
+                        1,
+                        RenderStyle.TOPOGRAPHIC,
+                        Set.of(
+                                RenderLayer.TERRAIN,
+                                RenderLayer.ENVIRONMENT
+                        ),
+                        Optional.empty(),
+                        ActualBlockYFilter.unbounded(),
+                        Optional.of(new WorldPosition(64, 64, 64)),
+                        List.of()
+                )
+        );
+
+        assertEquals(0, reader.sessionMapRegionCalls);
+        assertTrue(
+                result.mapRegionOverlayState()
+                        .orElseThrow()
+                        .environmentPrepared()
         );
     }
 
