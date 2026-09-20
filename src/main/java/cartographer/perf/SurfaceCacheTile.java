@@ -170,28 +170,32 @@ public final class SurfaceCacheTile implements CachedSurfaceTileView {
     }
 
     @Override
-    public byte stateAt(int localX, int localZ) {
-        return state[index(localX, localZ)];
+    public byte stateAtIndex(int cellIndex) {
+        return state[Objects.checkIndex(cellIndex, state.length)];
     }
 
     @Override
-    public int surfaceYAt(int localX, int localZ) {
-        return surfaceY[index(localX, localZ)];
+    public int surfaceYAtIndex(int cellIndex) {
+        return surfaceY[Objects.checkIndex(cellIndex, surfaceY.length)];
     }
 
     @Override
-    public int blockIdAt(int localX, int localZ) {
-        return blockIds[index(localX, localZ)];
+    public int blockIdAtIndex(int cellIndex) {
+        return blockIds[Objects.checkIndex(cellIndex, blockIds.length)];
     }
 
     @Override
-    public int liquidBlockIdAt(int localX, int localZ) {
-        return liquidBlockIds[index(localX, localZ)];
+    public int liquidBlockIdAtIndex(int cellIndex) {
+        return liquidBlockIds[
+                Objects.checkIndex(cellIndex, liquidBlockIds.length)
+        ];
     }
 
     @Override
-    public byte surfaceClassCodeAt(int localX, int localZ) {
-        return surfaceClassCodes[index(localX, localZ)];
+    public byte surfaceClassCodeAtIndex(int cellIndex) {
+        return surfaceClassCodes[
+                Objects.checkIndex(cellIndex, surfaceClassCodes.length)
+        ];
     }
 
     byte[] stateView() { return state; }

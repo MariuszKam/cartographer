@@ -192,28 +192,28 @@ class SurfaceStreamingSessionTest {
             }
 
             @Override
-            public byte stateAt(int localX, int localZ) {
-                return state[localZ * 32 + localX];
+            public byte stateAtIndex(int cellIndex) {
+                return state[cellIndex];
             }
 
             @Override
-            public int surfaceYAt(int localX, int localZ) {
-                return surfaceY[localZ * 32 + localX];
+            public int surfaceYAtIndex(int cellIndex) {
+                return surfaceY[cellIndex];
             }
 
             @Override
-            public int blockIdAt(int localX, int localZ) {
-                return blockIds[localZ * 32 + localX];
+            public int blockIdAtIndex(int cellIndex) {
+                return blockIds[cellIndex];
             }
 
             @Override
-            public int liquidBlockIdAt(int localX, int localZ) {
-                return liquidIds[localZ * 32 + localX];
+            public int liquidBlockIdAtIndex(int cellIndex) {
+                return liquidIds[cellIndex];
             }
 
             @Override
-            public byte surfaceClassCodeAt(int localX, int localZ) {
-                return classes[localZ * 32 + localX];
+            public byte surfaceClassCodeAtIndex(int cellIndex) {
+                return classes[cellIndex];
             }
 
             @Override

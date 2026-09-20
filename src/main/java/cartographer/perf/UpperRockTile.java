@@ -4,7 +4,6 @@ import cartographer.geology.rock.RockColumnState;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;
 
-import java.util.Arrays;
 import java.util.Objects;
 
 /** Compact revision-scoped UPPER_ROCK state for one horizontal mapchunk. */

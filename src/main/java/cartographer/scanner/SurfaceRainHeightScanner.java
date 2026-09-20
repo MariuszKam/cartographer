@@ -227,9 +227,10 @@ public final class SurfaceRainHeightScanner {
             }
             for (int localZ = 0; localZ < height; localZ++) {
                 for (int localX = 0; localX < width; localX++) {
+                    int cellIndex = localZ * width + localX;
                     int worldX = plan.layout().worldXForTileLocal(coordinate.x(), localX);
                     int worldZ = plan.layout().worldZForTileLocal(coordinate.z(), localZ);
-                    byte cellState = tile.stateAt(localX, localZ);
+                    byte cellState = tile.stateAtIndex(cellIndex);
                     if ((cellState & SurfaceTile.CONSIDERED) != 0) {
                         accumulator.consider(worldX, worldZ);
                     }
@@ -241,11 +242,11 @@ public final class SurfaceRainHeightScanner {
                         accumulator.recordSurface(
                                 worldX,
                                 worldZ,
-                                tile.surfaceYAt(localX, localZ),
-                                tile.blockIdAt(localX, localZ),
-                                tile.liquidBlockIdAt(localX, localZ),
+                                tile.surfaceYAtIndex(cellIndex),
+                                tile.blockIdAtIndex(cellIndex),
+                                tile.liquidBlockIdAtIndex(cellIndex),
                                 SurfaceClassCode.decode(
-                                        tile.surfaceClassCodeAt(localX, localZ)
+                                        tile.surfaceClassCodeAtIndex(cellIndex)
                                 )
                         );
                     }

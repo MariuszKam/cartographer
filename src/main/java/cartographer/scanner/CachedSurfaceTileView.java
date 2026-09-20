@@ -15,15 +15,15 @@ public interface CachedSurfaceTileView {
 
     int height();
 
-    byte stateAt(int localX, int localZ);
+    byte stateAtIndex(int cellIndex);
 
-    int surfaceYAt(int localX, int localZ);
+    int surfaceYAtIndex(int cellIndex);
 
-    int blockIdAt(int localX, int localZ);
+    int blockIdAtIndex(int cellIndex);
 
-    int liquidBlockIdAt(int localX, int localZ);
+    int liquidBlockIdAtIndex(int cellIndex);
 
-    byte surfaceClassCodeAt(int localX, int localZ);
+    byte surfaceClassCodeAtIndex(int cellIndex);
 
     boolean fallbackMode();
 
