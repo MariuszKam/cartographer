@@ -29,10 +29,12 @@ import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.render.MapViewportGeometry;
 import cartographer.render.RenderedMap;
+import cartographer.render.SurfaceRenderData;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.render.ActualOreOverlayPainter;
 import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.SurfaceDiagnosticsSummary;
+import cartographer.scanner.SurfaceMap;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.MapChunkStreamStats;
@@ -873,7 +875,8 @@ class MapCommandTest {
                 WorldPosition player,
                 HomeState home,
                 MapTerrainPreparation terrain,
-                SurfaceMap surfaceMap,
+                SurfaceRenderData surfaceData,
+                SurfaceMap exactSurface,
                 Map<Integer, BlockInfo> registry,
                 RenderOptions options,
                 cartographer.application.ProgressReporter progress
