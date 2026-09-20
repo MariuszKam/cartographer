@@ -1,5 +1,6 @@
 package cartographer.perf;
 
+import cartographer.testing.IntegrationTest;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.SurfaceClass;
 import cartographer.model.SurfaceClassCode;
@@ -24,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@IntegrationTest
 class SurfaceCacheTileTest {
     private static final String SCHEMA = RenderDataCacheManifest.CURRENT_SCHEMA_VERSION;
     private static final String COMPATIBILITY = RenderDataCacheManifest.CURRENT_COMPATIBILITY_VERSION;

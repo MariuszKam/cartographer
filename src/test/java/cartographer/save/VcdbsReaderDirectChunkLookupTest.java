@@ -1,5 +1,7 @@
 package cartographer.save;
 
+import cartographer.testing.IntegrationTest;
+import cartographer.testing.ConcurrencyTest;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
 import cartographer.model.ParseResult;
@@ -31,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@IntegrationTest
 class VcdbsReaderDirectChunkLookupTest {
     private static final long TEST_DEADLOCK_TIMEOUT_SECONDS = 10;
 
@@ -550,6 +553,7 @@ class VcdbsReaderDirectChunkLookupTest {
     }
 
     @Test
+    @ConcurrencyTest
     void tableStreamDecodeStillRunsConcurrently() throws Exception {
         ChunkPosition first = new ChunkPosition(1, 0, 2, 0);
         ChunkPosition second = new ChunkPosition(3, 0, 4, 0);
@@ -593,6 +597,7 @@ class VcdbsReaderDirectChunkLookupTest {
     }
 
     @Test
+    @ConcurrencyTest
     void parallelDecodeOverlapsWhileConsumerRemainsCallerThread() throws Exception {
         ChunkPosition first = new ChunkPosition(1, 0, 2, 0);
         ChunkPosition second = new ChunkPosition(3, 0, 4, 0);
@@ -802,10 +807,18 @@ class VcdbsReaderDirectChunkLookupTest {
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database);
              PreparedStatement statement = connection.prepareStatement(
                      "INSERT INTO chunk(position, data) VALUES (?, ?)")) {
-            for (ChunkPosition position : positions) {
-                statement.setLong(1, ChunkPosEncoder.encode(position));
-                statement.setBytes(2, new byte[]{1});
-                statement.executeUpdate();
+            connection.setAutoCommit(false);
+            try {
+                for (ChunkPosition position : positions) {
+                    statement.setLong(1, ChunkPosEncoder.encode(position));
+                    statement.setBytes(2, new byte[]{1});
+                    statement.addBatch();
+                }
+                statement.executeBatch();
+                connection.commit();
+            } catch (Exception exception) {
+                connection.rollback();
+                throw exception;
             }
         }
         return database;

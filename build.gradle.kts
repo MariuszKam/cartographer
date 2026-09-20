@@ -160,9 +160,7 @@ application {
     applicationDefaultJvmArgs = listOf("--enable-native-access=ALL-UNNAMED")
 }
 
-tasks.test {
-    useJUnitPlatform()
-}
+apply(from = "gradle/test-architecture.gradle.kts")
 
 java {
     toolchain {

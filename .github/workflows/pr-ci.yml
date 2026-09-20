@@ -27,9 +27,20 @@ jobs:
           java-version: '25'
           cache: gradle
 
-      - name: Run tests
+      - name: Run test quality gate
         shell: pwsh
-        run: .\gradlew.bat test
+        run: .\gradlew.bat testQualityGate
+
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-evidence
+          if-no-files-found: warn
+          path: |
+            build/test-results/test/**
+            build/reports/tests/test/**
+            build/reports/test-performance/**
 
       - name: Validate PowerShell tooling syntax
         shell: pwsh

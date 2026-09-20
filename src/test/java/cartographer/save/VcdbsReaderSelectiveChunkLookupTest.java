@@ -1,5 +1,7 @@
 package cartographer.save;
 
+import cartographer.testing.IntegrationTest;
+import cartographer.testing.ConcurrencyTest;
 import cartographer.cli.ProgressReporter;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
@@ -34,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@IntegrationTest
 class VcdbsReaderSelectiveChunkLookupTest {
     private static final long TEST_DEADLOCK_TIMEOUT_SECONDS = 10;
 
@@ -185,6 +188,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
     }
 
     @Test
+    @ConcurrencyTest
     void selectiveDecodeWorkRunsConcurrently() throws Exception {
         ChunkPosition first = new ChunkPosition(1, 0, 2, 0);
         ChunkPosition second = new ChunkPosition(3, 0, 4, 0);
@@ -599,19 +603,33 @@ class VcdbsReaderSelectiveChunkLookupTest {
     }
 
     private Path databaseWithRows(int count) throws Exception {
-        Path database = databaseWithRow(
-                new ChunkPosition(0, 0, 0, 0), new byte[]{7}
+        Path database = temporaryDirectory.resolve(
+                "save-" + System.nanoTime() + ".vcdbs"
+        );
+        createDatabase(
+                database,
+                "CREATE TABLE chunk (position INTEGER PRIMARY KEY, data BLOB)"
         );
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database);
              PreparedStatement statement = connection.prepareStatement(
                      "INSERT INTO chunk(position, data) VALUES (?, ?)")) {
-            for (int index = 1; index < count; index++) {
-                statement.setLong(
-                        1,
-                        ChunkPosEncoder.encode(new ChunkPosition(index, 0, 0, 0))
-                );
-                statement.setBytes(2, new byte[]{7});
-                statement.executeUpdate();
+            connection.setAutoCommit(false);
+            try {
+                for (int index = 0; index < count; index++) {
+                    statement.setLong(
+                            1,
+                            ChunkPosEncoder.encode(
+                                    new ChunkPosition(index, 0, 0, 0)
+                            )
+                    );
+                    statement.setBytes(2, new byte[]{7});
+                    statement.addBatch();
+                }
+                statement.executeBatch();
+                connection.commit();
+            } catch (Exception exception) {
+                connection.rollback();
+                throw exception;
             }
         }
         return database;

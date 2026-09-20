@@ -1,5 +1,6 @@
 package cartographer.perf;
 
+import cartographer.testing.IntegrationTest;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkPosition;
 import org.junit.jupiter.api.Test;
@@ -16,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@IntegrationTest
 class ResourceIndexStoreTest {
 
     @TempDir

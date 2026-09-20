@@ -1,5 +1,6 @@
 package cartographer.save;
 
+import cartographer.testing.IntegrationTest;
 import cartographer.cli.ProgressReporter;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
@@ -21,6 +22,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@IntegrationTest
 class VcdbsReaderDirectMapChunkLookupTest {
 
     @TempDir
@@ -211,13 +213,23 @@ class VcdbsReaderDirectMapChunkLookupTest {
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database);
              PreparedStatement statement = connection.prepareStatement(
                      "INSERT INTO mapchunk(position, data) VALUES (?, ?)")) {
-            for (MapChunkCoordinate coordinate : coordinates) {
-                statement.setLong(
-                        1,
-                        ChunkPosEncoder.encode(coordinate.x(), 0, coordinate.z(), 0)
-                );
-                statement.setBytes(2, new byte[]{1});
-                statement.executeUpdate();
+            connection.setAutoCommit(false);
+            try {
+                for (MapChunkCoordinate coordinate : coordinates) {
+                    statement.setLong(
+                            1,
+                            ChunkPosEncoder.encode(
+                                    coordinate.x(), 0, coordinate.z(), 0
+                            )
+                    );
+                    statement.setBytes(2, new byte[]{1});
+                    statement.addBatch();
+                }
+                statement.executeBatch();
+                connection.commit();
+            } catch (Exception exception) {
+                connection.rollback();
+                throw exception;
             }
         }
         return database;

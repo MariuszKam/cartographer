@@ -253,6 +253,12 @@ final class BoundedStreamingDecodePipeline<T> implements AutoCloseable {
                 }
             }
         }
+        if (firstInterruption == null
+                && Thread.currentThread().isInterrupted()) {
+            firstInterruption = new InterruptedException(
+                    "interrupted while awaiting decode worker termination"
+            );
+        }
         if (firstInterruption != null) {
             Thread.currentThread().interrupt();
         }

@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.testing.ConcurrencyTest;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
@@ -42,6 +43,8 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DiscoverObservedSurfaceResourcesUseCaseTest {
+    private static final long TEST_DEADLOCK_TIMEOUT_SECONDS = 5;
+
     @Test
     void suppliesAllCandidateIdsToOneSelectiveScan() {
         FakeReader reader = new FakeReader();
@@ -76,6 +79,7 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
     }
 
     @Test
+    @ConcurrencyTest
     void interruptionClosesOperationScopedSession() throws Exception {
         CountDownLatch selectiveStarted = new CountDownLatch(1);
         CountDownLatch selectiveInterrupted = new CountDownLatch(1);
@@ -114,17 +118,39 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
             }
         });
 
-        assertTrue(selectiveStarted.await(5, TimeUnit.SECONDS));
-        operation.interrupt();
-        assertTrue(selectiveInterrupted.await(5, TimeUnit.SECONDS));
-        operation.join(TimeUnit.SECONDS.toMillis(5));
+        try {
+            awaitLatch(selectiveStarted, "selective scan started");
+            operation.interrupt();
+            awaitLatch(selectiveInterrupted, "selective scan interrupted");
+            joinThread(operation, "surface discovery operation");
 
-        assertFalse(operation.isAlive());
-        assertTrue(failure.get() instanceof CancellationException);
-        assertEquals(
-                new SaveSessionLifecycleProbe.Snapshot(1, 1),
-                probe.snapshot()
+            assertTrue(failure.get() instanceof CancellationException);
+            assertEquals(
+                    new SaveSessionLifecycleProbe.Snapshot(1, 1),
+                    probe.snapshot()
+            );
+        } finally {
+            operation.interrupt();
+            joinThread(operation, "surface discovery operation");
+        }
+    }
+
+    private static void awaitLatch(
+            CountDownLatch latch,
+            String description
+    ) throws InterruptedException {
+        assertTrue(
+                latch.await(TEST_DEADLOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                description + " was not signalled"
         );
+    }
+
+    private static void joinThread(
+            Thread thread,
+            String description
+    ) throws InterruptedException {
+        thread.join(TimeUnit.SECONDS.toMillis(TEST_DEADLOCK_TIMEOUT_SECONDS));
+        assertFalse(thread.isAlive(), description + " did not terminate");
     }
 
     private DiscoverObservedSurfaceResourcesUseCase useCase(

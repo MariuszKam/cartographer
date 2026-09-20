@@ -1,5 +1,6 @@
 package cartographer.perf;
 
+import cartographer.testing.IntegrationTest;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@IntegrationTest
 class TerrainTileStoreTest {
     private static final String SCHEMA = RenderDataCacheManifest.CURRENT_SCHEMA_VERSION;
     private static final String COMPATIBILITY = RenderDataCacheManifest.CURRENT_COMPATIBILITY_VERSION;
