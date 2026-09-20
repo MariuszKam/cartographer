@@ -24,6 +24,7 @@ public final class WorkstationWorldBar extends HBox {
     private Runnable onCheckForUpdates = () -> { };
     private Runnable onOpenUpdateRelease = () -> { };
     private Runnable onDownloadUpdate = () -> { };
+    private boolean updateReady;
 
     public WorkstationWorldBar(
             WorldPanel worldPanel,
@@ -104,6 +105,7 @@ public final class WorkstationWorldBar extends HBox {
     }
 
     public void showUpdateAvailable(ApplicationVersion availableVersion) {
+        updateReady = false;
         ApplicationVersion checkedVersion = Objects.requireNonNull(
                 availableVersion,
                 "availableVersion is required"
@@ -133,6 +135,7 @@ public final class WorkstationWorldBar extends HBox {
             ApplicationVersion availableVersion,
             int percent
     ) {
+        updateReady = false;
         Objects.requireNonNull(
                 availableVersion,
                 "availableVersion is required"
@@ -149,6 +152,7 @@ public final class WorkstationWorldBar extends HBox {
     }
 
     public void showUpdateReady(ApplicationVersion availableVersion) {
+        updateReady = true;
         ApplicationVersion checkedVersion = Objects.requireNonNull(
                 availableVersion,
                 "availableVersion is required"
@@ -171,6 +175,7 @@ public final class WorkstationWorldBar extends HBox {
             ApplicationVersion availableVersion,
             String message
     ) {
+        updateReady = false;
         Objects.requireNonNull(
                 availableVersion,
                 "availableVersion is required"
@@ -190,6 +195,7 @@ public final class WorkstationWorldBar extends HBox {
     }
 
     public void showUpToDate() {
+        updateReady = false;
         updateAvailable.setVisible(false);
         updateAvailable.setManaged(false);
         downloadUpdate.setVisible(false);
@@ -211,7 +217,7 @@ public final class WorkstationWorldBar extends HBox {
                                 : message
                 )
         );
-        if (updateAvailable.isVisible()) {
+        if (updateAvailable.isVisible() && !updateReady) {
             downloadUpdate.setDisable(false);
         }
     }
