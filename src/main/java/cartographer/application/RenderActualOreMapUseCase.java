@@ -273,9 +273,111 @@ public class RenderActualOreMapUseCase {
         Objects.requireNonNull(request, "request is required");
         Objects.requireNonNull(progress, "progress is required");
 
+        Optional<RenderActualOreMapResult> snapshot =
+                executeSnapshotBaseMap(request, progress);
+        if (snapshot.isPresent()) {
+            return snapshot.orElseThrow();
+        }
+
         try (SaveSession saveSession = sessionFactory.open(request.savePath())) {
             return execute(saveSession, request, progress);
         }
+    }
+
+    private Optional<RenderActualOreMapResult> executeSnapshotBaseMap(
+            RenderActualOreMapRequest request,
+            ProgressReporter progress
+    ) {
+        if (!request.oreOverlays().isEmpty()
+                || request.layers().contains(RenderLayer.ENVIRONMENT)
+                || request.layers().contains(RenderLayer.GEOLOGY)) {
+            return Optional.empty();
+        }
+
+        boolean surfaceDataRequired =
+                request.layers().contains(RenderLayer.SURFACE)
+                        || request.layers().contains(RenderLayer.SOIL_FERTILITY);
+        Optional<PreparedMapData> preparedOptional =
+                mapDataUseCase.executeSnapshot(
+                        new PrepareMapDataRequest(
+                                request.savePath(),
+                                request.radius(),
+                                request.pixelsPerBlock(),
+                                request.style(),
+                                request.layers(),
+                                request.center(),
+                                surfaceDataRequired
+                        ),
+                        progress
+                );
+        if (preparedOptional.isEmpty()) {
+            return Optional.empty();
+        }
+
+        PreparedMapData prepared = preparedOptional.orElseThrow();
+        WorldMetadata metadata = prepared.metadata();
+        RenderOptions options = prepared.options();
+        HomeState home = absoluteHome(request.savePath(), metadata);
+        MapDecorationState decorations =
+                decorationState(request.savePath(), home, options);
+        if (options.layers().contains(RenderLayer.MARKERS)
+                && !decorations.userMarkersAvailable()) {
+            return Optional.empty();
+        }
+
+        WorldPosition player = prepared.player();
+        WorldPosition center = prepared.center();
+        SurfaceMapScanResult compactSurface = prepared.surface();
+
+        progress.start("Rendering map from world snapshot");
+        RenderedMap rendered = renderer.render(
+                center,
+                player,
+                decorations.home(),
+                prepared.terrain(),
+                compactSurface.map(),
+                prepared.registry(),
+                options,
+                progress
+        );
+
+        int userMarkersDrawn = 0;
+        if (options.layers().contains(RenderLayer.MARKERS)
+                && !decorations.userMarkers().isEmpty()) {
+            userMarkersDrawn = userMarkerRenderer.draw(
+                    rendered.image(),
+                    center,
+                    request.radius(),
+                    decorations.userMarkers(),
+                    metadata
+            );
+        }
+
+        MapRegionOverlayState mapRegionState =
+                new MapRegionOverlayState(
+                        Optional.empty(),
+                        Optional.empty()
+                );
+        progress.done("Rendered map from world snapshot");
+        return Optional.of(new RenderActualOreMapResult(
+                rendered.image(),
+                rendered.geometry(),
+                rendered.report(),
+                compactSurface,
+                OverlayRenderReport.none(),
+                OverlayRenderReport.none(),
+                Optional.empty(),
+                prepared.mapChunkDiagnostics(),
+                prepared.chunkDiagnostics(),
+                new ReadDiagnostics(),
+                new ReadDiagnostics(),
+                userMarkersDrawn,
+                List.of(),
+                prepared.renderDataCacheReport(),
+                Optional.of(prepared),
+                Optional.of(decorations),
+                Optional.of(mapRegionState)
+        ));
     }
 
     public RenderActualOreMapResult execute(
