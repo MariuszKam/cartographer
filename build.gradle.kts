@@ -164,6 +164,65 @@ application {
     applicationDefaultJvmArgs = listOf("--enable-native-access=ALL-UNNAMED")
 }
 
+val testArchitecturePatterns = linkedMapOf(
+    "SLEEP" to Regex("""\b(?:Thread\.sleep|TimeUnit\.[A-Z]+\.sleep)\s*\("""),
+    "SYSTEM_PROPERTY_MUTATION" to Regex("""\bSystem\.(?:setProperty|clearProperty)\s*\("""),
+    "USER_HOME_REFERENCE" to Regex("""["']user\.home["']"""),
+    "TEMP_DIR" to Regex("""@TempDir\b"""),
+    "SQLITE" to Regex("""jdbc:sqlite:"""),
+    "EXECUTOR" to Regex("""\bExecutors\."""),
+    "THREAD_CREATION" to Regex("""\b(?:new\s+Thread\s*\(|Thread\.of(?:Platform|Virtual)\s*\()"""),
+    "NETWORK_FIXTURE" to Regex("""\b(?:ServerSocket|HttpServer|localhost|127\.0\.0\.1)\b"""),
+    "RESOURCE_LOCK" to Regex("""@ResourceLock\b""")
+)
+
+tasks.register("testArchitectureAudit") {
+    group = "verification"
+    description = "Generates a static parallel-safety inventory for the Java test suite"
+
+    val sources = fileTree("src/test/java") {
+        include("**/*.java")
+    }
+    inputs.files(sources)
+
+    val report = layout.buildDirectory.file(
+        "reports/test-performance/test-architecture-audit.tsv"
+    )
+    outputs.file(report)
+
+    doLast {
+        val output = report.get().asFile
+        output.parentFile.mkdirs()
+
+        var findingCount = 0
+        output.bufferedWriter().use { writer ->
+            writer.appendLine("category\tpath\tline\ttext")
+            sources.files
+                .sortedBy { it.relativeTo(project.projectDir).invariantSeparatorsPath }
+                .forEach { source ->
+                    source.readLines().forEachIndexed { index, line ->
+                        testArchitecturePatterns.forEach { (category, pattern) ->
+                            if (pattern.containsMatchIn(line)) {
+                                val relative = source
+                                    .relativeTo(project.projectDir)
+                                    .invariantSeparatorsPath
+                                val normalized = line.trim().replace("\t", " ")
+                                writer.appendLine(
+                                    "$category\t$relative\t${index + 1}\t$normalized"
+                                )
+                                findingCount++
+                            }
+                        }
+                    }
+                }
+        }
+
+        logger.lifecycle(
+            "Test architecture audit: ${output.absolutePath} ($findingCount findings)"
+        )
+    }
+}
+
 val testClassDurationsMs = ConcurrentHashMap<String, Long>()
 
 tasks.test {
