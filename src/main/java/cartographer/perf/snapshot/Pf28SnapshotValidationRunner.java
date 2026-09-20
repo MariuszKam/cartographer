@@ -201,7 +201,7 @@ public final class Pf28SnapshotValidationRunner {
         return new Pf28SnapshotValidationReport(
                 sha,
                 prepared.revisionHash(),
-                prepared.complete(),
+                Pf28ColdSnapshotCoverage.from(prepared),
                 coldElapsed,
                 cold.evidence(),
                 safety,
