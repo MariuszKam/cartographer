@@ -150,11 +150,17 @@ public final class PrepareWorldSnapshotUseCase {
         ));
         WorldMetadata metadata = session.snapshot().metadata();
         Map<Integer, BlockInfo> registry = session.snapshot().blockRegistry();
+        ProgressReporter headerProgress =
+                phase(progress, 1, 6, "Header");
+        headerProgress.start("Checking snapshot header");
         if (snapshot.headerStore().read().isEmpty()) {
             Optional<cartographer.model.WorldPosition> player;
             try {
                 player = Optional.of(
-                        reader.readPlayerPosition(session, progress)
+                        reader.readPlayerPosition(
+                                session,
+                                headerProgress
+                        )
                 );
             } catch (RuntimeException unavailable) {
                 player = Optional.empty();
@@ -167,6 +173,7 @@ public final class PrepareWorldSnapshotUseCase {
                     )
             );
         }
+        headerProgress.done("Header ready");
         TerrainTileStore terrainStore = snapshot.terrainStore();
         SurfaceTileStore surfaceStore = snapshot.surfaceStore();
         WorldIndexCatalogStore indexStore = snapshot.indexCatalogStore();
@@ -184,7 +191,8 @@ public final class PrepareWorldSnapshotUseCase {
         Counters counters = new Counters();
 
         ProgressReporter terrainProgress =
-                phase(progress, 1, 5, "Terrain");
+                phase(progress, 2, 6, "Terrain");
+        terrainProgress.start("Checking observed mapchunk coverage");
         boolean catalogWasComplete = indexStore.mapChunkScanComplete();
         if (!catalogWasComplete) {
             discoverObservedMapChunks(
@@ -216,11 +224,16 @@ public final class PrepareWorldSnapshotUseCase {
                 terrainStore,
                 observed
         );
+        terrainProgress.done(
+                terrainComplete
+                        ? "Terrain coverage ready"
+                        : "Terrain coverage partial"
+        );
 
         List<List<MapChunkCoordinate>> batches =
                 batchPlanner.plan(observed);
         ProgressReporter surfaceProgress =
-                phase(progress, 2, 5, "Surface");
+                phase(progress, 3, 6, "Surface");
         surfaceProgress.start("Indexing snapshot");
         for (int index = 0; index < batches.size(); index++) {
             indexSurfaceBatch(
@@ -249,7 +262,8 @@ public final class PrepareWorldSnapshotUseCase {
         );
 
         ProgressReporter mapRegionProgress =
-                phase(progress, 3, 5, "Map regions");
+                phase(progress, 4, 6, "Map regions");
+        mapRegionProgress.start("Checking snapshot");
         boolean mapRegionComplete = indexMapRegionSnapshot(
                 session,
                 mapRegionStore,
@@ -257,9 +271,14 @@ public final class PrepareWorldSnapshotUseCase {
                 counters,
                 mapRegionProgress
         );
+        mapRegionProgress.done(
+                mapRegionComplete
+                        ? "Coverage ready"
+                        : "Coverage partial"
+        );
 
         ProgressReporter rockProgress =
-                phase(progress, 4, 5, "Geology");
+                phase(progress, 5, 6, "Geology");
         RockCatalog rockCatalog = RockCatalog.from(registry);
         boolean upperRockComplete = indexUpperRockSnapshot(
                 session,
@@ -274,7 +293,7 @@ public final class PrepareWorldSnapshotUseCase {
         );
 
         ProgressReporter resourceProgress =
-                phase(progress, 5, 5, "Resources");
+                phase(progress, 6, 6, "Resources");
         ResourceBlockCatalog resourceCatalog =
                 ResourceBlockCatalog.from(registry);
         boolean resourceIndexComplete = indexResourceSnapshot(
