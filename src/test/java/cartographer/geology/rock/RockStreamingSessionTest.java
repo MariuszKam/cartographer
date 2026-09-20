@@ -35,8 +35,6 @@ class RockStreamingSessionTest {
         assertEquals(SHALE.code(), first.sampleAt(0, 0).orElseThrow().rock().orElseThrow().code());
     }
 
-
-
     @Test
     void coverageStatesPreserveRockSemantics() {
         ChunkCoordinate lowerPosition = new ChunkCoordinate(0, 0, 0);
@@ -473,5 +471,4 @@ class RockStreamingSessionTest {
                 List.of(visits.get(1), visits.get(0)), center, 0, 64);
         assertEquals(RockMapTestOracle.snapshot(first), RockMapTestOracle.snapshot(second));
     }
-
 }

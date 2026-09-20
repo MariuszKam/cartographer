@@ -144,8 +144,12 @@ src/main/java/cartographer/
 │   └── TilePyramid
 │
 └── perf/
-    ├── RenderCache
-    └── IncrementalRenderIndex
+    ├── RenderDataCacheStore
+    ├── WorldDataSnapshot
+    ├── TerrainTileStore
+    ├── SurfaceTileStore
+    ├── UpperRockTileStore
+    └── ResourceIndexStore
 ```
 
 This is a living architecture. Do not create unused abstractions only because they appear in the roadmap.
@@ -277,7 +281,7 @@ Implemented:
 ```text
 streaming SQLite reads
 range filtering before loading chunk BLOBs
-bounded SurfaceScanner temporary state
+bounded Surface streaming temporary state
 large-radius rendering without previous OOM
 progress overflow fix
 ```
