@@ -35,8 +35,7 @@ public final class DesktopUpdateController {
     private final Consumer<URI> releaseOpener;
     private final Clock clock;
     private final Duration automaticCheckInterval;
-    private final AtomicBoolean checkInProgress = new AtomicBoolean();
-    private final AtomicBoolean downloadInProgress = new AtomicBoolean();
+    private final AtomicBoolean operationInProgress = new AtomicBoolean();
     private final AtomicReference<UpdateManifest> availableUpdate =
             new AtomicReference<>();
     private final AtomicReference<UpdateDownloadResult> readyUpdate =
@@ -99,8 +98,7 @@ public final class DesktopUpdateController {
     }
 
     private void submitCheck(boolean manual) {
-        if (downloadInProgress.get()
-                || !checkInProgress.compareAndSet(false, true)) {
+        if (!operationInProgress.compareAndSet(false, true)) {
             return;
         }
 
@@ -111,7 +109,7 @@ public final class DesktopUpdateController {
         try {
             backgroundExecutor.execute(() -> runCheck(manual));
         } catch (RuntimeException exception) {
-            checkInProgress.set(false);
+            operationInProgress.set(false);
             if (manual) {
                 uiDispatcher.accept(() ->
                         view.showUpdateCheckFailed(
@@ -142,7 +140,7 @@ public final class DesktopUpdateController {
 
             applyCheckResult(result, manual);
         } finally {
-            checkInProgress.set(false);
+            operationInProgress.set(false);
         }
     }
 
@@ -189,14 +187,13 @@ public final class DesktopUpdateController {
     private void downloadAvailableUpdate() {
         UpdateManifest manifest = availableUpdate.get();
         if (manifest == null
-                || checkInProgress.get()
-                || !downloadInProgress.compareAndSet(false, true)) {
+                || !operationInProgress.compareAndSet(false, true)) {
             return;
         }
 
         UpdateDownloadResult ready = readyUpdate.get();
         if (ready != null && ready.manifest().equals(manifest)) {
-            downloadInProgress.set(false);
+            operationInProgress.set(false);
             uiDispatcher.accept(() ->
                     view.showUpdateReady(manifest.version())
             );
@@ -210,7 +207,7 @@ public final class DesktopUpdateController {
         try {
             backgroundExecutor.execute(() -> runDownload(manifest));
         } catch (RuntimeException exception) {
-            downloadInProgress.set(false);
+            operationInProgress.set(false);
             uiDispatcher.accept(() ->
                     view.showUpdateDownloadFailed(
                             manifest.version(),
@@ -249,7 +246,7 @@ public final class DesktopUpdateController {
                 );
             }
         } finally {
-            downloadInProgress.set(false);
+            operationInProgress.set(false);
         }
     }
 
