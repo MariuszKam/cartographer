@@ -21,6 +21,7 @@ public final class WorldDataSnapshot {
     private final WorldIndexCatalogStore indexCatalogStore;
     private final MapRegionSnapshotStore mapRegionStore;
     private final UpperRockTileStore upperRockTileStore;
+    private final ResourceIndexStore resourceIndexStore;
 
     private WorldDataSnapshot(
             RenderDataCacheStore cacheStore,
@@ -33,6 +34,7 @@ public final class WorldDataSnapshot {
         this.indexCatalogStore = new WorldIndexCatalogStore(cacheStore, revision);
         this.mapRegionStore = new MapRegionSnapshotStore(cacheStore, revision);
         this.upperRockTileStore = new UpperRockTileStore(cacheStore, revision);
+        this.resourceIndexStore = new ResourceIndexStore(cacheStore, revision);
     }
 
     /**
@@ -83,6 +85,10 @@ public final class WorldDataSnapshot {
 
     public UpperRockTileStore upperRockTileStore() {
         return upperRockTileStore;
+    }
+
+    public ResourceIndexStore resourceIndexStore() {
+        return resourceIndexStore;
     }
 
     public RenderDataCacheStore cacheStore() {
