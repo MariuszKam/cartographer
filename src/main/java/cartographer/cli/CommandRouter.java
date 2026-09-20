@@ -279,6 +279,7 @@ public class CommandRouter {
                             metadataReader,
                             new RockMapRenderer(),
                             new PngWriter(),
+                            renderDataCache,
                             subcommand(args, "rock")
                             );
 
@@ -290,11 +291,16 @@ public class CommandRouter {
                                     new cartographer.application.RenderRockMapUseCase(
                                             reader,
                                             metadataReader,
-                                            new RockMapRenderer()
+                                            new RockMapRenderer(),
+                                            renderDataCache
                                     ),
                                     new ResourceAnalyzer(),
                                     cartographer.prospecting.OreRockCompatibilityProvider.unknown(),
-                                    new SavedOreObservationProvider(reader, metadataReader)
+                                    new SavedOreObservationProvider(
+                                            reader,
+                                            metadataReader,
+                                            renderDataCache
+                                    )
                             ),
                             subcommand(args, "prospecting")
                     );
