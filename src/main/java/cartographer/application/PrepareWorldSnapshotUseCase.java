@@ -604,7 +604,8 @@ public final class PrepareWorldSnapshotUseCase {
                             new MapRegionSnapshotEntry(
                                     region.coordinate(),
                                     environmentInterpreter.interpret(region),
-                                    geologicProvinceInterpreter.summarize(region)
+                                    geologicProvinceInterpreter.summarize(region),
+                                    region.oreMaps()
                             )
                     );
                     if (buffer.size() >= MAPREGION_BATCH_SIZE) {
