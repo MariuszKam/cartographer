@@ -17,23 +17,49 @@ import java.util.function.Consumer;
 public final class HttpUpdateInstallerSource implements UpdateInstallerSource {
     private static final int BUFFER_SIZE = 64 * 1024;
 
-    private final HttpClient client;
+    @FunctionalInterface
+    interface Sender {
+        HttpResponse<InputStream> send(HttpRequest request)
+                throws IOException, InterruptedException;
+    }
+
+    private final Sender sender;
     private final Duration requestTimeout;
 
     public HttpUpdateInstallerSource(
             Duration connectTimeout,
             Duration requestTimeout
     ) {
-        Objects.requireNonNull(connectTimeout, "connectTimeout is required");
+        this(createSender(connectTimeout), requestTimeout);
+    }
+
+    HttpUpdateInstallerSource(
+            Sender sender,
+            Duration requestTimeout
+    ) {
+        this.sender = Objects.requireNonNull(
+                sender,
+                "sender is required"
+        );
         this.requestTimeout = Objects.requireNonNull(
                 requestTimeout,
                 "requestTimeout is required"
         );
+    }
 
-        client = HttpClient.newBuilder()
+    private static Sender createSender(Duration connectTimeout) {
+        Objects.requireNonNull(
+                connectTimeout,
+                "connectTimeout is required"
+        );
+        HttpClient client = HttpClient.newBuilder()
                 .connectTimeout(connectTimeout)
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .build();
+        return request -> client.send(
+                request,
+                HttpResponse.BodyHandlers.ofInputStream()
+        );
     }
 
     @Override
@@ -56,10 +82,7 @@ public final class HttpUpdateInstallerSource implements UpdateInstallerSource {
                 .GET()
                 .build();
 
-        HttpResponse<InputStream> response = client.send(
-                request,
-                HttpResponse.BodyHandlers.ofInputStream()
-        );
+        HttpResponse<InputStream> response = sender.send(request);
         try (InputStream input = response.body()) {
             if (response.statusCode() != 200) {
                 throw new IOException(
