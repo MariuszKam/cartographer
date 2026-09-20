@@ -11,6 +11,7 @@ class UpdateDownloadProgressTest {
     void reportsBoundedPercentage() {
         assertEquals(0, new UpdateDownloadProgress(0, 200).percent());
         assertEquals(50, new UpdateDownloadProgress(100, 200).percent());
+        assertEquals(99, new UpdateDownloadProgress(199, 200).percent());
         assertEquals(100, new UpdateDownloadProgress(200, 200).percent());
     }
 
