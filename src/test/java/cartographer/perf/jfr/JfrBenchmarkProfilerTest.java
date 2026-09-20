@@ -9,6 +9,7 @@ import cartographer.perf.metrics.ExecutionMode;
 import cartographer.perf.workload.MapWorkload;
 import cartographer.perf.workload.RadiusProfile;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,6 +21,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JfrBenchmarkProfilerTest {
+    @TempDir
+    Path temporaryDirectory;
+
     private static final BenchmarkPlan BENCHMARK_PLAN = new BenchmarkPlan(
             new MapWorkload(RadiusProfile.R128),
             ExecutionMode.JVM_WARM,
@@ -72,24 +76,22 @@ class JfrBenchmarkProfilerTest {
 
     @Test
     void existingDestinationIsRejectedBeforeRecordingOrBenchmark() throws Exception {
-        Path destination = Files.createTempFile("cartographer-review-", ".jfr");
-        try {
-            JfrRecordingPlan plan = new JfrRecordingPlan(
-                    destination, 1, "recording", JfrConfiguration.PROFILE
-            );
-            int[] opens = {0};
-            assertThrows(JfrProfilingException.class, () -> new JfrBenchmarkProfiler(
-                    new BenchmarkRunner(() -> 0L),
-                    ignored -> {
-                        opens[0]++;
-                        return new FakeRecording(new ArrayList<>());
-                    }
-            ).profile(plan, BENCHMARK_PLAN, workload ->
-                    BenchmarkOperationResult.success(FINGERPRINT)));
-            assertEquals(0, opens[0]);
-        } finally {
-            Files.deleteIfExists(destination);
-        }
+        Path destination = temporaryDirectory.resolve("existing.jfr");
+        Files.createFile(destination);
+        JfrRecordingPlan plan = new JfrRecordingPlan(
+                destination, 1, "recording", JfrConfiguration.PROFILE
+        );
+        int[] opens = {0};
+
+        assertThrows(JfrProfilingException.class, () -> new JfrBenchmarkProfiler(
+                new BenchmarkRunner(() -> 0L),
+                ignored -> {
+                    opens[0]++;
+                    return new FakeRecording(new ArrayList<>());
+                }
+        ).profile(plan, BENCHMARK_PLAN, workload ->
+                BenchmarkOperationResult.success(FINGERPRINT)));
+        assertEquals(0, opens[0]);
     }
 
     @Test
