@@ -32,9 +32,7 @@ import cartographer.scanner.SurfaceRainHeightPlan;
 import cartographer.scanner.SurfaceRainHeightScanResult;
 import cartographer.scanner.SurfaceStreamingSession;
 import cartographer.scanner.SurfaceTile;
-import cartographer.scanner.SurfaceTileAccumulator;
 import cartographer.scanner.SurfaceTileDiagnosticSummary;
-import cartographer.scanner.SurfaceTileLayout;
 import cartographer.snapshot.SnapshotPreparedMapDataReader;
 
 import java.nio.file.Path;
@@ -307,20 +305,32 @@ public final class PrepareMapDataUseCase {
         publishTerrain(cache, terrainWriteBuffer);
 
         MapTerrainPreparation terrain = terrainBuilder.finish();
-        SurfaceMapScanResult compactSurface = surfaceDataRequired
-                ? readCompactSurface(
-                        session,
-                        metadata,
-                        surfaceSession,
-                        registry,
-                        surfaceMissSet,
-                        surfaceHits,
-                        surfacePlanningInputsAvailable,
-                        cache,
-                        chunkDiagnostics,
-                        progress
-                )
-                : emptySurface(metadata, center, request.radius());
+        PreparedSurfaceData preparedSurface;
+        if (surfaceDataRequired) {
+            SurfaceMapScanResult exactSurface = readCompactSurface(
+                    session,
+                    metadata,
+                    surfaceSession,
+                    registry,
+                    surfaceMissSet,
+                    surfaceHits,
+                    surfacePlanningInputsAvailable,
+                    cache,
+                    chunkDiagnostics,
+                    progress
+            );
+            preparedSurface = PreparedSurfaceData.fromExact(
+                    exactSurface,
+                    center,
+                    options,
+                    request.surfaceDataRequirement()
+            );
+        } else {
+            preparedSurface = PreparedSurfaceData.none(
+                    center,
+                    options
+            );
+        }
 
         return new PreparedMapData(
                 metadata,
@@ -328,7 +338,7 @@ public final class PrepareMapDataUseCase {
                 center,
                 options,
                 terrain,
-                compactSurface,
+                preparedSurface,
                 registry,
                 mapChunkDiagnostics,
                 chunkDiagnostics,
@@ -667,28 +677,6 @@ public final class PrepareMapDataUseCase {
                 )
         );
         return result;
-    }
-
-    private SurfaceMapScanResult emptySurface(
-            WorldMetadata metadata,
-            WorldPosition center,
-            int radius
-    ) {
-        SurfaceTileLayout layout = SurfaceTileLayout.forSurface(
-                center.x(),
-                center.z(),
-                radius,
-                metadata
-        );
-        SurfaceTileAccumulator accumulator = new SurfaceTileAccumulator(layout);
-        return new SurfaceMapScanResult(
-                accumulator.finish(),
-                Map.of(),
-                0,
-                0,
-                0,
-                0
-        );
     }
 
     private CacheContext prepareCache(Path savePath) {

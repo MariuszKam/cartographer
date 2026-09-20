@@ -6,7 +6,6 @@ import cartographer.model.WorldPosition;
 import cartographer.render.MapTerrainPreparation;
 import cartographer.render.RenderOptions;
 import cartographer.save.ReadDiagnostics;
-import cartographer.scanner.SurfaceMapScanResult;
 
 import java.util.Map;
 import java.util.Objects;
@@ -22,7 +21,7 @@ public record PreparedMapData(
         WorldPosition center,
         RenderOptions options,
         MapTerrainPreparation terrain,
-        SurfaceMapScanResult surface,
+        PreparedSurfaceData surface,
         Map<Integer, BlockInfo> registry,
         ReadDiagnostics mapChunkDiagnostics,
         ReadDiagnostics chunkDiagnostics,
