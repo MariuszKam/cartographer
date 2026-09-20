@@ -10,7 +10,6 @@ import java.util.Objects;
  * render paths.
  */
 public final class RockRenderSamplingPlan {
-    private final int radius;
     private final int worldDiameter;
     private final int rasterSize;
     private final int minWorldX;
@@ -19,7 +18,6 @@ public final class RockRenderSamplingPlan {
     private final MapViewportGeometry geometry;
 
     private RockRenderSamplingPlan(
-            int radius,
             int worldDiameter,
             int rasterSize,
             int minWorldX,
@@ -27,7 +25,6 @@ public final class RockRenderSamplingPlan {
             int[] imageByWorldOffset,
             MapViewportGeometry geometry
     ) {
-        this.radius = radius;
         this.worldDiameter = worldDiameter;
         this.rasterSize = rasterSize;
         this.minWorldX = minWorldX;
@@ -88,7 +85,6 @@ public final class RockRenderSamplingPlan {
         }
 
         return new RockRenderSamplingPlan(
-                radius,
                 worldDiameter,
                 rasterSize,
                 minWorldX,
@@ -103,10 +99,6 @@ public final class RockRenderSamplingPlan {
                         minWorldZ + (double) worldDiameter
                 )
         );
-    }
-
-    public int radius() {
-        return radius;
     }
 
     public int worldDiameter() {
