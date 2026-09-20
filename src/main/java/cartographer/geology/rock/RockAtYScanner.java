@@ -95,7 +95,7 @@ public final class RockAtYScanner {
                         )
                         .orElse(null);
                 if (rock == null) {
-                    samples.add(RockColumnSample.noRock(worldX, worldZ));
+                    assembler.accept(RockColumnSample.noRock(worldX, worldZ));
                 } else {
                     assembler.accept(
                             RockColumnSample.observed(
