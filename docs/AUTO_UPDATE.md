@@ -475,3 +475,79 @@ following are checked on the exact final Stage 4 candidate:
 Vintage Story save-integrity, shortcuts/uninstall, and the complete
 old-version-to-new-version release campaign remain part of Stage 5 final
 validation. Static implementation alone is not a Stage 4 runtime PASS.
+
+
+## Stage 5: Final Validation
+
+Stage 5 is the acceptance campaign for Auto Update v1. It does not introduce a
+new updater runtime layer. Its job is to prove that Stages 1–4 work together on
+real Windows packages without damaging Vintage Story saves or persistent
+Cartographer-owned state.
+
+The detailed procedure and commands live in:
+
+```text
+docs/AUTO_UPDATE_STAGE5_VALIDATION.md
+tools/validate-auto-update-stage5.ps1
+```
+
+### S5.1 Controlled old-to-new upgrade
+
+A real installed old stable version must detect, download, verify, install and
+relaunch into a newer stable GitHub Release.
+
+The authoritative runtime check is the version shown by the relaunched
+application. Windows uninstall registration and shortcuts are additional
+packaging evidence.
+
+### S5.2 Cartographer-owned state persistence
+
+Before the campaign, the reviewer creates meaningful persistent state such as a
+HOME or user marker. Stage 5 snapshots protected Cartographer-owned files under
+`~/.vs-cartographer`.
+
+Volatile cache/update data is excluded. `update.properties` is handled
+separately because `lastSuccessfulCheck` is expected to change; persisted
+`autoCheck` must remain stable.
+
+### S5.3 Vintage Story save integrity
+
+The real validation save must remain byte-for-byte unchanged across upgrade and
+uninstall:
+
+```text
+SHA-256 before == SHA-256 after
+length before  == length after
+no new .vcdbs-wal
+no new .vcdbs-shm
+```
+
+Pre-existing SQLite sidecars are recorded and never deleted by validation
+tooling.
+
+### S5.4 Installer, shortcuts and uninstall
+
+The campaign verifies the installed product registration, Desktop and Start
+Menu shortcuts after upgrade, then verifies that uninstall removes the installed
+product registration, shortcuts and launcher while preserving Cartographer user
+state and the Vintage Story save.
+
+### S5.5 Failure scenarios
+
+Required reviewer scenarios include:
+
+```text
+tampered staged installer
+installer cancellation/failure
+GitHub/network unavailable
+```
+
+The Stage 5 helper can prepare and restore a deliberately tampered staged
+installer without modifying the Vintage Story save.
+
+### Stage 5 validation status
+
+Static implementation and CI are not sufficient to mark Stage 5 complete.
+Final acceptance requires reviewer-controlled Windows runtime evidence for the
+exact candidate branch/release pair. Until that evidence exists, Stage 5 remains
+`PENDING MANUAL VALIDATION`.

@@ -30,3 +30,28 @@ jobs:
       - name: Run tests
         shell: pwsh
         run: .\gradlew.bat test
+
+      - name: Validate PowerShell tooling syntax
+        shell: pwsh
+        run: |
+          $scripts = @(
+            "tools/validate-windows-release.ps1",
+            "tools/validate-auto-update-stage5.ps1"
+          )
+
+          foreach ($script in $scripts) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $script),
+              [ref]$tokens,
+              [ref]$errors
+            )
+
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object {
+                Write-Error "$script : $($_.Message)"
+              }
+              throw "PowerShell syntax validation failed: $script"
+            }
+          }
