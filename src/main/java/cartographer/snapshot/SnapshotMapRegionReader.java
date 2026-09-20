@@ -62,6 +62,9 @@ public final class SnapshotMapRegionReader {
                     resourceRegions
             ));
         } catch (RuntimeException failure) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw failure;
+            }
             return Optional.empty();
         }
     }
