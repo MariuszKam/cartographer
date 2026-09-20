@@ -24,8 +24,6 @@ import java.util.Set;
  * does not retain per-world-column Surface analysis data.</p>
  */
 public final class SurfaceRenderData {
-    private static final long NO_SOURCE = Long.MIN_VALUE;
-
     private final int rasterSize;
     private final long[] surfaceSourceByPixel;
     private final byte[] surfaceClassByPixel;
@@ -82,16 +80,12 @@ public final class SurfaceRenderData {
 
     public static SurfaceRenderData empty(RenderSamplingPlan sampling) {
         Objects.requireNonNull(sampling, "sampling plan is required");
-        int rasterSize = sampling.rasterSize();
-        int pixels = Math.multiplyExact(rasterSize, rasterSize);
-        long[] sources = new long[pixels];
-        Arrays.fill(sources, NO_SOURCE);
         return new SurfaceRenderData(
-                rasterSize,
-                sources,
-                new byte[pixels],
-                new byte[pixels],
-                new BitSet(pixels),
+                sampling.rasterSize(),
+                new long[0],
+                new byte[0],
+                new byte[0],
+                new BitSet(),
                 0L
         );
     }
@@ -101,7 +95,14 @@ public final class SurfaceRenderData {
     }
 
     public boolean hasSurfaceAt(int imageX, int imageY) {
-        return surfacePresent.get(pixelIndex(imageX, imageY));
+        int index = pixelIndex(imageX, imageY);
+        return surfaceSourceByPixel.length != 0
+                && surfacePresent.get(index);
+    }
+
+    public boolean isEmpty() {
+        return surfaceSourceByPixel.length == 0
+                || surfacePresent.isEmpty();
     }
 
     public int surfaceWorldXAt(int imageX, int imageY) {
@@ -125,7 +126,11 @@ public final class SurfaceRenderData {
     }
 
     public SoilFertilityTier soilTierAt(int imageX, int imageY) {
-        byte code = soilTierByPixel[pixelIndex(imageX, imageY)];
+        int index = pixelIndex(imageX, imageY);
+        if (soilTierByPixel.length == 0) {
+            return null;
+        }
+        byte code = soilTierByPixel[index];
         return code == 0
                 ? null
                 : SoilFertilityTier.values()[Byte.toUnsignedInt(code) - 1];
@@ -172,7 +177,6 @@ public final class SurfaceRenderData {
     }
 
     public static final class Builder {
-        private final RenderSamplingPlan sampling;
         private final SurfaceTileLayout layout;
         private final SurfaceRegistryLookup registry;
         private final int rasterSize;
@@ -191,7 +195,7 @@ public final class SurfaceRenderData {
                 SurfaceTileLayout layout,
                 SurfaceRegistryLookup registry
         ) {
-            this.sampling = Objects.requireNonNull(
+            Objects.requireNonNull(
                     sampling,
                     "sampling plan is required"
             );
@@ -209,7 +213,6 @@ public final class SurfaceRenderData {
             this.worldMinZ = sampling.worldMinZ();
             int pixels = Math.multiplyExact(rasterSize, rasterSize);
             this.surfaceSourceByPixel = new long[pixels];
-            Arrays.fill(surfaceSourceByPixel, NO_SOURCE);
             this.surfaceClassByPixel = new byte[pixels];
             this.soilTierByPixel = new byte[pixels];
             this.surfacePresent = new BitSet(pixels);

@@ -24,13 +24,13 @@ class SurfaceRenderDataTest {
         Fixture fixture = fixture();
         SurfaceRenderData.Builder builder = fixture.builder();
 
-        builder.acceptResolved(0, 0, 1, SurfaceClass.GRASS);
-        builder.acceptResolved(1, 0, 2, SurfaceClass.ROCK);
+        builder.acceptResolved(20, 20, 1, SurfaceClass.GRASS);
+        builder.acceptResolved(21, 20, 2, SurfaceClass.ROCK);
         SurfaceRenderData data = builder.finish();
 
-        assertEquals(SurfaceClass.ROCK, data.surfaceClassAt(1, 0));
-        assertEquals(1, data.surfaceWorldXAt(1, 0));
-        assertEquals(0, data.surfaceWorldZAt(1, 0));
+        assertEquals(SurfaceClass.ROCK, data.surfaceClassAt(33, 32));
+        assertEquals(21, data.surfaceWorldXAt(33, 32));
+        assertEquals(20, data.surfaceWorldZAt(33, 32));
         assertTrue(data.surfaceClasses().contains(SurfaceClass.GRASS));
         assertTrue(data.surfaceClasses().contains(SurfaceClass.ROCK));
     }
@@ -40,13 +40,38 @@ class SurfaceRenderDataTest {
         Fixture fixture = fixture();
         SurfaceRenderData.Builder builder = fixture.builder();
 
-        builder.acceptResolved(0, 0, 3, SurfaceClass.SOIL);
-        builder.acceptResolved(1, 0, 2, SurfaceClass.ROCK);
+        builder.acceptResolved(20, 20, 3, SurfaceClass.SOIL);
+        builder.acceptResolved(21, 20, 2, SurfaceClass.ROCK);
         SurfaceRenderData data = builder.finish();
 
-        assertEquals(SurfaceClass.ROCK, data.surfaceClassAt(1, 0));
-        assertEquals(SoilFertilityTier.MEDIUM, data.soilTierAt(1, 0));
-        assertNull(data.soilTierAt(3, 0));
+        assertEquals(SurfaceClass.ROCK, data.surfaceClassAt(33, 32));
+        assertEquals(
+                SoilFertilityTier.MEDIUM,
+                data.soilTierAt(33, 32)
+        );
+        assertNull(data.soilTierAt(35, 32));
+    }
+
+    @Test
+    void emptyDataDoesNotAllocateRasterSizedBackingArrays() {
+        RenderSamplingPlan sampling = RenderSamplingPlan.from(
+                new WorldPosition(0, 0, 0),
+                new RenderOptions(
+                        4096,
+                        1,
+                        RenderStyle.SIMPLE,
+                        Set.of()
+                )
+        );
+
+        SurfaceRenderData data = SurfaceRenderData.empty(sampling);
+
+        assertTrue(data.isEmpty());
+        assertFalse(data.hasSurfaceAt(4095, 4095));
+        assertNull(data.soilTierAt(4095, 4095));
+        assertEquals(0, data.surfaceSourceByPixelView().length);
+        assertEquals(0, data.surfaceClassByPixelView().length);
+        assertEquals(0, data.soilTierByPixelView().length);
     }
 
     @Test
