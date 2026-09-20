@@ -58,6 +58,10 @@ class HttpUpdateInstallerSourceTest {
         source.download(manifest, destination, progress::set);
 
         assertEquals(manifest.installerUri(), request.get().uri());
+        assertEquals(
+                Optional.of(Duration.ofSeconds(5)),
+                request.get().timeout()
+        );
         assertArrayEquals(bytes, Files.readAllBytes(destination));
         assertEquals(100, progress.get().percent());
     }
@@ -109,6 +113,29 @@ class HttpUpdateInstallerSourceTest {
                 () -> source.download(manifest, destination, ignored -> { })
         );
         assertFalse(Files.exists(destination));
+    }
+
+    @Test
+    void rejectsPayloadThatEndsBeforeManifestSize() {
+        byte[] expected = "expected-installer".getBytes();
+        byte[] truncated = "short".getBytes();
+        UpdateManifest manifest = manifest(expected);
+        HttpUpdateInstallerSource source = new HttpUpdateInstallerSource(
+                request -> response(
+                        request,
+                        200,
+                        manifest.installerUri(),
+                        Map.of(),
+                        truncated
+                ),
+                Duration.ofSeconds(5)
+        );
+        Path destination = temporaryDirectory.resolve("installer.exe.part");
+
+        assertThrows(
+                IOException.class,
+                () -> source.download(manifest, destination, ignored -> { })
+        );
     }
 
     @Test
