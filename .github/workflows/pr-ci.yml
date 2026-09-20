@@ -27,6 +27,10 @@ jobs:
           java-version: '25'
           cache: gradle
 
+      - name: Audit test architecture
+        shell: pwsh
+        run: .\gradlew.bat testArchitectureAudit
+
       - name: Run tests
         shell: pwsh
         run: .\gradlew.bat test
