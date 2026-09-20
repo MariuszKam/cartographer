@@ -172,6 +172,59 @@ class UpdateDownloadServiceTest {
     }
 
     @Test
+    void failedPartialDownloadIsCleanedAndRetryStartsFresh()
+            throws Exception {
+        byte[] installerBytes = "retry-installer".getBytes();
+        UpdateManifest manifest = manifest(installerBytes);
+        Path updates = temporaryDirectory.resolve("retry-updates");
+        AtomicInteger attempts = new AtomicInteger();
+
+        UpdateDownloadService service = new UpdateDownloadService(
+                updates,
+                (requested, destination, listener) -> {
+                    int attempt = attempts.incrementAndGet();
+                    if (attempt == 1) {
+                        Files.write(destination, new byte[]{1, 2, 3});
+                        throw new java.io.IOException("connection reset");
+                    }
+
+                    assertFalse(
+                            Files.exists(destination),
+                            "retry must not reuse stale .part bytes"
+                    );
+                    Files.write(destination, installerBytes);
+                    listener.accept(new UpdateDownloadProgress(
+                            installerBytes.length,
+                            installerBytes.length
+                    ));
+                }
+        );
+
+        UpdateDownloadResult failed = service.download(
+                manifest,
+                ignored -> { }
+        );
+
+        assertEquals(UpdateDownloadResult.Status.FAILED, failed.status());
+        Path partial = updates.resolve("1.1.0")
+                .resolve(manifest.installerFile() + ".part");
+        assertFalse(Files.exists(partial));
+
+        UpdateDownloadResult retried = service.download(
+                manifest,
+                ignored -> { }
+        );
+
+        assertEquals(UpdateDownloadResult.Status.READY, retried.status());
+        assertEquals(2, attempts.get());
+        assertArrayEquals(
+                installerBytes,
+                Files.readAllBytes(retried.installerPath().orElseThrow())
+        );
+        assertFalse(Files.exists(partial));
+    }
+
+    @Test
     void interruptionPreservesInterruptFlagAndCleansPartial()
             throws Exception {
         byte[] installerBytes = "interrupted-installer".getBytes();
