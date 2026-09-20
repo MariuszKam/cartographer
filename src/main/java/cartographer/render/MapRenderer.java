@@ -74,20 +74,17 @@ public class MapRenderer {
         Objects.requireNonNull(home, "Home state is required");
         Objects.requireNonNull(terrain, "terrain preparation is required");
         Objects.requireNonNull(registry, "registry is required");
-        MapRasterContract rasterContract = MapRasterContract.from(options);
-        int diameter = rasterContract.rasterSize();
-        double scale = rasterContract.effectivePixelsPerBlock();
+        RenderSamplingPlan sampling = RenderSamplingPlan.from(center, options);
+        int diameter = sampling.rasterSize();
+        double scale = sampling.effectivePixelsPerBlock();
         BufferedImage image = new BufferedImage(diameter, diameter, BufferedImage.TYPE_INT_ARGB);
         ArgbRaster raster = ArgbRaster.wrap(image);
         prepareBackground(raster, options, progress);
-        int minX = (int) Math.floor(center.x()) - options.radiusBlocks();
-        int minZ = (int) Math.floor(center.z()) - options.radiusBlocks();
-        MapViewportGeometry geometry = MapViewportGeometry.fullImage(
-                image.getWidth(), image.getHeight(), minX, minZ,
-                minX + options.radiusBlocks() * 2.0,
-                minZ + options.radiusBlocks() * 2.0);
+        int minX = sampling.worldMinX();
+        int minZ = sampling.worldMinZ();
+        MapViewportGeometry geometry = sampling.geometry();
         int tilesDrawn = options.layers().contains(RenderLayer.TERRAIN)
-                ? drawTerrain(raster, terrain.heights(), minX, minZ, scale, diameter, options, progress)
+                ? drawTerrain(raster, terrain.heights(), sampling, options, progress)
                 : 0;
         if (surfaceMap != null && options.layers().contains(RenderLayer.SURFACE)) {
             drawSurfaceMap(raster, surfaceMap, terrain.heights(), minX, minZ, scale, diameter, progress);
@@ -194,14 +191,14 @@ public class MapRenderer {
         );
         Objects.requireNonNull(terrain, "terrain preparation is required");
 
-        MapRasterContract rasterContract =
-                MapRasterContract.from(options);
+        RenderSamplingPlan sampling =
+                RenderSamplingPlan.from(center, options);
 
         int diameter =
-                rasterContract.rasterSize();
+                sampling.rasterSize();
 
         double scale =
-                rasterContract.effectivePixelsPerBlock();
+                sampling.effectivePixelsPerBlock();
 
         BufferedImage image =
                 new BufferedImage(
@@ -219,26 +216,13 @@ public class MapRenderer {
         );
 
         int minX =
-                (int) Math.floor(
-                        center.x()
-                )
-                        - options.radiusBlocks();
+                sampling.worldMinX();
 
         int minZ =
-                (int) Math.floor(
-                        center.z()
-                )
-                        - options.radiusBlocks();
+                sampling.worldMinZ();
 
         MapViewportGeometry geometry =
-                MapViewportGeometry.fullImage(
-                        image.getWidth(),
-                        image.getHeight(),
-                        minX,
-                        minZ,
-                        minX + options.radiusBlocks() * 2.0,
-                        minZ + options.radiusBlocks() * 2.0
-                );
+                sampling.geometry();
 
         boolean terrainEnabled =
                 options.layers()
@@ -262,10 +246,7 @@ public class MapRenderer {
                     drawTerrain(
                             raster,
                             samples,
-                            minX,
-                            minZ,
-                            scale,
-                            diameter,
+                            sampling,
                             options,
                             progress
                     );
@@ -391,15 +372,15 @@ public class MapRenderer {
     private int drawTerrain(
             ArgbRaster raster,
             DenseHeightGrid samples,
-            int minX,
-            int minZ,
-            double scale,
-            int diameter,
+            RenderSamplingPlan sampling,
             RenderOptions options,
             ProgressReporter progress
     ) {
         int tilesDrawn =
                 0;
+
+        int diameter =
+                sampling.rasterSize();
 
         progress.start(
                 "Drawing terrain"
@@ -410,32 +391,14 @@ public class MapRenderer {
              imageY++) {
 
             int worldZ =
-                    minZ
-                            + Math.min(
-                            options.radiusBlocks()
-                                    * 2
-                                    - 1,
-                            (int) Math.floor(
-                                    imageY
-                                            / scale
-                            )
-                    );
+                    sampling.worldZForImageRow(imageY);
 
             for (int imageX = 0;
                  imageX < diameter;
                  imageX++) {
 
                 int worldX =
-                        minX
-                                + Math.min(
-                                options.radiusBlocks()
-                                        * 2
-                                        - 1,
-                                (int) Math.floor(
-                                        imageX
-                                                / scale
-                                )
-                        );
+                        sampling.worldXForImageColumn(imageX);
 
                 if (!samples.hasHeightAt(worldX, worldZ)) {
                     continue;
