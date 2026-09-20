@@ -29,6 +29,8 @@ import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.perf.RenderDataCacheStore;
+import cartographer.snapshot.SnapshotMapRegionReader;
+import cartographer.snapshot.SnapshotResourceReader;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockMatchSpec;
@@ -58,6 +60,8 @@ public class RenderActualOreMapUseCase {
     private final EnvironmentOverlayRenderer environmentOverlayRenderer = new EnvironmentOverlayRenderer();
     private final GeologyOverlayRenderer geologyOverlayRenderer = new GeologyOverlayRenderer();
     private final SystemMarkerOverlayRenderer systemMarkerOverlayRenderer = new SystemMarkerOverlayRenderer();
+    private final Optional<SnapshotMapRegionReader> snapshotMapRegionReader;
+    private final Optional<SnapshotResourceReader> snapshotResourceReader;
 
     public RenderActualOreMapUseCase(
             VcdbsReader reader,
@@ -235,6 +239,12 @@ public class RenderActualOreMapUseCase {
                 reader,
                 sessionFactory,
                 cacheOption
+        );
+        this.snapshotMapRegionReader = cacheOption.map(
+                SnapshotMapRegionReader::new
+        );
+        this.snapshotResourceReader = cacheOption.map(
+                SnapshotResourceReader::new
         );
         this.homeStore = Objects.requireNonNull(homeStore, "homeStore is required");
         this.markerStore = Objects.requireNonNull(markerStore, "markerStore is required");
@@ -495,8 +505,30 @@ public class RenderActualOreMapUseCase {
         boolean needGeology =
                 geologyRequested && retainedGeology.isEmpty();
 
+        Optional<SnapshotMapRegionReader.Result> snapshot =
+                Optional.empty();
+        if ((needEnvironment || needGeology)
+                && snapshotMapRegionReader.isPresent()) {
+            progress.start("Reading map-region overlays from world snapshot");
+            snapshot = snapshotMapRegionReader.orElseThrow().read(
+                    saveSession.savePath()
+            );
+        }
+        Optional<List<EnvironmentProfile>> snapshotEnvironment =
+                snapshot.map(
+                        SnapshotMapRegionReader.Result::environmentProfiles
+                );
+        Optional<List<GeologicProvinceSummary>> snapshotGeology =
+                snapshot.map(
+                        SnapshotMapRegionReader.Result::geologySummaries
+                );
+
+        boolean sourceEnvironment =
+                needEnvironment && snapshotEnvironment.isEmpty();
+        boolean sourceGeology =
+                needGeology && snapshotGeology.isEmpty();
         List<ServerMapRegion> regions =
-                needEnvironment || needGeology
+                sourceEnvironment || sourceGeology
                         ? readMapRegionsWithProgress(
                         saveSession,
                         diagnostics,
@@ -507,24 +539,28 @@ public class RenderActualOreMapUseCase {
         Optional<List<EnvironmentProfile>> environmentProfiles =
                 retainedEnvironment.isPresent()
                         ? retainedEnvironment
-                        : environmentRequested
-                        ? Optional.of(
+                        : !environmentRequested
+                        ? Optional.empty()
+                        : snapshotEnvironment.isPresent()
+                        ? snapshotEnvironment
+                        : Optional.of(
                         regions.stream()
                                 .map(environmentInterpreter::interpret)
                                 .toList()
-                )
-                        : Optional.empty();
+                );
         Optional<List<GeologicProvinceSummary>> geologySummaries =
                 retainedGeology.isPresent()
                         ? retainedGeology
-                        : geologyRequested
-                        ? Optional.of(
+                        : !geologyRequested
+                        ? Optional.empty()
+                        : snapshotGeology.isPresent()
+                        ? snapshotGeology
+                        : Optional.of(
                         regions.stream()
                                 .map(geologicProvinceInterpreter::summarize)
                                 .flatMap(Optional::stream)
                                 .toList()
-                )
-                        : Optional.empty();
+                );
 
         return new MapRegionOverlayState(
                 environmentProfiles,
@@ -580,34 +616,57 @@ public class RenderActualOreMapUseCase {
         List<ActualBlockMatchSpec> matches = specs.stream()
                 .map(spec -> new ActualBlockMatchSpec(spec.match(), spec.matchMode()))
                 .toList();
-        MultiActualBlockMapScanner.StreamingSession session =
-                multiActualBlockMapScanner.begin(
-                        registry,
-                        centerX,
-                        centerZ,
-                        request.radius(),
-                        matches,
-                        request.yFilter()
-                );
-        int[] wantedBlockIds = session.wantedBlockIds();
-        if (wantedBlockIds.length != 0) {
-            List<cartographer.model.ChunkPosition> positions = oreChunkPositionPlanner.plan(
+        Optional<List<ActualBlockMap>> snapshotMaps =
+                Optional.empty();
+        if (snapshotResourceReader.isPresent()) {
+            progress.start("Reading actual ore from world snapshot");
+            snapshotMaps = snapshotResourceReader.orElseThrow().readMaps(
+                    request.savePath(),
                     metadata,
+                    registry,
                     centerX,
                     centerZ,
                     request.radius(),
+                    matches,
                     request.yFilter()
             );
-            reader.forEachChunkByPositionMatchingBlockIdsAdaptive(
-                    saveSession,
-                    positions,
-                    wantedBlockIds,
-                    diagnostics,
-                    session::accept,
-                    progress
-            );
         }
-        List<ActualBlockMap> maps = session.finish();
+
+        List<ActualBlockMap> maps;
+        if (snapshotMaps.isPresent()) {
+            maps = snapshotMaps.orElseThrow();
+            progress.done("Actual ore loaded from world snapshot");
+        } else {
+            MultiActualBlockMapScanner.StreamingSession session =
+                    multiActualBlockMapScanner.begin(
+                            registry,
+                            centerX,
+                            centerZ,
+                            request.radius(),
+                            matches,
+                            request.yFilter()
+                    );
+            int[] wantedBlockIds = session.wantedBlockIds();
+            if (wantedBlockIds.length != 0) {
+                List<cartographer.model.ChunkPosition> positions =
+                        oreChunkPositionPlanner.plan(
+                                metadata,
+                                centerX,
+                                centerZ,
+                                request.radius(),
+                                request.yFilter()
+                        );
+                reader.forEachChunkByPositionMatchingBlockIdsAdaptive(
+                        saveSession,
+                        positions,
+                        wantedBlockIds,
+                        diagnostics,
+                        session::accept,
+                        progress
+                );
+            }
+            maps = session.finish();
+        }
 
         List<ActualOreOverlayResult> results = new java.util.ArrayList<>();
         for (int index = 0; index < specs.size(); index++) {
