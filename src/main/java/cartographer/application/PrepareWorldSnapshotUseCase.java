@@ -229,6 +229,16 @@ public final class PrepareWorldSnapshotUseCase {
                         ? "Terrain coverage ready"
                         : "Terrain coverage partial"
         );
+        publishPreparationSummary(
+                snapshot,
+                observed.size(),
+                indexStore.mapChunkScanComplete(),
+                terrainComplete,
+                false,
+                false,
+                false,
+                false
+        );
 
         List<List<MapChunkCoordinate>> batches =
                 batchPlanner.plan(observed);
@@ -260,6 +270,16 @@ public final class PrepareWorldSnapshotUseCase {
                 observed,
                 metadata
         );
+        publishPreparationSummary(
+                snapshot,
+                observed.size(),
+                indexStore.mapChunkScanComplete(),
+                terrainComplete,
+                surfaceComplete,
+                false,
+                false,
+                false
+        );
 
         ProgressReporter mapRegionProgress =
                 phase(progress, 4, 6, "Map regions");
@@ -276,6 +296,16 @@ public final class PrepareWorldSnapshotUseCase {
                         ? "Coverage ready"
                         : "Coverage partial"
         );
+        publishPreparationSummary(
+                snapshot,
+                observed.size(),
+                indexStore.mapChunkScanComplete(),
+                terrainComplete,
+                surfaceComplete,
+                mapRegionComplete,
+                false,
+                false
+        );
 
         ProgressReporter rockProgress =
                 phase(progress, 5, 6, "Geology");
@@ -290,6 +320,16 @@ public final class PrepareWorldSnapshotUseCase {
                 rockDiagnostics,
                 counters,
                 rockProgress
+        );
+        publishPreparationSummary(
+                snapshot,
+                observed.size(),
+                indexStore.mapChunkScanComplete(),
+                terrainComplete,
+                surfaceComplete,
+                mapRegionComplete,
+                upperRockComplete,
+                false
         );
 
         ProgressReporter resourceProgress =
@@ -336,17 +376,15 @@ public final class PrepareWorldSnapshotUseCase {
                 rockDiagnostics,
                 resourceDiagnostics
         );
-        snapshot.preparationSummaryStore().publish(
-                new WorldSnapshotPreparationSummary(
-                        result.revisionHash(),
-                        result.observedMapChunks(),
-                        result.mapChunkCatalogComplete(),
-                        result.terrainCoverageComplete(),
-                        result.surfaceCoverageComplete(),
-                        result.mapRegionCoverageComplete(),
-                        result.upperRockCoverageComplete(),
-                        result.resourceIndexCoverageComplete()
-                )
+        publishPreparationSummary(
+                snapshot,
+                result.observedMapChunks(),
+                result.mapChunkCatalogComplete(),
+                result.terrainCoverageComplete(),
+                result.surfaceCoverageComplete(),
+                result.mapRegionCoverageComplete(),
+                result.upperRockCoverageComplete(),
+                result.resourceIndexCoverageComplete()
         );
         progress.done(
                 result.complete()
@@ -1032,6 +1070,30 @@ public final class PrepareWorldSnapshotUseCase {
             }
         }
         return true;
+    }
+
+    private void publishPreparationSummary(
+            WorldDataSnapshot snapshot,
+            int observedMapChunks,
+            boolean mapChunkCatalogComplete,
+            boolean terrainCoverageComplete,
+            boolean surfaceCoverageComplete,
+            boolean mapRegionCoverageComplete,
+            boolean upperRockCoverageComplete,
+            boolean resourceIndexCoverageComplete
+    ) {
+        snapshot.preparationSummaryStore().publish(
+                new WorldSnapshotPreparationSummary(
+                        snapshot.revisionHash(),
+                        observedMapChunks,
+                        mapChunkCatalogComplete,
+                        terrainCoverageComplete,
+                        surfaceCoverageComplete,
+                        mapRegionCoverageComplete,
+                        upperRockCoverageComplete,
+                        resourceIndexCoverageComplete
+                )
+        );
     }
 
     private ProgressReporter phase(
