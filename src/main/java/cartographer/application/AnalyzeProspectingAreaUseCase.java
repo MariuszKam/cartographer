@@ -16,12 +16,14 @@ import cartographer.prospecting.ProspectingEvaluator;
 import cartographer.prospecting.ProspectingAssessment;
 import cartographer.resource.ResourceAnalyzer;
 import cartographer.resource.ResourceOverlayCell;
+import cartographer.perf.RenderDataCacheStore;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
 import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
+import cartographer.snapshot.SnapshotMapRegionReader;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,6 +39,7 @@ public final class AnalyzeProspectingAreaUseCase {
     private final OreRockCompatibilityProvider compatibilityProvider;
     private final ActualOreObservationProvider actualOreProvider;
     private final SaveSessionFactory sessionFactory;
+    private final Optional<SnapshotMapRegionReader> snapshotMapRegionReader;
 
     public AnalyzeProspectingAreaUseCase(
             VcdbsReader reader,
@@ -69,7 +72,34 @@ public final class AnalyzeProspectingAreaUseCase {
                         new SqliteSaveConnection(),
                         reader,
                         new WorldMetadataReader()
-                )
+                ),
+                Optional.empty()
+        );
+    }
+
+    public AnalyzeProspectingAreaUseCase(
+            VcdbsReader reader,
+            RenderRockMapUseCase rockMapUseCase,
+            ResourceAnalyzer resourceAnalyzer,
+            OreRockCompatibilityProvider compatibilityProvider,
+            ActualOreObservationProvider actualOreProvider,
+            RenderDataCacheStore renderDataCacheStore
+    ) {
+        this(
+                reader,
+                rockMapUseCase,
+                resourceAnalyzer,
+                compatibilityProvider,
+                actualOreProvider,
+                new SaveSessionFactory(
+                        new SqliteSaveConnection(),
+                        reader,
+                        new WorldMetadataReader()
+                ),
+                Optional.of(Objects.requireNonNull(
+                        renderDataCacheStore,
+                        "render data cache store is required"
+                ))
         );
     }
 
@@ -80,6 +110,26 @@ public final class AnalyzeProspectingAreaUseCase {
             OreRockCompatibilityProvider compatibilityProvider,
             ActualOreObservationProvider actualOreProvider,
             SaveSessionFactory sessionFactory
+    ) {
+        this(
+                reader,
+                rockMapUseCase,
+                resourceAnalyzer,
+                compatibilityProvider,
+                actualOreProvider,
+                sessionFactory,
+                Optional.empty()
+        );
+    }
+
+    AnalyzeProspectingAreaUseCase(
+            VcdbsReader reader,
+            RenderRockMapUseCase rockMapUseCase,
+            ResourceAnalyzer resourceAnalyzer,
+            OreRockCompatibilityProvider compatibilityProvider,
+            ActualOreObservationProvider actualOreProvider,
+            SaveSessionFactory sessionFactory,
+            Optional<RenderDataCacheStore> renderDataCacheStore
     ) {
         this.reader = Objects.requireNonNull(reader, "reader is required");
         this.rockMapUseCase = Objects.requireNonNull(
@@ -103,6 +153,10 @@ public final class AnalyzeProspectingAreaUseCase {
                 sessionFactory,
                 "session factory is required"
         );
+        this.snapshotMapRegionReader = Objects.requireNonNull(
+                renderDataCacheStore,
+                "render data cache option is required"
+        ).map(SnapshotMapRegionReader::new);
     }
 
     public ProspectingAreaResult execute(ProspectingAreaRequest request) {
@@ -122,12 +176,19 @@ public final class AnalyzeProspectingAreaUseCase {
         WorldPosition center = request.center().orElseGet(
                 () -> reader.readPlayerPosition(saveSession, ProgressReporter.NONE)
         );
-        ReadDiagnostics diagnostics = new ReadDiagnostics();
-        List<ServerMapRegion> regions = reader.readMapRegions(
-                saveSession,
-                diagnostics,
-                ProgressReporter.NONE
-        );
+        List<ServerMapRegion> regions =
+                snapshotMapRegionReader
+                        .flatMap(reader -> reader.read(request.savePath()))
+                        .map(SnapshotMapRegionReader.Result::resourceRegions)
+                        .orElseGet(() -> {
+                            ReadDiagnostics diagnostics =
+                                    new ReadDiagnostics();
+                            return reader.readMapRegions(
+                                    saveSession,
+                                    diagnostics,
+                                    ProgressReporter.NONE
+                            );
+                        });
         List<String> resources = resources(regions, request.resources());
         FusedProspectingResult fused =
                 actualOreProvider instanceof FusedProspectingObservationProvider provider
