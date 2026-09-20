@@ -42,17 +42,18 @@ public final class UpdateDownloadService {
                 "progressListener is required"
         );
 
-        Path versionDirectory = safeVersionDirectory(manifest);
-        Path installer = safeChild(
-                versionDirectory,
-                manifest.installerFile()
-        );
-        Path partial = safeChild(
-                versionDirectory,
-                manifest.installerFile() + ".part"
-        );
-
+        Path partial = null;
         try {
+            Path versionDirectory = safeVersionDirectory(manifest);
+            Path installer = safeChild(
+                    versionDirectory,
+                    manifest.installerFile()
+            );
+            partial = safeChild(
+                    versionDirectory,
+                    manifest.installerFile() + ".part"
+            );
+
             Files.createDirectories(versionDirectory);
 
             if (isVerified(installer, manifest)) {
@@ -188,6 +189,9 @@ public final class UpdateDownloadService {
     }
 
     private void deleteQuietly(Path path) {
+        if (path == null) {
+            return;
+        }
         try {
             Files.deleteIfExists(path);
         } catch (IOException ignored) {
