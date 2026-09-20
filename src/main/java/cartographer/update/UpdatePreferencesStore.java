@@ -30,7 +30,7 @@ public final class UpdatePreferencesStore {
                 StandardCharsets.UTF_8
         )) {
             properties.load(reader);
-        } catch (IOException exception) {
+        } catch (IOException | IllegalArgumentException exception) {
             return UpdatePreferences.defaults();
         }
 
