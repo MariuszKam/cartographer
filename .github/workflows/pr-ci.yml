@@ -39,6 +39,10 @@ jobs:
         shell: pwsh
         run: .\gradlew.bat test
 
+      - name: Run two-worker parallel probe
+        shell: pwsh
+        run: .\gradlew.bat testParallelProbe -PtestParallelForks=2
+
       - name: Upload test evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -47,7 +51,9 @@ jobs:
           if-no-files-found: warn
           path: |
             build/test-results/test/**
+            build/test-results/testParallelProbe/**
             build/reports/tests/test/**
+            build/reports/tests/testParallelProbe/**
             build/reports/test-performance/**
 
       - name: Validate PowerShell tooling syntax
