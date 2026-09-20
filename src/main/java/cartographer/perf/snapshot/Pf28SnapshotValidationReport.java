@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 public record Pf28SnapshotValidationReport(
         String candidateSha,
         String revisionHash,
-        boolean snapshotComplete,
+        Pf28ColdSnapshotCoverage coldCoverage,
         long coldBuildElapsedNanoseconds,
         Pf18ResourceEvidence coldBuildResources,
         SaveSafetyResult sourceSafety,
@@ -25,6 +25,10 @@ public record Pf28SnapshotValidationReport(
     public Pf28SnapshotValidationReport {
         candidateSha = fullSha(candidateSha);
         revisionHash = required(revisionHash, "revisionHash");
+        coldCoverage = Objects.requireNonNull(
+                coldCoverage,
+                "coldCoverage is required"
+        );
         if (coldBuildElapsedNanoseconds < 0L) {
             throw new IllegalArgumentException(
                     "coldBuildElapsedNanoseconds cannot be negative"
@@ -47,7 +51,7 @@ public record Pf28SnapshotValidationReport(
         Set<Integer> radii = warmRenders.stream()
                 .map(Pf28WarmRenderSample::radius)
                 .collect(Collectors.toSet());
-        return snapshotComplete
+        return coldCoverage.complete()
                 && sourceSafety.status() == SaveSafetyStatus.PASS
                 && revisionInvalidationPassed
                 && warmRenders.size() == REQUIRED_RADII.size()
@@ -62,7 +66,25 @@ public record Pf28SnapshotValidationReport(
         out.append("PF-2.8 cold-ingest / warm-render validation\n");
         out.append("Candidate SHA: ").append(candidateSha).append('\n');
         out.append("Snapshot revision: ").append(revisionHash).append('\n');
-        out.append("Snapshot complete: ").append(snapshotComplete).append('\n');
+        out.append("Observed mapchunks: ")
+                .append(coldCoverage.observedMapChunks())
+                .append('\n');
+        out.append("Cold coverage — catalog: ")
+                .append(coldCoverage.mapChunkCatalogComplete())
+                .append(", terrain: ")
+                .append(coldCoverage.terrainCoverageComplete())
+                .append(", surface: ")
+                .append(coldCoverage.surfaceCoverageComplete())
+                .append(", mapregion: ")
+                .append(coldCoverage.mapRegionCoverageComplete())
+                .append(", rock: ")
+                .append(coldCoverage.upperRockCoverageComplete())
+                .append(", resources: ")
+                .append(coldCoverage.resourceIndexCoverageComplete())
+                .append('\n');
+        out.append("Snapshot complete: ")
+                .append(coldCoverage.complete())
+                .append('\n');
         out.append("Cold build elapsed ns: ")
                 .append(coldBuildElapsedNanoseconds)
                 .append('\n');
