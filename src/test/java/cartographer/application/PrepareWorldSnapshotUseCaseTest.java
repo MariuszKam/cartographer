@@ -98,6 +98,14 @@ class PrepareWorldSnapshotUseCaseTest {
         assertTrue(first.upperRockCoverageComplete());
         assertEquals(2, first.upperRockPublished());
         assertTrue(first.resourceIndexCoverageComplete());
+        var preparationSummary = WorldDataSnapshot.openExisting(
+                cacheStore,
+                save
+        ).orElseThrow().preparationSummaryStore().read().orElseThrow();
+        assertEquals(first.revisionHash(), preparationSummary.revisionHash());
+        assertEquals(first.observedMapChunks(), preparationSummary.observedMapChunks());
+        assertTrue(preparationSummary.complete());
+
         assertEquals(1, first.resourceBlocksCatalogued());
         assertEquals(0, first.resourceChunkHits());
         assertEquals(4, first.resourceChunksPublished());
