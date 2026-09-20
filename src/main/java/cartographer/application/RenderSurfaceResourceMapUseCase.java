@@ -220,7 +220,7 @@ public class RenderSurfaceResourceMapUseCase {
                         request.style(),
                         request.layers(),
                         request.center(),
-                        true
+                        SurfaceDataRequirement.ANALYSIS
                 ),
                 progress
         );
@@ -259,7 +259,7 @@ public class RenderSurfaceResourceMapUseCase {
                         request.style(),
                         request.layers(),
                         request.center(),
-                        true
+                        SurfaceDataRequirement.ANALYSIS
                 ),
                 progress
         );

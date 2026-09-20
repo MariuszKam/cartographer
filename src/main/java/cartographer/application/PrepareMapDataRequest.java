@@ -17,7 +17,7 @@ public record PrepareMapDataRequest(
         RenderStyle style,
         Set<RenderLayer> layers,
         Optional<WorldPosition> center,
-        boolean requireSurfaceData
+        SurfaceDataRequirement surfaceDataRequirement
 ) {
     public PrepareMapDataRequest {
         Objects.requireNonNull(savePath, "savePath is required");
@@ -30,5 +30,9 @@ public record PrepareMapDataRequest(
         Objects.requireNonNull(style, "style is required");
         layers = Set.copyOf(Objects.requireNonNull(layers, "layers are required"));
         center = Objects.requireNonNull(center, "center is required");
+        Objects.requireNonNull(
+                surfaceDataRequirement,
+                "surfaceDataRequirement is required"
+        );
     }
 }

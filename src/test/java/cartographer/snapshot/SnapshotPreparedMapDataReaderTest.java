@@ -2,6 +2,7 @@ package cartographer.snapshot;
 
 import cartographer.application.PrepareMapDataRequest;
 import cartographer.application.ProgressReporter;
+import cartographer.application.SurfaceDataRequirement;
 import cartographer.model.BlockInfo;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.SurfaceClass;
@@ -157,7 +158,7 @@ class SnapshotPreparedMapDataReaderTest {
                 RenderStyle.SIMPLE,
                 Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
                 Optional.empty(),
-                true
+                SurfaceDataRequirement.ANALYSIS
         );
     }
 

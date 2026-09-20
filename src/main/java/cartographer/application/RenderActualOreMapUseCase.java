@@ -288,9 +288,11 @@ public class RenderActualOreMapUseCase {
             RenderActualOreMapRequest request,
             ProgressReporter progress
     ) {
-        boolean surfaceDataRequired =
+        SurfaceDataRequirement surfaceDataRequirement =
                 request.layers().contains(RenderLayer.SURFACE)
-                        || request.layers().contains(RenderLayer.SOIL_FERTILITY);
+                        || request.layers().contains(RenderLayer.SOIL_FERTILITY)
+                        ? SurfaceDataRequirement.RENDER
+                        : SurfaceDataRequirement.NONE;
         Optional<PreparedMapData> preparedOptional =
                 mapDataUseCase.executeSnapshot(
                         new PrepareMapDataRequest(
@@ -300,7 +302,7 @@ public class RenderActualOreMapUseCase {
                                 request.style(),
                                 request.layers(),
                                 request.center(),
-                                surfaceDataRequired
+                                surfaceDataRequirement
                         ),
                         progress
                 );

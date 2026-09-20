@@ -114,7 +114,7 @@ public final class SnapshotPreparedMapDataReader {
             MapTerrainPreparation terrain =
                     terrainRead.orElseThrow().terrain();
 
-            Optional<SurfaceRead> surfaceRead = request.requireSurfaceData()
+            Optional<SurfaceRead> surfaceRead = request.surfaceDataRequirement().requiresSurface()
                     ? surface(
                     snapshot,
                     metadata,

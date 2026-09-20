@@ -172,7 +172,8 @@ public final class PrepareMapDataUseCase {
 
         ReadDiagnostics mapChunkDiagnostics = new ReadDiagnostics();
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
-        boolean surfaceDataRequired = request.requireSurfaceData();
+        boolean surfaceDataRequired =
+                request.surfaceDataRequirement().requiresSurface();
         int centerWorldX = (int) Math.round(center.x());
         int centerWorldZ = (int) Math.round(center.z());
 
