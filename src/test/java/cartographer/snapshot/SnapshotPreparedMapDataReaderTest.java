@@ -62,6 +62,50 @@ class SnapshotPreparedMapDataReaderTest {
     }
 
     @Test
+    void renderSurfaceDoesNotRetainExactAnalysisMap() throws Exception {
+        Fixture fixture = fixture("render-only", true);
+
+        var prepared = new SnapshotPreparedMapDataReader(fixture.cache)
+                .read(
+                        request(
+                                fixture.save,
+                                SurfaceDataRequirement.RENDER
+                        ),
+                        ProgressReporter.NONE
+                )
+                .orElseThrow();
+
+        assertTrue(prepared.surface().analysis().isEmpty());
+        assertTrue(!prepared.surface().renderData().isEmpty());
+        assertTrue(
+                prepared.surface()
+                        .diagnostics()
+                        .columnsScanned() > 0
+        );
+        assertEquals(
+                1,
+                prepared.renderDataCacheReport().surface().hits()
+        );
+    }
+
+    @Test
+    void analysisSurfaceRetainsExactMapOnlyWhenRequested() throws Exception {
+        Fixture fixture = fixture("analysis", true);
+
+        var prepared = new SnapshotPreparedMapDataReader(fixture.cache)
+                .read(
+                        request(
+                                fixture.save,
+                                SurfaceDataRequirement.ANALYSIS
+                        ),
+                        ProgressReporter.NONE
+                )
+                .orElseThrow();
+
+        assertTrue(prepared.surface().analysis().isPresent());
+    }
+
+    @Test
     void missingSurfaceCoverageDoesNotGuessAndFallsBack() throws Exception {
         Fixture fixture = fixture("surface-miss", false);
 
@@ -151,6 +195,13 @@ class SnapshotPreparedMapDataReaderTest {
     }
 
     private PrepareMapDataRequest request(Path save) {
+        return request(save, SurfaceDataRequirement.ANALYSIS);
+    }
+
+    private PrepareMapDataRequest request(
+            Path save,
+            SurfaceDataRequirement requirement
+    ) {
         return new PrepareMapDataRequest(
                 save,
                 4,
@@ -158,7 +209,7 @@ class SnapshotPreparedMapDataReaderTest {
                 RenderStyle.SIMPLE,
                 Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
                 Optional.empty(),
-                SurfaceDataRequirement.ANALYSIS
+                requirement
         );
     }
 
