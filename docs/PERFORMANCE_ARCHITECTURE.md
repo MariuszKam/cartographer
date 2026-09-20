@@ -344,16 +344,23 @@ operation rather than performing hidden partial reuse.
 
 ### Geology and fused Prospecting workspace
 
-Geology and Prospecting share the compact ROCK result contract without adding a
-persistent ROCK cache.
+Geology and Prospecting share the compact ROCK result contract, while PF-2/PF-3
+add revision-scoped `UPPER_ROCK` snapshot tiles for compatible warm geology
+operations.
 
-- ROCK remains source-authoritative. A Geology Y/radius/center change starts a
-  new selective source operation.
-- Prospecting accepts All resources or a multi-resource selection in one
-  request. The fused provider receives the complete resource list once, opens
-  one operation-scoped `SaveSession`, builds one `RockCatalog`, compiles one
-  classifier, and performs one selective traversal that feeds both ROCK and
-  ore observations. The Workstation must not loop one heavy scan per resource.
+- A compatible full-height `UPPER_ROCK` request may be answered from
+  `UpperRockTileStore` without opening a source `SaveSession`. Render-only
+  callers can stream bounded snapshot tiles directly into the capped raster;
+  interactive callers may request an exact compact `RockMap` from the same
+  snapshot when hover/highlight state must be retained.
+- `AT_Y`, incompatible requests, snapshot MISS/CORRUPT, and unsupported
+  vertical ranges remain authoritative-source operations. Missing derived
+  ROCK data never proves source absence.
+- Prospecting remains a separate fused source operation. The fused provider
+  receives the complete resource list once, opens one operation-scoped
+  `SaveSession`, builds one `RockCatalog`, compiles one classifier, and
+  performs one selective traversal that feeds both ROCK and ore observations.
+  The Workstation must not loop one heavy scan per resource.
 - `ProspectingAreaResult` retains the compact `RockMap` produced by that
   fused operation. The central viewport renders that retained result locally.
 - Geology and Prospecting `MapFrame` values may retain only the compact
@@ -362,11 +369,13 @@ persistent ROCK cache.
 - Cursor inspection uses indexed `RockMap.sampleAt(...)` access. Rock
   highlighting rerenders from the retained `RockMap` and preserves viewport
   geometry, with zero save/cache/HOME/marker-store IO.
-- The 4096 x 4096 raster cap still applies to ROCK rendering. Large radii are
-  sampled into the bounded raster instead of allocating world-diameter images.
+- The 4096 x 4096 raster cap still applies to ROCK rendering. Large compatible
+  `UPPER_ROCK` warm renders are sampled directly from bounded snapshot tile
+  batches instead of first materializing a request-shaped `RockMap`.
 
 A local highlight or hover is not a new geology analysis. Changing ROCK mode,
-Y, center or radius remains an explicit new source operation.
+Y, center or radius remains an explicit operation, but a compatible
+`UPPER_ROCK` operation may now be snapshot-backed rather than source-backed.
 
 ### Responsive operation orchestration and cancellation
 
@@ -471,10 +480,12 @@ wall-clock assertions are not benchmark evidence.
   report states that OS filesystem cache state is uncontrolled.
 - `JVM_WARM` runs two unmeasured warmups and five measured iterations through
   the in-process benchmark runner. Preparation is outside timing.
-- `CACHE_WARM` is currently a MAP-only mode. A dedicated campaign cache is
-  populated and verified outside timing, then an unmeasured HIT/parity
-  preflight precedes five measured iterations, each of which must prove HIT.
-  ROCK remains source-authoritative and does not support CACHE_WARM.
+- `CACHE_WARM` in the PF-1.8 macro framework remains a MAP-only mode. A
+  dedicated campaign cache is populated and verified outside timing, then an
+  unmeasured HIT/parity preflight precedes five measured iterations, each of
+  which must prove HIT. Historical PF-1.8 ROCK macro/JFR workloads remain
+  source-authoritative by design; PF-3 validates snapshot-backed
+  `UPPER_ROCK` separately through `pf3RenderSizedValidation`.
 
 ### Radius ladder
 
@@ -500,8 +511,13 @@ throughput, memory, or speedup threshold is invented by this architecture.
   and after source snapshots and requires qualifying external PF-1.7 cache
   evidence for a safety pass.
 - `pf18Jfr` performs a separate diagnostic profile. MAP profiling is prepared
-  as cache-warm and ROCK profiling is source-authoritative. JFR timings are
-  never merged into normal macro timing percentiles.
+  as cache-warm and the historical PF-1.8 ROCK profile remains
+  source-authoritative. JFR timings are never merged into normal macro timing
+  percentiles.
+- `pf3RenderSizedValidation` reuses the PF-2.8 cold-build/Map/Surface gate and
+  adds compatible `UPPER_ROCK` R1024/R2048/R4096 warm routing, zero-source
+  connection evidence, resource measurements, exact snapshot parity, and one
+  outer source-safety gate for the complete PF-3 campaign.
 
 Reports retain min/p50/p95/max, every declared sample, failures, OOMs,
 correctness identities, and unavailable measurements explicitly. CPU, heap,
