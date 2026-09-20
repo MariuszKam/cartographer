@@ -30,6 +30,7 @@ import cartographer.perf.UpperRockTileLookup;
 import cartographer.perf.UpperRockTileStore;
 import cartographer.perf.WorldDataSnapshot;
 import cartographer.perf.WorldSnapshotHeader;
+import cartographer.perf.WorldSnapshotPreparationSummary;
 import cartographer.perf.WorldIndexCatalogStore;
 import cartographer.save.MapRegionStreamStats;
 import cartographer.save.ReadDiagnostics;
@@ -139,6 +140,7 @@ public final class PrepareWorldSnapshotUseCase {
         Objects.requireNonNull(request, "request is required");
         Objects.requireNonNull(progress, "progress is required");
         session.requireSameSave(request.savePath());
+        progress.start("Preparing world snapshot");
 
         WorldDataSnapshot snapshot = WorldDataSnapshot.openOrCreate(
                 cacheStore,
@@ -181,6 +183,8 @@ public final class PrepareWorldSnapshotUseCase {
         ReadDiagnostics resourceDiagnostics = new ReadDiagnostics();
         Counters counters = new Counters();
 
+        ProgressReporter terrainProgress =
+                phase(progress, 1, 5, "Terrain");
         boolean catalogWasComplete = indexStore.mapChunkScanComplete();
         if (!catalogWasComplete) {
             discoverObservedMapChunks(
@@ -189,7 +193,7 @@ public final class PrepareWorldSnapshotUseCase {
                     indexStore,
                     mapChunkDiagnostics,
                     counters,
-                    progress
+                    terrainProgress
             );
             indexStore.markMapChunkScanComplete();
         }
@@ -204,7 +208,7 @@ public final class PrepareWorldSnapshotUseCase {
                     observed,
                     mapChunkDiagnostics,
                     counters,
-                    progress
+                    terrainProgress
             );
         }
 
@@ -215,7 +219,9 @@ public final class PrepareWorldSnapshotUseCase {
 
         List<List<MapChunkCoordinate>> batches =
                 batchPlanner.plan(observed);
-        progress.start("Indexing Surface snapshot");
+        ProgressReporter surfaceProgress =
+                phase(progress, 2, 5, "Surface");
+        surfaceProgress.start("Indexing snapshot");
         for (int index = 0; index < batches.size(); index++) {
             indexSurfaceBatch(
                     session,
@@ -226,15 +232,15 @@ public final class PrepareWorldSnapshotUseCase {
                     batches.get(index),
                     chunkDiagnostics,
                     counters,
-                    progress
+                    surfaceProgress
             );
-            progress.progress(
-                    "Indexing Surface snapshot",
+            surfaceProgress.progress(
+                    "Indexing snapshot",
                     index + 1,
                     batches.size()
             );
         }
-        progress.done("Surface snapshot indexing complete");
+        surfaceProgress.done("Snapshot indexing complete");
 
         boolean surfaceComplete = surfaceCoverageComplete(
                 surfaceStore,
@@ -242,14 +248,18 @@ public final class PrepareWorldSnapshotUseCase {
                 metadata
         );
 
+        ProgressReporter mapRegionProgress =
+                phase(progress, 3, 5, "Map regions");
         boolean mapRegionComplete = indexMapRegionSnapshot(
                 session,
                 mapRegionStore,
                 mapRegionDiagnostics,
                 counters,
-                progress
+                mapRegionProgress
         );
 
+        ProgressReporter rockProgress =
+                phase(progress, 4, 5, "Geology");
         RockCatalog rockCatalog = RockCatalog.from(registry);
         boolean upperRockComplete = indexUpperRockSnapshot(
                 session,
@@ -260,9 +270,11 @@ public final class PrepareWorldSnapshotUseCase {
                 upperRockTileStore,
                 rockDiagnostics,
                 counters,
-                progress
+                rockProgress
         );
 
+        ProgressReporter resourceProgress =
+                phase(progress, 5, 5, "Resources");
         ResourceBlockCatalog resourceCatalog =
                 ResourceBlockCatalog.from(registry);
         boolean resourceIndexComplete = indexResourceSnapshot(
@@ -274,10 +286,10 @@ public final class PrepareWorldSnapshotUseCase {
                 resourceIndexStore,
                 resourceDiagnostics,
                 counters,
-                progress
+                resourceProgress
         );
 
-        return new PrepareWorldSnapshotResult(
+        PrepareWorldSnapshotResult result = new PrepareWorldSnapshotResult(
                 snapshot.revisionHash(),
                 observed.size(),
                 counters.terrainHits,
@@ -305,6 +317,24 @@ public final class PrepareWorldSnapshotUseCase {
                 rockDiagnostics,
                 resourceDiagnostics
         );
+        snapshot.preparationSummaryStore().publish(
+                new WorldSnapshotPreparationSummary(
+                        result.revisionHash(),
+                        result.observedMapChunks(),
+                        result.mapChunkCatalogComplete(),
+                        result.terrainCoverageComplete(),
+                        result.surfaceCoverageComplete(),
+                        result.mapRegionCoverageComplete(),
+                        result.upperRockCoverageComplete(),
+                        result.resourceIndexCoverageComplete()
+                )
+        );
+        progress.done(
+                result.complete()
+                        ? "World snapshot prepared"
+                        : "World snapshot preparation complete with partial coverage"
+        );
+        return result;
     }
 
     private void discoverObservedMapChunks(
@@ -983,6 +1013,40 @@ public final class PrepareWorldSnapshotUseCase {
             }
         }
         return true;
+    }
+
+    private ProgressReporter phase(
+            ProgressReporter delegate,
+            int phase,
+            int totalPhases,
+            String label
+    ) {
+        Objects.requireNonNull(delegate, "delegate is required");
+        String prefix = "[" + phase + "/" + totalPhases + "] " + label;
+        return new ProgressReporter() {
+            @Override
+            public void start(String stage) {
+                delegate.start(prefix + " — " + stage);
+            }
+
+            @Override
+            public void progress(
+                    String stage,
+                    int current,
+                    int total
+            ) {
+                delegate.progress(
+                        prefix + " — " + stage,
+                        current,
+                        total
+                );
+            }
+
+            @Override
+            public void done(String stage) {
+                delegate.done(prefix + " — " + stage);
+            }
+        };
     }
 
     private static int countActiveConsidered(SurfaceTile tile) {
