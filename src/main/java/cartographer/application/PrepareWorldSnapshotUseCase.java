@@ -1,9 +1,15 @@
 package cartographer.application;
 
+import cartographer.environment.EnvironmentInterpreter;
+import cartographer.geology.GeologicProvinceInterpreter;
+import cartographer.geology.rock.RockCatalog;
 import cartographer.model.BlockInfo;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;
+import cartographer.perf.MapRegionSnapshotEntry;
+import cartographer.perf.MapRegionSnapshotRead;
+import cartographer.perf.MapRegionSnapshotStore;
 import cartographer.perf.RenderDataCacheStore;
 import cartographer.perf.SurfaceCacheTile;
 import cartographer.perf.SurfaceTileLookup;
@@ -11,8 +17,13 @@ import cartographer.perf.SurfaceTileStore;
 import cartographer.perf.TerrainHeightTile;
 import cartographer.perf.TerrainTileLookup;
 import cartographer.perf.TerrainTileStore;
+import cartographer.perf.UpperRockTile;
+import cartographer.perf.UpperRockTileBatchIndexer;
+import cartographer.perf.UpperRockTileLookup;
+import cartographer.perf.UpperRockTileStore;
 import cartographer.perf.WorldDataSnapshot;
 import cartographer.perf.WorldIndexCatalogStore;
+import cartographer.save.MapRegionStreamStats;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
@@ -54,6 +65,10 @@ public final class PrepareWorldSnapshotUseCase {
     private final WorldIndexBatchPlanner batchPlanner;
     private final SurfaceFallbackChunkPlanner fallbackPlanner =
             new SurfaceFallbackChunkPlanner();
+    private final EnvironmentInterpreter environmentInterpreter =
+            new EnvironmentInterpreter();
+    private final GeologicProvinceInterpreter geologicProvinceInterpreter =
+            new GeologicProvinceInterpreter();
 
     public PrepareWorldSnapshotUseCase(
             VcdbsReader reader,
@@ -125,9 +140,14 @@ public final class PrepareWorldSnapshotUseCase {
         TerrainTileStore terrainStore = snapshot.terrainStore();
         SurfaceTileStore surfaceStore = snapshot.surfaceStore();
         WorldIndexCatalogStore indexStore = snapshot.indexCatalogStore();
+        MapRegionSnapshotStore mapRegionStore = snapshot.mapRegionStore();
+        UpperRockTileStore upperRockTileStore =
+                snapshot.upperRockTileStore();
 
         ReadDiagnostics mapChunkDiagnostics = new ReadDiagnostics();
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
+        ReadDiagnostics mapRegionDiagnostics = new ReadDiagnostics();
+        ReadDiagnostics rockDiagnostics = new ReadDiagnostics();
         Counters counters = new Counters();
 
         boolean catalogWasComplete = indexStore.mapChunkScanComplete();
