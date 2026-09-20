@@ -1,5 +1,6 @@
 package cartographer.save;
 
+import cartographer.testing.IntegrationTest;
 import cartographer.cli.ProgressReporter;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
@@ -21,6 +22,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@IntegrationTest
 class VcdbsReaderDirectMapChunkLookupTest {
 
     @TempDir
