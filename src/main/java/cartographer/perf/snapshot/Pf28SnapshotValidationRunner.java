@@ -167,10 +167,6 @@ public final class Pf28SnapshotValidationRunner {
                     probeAfter.connectionsClosed(),
                     probeBefore.connectionsClosed()
             );
-            boolean snapshotBacked =
-                    sourceConnectionsOpened == 0
-                            && sourceConnectionsClosed == 0;
-
             var cacheReport = warmResult.renderDataCacheReport();
             samples.add(new Pf28WarmRenderSample(
                     radius,
@@ -179,7 +175,6 @@ public final class Pf28SnapshotValidationRunner {
                     warm.evidence(),
                     sourceConnectionsOpened,
                     sourceConnectionsClosed,
-                    snapshotBacked,
                     cacheReport.terrain().requested(),
                     cacheReport.terrain().hits(),
                     cacheReport.terrain().misses(),
