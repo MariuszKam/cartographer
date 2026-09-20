@@ -63,7 +63,7 @@ class MapTerrainPreparationTest {
                 16,
                 1,
                 RenderStyle.SIMPLE,
-                Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE)
+                Set.of(RenderLayer.SURFACE)
         );
         MapTerrainPreparation.Builder builder = MapTerrainPreparation.builder(
                 new WorldPosition(16, 0, 16),
@@ -115,7 +115,6 @@ class MapTerrainPreparationTest {
         builder.accept(chunk(0, 0, 55));
         MapTerrainPreparation terrain = builder.finish();
 
-        assertTrue(terrain.heights() instanceof SampledTerrainHeightField);
         assertTrue(terrain.heights() instanceof SampledTerrainHeightField);
         assertTrue(terrain.heights().hasHeightAt(16, 16));
         assertTrue(terrain.heights().hasHeightAt(15, 16));
