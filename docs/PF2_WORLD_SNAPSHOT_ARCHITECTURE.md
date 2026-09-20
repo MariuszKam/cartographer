@@ -168,8 +168,53 @@ Runtime tests and real-save validation remain reviewer-controlled.
 
 ### PF-2.4 — mapregion + ROCK indexing
 
-Persist compact interpreted/static mapregion and ROCK tile state in the same
-revision namespace. Do not persist decoded source chunks.
+Implemented on the PF-2.4 branch:
+
+- `WorldDataSnapshot` now exposes revision-scoped mapregion and UPPER_ROCK
+  stores beside Terrain, Surface and the observed-mapchunk catalog;
+- authoritative mapregion rows are streamed through the operation-owned
+  read-only `SaveSession`, filtered explicitly to main-world
+  `dimension=0,y=0`, interpreted immediately, and persisted as compact
+  `EnvironmentProfile` plus optional `GeologicProvinceSummary` state;
+- mapregion source payloads and raw `ServerMapRegion` objects are never
+  persisted. A scan-complete marker is removed before repair and restored only
+  when the authoritative scan finishes without malformed/failed main-world
+  rows. Other dimensions are ignored without making main-world coverage
+  incomplete;
+- mapregion snapshot codecs carry their own interpretation-profile version, so
+  a future interpretation-format change can invalidate derived rows without
+  changing source authority;
+- UPPER_ROCK coverage is persisted as one compact 32x32-equivalent tile per
+  observed mapchunk (edge tiles are clipped to world bounds). Each cell stores
+  only `OBSERVED / NO_ROCK / UNAVAILABLE`, source rock block ID and rock Y
+  where applicable;
+- UPPER_ROCK indexing uses the existing selective palette-aware chunk reader.
+  `DECODED` and `PALETTE_REJECTED` visits count as available coverage;
+  `MISSING` and `FAILED` remain unavailable exactly as in
+  `RockStreamingSession`;
+- the highest-rock candidate is accepted only when source coverage above that
+  candidate satisfies the established UPPER_ROCK contract. Missing coverage
+  below an already-proven highest candidate does not invalidate it, matching
+  the current request-shaped ROCK implementation;
+- ROCK tiles are prepared in the same bounded spatial batches used by world
+  Surface preparation. Valid tiles are HITs; only missing/corrupt/incompatible
+  tiles are rebuilt. Completed batches survive interruption and the next
+  prepare resumes from derived coverage;
+- `snapshot prepare <save.vcdbs>` now reports Terrain, Surface, Mapregion and
+  UPPER_ROCK coverage separately. Snapshot completeness requires all four
+  layers plus the authoritative observed-mapchunk catalog;
+- no decoded source chunk, mapregion payload or JDBC source connection is
+  retained after the operation. All new databases remain below the external
+  revision cache namespace.
+
+PF-2.4 builds the derived data but does **not** yet route Geology/Map overlays
+through it. Consumer routing remains PF-2.6, so source reads are still the
+authoritative fallback until that stage.
+
+Surface planning/fallback code is untouched by PF-2.4. In particular, the
+explicit no-top-down-early-stop correctness boundary remains unchanged.
+
+Runtime tests and real-save validation remain reviewer-controlled.
 
 ### PF-2.5 — resource index
 

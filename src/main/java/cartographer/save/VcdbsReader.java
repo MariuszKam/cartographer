@@ -3211,6 +3211,136 @@ public class VcdbsReader {
         return readMapRegionsFromResultSet(connection, diagnostics, progress);
     }
 
+    /**
+     * Streams authoritative mapregion rows from the session-owned read-only
+     * connection without retaining source payloads beyond the callback.
+     */
+    public MapRegionStreamStats forEachObservedMapRegion(
+            SaveSession session,
+            ReadDiagnostics diagnostics,
+            Consumer<ServerMapRegion> consumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(session, "session is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(consumer, "consumer is required");
+        Objects.requireNonNull(progress, "progress is required");
+
+        Connection connection = session.connection();
+        progress.start("Indexing mapregions");
+        try {
+            if (tableMissing(connection, SaveTable.MAPREGION.tableName())) {
+                diagnostics.missingTable(SaveTable.MAPREGION.tableName());
+                progress.done("Mapregion table absent");
+                return new MapRegionStreamStats(
+                        0, 0, 0, 0, 0, 0L
+                );
+            }
+
+            int expectedRows = countRows(
+                    connection,
+                    SaveTable.MAPREGION.tableName()
+            );
+            String sql = "SELECT position, data FROM \""
+                    + SaveTable.MAPREGION.tableName()
+                    + "\" ORDER BY position";
+            int rowsFound = 0;
+            int parsed = 0;
+            int failed = 0;
+            int invalid = 0;
+            int ignored = 0;
+            long payloadBytes = 0L;
+
+            try (PreparedStatement statement =
+                         connection.prepareStatement(sql);
+                 ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    rowsFound++;
+                    progress.progress(
+                            "Indexing mapregions",
+                            rowsFound,
+                            expectedRows
+                    );
+
+                    Optional<ChunkPosition> decodedPosition =
+                            decodePackedPosition(
+                                    resultSet.getObject("position")
+                            );
+                    if (decodedPosition.isEmpty()) {
+                        invalid++;
+                        diagnostics.recordSkipped(
+                                "mapregion row has no readable position"
+                        );
+                        continue;
+                    }
+                    ChunkPosition position =
+                            decodedPosition.orElseThrow();
+                    if (position.dimension() != 0 || position.y() != 0) {
+                        ignored++;
+                        diagnostics.recordSkipped(
+                                "mapregion row is outside the main world"
+                        );
+                        continue;
+                    }
+                    MapRegionCoordinate coordinate =
+                            new MapRegionCoordinate(
+                                    position.x(),
+                                    position.z()
+                            );
+
+                    byte[] payload = resultSet.getBytes("data");
+                    if (payload == null || payload.length == 0) {
+                        invalid++;
+                        diagnostics.recordSkipped(
+                                "mapregion row has no payload"
+                        );
+                        continue;
+                    }
+                    payloadBytes = Math.addExact(
+                            payloadBytes,
+                            payload.length
+                    );
+
+                    ParseResult<ServerMapRegion> parsedRegion =
+                            serverMapRegionParser.parse(
+                                    coordinate,
+                                    payload
+                            );
+                    if (parsedRegion.isSuccess()) {
+                        parsed++;
+                        diagnostics.recordParsed();
+                        consumer.accept(
+                                parsedRegion.value().orElseThrow()
+                        );
+                    } else {
+                        failed++;
+                        diagnostics.recordFailed(
+                                parsedRegion.error().orElse(
+                                        "unknown mapregion parse error"
+                                )
+                        );
+                    }
+                }
+            }
+
+            progress.done("Mapregion indexing source scan complete");
+            return new MapRegionStreamStats(
+                    rowsFound,
+                    parsed,
+                    failed,
+                    invalid,
+                    ignored,
+                    payloadBytes
+            );
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot stream mapregion table: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
     /** Reads registry data from an already-open session-owned read-only connection. */
     protected Map<Integer, BlockInfo> readBlockRegistry(
             Connection connection

@@ -63,6 +63,16 @@ public final class SnapshotCommand implements Command {
                         + ", complete=" + result.surfaceCoverageComplete()
         );
         out.println(
+                "Mapregion: hits=" + result.mapRegionHits()
+                        + ", published=" + result.mapRegionPublished()
+                        + ", complete=" + result.mapRegionCoverageComplete()
+        );
+        out.println(
+                "UPPER_ROCK: hits=" + result.upperRockHits()
+                        + ", published=" + result.upperRockPublished()
+                        + ", complete=" + result.upperRockCoverageComplete()
+        );
+        out.println(
                 "Catalog complete: " + result.mapChunkCatalogComplete()
         );
         out.println(

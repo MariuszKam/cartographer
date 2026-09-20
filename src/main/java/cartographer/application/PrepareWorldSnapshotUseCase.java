@@ -1,9 +1,15 @@
 package cartographer.application;
 
+import cartographer.environment.EnvironmentInterpreter;
+import cartographer.geology.GeologicProvinceInterpreter;
+import cartographer.geology.rock.RockCatalog;
 import cartographer.model.BlockInfo;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;
+import cartographer.perf.MapRegionSnapshotEntry;
+import cartographer.perf.MapRegionSnapshotRead;
+import cartographer.perf.MapRegionSnapshotStore;
 import cartographer.perf.RenderDataCacheStore;
 import cartographer.perf.SurfaceCacheTile;
 import cartographer.perf.SurfaceTileLookup;
@@ -11,8 +17,13 @@ import cartographer.perf.SurfaceTileStore;
 import cartographer.perf.TerrainHeightTile;
 import cartographer.perf.TerrainTileLookup;
 import cartographer.perf.TerrainTileStore;
+import cartographer.perf.UpperRockTile;
+import cartographer.perf.UpperRockTileBatchIndexer;
+import cartographer.perf.UpperRockTileLookup;
+import cartographer.perf.UpperRockTileStore;
 import cartographer.perf.WorldDataSnapshot;
 import cartographer.perf.WorldIndexCatalogStore;
+import cartographer.save.MapRegionStreamStats;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
@@ -37,16 +48,18 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * PF-2.3 operation that prepares revision-scoped Terrain and Surface coverage
- * for every observed main-world mapchunk.
+ * PF-2 world preparation operation. PF-2.3 prepares revision-scoped Terrain
+ * and Surface coverage; PF-2.4 extends the same snapshot with interpreted
+ * mapregion state and UPPER_ROCK tiles.
  *
  * <p>The source save remains read-only and is owned by one operation-scoped
- * {@link SaveSession}. Source payloads are never retained. Existing valid
- * derived tiles are reused, missing/corrupt tiles are rebuilt, and Surface
- * indexing runs in bounded spatial batches.</p>
+ * {@link SaveSession}. Source payloads and decoded chunks are never retained.
+ * Existing valid derived artifacts are reused and missing/corrupt coverage is
+ * rebuilt in bounded batches.</p>
  */
 public final class PrepareWorldSnapshotUseCase {
     private static final int TERRAIN_BATCH_SIZE = 128;
+    private static final int MAPREGION_BATCH_SIZE = 64;
 
     private final VcdbsReader reader;
     private final SaveSessionFactory sessionFactory;
@@ -54,6 +67,10 @@ public final class PrepareWorldSnapshotUseCase {
     private final WorldIndexBatchPlanner batchPlanner;
     private final SurfaceFallbackChunkPlanner fallbackPlanner =
             new SurfaceFallbackChunkPlanner();
+    private final EnvironmentInterpreter environmentInterpreter =
+            new EnvironmentInterpreter();
+    private final GeologicProvinceInterpreter geologicProvinceInterpreter =
+            new GeologicProvinceInterpreter();
 
     public PrepareWorldSnapshotUseCase(
             VcdbsReader reader,
@@ -125,9 +142,14 @@ public final class PrepareWorldSnapshotUseCase {
         TerrainTileStore terrainStore = snapshot.terrainStore();
         SurfaceTileStore surfaceStore = snapshot.surfaceStore();
         WorldIndexCatalogStore indexStore = snapshot.indexCatalogStore();
+        MapRegionSnapshotStore mapRegionStore = snapshot.mapRegionStore();
+        UpperRockTileStore upperRockTileStore =
+                snapshot.upperRockTileStore();
 
         ReadDiagnostics mapChunkDiagnostics = new ReadDiagnostics();
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
+        ReadDiagnostics mapRegionDiagnostics = new ReadDiagnostics();
+        ReadDiagnostics rockDiagnostics = new ReadDiagnostics();
         Counters counters = new Counters();
 
         boolean catalogWasComplete = indexStore.mapChunkScanComplete();
@@ -191,6 +213,27 @@ public final class PrepareWorldSnapshotUseCase {
                 metadata
         );
 
+        boolean mapRegionComplete = indexMapRegionSnapshot(
+                session,
+                mapRegionStore,
+                mapRegionDiagnostics,
+                counters,
+                progress
+        );
+
+        RockCatalog rockCatalog = RockCatalog.from(registry);
+        boolean upperRockComplete = indexUpperRockSnapshot(
+                session,
+                metadata,
+                observed,
+                batches,
+                rockCatalog,
+                upperRockTileStore,
+                rockDiagnostics,
+                counters,
+                progress
+        );
+
         return new PrepareWorldSnapshotResult(
                 snapshot.revisionHash(),
                 observed.size(),
@@ -199,11 +242,19 @@ public final class PrepareWorldSnapshotUseCase {
                 counters.surfaceHits,
                 counters.surfacePublished,
                 counters.surfaceSkippedIncomplete,
+                counters.mapRegionHits,
+                counters.mapRegionPublished,
+                counters.upperRockHits,
+                counters.upperRockPublished,
                 indexStore.mapChunkScanComplete(),
                 terrainComplete,
                 surfaceComplete,
+                mapRegionComplete,
+                upperRockComplete,
                 mapChunkDiagnostics,
-                chunkDiagnostics
+                chunkDiagnostics,
+                mapRegionDiagnostics,
+                rockDiagnostics
         );
     }
 
@@ -473,6 +524,198 @@ public final class PrepareWorldSnapshotUseCase {
         }
     }
 
+    private boolean indexMapRegionSnapshot(
+            SaveSession session,
+            MapRegionSnapshotStore store,
+            ReadDiagnostics diagnostics,
+            Counters counters,
+            ProgressReporter progress
+    ) {
+        MapRegionSnapshotRead existing = store.readAll();
+        if (existing.healthyComplete()) {
+            counters.mapRegionHits = Math.addExact(
+                    counters.mapRegionHits,
+                    existing.entries().size()
+            );
+            return true;
+        }
+
+        store.markScanIncomplete();
+        if (existing.corruptRows() > 0) {
+            store.clearEntries();
+        }
+
+        List<MapRegionSnapshotEntry> buffer =
+                new ArrayList<>(MAPREGION_BATCH_SIZE);
+        MapRegionStreamStats stats = reader.forEachObservedMapRegion(
+                session,
+                diagnostics,
+                region -> {
+                    buffer.add(
+                            new MapRegionSnapshotEntry(
+                                    region.coordinate(),
+                                    environmentInterpreter.interpret(region),
+                                    geologicProvinceInterpreter.summarize(region)
+                            )
+                    );
+                    if (buffer.size() >= MAPREGION_BATCH_SIZE) {
+                        publishMapRegionBatch(
+                                store,
+                                buffer,
+                                counters
+                        );
+                    }
+                },
+                progress
+        );
+        publishMapRegionBatch(store, buffer, counters);
+
+        if (stats.complete()) {
+            store.markScanComplete();
+        }
+        return store.readAll().healthyComplete();
+    }
+
+    private void publishMapRegionBatch(
+            MapRegionSnapshotStore store,
+            List<MapRegionSnapshotEntry> buffer,
+            Counters counters
+    ) {
+        if (buffer.isEmpty()) return;
+        List<MapRegionSnapshotEntry> publish = List.copyOf(buffer);
+        store.publish(publish);
+        counters.mapRegionPublished = Math.addExact(
+                counters.mapRegionPublished,
+                publish.size()
+        );
+        buffer.clear();
+    }
+
+    private boolean indexUpperRockSnapshot(
+            SaveSession session,
+            WorldMetadata metadata,
+            List<MapChunkCoordinate> observed,
+            List<List<MapChunkCoordinate>> batches,
+            RockCatalog catalog,
+            UpperRockTileStore store,
+            ReadDiagnostics diagnostics,
+            Counters counters,
+            ProgressReporter progress
+    ) {
+        if (observed.isEmpty()) {
+            return true;
+        }
+        if (catalog.rocks().isEmpty()) {
+            progress.done(
+                    "UPPER_ROCK snapshot unavailable: no natural rock registry"
+            );
+            return false;
+        }
+
+        progress.start("Indexing UPPER_ROCK snapshot");
+        for (int index = 0; index < batches.size(); index++) {
+            indexUpperRockBatch(
+                    session,
+                    metadata,
+                    batches.get(index),
+                    catalog,
+                    store,
+                    diagnostics,
+                    counters,
+                    progress
+            );
+            progress.progress(
+                    "Indexing UPPER_ROCK snapshot",
+                    index + 1,
+                    batches.size()
+            );
+        }
+        progress.done("UPPER_ROCK snapshot indexing complete");
+        return upperRockCoverageComplete(store, observed, metadata);
+    }
+
+    private void indexUpperRockBatch(
+            SaveSession session,
+            WorldMetadata metadata,
+            List<MapChunkCoordinate> batch,
+            RockCatalog catalog,
+            UpperRockTileStore store,
+            ReadDiagnostics diagnostics,
+            Counters counters,
+            ProgressReporter progress
+    ) {
+        Map<MapChunkCoordinate, UpperRockTileLookup> existing =
+                store.read(batch);
+        List<MapChunkCoordinate> missing = new ArrayList<>();
+        for (MapChunkCoordinate coordinate : batch) {
+            UpperRockTileLookup lookup = existing.getOrDefault(
+                    coordinate,
+                    UpperRockTileLookup.miss()
+            );
+            if (lookup.status() == UpperRockTileLookup.Status.HIT
+                    && lookup.tile().matchesWorld(metadata)) {
+                counters.upperRockHits++;
+            } else {
+                missing.add(coordinate);
+            }
+        }
+        if (missing.isEmpty()) {
+            return;
+        }
+
+        UpperRockTileBatchIndexer indexer =
+                new UpperRockTileBatchIndexer(
+                        metadata,
+                        missing,
+                        catalog
+                );
+        List<cartographer.model.ChunkPosition> positions =
+                indexer.positions();
+        if (!positions.isEmpty()) {
+            reader.forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                    session,
+                    positions,
+                    indexer.wantedBlockIds(),
+                    diagnostics,
+                    indexer::accept,
+                    progress
+            );
+        }
+
+        List<UpperRockTile> publish = indexer.finish();
+        if (!publish.isEmpty()) {
+            store.publish(publish);
+            counters.upperRockPublished = Math.addExact(
+                    counters.upperRockPublished,
+                    publish.size()
+            );
+        }
+    }
+
+    private boolean upperRockCoverageComplete(
+            UpperRockTileStore store,
+            List<MapChunkCoordinate> coordinates,
+            WorldMetadata metadata
+    ) {
+        List<List<MapChunkCoordinate>> batches =
+                batchPlanner.plan(coordinates);
+        for (List<MapChunkCoordinate> batch : batches) {
+            Map<MapChunkCoordinate, UpperRockTileLookup> lookups =
+                    store.read(batch);
+            for (MapChunkCoordinate coordinate : batch) {
+                UpperRockTileLookup lookup = lookups.getOrDefault(
+                        coordinate,
+                        UpperRockTileLookup.miss()
+                );
+                if (lookup.status() != UpperRockTileLookup.Status.HIT
+                        || !lookup.tile().matchesWorld(metadata)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     private boolean terrainCoverageComplete(
             TerrainTileStore store,
             List<MapChunkCoordinate> coordinates
@@ -539,5 +782,9 @@ public final class PrepareWorldSnapshotUseCase {
         private int surfaceHits;
         private int surfacePublished;
         private int surfaceSkippedIncomplete;
+        private int mapRegionHits;
+        private int mapRegionPublished;
+        private int upperRockHits;
+        private int upperRockPublished;
     }
 }
