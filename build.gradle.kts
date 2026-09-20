@@ -183,7 +183,8 @@ val testArchitecturePatterns = linkedMapOf(
     ),
     "NETWORK_FIXTURE" to Regex("""\b(?:ServerSocket|HttpServer|localhost|127\.0\.0\.1)\b"""),
     "RESOURCE_LOCK" to Regex("""@ResourceLock\b"""),
-    "TEST_CATEGORY" to Regex("""@(IntegrationTest|ConcurrencyTest)\b""")
+    "INTEGRATION_CATEGORY" to Regex("""@IntegrationTest\b"""),
+    "CONCURRENCY_CATEGORY" to Regex("""@ConcurrencyTest\b""")
 )
 
 tasks.register("testArchitectureAudit") {
@@ -277,15 +278,16 @@ tasks.register("testArchitectureAudit") {
                     reviewReasons.add("unbounded-thread-join")
                 }
                 if ("THREAD_CREATION" in categories
-                    && "TEST_CATEGORY" !in categories) {
-                    reviewReasons.add("uncategorized-thread-creation")
+                    && "CONCURRENCY_CATEGORY" !in categories) {
+                    reviewReasons.add("thread-creation-without-concurrency-category")
                 }
                 if ("EXECUTOR" in categories
-                    && "TEST_CATEGORY" !in categories) {
-                    reviewReasons.add("uncategorized-executor")
+                    && "CONCURRENCY_CATEGORY" !in categories) {
+                    reviewReasons.add("executor-without-concurrency-category")
                 }
                 if ("NETWORK_FIXTURE" in categories
-                    && "TEST_CATEGORY" !in categories) {
+                    && "INTEGRATION_CATEGORY" !in categories
+                    && "CONCURRENCY_CATEGORY" !in categories) {
                     reviewReasons.add("uncategorized-network-fixture")
                 }
                 val reviewPriority = when {

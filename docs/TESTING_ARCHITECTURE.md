@@ -143,7 +143,9 @@ Do not infer lifecycle progress from:
 
 Synchronize on the event that the assertion is actually about.
 
-Every executor or thread created by a test must have a clear owner. Cleanup must
+Every executor or thread created by a test must have a clear owner and the test
+must be explicitly categorized with `@ConcurrencyTest`. `@IntegrationTest`
+alone is not sufficient to opt into thread/executor behavior. Cleanup must
 release blockers, request shutdown/cancellation where appropriate, and verify
 bounded termination. A timed join or await that expires must fail with useful
 diagnostics rather than silently continuing.
@@ -289,8 +291,9 @@ It assigns each file one of three review priorities:
 - `HIGH` for patterns that violate the current isolation contract, including
   filesystem or SQLite mutation without `@TempDir`, process-global default or
   system-property mutation, mutable static test state, sleep-based
-  synchronization, unbounded `Thread.join()`, or thread/executor/network
-  fixtures that have not been explicitly categorized;
+  synchronization, unbounded `Thread.join()`, thread/executor usage without
+  `@ConcurrencyTest`, or network fixtures without an explicit integration or
+  concurrency category;
 - `REVIEW` for explicitly categorized concurrency/resource behavior that
   still deserves human inspection, such as owned thread creation;
 - `INFO` for owned fixture behavior such as filesystem/SQLite mutation under
