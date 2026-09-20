@@ -100,26 +100,6 @@ public final class SnapshotPreparedMapDataReader {
                     request.layers()
             );
 
-            List<MapChunkCoordinate> terrainCoordinates =
-                    renderWindowPlanner.plan(
-                            metadata,
-                            center,
-                            request.radius()
-                    );
-            Optional<TerrainRead> terrainRead = terrain(
-                    snapshot,
-                    terrainCoordinates,
-                    center,
-                    options,
-                    progress
-            );
-            if (terrainRead.isEmpty()) {
-                return Optional.empty();
-            }
-
-            MapTerrainPreparation terrain =
-                    terrainRead.orElseThrow().terrain();
-
             Optional<SurfaceRead> surfaceRead;
             if (request.surfaceDataRequirement()
                     == SurfaceDataRequirement.NONE) {
@@ -149,6 +129,27 @@ public final class SnapshotPreparedMapDataReader {
             if (surfaceRead.isEmpty()) {
                 return Optional.empty();
             }
+
+            List<MapChunkCoordinate> terrainCoordinates =
+                    renderWindowPlanner.plan(
+                            metadata,
+                            center,
+                            request.radius()
+                    );
+            Optional<TerrainRead> terrainRead = terrain(
+                    snapshot,
+                    terrainCoordinates,
+                    center,
+                    options,
+                    surfaceRead.orElseThrow().data().renderData(),
+                    progress
+            );
+            if (terrainRead.isEmpty()) {
+                return Optional.empty();
+            }
+
+            MapTerrainPreparation terrain =
+                    terrainRead.orElseThrow().terrain();
 
             RenderDataCacheReport report = new RenderDataCacheReport(
                     true,
@@ -208,6 +209,7 @@ public final class SnapshotPreparedMapDataReader {
             List<MapChunkCoordinate> coordinates,
             WorldPosition center,
             RenderOptions options,
+            SurfaceRenderData surfaceRenderData,
             ProgressReporter progress
     ) {
         progress.start("Composing Terrain from world snapshot");
@@ -216,7 +218,8 @@ public final class SnapshotPreparedMapDataReader {
                         center,
                         options,
                         coordinates.size(),
-                        progress
+                        progress,
+                        surfaceRenderData
                 );
         if (coordinates.isEmpty()) {
             return Optional.of(new TerrainRead(

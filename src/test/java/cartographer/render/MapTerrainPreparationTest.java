@@ -58,7 +58,7 @@ class MapTerrainPreparationTest {
     }
 
     @Test
-    void surfaceRequestsKeepExactHeightStateUntilSurfaceIsRenderSized() {
+    void sourceStyleSurfacePreparationKeepsExactHeightState() {
         RenderOptions options = new RenderOptions(
                 16,
                 1,
@@ -75,6 +75,57 @@ class MapTerrainPreparationTest {
 
         assertTrue(terrain.heights() instanceof DenseHeightGrid);
         assertEquals(1024, terrain.surfaceHeights().sampleCount());
+    }
+
+    @Test
+    void snapshotSurfacePreparationUsesOnlyFinalSurfaceSourcesAndNeighbours() {
+        WorldPosition center = new WorldPosition(16, 0, 16);
+        RenderOptions options = new RenderOptions(
+                16,
+                1,
+                RenderStyle.SIMPLE,
+                Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE)
+        );
+        RenderSamplingPlan sampling =
+                RenderSamplingPlan.from(center, options);
+        SurfaceRenderData.Builder surface =
+                SurfaceRenderData.builder(
+                        sampling,
+                        cartographer.scanner.SurfaceTileLayout.forSurface(
+                                center.x(),
+                                center.z(),
+                                16,
+                                new cartographer.model.WorldMetadata(
+                                        32,
+                                        256,
+                                        32
+                                )
+                        )
+                );
+        surface.acceptResolved(16, 16, cartographer.model.SurfaceClass.ROCK);
+
+        MapTerrainPreparation.Builder builder =
+                MapTerrainPreparation.builder(
+                        center,
+                        options,
+                        1,
+                        ProgressReporter.NONE,
+                        surface.finish()
+                );
+        builder.accept(chunk(0, 0, 55));
+        MapTerrainPreparation terrain = builder.finish();
+
+        assertTrue(terrain.heights() instanceof SampledTerrainHeightField);
+        assertTrue(
+                terrain.surfaceHeights()
+                        instanceof SampledTerrainHeightField
+        );
+        assertTrue(terrain.surfaceHeights().hasHeightAt(16, 16));
+        assertTrue(terrain.surfaceHeights().hasHeightAt(15, 16));
+        assertTrue(terrain.surfaceHeights().hasHeightAt(17, 16));
+        assertTrue(terrain.surfaceHeights().hasHeightAt(16, 15));
+        assertTrue(terrain.surfaceHeights().hasHeightAt(16, 17));
+        assertTrue(terrain.surfaceHeights().sampleCount() < 1024);
     }
 
     @Test

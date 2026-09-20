@@ -47,6 +47,55 @@ class SampledTerrainHeightFieldTest {
     }
 
     @Test
+    void retainsArbitrarySurfaceSourcesAndHillshadeNeighbours() {
+        WorldPosition center = new WorldPosition(16, 0, 16);
+        RenderOptions options = new RenderOptions(
+                16,
+                1,
+                RenderStyle.SIMPLE,
+                Set.of(RenderLayer.SURFACE)
+        );
+        RenderSamplingPlan sampling =
+                RenderSamplingPlan.from(center, options);
+        SurfaceRenderData.Builder surface = SurfaceRenderData.builder(
+                sampling,
+                cartographer.scanner.SurfaceTileLayout.forSurface(
+                        center.x(),
+                        center.z(),
+                        16,
+                        new cartographer.model.WorldMetadata(
+                                32,
+                                256,
+                                32
+                        )
+                )
+        );
+        surface.acceptResolved(
+                11,
+                13,
+                cartographer.model.SurfaceClass.ROCK
+        );
+
+        SampledTerrainHeightField.Builder builder =
+                SampledTerrainHeightField.builder(
+                        sampling,
+                        false,
+                        surface.finish(),
+                        cartographer.application.ProgressReporter.NONE,
+                        1
+                );
+        builder.accept(chunk(0, 0, 10));
+        SampledTerrainHeightField field = builder.finish();
+
+        assertTrue(field.hasHeightAt(11, 13));
+        assertTrue(field.hasHeightAt(10, 13));
+        assertTrue(field.hasHeightAt(12, 13));
+        assertTrue(field.hasHeightAt(11, 12));
+        assertTrue(field.hasHeightAt(11, 14));
+        assertFalse(field.hasHeightAt(9, 13));
+    }
+
+    @Test
     void preservesFullViewportMinMaxAndLaterDuplicateOverwrite() {
         RenderOptions options = new RenderOptions(
                 16,

@@ -4,7 +4,6 @@ import cartographer.application.ProgressReporter;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.MapChunkHeightView;
 
-import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.Map;
@@ -13,17 +12,16 @@ import java.util.Objects;
 /**
  * Render-sized Terrain height state.
  *
- * <p>Only world columns that the raster can observe, or that are immediate
- * north/south/east/west hillshade neighbours of an observable column, retain a
- * height value. Palette min/max are still derived from every effective height
- * in the requested world window so rendering semantics remain unchanged.</p>
+ * <p>The field retains only height cells that can influence the final raster:
+ * regular Terrain samples plus their hillshade neighbours, and optional final
+ * Surface source cells plus their hillshade neighbours. Palette min/max still
+ * come from every effective height in the requested world window so visual
+ * semantics remain unchanged.</p>
  */
 final class SampledTerrainHeightField implements TerrainHeightField {
     private final int minWorldX;
     private final int minWorldZ;
     private final int worldDiameter;
-    private final int[] sampleXIndexByOffset;
-    private final int[] horizontalXIndexByOffset;
     private final Row[] rows;
     private final int minHeight;
     private final int maxHeight;
@@ -33,8 +31,6 @@ final class SampledTerrainHeightField implements TerrainHeightField {
             int minWorldX,
             int minWorldZ,
             int worldDiameter,
-            int[] sampleXIndexByOffset,
-            int[] horizontalXIndexByOffset,
             Row[] rows,
             int minHeight,
             int maxHeight,
@@ -43,8 +39,6 @@ final class SampledTerrainHeightField implements TerrainHeightField {
         this.minWorldX = minWorldX;
         this.minWorldZ = minWorldZ;
         this.worldDiameter = worldDiameter;
-        this.sampleXIndexByOffset = sampleXIndexByOffset;
-        this.horizontalXIndexByOffset = horizontalXIndexByOffset;
         this.rows = rows;
         this.minHeight = minHeight;
         this.maxHeight = maxHeight;
@@ -56,7 +50,29 @@ final class SampledTerrainHeightField implements TerrainHeightField {
             ProgressReporter progress,
             int expectedChunks
     ) {
-        return new Builder(sampling, progress, expectedChunks);
+        return builder(
+                sampling,
+                true,
+                SurfaceRenderData.empty(sampling),
+                progress,
+                expectedChunks
+        );
+    }
+
+    static Builder builder(
+            RenderSamplingPlan sampling,
+            boolean includeTerrainSamples,
+            SurfaceRenderData surfaceData,
+            ProgressReporter progress,
+            int expectedChunks
+    ) {
+        return new Builder(
+                sampling,
+                includeTerrainSamples,
+                surfaceData,
+                progress,
+                expectedChunks
+        );
     }
 
     @Override
@@ -65,14 +81,16 @@ final class SampledTerrainHeightField implements TerrainHeightField {
         if (row == null) {
             return false;
         }
-        int index = indexAt(row, worldX);
+        int index = row.indexAt((long) worldX - minWorldX);
         return index >= 0 && row.present.get(index);
     }
 
     @Override
     public int heightAt(int worldX, int worldZ) {
         Row row = rowAt(worldZ);
-        int index = row == null ? -1 : indexAt(row, worldX);
+        int index = row == null
+                ? -1
+                : row.indexAt((long) worldX - minWorldX);
         if (index < 0 || !row.present.get(index)) {
             throw new IllegalArgumentException(
                     "height sample is absent at " + worldX + "," + worldZ
@@ -104,22 +122,10 @@ final class SampledTerrainHeightField implements TerrainHeightField {
         return rows[(int) zOffset];
     }
 
-    private int indexAt(Row row, int worldX) {
-        long xOffset = (long) worldX - minWorldX;
-        if (xOffset < 0 || xOffset >= worldDiameter) {
-            return -1;
-        }
-        return row.horizontal
-                ? horizontalXIndexByOffset[(int) xOffset]
-                : sampleXIndexByOffset[(int) xOffset];
-    }
-
     static final class Builder {
         private final int minWorldX;
         private final int minWorldZ;
         private final int worldDiameter;
-        private final int[] sampleXIndexByOffset;
-        private final int[] horizontalXIndexByOffset;
         private final Row[] rows;
         private final ProgressReporter progress;
         private final int expectedChunks;
@@ -129,10 +135,13 @@ final class SampledTerrainHeightField implements TerrainHeightField {
 
         private Builder(
                 RenderSamplingPlan sampling,
+                boolean includeTerrainSamples,
+                SurfaceRenderData surfaceData,
                 ProgressReporter progress,
                 int expectedChunks
         ) {
             Objects.requireNonNull(sampling, "sampling plan is required");
+            Objects.requireNonNull(surfaceData, "Surface render data is required");
             this.progress = Objects.requireNonNull(
                     progress,
                     "progress is required"
@@ -142,55 +151,23 @@ final class SampledTerrainHeightField implements TerrainHeightField {
                         "expected chunks cannot be negative"
                 );
             }
+            if (surfaceData.rasterSize() != sampling.rasterSize()) {
+                throw new IllegalArgumentException(
+                        "Surface render data does not match sampling raster"
+                );
+            }
+
             this.expectedChunks = expectedChunks;
             this.minWorldX = sampling.worldMinX();
             this.minWorldZ = sampling.worldMinZ();
             this.worldDiameter = sampling.worldDiameterBlocks();
 
-            boolean[] sampledX = new boolean[worldDiameter];
-            boolean[] sampledZ = new boolean[worldDiameter];
-            for (int image = 0; image < sampling.rasterSize(); image++) {
-                sampledX[Math.toIntExact(
-                        (long) sampling.worldXForImageColumn(image)
-                                - minWorldX
-                )] = true;
-                sampledZ[Math.toIntExact(
-                        (long) sampling.worldZForImageRow(image)
-                                - minWorldZ
-                )] = true;
+            BitSet[] requiredByRow = new BitSet[worldDiameter];
+            if (includeTerrainSamples) {
+                addTerrainRequirements(sampling, requiredByRow);
             }
-
-            boolean[] horizontalX = sampledX.clone();
-            for (int offset = 0; offset < sampledX.length; offset++) {
-                if (!sampledX[offset]) {
-                    continue;
-                }
-                if (offset > 0) {
-                    horizontalX[offset - 1] = true;
-                }
-                if (offset + 1 < horizontalX.length) {
-                    horizontalX[offset + 1] = true;
-                }
-            }
-
-            IndexMap sampleX = IndexMap.from(sampledX);
-            IndexMap horizontal = IndexMap.from(horizontalX);
-            this.sampleXIndexByOffset = sampleX.indexByOffset;
-            this.horizontalXIndexByOffset = horizontal.indexByOffset;
-            this.rows = new Row[worldDiameter];
-
-            for (int zOffset = 0; zOffset < worldDiameter; zOffset++) {
-                if (sampledZ[zOffset]) {
-                    rows[zOffset] = new Row(true, horizontal.count);
-                    continue;
-                }
-                boolean adjacent = (zOffset > 0 && sampledZ[zOffset - 1])
-                        || (zOffset + 1 < sampledZ.length
-                        && sampledZ[zOffset + 1]);
-                if (adjacent) {
-                    rows[zOffset] = new Row(false, sampleX.count);
-                }
-            }
+            addSurfaceRequirements(surfaceData, requiredByRow);
+            this.rows = materializeRows(requiredByRow);
         }
 
         void accept(MapChunkHeightView chunk) {
@@ -220,8 +197,7 @@ final class SampledTerrainHeightField implements TerrainHeightField {
                 if (zOffsetLong < 0 || zOffsetLong >= worldDiameter) {
                     continue;
                 }
-                int zOffset = (int) zOffsetLong;
-                Row row = rows[zOffset];
+                Row row = rows[(int) zOffsetLong];
 
                 for (int localX = 0;
                      localX < MapChunkCoordinate.SIZE_BLOCKS;
@@ -230,6 +206,7 @@ final class SampledTerrainHeightField implements TerrainHeightField {
                     if (xOffsetLong < 0 || xOffsetLong >= worldDiameter) {
                         continue;
                     }
+
                     int height = chunk.effectiveHeightAt(localX, localZ);
                     if (!foundRange) {
                         tileMin = height;
@@ -243,10 +220,7 @@ final class SampledTerrainHeightField implements TerrainHeightField {
                     if (row == null) {
                         continue;
                     }
-                    int xOffset = (int) xOffsetLong;
-                    int index = row.horizontal
-                            ? horizontalXIndexByOffset[xOffset]
-                            : sampleXIndexByOffset[xOffset];
+                    int index = row.indexAt(xOffsetLong);
                     if (index >= 0) {
                         row.values[index] = height;
                         row.present.set(index);
@@ -291,50 +265,181 @@ final class SampledTerrainHeightField implements TerrainHeightField {
                     minWorldX,
                     minWorldZ,
                     worldDiameter,
-                    sampleXIndexByOffset,
-                    horizontalXIndexByOffset,
                     rows,
                     minHeight,
                     maxHeight,
                     samples
             );
         }
+
+        private void addTerrainRequirements(
+                RenderSamplingPlan sampling,
+                BitSet[] requiredByRow
+        ) {
+            BitSet sampledX = new BitSet(worldDiameter);
+            BitSet sampledZ = new BitSet(worldDiameter);
+            for (int image = 0; image < sampling.rasterSize(); image++) {
+                sampledX.set(Math.toIntExact(
+                        (long) sampling.worldXForImageColumn(image)
+                                - minWorldX
+                ));
+                sampledZ.set(Math.toIntExact(
+                        (long) sampling.worldZForImageRow(image)
+                                - minWorldZ
+                ));
+            }
+
+            BitSet horizontal = (BitSet) sampledX.clone();
+            for (int x = sampledX.nextSetBit(0);
+                 x >= 0;
+                 x = sampledX.nextSetBit(x + 1)) {
+                if (x > 0) {
+                    horizontal.set(x - 1);
+                }
+                if (x + 1 < worldDiameter) {
+                    horizontal.set(x + 1);
+                }
+            }
+
+            for (int z = sampledZ.nextSetBit(0);
+                 z >= 0;
+                 z = sampledZ.nextSetBit(z + 1)) {
+                row(requiredByRow, z).or(horizontal);
+                if (z > 0) {
+                    row(requiredByRow, z - 1).or(sampledX);
+                }
+                if (z + 1 < worldDiameter) {
+                    row(requiredByRow, z + 1).or(sampledX);
+                }
+            }
+        }
+
+        private void addSurfaceRequirements(
+                SurfaceRenderData surfaceData,
+                BitSet[] requiredByRow
+        ) {
+            if (surfaceData.isEmpty()) {
+                return;
+            }
+
+            long[] sources = surfaceData.surfaceSourceByPixelView();
+            BitSet present = surfaceData.surfacePresentView();
+            for (int index = present.nextSetBit(0);
+                 index >= 0;
+                 index = present.nextSetBit(index + 1)) {
+                long packed = sources[index];
+                int worldX = (int) (packed >> 32);
+                int worldZ = (int) packed;
+                requireWithHillshadeNeighbours(
+                        requiredByRow,
+                        worldX,
+                        worldZ
+                );
+            }
+        }
+
+        private void requireWithHillshadeNeighbours(
+                BitSet[] requiredByRow,
+                int worldX,
+                int worldZ
+        ) {
+            require(requiredByRow, worldX, worldZ);
+            require(requiredByRow, worldX - 1, worldZ);
+            require(requiredByRow, worldX + 1, worldZ);
+            require(requiredByRow, worldX, worldZ - 1);
+            require(requiredByRow, worldX, worldZ + 1);
+        }
+
+        private void require(
+                BitSet[] requiredByRow,
+                int worldX,
+                int worldZ
+        ) {
+            long xOffset = (long) worldX - minWorldX;
+            long zOffset = (long) worldZ - minWorldZ;
+            if (xOffset < 0
+                    || xOffset >= worldDiameter
+                    || zOffset < 0
+                    || zOffset >= worldDiameter) {
+                return;
+            }
+            row(requiredByRow, (int) zOffset).set((int) xOffset);
+        }
+
+        private static BitSet row(BitSet[] rows, int zOffset) {
+            BitSet row = rows[zOffset];
+            if (row == null) {
+                row = new BitSet();
+                rows[zOffset] = row;
+            }
+            return row;
+        }
+
+        private static Row[] materializeRows(BitSet[] requiredByRow) {
+            Row[] rows = new Row[requiredByRow.length];
+            for (int z = 0; z < requiredByRow.length; z++) {
+                BitSet required = requiredByRow[z];
+                if (required != null && !required.isEmpty()) {
+                    rows[z] = Row.from(required);
+                }
+            }
+            return rows;
+        }
     }
 
     private static final class Row {
-        private final boolean horizontal;
+        private final long[] requiredWords;
+        private final int[] prefixCounts;
         private final int[] values;
         private final BitSet present;
 
-        private Row(boolean horizontal, int size) {
-            this.horizontal = horizontal;
-            this.values = new int[size];
-            this.present = new BitSet(size);
+        private Row(
+                long[] requiredWords,
+                int[] prefixCounts,
+                int valueCount
+        ) {
+            this.requiredWords = requiredWords;
+            this.prefixCounts = prefixCounts;
+            this.values = new int[valueCount];
+            this.present = new BitSet(valueCount);
+        }
+
+        private static Row from(BitSet required) {
+            long[] words = required.toLongArray();
+            int[] prefix = new int[words.length + 1];
+            for (int word = 0; word < words.length; word++) {
+                prefix[word + 1] = Math.addExact(
+                        prefix[word],
+                        Long.bitCount(words[word])
+                );
+            }
+            return new Row(
+                    words,
+                    prefix,
+                    prefix[words.length]
+            );
+        }
+
+        private int indexAt(long xOffset) {
+            if (xOffset < 0 || xOffset > Integer.MAX_VALUE) {
+                return -1;
+            }
+            int offset = (int) xOffset;
+            int wordIndex = offset >>> 6;
+            if (wordIndex >= requiredWords.length) {
+                return -1;
+            }
+
+            long word = requiredWords[wordIndex];
+            long bit = 1L << (offset & 63);
+            if ((word & bit) == 0L) {
+                return -1;
+            }
+            return prefixCounts[wordIndex]
+                    + Long.bitCount(word & (bit - 1L));
         }
     }
 
     private record HeightRange(int min, int max) {
-    }
-
-    private static final class IndexMap {
-        private final int[] indexByOffset;
-        private final int count;
-
-        private IndexMap(int[] indexByOffset, int count) {
-            this.indexByOffset = indexByOffset;
-            this.count = count;
-        }
-
-        private static IndexMap from(boolean[] required) {
-            int[] indexByOffset = new int[required.length];
-            Arrays.fill(indexByOffset, -1);
-            int count = 0;
-            for (int offset = 0; offset < required.length; offset++) {
-                if (required[offset]) {
-                    indexByOffset[offset] = count++;
-                }
-            }
-            return new IndexMap(indexByOffset, count);
-        }
     }
 }
