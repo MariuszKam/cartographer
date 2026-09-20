@@ -20,8 +20,21 @@ public final class OreCodeMatcher {
 
         String path = pathPart(normalizedCode);
 
-        return path.startsWith("ore-")
+        return isOrePath(path)
                 && path.contains(normalizedMatch);
+    }
+
+    public static boolean isOreCode(String code) {
+        if (code == null || code.isBlank()) {
+            return false;
+        }
+        return isOrePath(
+                pathPart(code.toLowerCase(Locale.ROOT))
+        );
+    }
+
+    private static boolean isOrePath(String path) {
+        return path.startsWith("ore-");
     }
 
     private static String pathPart(String normalizedCode) {
