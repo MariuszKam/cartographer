@@ -250,8 +250,7 @@ tasks.test {
                     testClassDurationsMs.entries
                         .sortedByDescending { it.value }
                         .forEach { (testClass, durationMs) ->
-                            val escapedClass = testClass.replace(""", """")
-                            writer.appendLine(""$escapedClass",$durationMs")
+                            writer.appendLine("$testClass,$durationMs")
                         }
                 }
 
