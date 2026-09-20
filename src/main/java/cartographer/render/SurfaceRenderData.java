@@ -2,10 +2,8 @@ package cartographer.render;
 
 import cartographer.model.SurfaceClass;
 import cartographer.model.SurfaceClassCode;
-import cartographer.scanner.CachedSurfaceTileView;
 import cartographer.scanner.SurfaceMap;
 import cartographer.scanner.SurfaceRegistryLookup;
-import cartographer.scanner.SurfaceTile;
 import cartographer.scanner.SurfaceTileLayout;
 
 import java.util.Arrays;
@@ -193,40 +191,6 @@ public final class SurfaceRenderData {
             this.surfaceSourceByPixel = new long[pixels];
             this.surfaceClassByPixel = new byte[pixels];
             this.surfacePresent = new BitSet(pixels);
-        }
-
-        public void acceptCachedTile(CachedSurfaceTileView tile) {
-            ensureMutable();
-            Objects.requireNonNull(tile, "cached Surface tile is required");
-            int tileX = tile.coordinate().x();
-            int tileZ = tile.coordinate().z();
-            layout.tileIndex(tileX, tileZ);
-            if (tile.width() != layout.tileWidth(tileX)
-                    || tile.height() != layout.tileHeight(tileZ)) {
-                throw new IllegalArgumentException(
-                        "cached Surface tile geometry does not match request world"
-                );
-            }
-
-            for (int localZ = 0; localZ < tile.height(); localZ++) {
-                int worldZ = layout.worldZForTileLocal(tileZ, localZ);
-                for (int localX = 0; localX < tile.width(); localX++) {
-                    int cellIndex = localZ * tile.width() + localX;
-                    if ((tile.stateAtIndex(cellIndex) & SurfaceTile.RESOLVED)
-                            == 0) {
-                        continue;
-                    }
-                    int worldX = layout.worldXForTileLocal(tileX, localX);
-                    acceptResolved(
-                            worldX,
-                            worldZ,
-                            tile.blockIdAtIndex(cellIndex),
-                            SurfaceClassCode.decode(
-                                    tile.surfaceClassCodeAtIndex(cellIndex)
-                            )
-                    );
-                }
-            }
         }
 
         public void acceptResolved(
