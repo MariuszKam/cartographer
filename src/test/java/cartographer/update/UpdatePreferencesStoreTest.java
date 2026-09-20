@@ -59,6 +59,23 @@ class UpdatePreferencesStoreTest {
         assertTrue(preferences.autoCheck());
     }
 
+
+    @Test
+    void brokenPropertiesEscapeFallsBackToDefaults() throws Exception {
+        Path path = temporaryDirectory.resolve("update.properties");
+        Files.writeString(
+                path,
+                "autoCheck=" + "\\" + "u12",
+                StandardCharsets.UTF_8
+        );
+
+        UpdatePreferences preferences =
+                new UpdatePreferencesStore(path).load();
+
+        assertTrue(preferences.autoCheck());
+        assertTrue(preferences.lastSuccessfulCheck().isEmpty());
+    }
+
     @Test
     void malformedTimestampDoesNotDisableAutomaticChecking()
             throws Exception {
