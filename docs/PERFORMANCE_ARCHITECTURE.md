@@ -599,6 +599,16 @@ those artifacts without reopening source mapchunk/server-chunk traversal.
 Surface outside prepared coverage keeps the existing authoritative fallback;
 mapchunk absence is never treated as proof that server chunks are absent.
 
+PF-2.4 extends the same revision namespace with compact interpreted mapregion
+state and UPPER_ROCK tiles. Mapregion source rows are streamed and immediately
+reduced to Environment/GeologicProvince summaries; raw mapregion payloads are
+not persisted. ROCK preparation stores one bounded tile per observed
+mapchunk, preserving the existing `OBSERVED / NO_ROCK / UNAVAILABLE`
+coverage semantics while discarding decoded source chunks after each bounded
+batch. Valid mapregion/ROCK artifacts are reused by repeated
+`snapshot prepare` operations; consumer routing to these artifacts is
+deferred to PF-2.6.
+
 This remains derived-cache architecture: source authority, read-only safety,
 operation-scoped source sessions and fallback-to-source correctness are
 unchanged. No global collection of decoded source chunks is retained.
