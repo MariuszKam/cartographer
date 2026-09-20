@@ -8,16 +8,13 @@ import java.util.Objects;
 
 public final class MapTerrainPreparation {
     private final TerrainHeightField heights;
-    private final TerrainHeightField surfaceHeights;
     private final int mapChunkCount;
 
     private MapTerrainPreparation(
             TerrainHeightField heights,
-            TerrainHeightField surfaceHeights,
             int mapChunkCount
     ) {
         this.heights = heights;
-        this.surfaceHeights = surfaceHeights;
         this.mapChunkCount = mapChunkCount;
     }
 
@@ -27,10 +24,6 @@ public final class MapTerrainPreparation {
 
     TerrainHeightField heights() {
         return heights;
-    }
-
-    TerrainHeightField surfaceHeights() {
-        return surfaceHeights;
     }
 
     public static Builder builder(
@@ -169,14 +162,8 @@ public final class MapTerrainPreparation {
             TerrainHeightField terrain = sampled == null
                     ? exact
                     : sampled;
-            TerrainHeightField surface = exactHeights != null
-                    ? exact
-                    : sampled == null
-                    ? DenseHeightGrid.empty()
-                    : sampled;
             return new MapTerrainPreparation(
                     terrain,
-                    surface,
                     mapChunkCount
             );
         }

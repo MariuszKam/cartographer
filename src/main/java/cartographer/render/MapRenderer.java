@@ -112,7 +112,7 @@ public class MapRenderer {
             drawSurfaceRenderData(
                     raster,
                     surfaceData,
-                    terrain.surfaceHeights(),
+                    terrain.heights(),
                     progress
             );
         }
@@ -312,7 +312,7 @@ public class MapRenderer {
                         );
 
         TerrainHeightField terrainSamples = terrain.heights();
-        TerrainHeightField surfaceSamples = terrain.surfaceHeights();
+        TerrainHeightField surfaceSamples = terrain.heights();
 
         int tilesDrawn =
                 0;

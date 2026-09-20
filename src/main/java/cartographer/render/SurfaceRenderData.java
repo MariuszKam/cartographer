@@ -15,8 +15,8 @@ import java.util.Set;
  * Raster-bounded Surface state for map painting.
  *
  * <p>The structure stores only the final Surface source/class selected for
- * each output pixel plus the final soil-fertility overlay tier. It deliberately
- * does not retain per-world-column Surface analysis data.</p>
+ * each output pixel. It deliberately does not retain per-world-column
+ * Surface analysis data.</p>
  */
 public final class SurfaceRenderData {
     private final int rasterSize;

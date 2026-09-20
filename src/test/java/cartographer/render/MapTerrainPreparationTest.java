@@ -52,7 +52,6 @@ class MapTerrainPreparationTest {
         MapTerrainPreparation terrain = builder.finish();
 
         assertTrue(terrain.heights() instanceof SampledTerrainHeightField);
-        assertEquals(0, terrain.surfaceHeights().sampleCount());
         assertEquals(55, terrain.heights().minHeight());
         assertEquals(55, terrain.heights().maxHeight());
     }
@@ -74,7 +73,7 @@ class MapTerrainPreparationTest {
         MapTerrainPreparation terrain = builder.finish();
 
         assertTrue(terrain.heights() instanceof DenseHeightGrid);
-        assertEquals(1024, terrain.surfaceHeights().sampleCount());
+        assertEquals(1024, terrain.heights().sampleCount());
     }
 
     @Test
@@ -116,16 +115,13 @@ class MapTerrainPreparationTest {
         MapTerrainPreparation terrain = builder.finish();
 
         assertTrue(terrain.heights() instanceof SampledTerrainHeightField);
-        assertTrue(
-                terrain.surfaceHeights()
-                        instanceof SampledTerrainHeightField
-        );
-        assertTrue(terrain.surfaceHeights().hasHeightAt(16, 16));
-        assertTrue(terrain.surfaceHeights().hasHeightAt(15, 16));
-        assertTrue(terrain.surfaceHeights().hasHeightAt(17, 16));
-        assertTrue(terrain.surfaceHeights().hasHeightAt(16, 15));
-        assertTrue(terrain.surfaceHeights().hasHeightAt(16, 17));
-        assertTrue(terrain.surfaceHeights().sampleCount() < 1024);
+        assertTrue(terrain.heights() instanceof SampledTerrainHeightField);
+        assertTrue(terrain.heights().hasHeightAt(16, 16));
+        assertTrue(terrain.heights().hasHeightAt(15, 16));
+        assertTrue(terrain.heights().hasHeightAt(17, 16));
+        assertTrue(terrain.heights().hasHeightAt(16, 15));
+        assertTrue(terrain.heights().hasHeightAt(16, 17));
+        assertTrue(terrain.heights().sampleCount() < 1024);
     }
 
     @Test
