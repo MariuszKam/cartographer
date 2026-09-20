@@ -1,5 +1,6 @@
 package cartographer.perf;
 
+import cartographer.testing.IntegrationTest;
 import cartographer.environment.ClimateSummary;
 import cartographer.environment.EnvironmentLabel;
 import cartographer.environment.EnvironmentProfile;
@@ -23,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@IntegrationTest
 class MapRegionSnapshotStoreTest {
 
     @TempDir
