@@ -705,8 +705,10 @@ R2048 and R4096 against source-authoritative renders of the same requests.
 
 For each warm render, a recording `SaveSessionLifecycleProbe` is injected into
 the existing source fallback factory. PASS requires zero source connections to
-be opened or closed, so the result is evidence of source-read elimination
-rather than an inference from status text.
+be opened or closed, so the lifecycle delta is the source-read-elimination
+proof rather than a status-text marker. Warm evidence also records requested
+versus HIT/proven-absent Terrain coverage and requested versus HIT Surface
+coverage.
 
 Correctness uses exact viewport geometry equality and SHA-256 fingerprinting of
 logical row-major ARGB pixels. Cold build and warm renders separately record
