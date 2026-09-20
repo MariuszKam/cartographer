@@ -14,6 +14,7 @@ import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.perf.RenderDataCacheStore;
+import cartographer.perf.WorldDataSnapshot;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.save.ChunkStreamStats;
@@ -92,9 +93,39 @@ class PrepareWorldSnapshotUseCaseTest {
         assertEquals(1, reader.surfaceReads.get());
         assertEquals(1, reader.mapRegionReads.get());
         assertEquals(1, reader.rockReads.get());
+        assertEquals(1, reader.resourceReads.get());
         assertTrue(first.mapRegionCoverageComplete());
         assertTrue(first.upperRockCoverageComplete());
         assertEquals(2, first.upperRockPublished());
+        assertTrue(first.resourceIndexCoverageComplete());
+        assertEquals(1, first.resourceBlocksCatalogued());
+        assertEquals(0, first.resourceChunkHits());
+        assertEquals(4, first.resourceChunksPublished());
+        assertEquals(0L, first.resourceOccurrenceColumnsPublished());
+
+        var resourceStore = WorldDataSnapshot.openOrCreate(
+                cacheStore,
+                save
+        ).orElseThrow().resourceIndexStore();
+        assertEquals(
+                Map.of(
+                        2,
+                        "game:ore-nativecopper-granite"
+                ),
+                resourceStore.blockCatalog()
+        );
+        assertTrue(
+                resourceStore.positionsContainingAny(
+                        List.of(
+                                new ChunkPosition(0, 0, 0, 0),
+                                new ChunkPosition(0, 1, 0, 0),
+                                new ChunkPosition(1, 0, 0, 0),
+                                new ChunkPosition(1, 1, 0, 0)
+                        ),
+                        List.of(2)
+                ).isEmpty(),
+                "registry catalog must not fabricate occurrence membership"
+        );
 
         PrepareWorldSnapshotResult second =
                 useCase.execute(request, ProgressReporter.NONE);
@@ -133,6 +164,15 @@ class PrepareWorldSnapshotUseCaseTest {
         );
         assertEquals(2, second.upperRockHits());
         assertEquals(0, second.upperRockPublished());
+        assertEquals(
+                1,
+                reader.resourceReads.get(),
+                "complete PF-2.5 resource coverage must avoid another source traversal"
+        );
+        assertEquals(4, second.resourceChunkHits());
+        assertEquals(0, second.resourceChunksPublished());
+        assertEquals(0L, second.resourceOccurrenceColumnsPublished());
+        assertTrue(second.resourceIndexCoverageComplete());
 
 
         PrepareMapDataUseCase renderUseCase = new PrepareMapDataUseCase(
@@ -229,6 +269,7 @@ class PrepareWorldSnapshotUseCaseTest {
         private final AtomicInteger surfaceReads = new AtomicInteger();
         private final AtomicInteger mapRegionReads = new AtomicInteger();
         private final AtomicInteger rockReads = new AtomicInteger();
+        private final AtomicInteger resourceReads = new AtomicInteger();
 
         private TestReader(List<MapChunk> mapChunks) {
             super(
@@ -254,7 +295,11 @@ class PrepareWorldSnapshotUseCaseTest {
         ) {
             return Map.of(
                     0, new BlockInfo(0, "game:air"),
-                    1, new BlockInfo(1, "game:rock-granite")
+                    1, new BlockInfo(1, "game:rock-granite"),
+                    2, new BlockInfo(
+                            2,
+                            "game:ore-nativecopper-granite"
+                    )
             );
         }
 
@@ -330,7 +375,13 @@ class PrepareWorldSnapshotUseCaseTest {
                 Consumer<SelectiveChunkVisit> consumer,
                 ProgressReporter progress
         ) {
-            rockReads.incrementAndGet();
+            boolean resourceRead = java.util.Arrays.stream(wantedBlockIds)
+                    .anyMatch(blockId -> blockId == 2);
+            if (resourceRead) {
+                resourceReads.incrementAndGet();
+            } else {
+                rockReads.incrementAndGet();
+            }
             for (ChunkPosition position : positions) {
                 consumer.accept(
                         SelectiveChunkVisit.paletteRejected(position)

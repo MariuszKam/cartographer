@@ -4,6 +4,8 @@ import cartographer.environment.EnvironmentInterpreter;
 import cartographer.geology.GeologicProvinceInterpreter;
 import cartographer.geology.rock.RockCatalog;
 import cartographer.model.BlockInfo;
+import cartographer.model.ChunkCoordinate;
+import cartographer.model.ChunkPosition;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;
@@ -11,6 +13,11 @@ import cartographer.perf.MapRegionSnapshotEntry;
 import cartographer.perf.MapRegionSnapshotRead;
 import cartographer.perf.MapRegionSnapshotStore;
 import cartographer.perf.RenderDataCacheStore;
+import cartographer.perf.ResourceBlockCatalog;
+import cartographer.perf.ResourceChunkBatchIndexer;
+import cartographer.perf.ResourceChunkIndexEntry;
+import cartographer.perf.ResourceChunkIndexLookup;
+import cartographer.perf.ResourceIndexStore;
 import cartographer.perf.SurfaceCacheTile;
 import cartographer.perf.SurfaceTileLookup;
 import cartographer.perf.SurfaceTileStore;
@@ -50,7 +57,8 @@ import java.util.Set;
 /**
  * PF-2 world preparation operation. PF-2.3 prepares revision-scoped Terrain
  * and Surface coverage; PF-2.4 extends the same snapshot with interpreted
- * mapregion state and UPPER_ROCK tiles.
+ * mapregion state and UPPER_ROCK tiles; PF-2.5 adds compact source-derived
+ * actual-resource membership/occurrence coverage.
  *
  * <p>The source save remains read-only and is owned by one operation-scoped
  * {@link SaveSession}. Source payloads and decoded chunks are never retained.
@@ -145,11 +153,14 @@ public final class PrepareWorldSnapshotUseCase {
         MapRegionSnapshotStore mapRegionStore = snapshot.mapRegionStore();
         UpperRockTileStore upperRockTileStore =
                 snapshot.upperRockTileStore();
+        ResourceIndexStore resourceIndexStore =
+                snapshot.resourceIndexStore();
 
         ReadDiagnostics mapChunkDiagnostics = new ReadDiagnostics();
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
         ReadDiagnostics mapRegionDiagnostics = new ReadDiagnostics();
         ReadDiagnostics rockDiagnostics = new ReadDiagnostics();
+        ReadDiagnostics resourceDiagnostics = new ReadDiagnostics();
         Counters counters = new Counters();
 
         boolean catalogWasComplete = indexStore.mapChunkScanComplete();
@@ -234,6 +245,20 @@ public final class PrepareWorldSnapshotUseCase {
                 progress
         );
 
+        ResourceBlockCatalog resourceCatalog =
+                ResourceBlockCatalog.from(registry);
+        boolean resourceIndexComplete = indexResourceSnapshot(
+                session,
+                metadata,
+                observed,
+                batches,
+                resourceCatalog,
+                resourceIndexStore,
+                resourceDiagnostics,
+                counters,
+                progress
+        );
+
         return new PrepareWorldSnapshotResult(
                 snapshot.revisionHash(),
                 observed.size(),
@@ -246,15 +271,21 @@ public final class PrepareWorldSnapshotUseCase {
                 counters.mapRegionPublished,
                 counters.upperRockHits,
                 counters.upperRockPublished,
+                counters.resourceBlocksCatalogued,
+                counters.resourceChunkHits,
+                counters.resourceChunksPublished,
+                counters.resourceOccurrenceColumnsPublished,
                 indexStore.mapChunkScanComplete(),
                 terrainComplete,
                 surfaceComplete,
                 mapRegionComplete,
                 upperRockComplete,
+                resourceIndexComplete,
                 mapChunkDiagnostics,
                 chunkDiagnostics,
                 mapRegionDiagnostics,
-                rockDiagnostics
+                rockDiagnostics,
+                resourceDiagnostics
         );
     }
 
@@ -716,6 +747,178 @@ public final class PrepareWorldSnapshotUseCase {
         return true;
     }
 
+    private boolean indexResourceSnapshot(
+            SaveSession session,
+            WorldMetadata metadata,
+            List<MapChunkCoordinate> observed,
+            List<List<MapChunkCoordinate>> batches,
+            ResourceBlockCatalog catalog,
+            ResourceIndexStore store,
+            ReadDiagnostics diagnostics,
+            Counters counters,
+            ProgressReporter progress
+    ) {
+        counters.resourceBlocksCatalogued = catalog.blocks().size();
+        store.publishBlockCatalog(catalog.blocks());
+
+        if (catalog.isEmpty()) {
+            if (!store.scanComplete()) {
+                store.markScanComplete();
+            }
+            return true;
+        }
+
+        boolean markerInvalidated = !store.scanComplete();
+        if (markerInvalidated) {
+            store.markScanIncomplete();
+        }
+
+        progress.start("Indexing resource snapshot");
+        for (int batchIndex = 0;
+             batchIndex < batches.size();
+             batchIndex++) {
+            List<ChunkPosition> positions = resourceChunkPositions(
+                    metadata,
+                    batches.get(batchIndex)
+            );
+            Map<ChunkPosition, ResourceChunkIndexLookup> existing =
+                    store.readCoverage(positions);
+            List<ChunkPosition> missing = new ArrayList<>();
+            for (ChunkPosition position : positions) {
+                ResourceChunkIndexLookup lookup = existing.getOrDefault(
+                        position,
+                        ResourceChunkIndexLookup.miss()
+                );
+                if (lookup.status()
+                        == ResourceChunkIndexLookup.Status.HIT) {
+                    counters.resourceChunkHits++;
+                } else {
+                    missing.add(position);
+                }
+            }
+
+            if (!missing.isEmpty()) {
+                if (!markerInvalidated) {
+                    store.markScanIncomplete();
+                    markerInvalidated = true;
+                }
+                ResourceChunkBatchIndexer indexer =
+                        new ResourceChunkBatchIndexer(
+                                metadata,
+                                missing,
+                                catalog
+                        );
+                reader.forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                        session,
+                        indexer.positions(),
+                        indexer.wantedBlockIds(),
+                        diagnostics,
+                        indexer::accept,
+                        progress
+                );
+                List<ResourceChunkIndexEntry> publish =
+                        indexer.finish();
+                store.publish(publish);
+                counters.resourceChunksPublished = Math.addExact(
+                        counters.resourceChunksPublished,
+                        publish.size()
+                );
+                for (ResourceChunkIndexEntry entry : publish) {
+                    counters.resourceOccurrenceColumnsPublished =
+                            Math.addExact(
+                                    counters.resourceOccurrenceColumnsPublished,
+                                    entry.occurrences().size()
+                            );
+                }
+            }
+
+            progress.progress(
+                    "Indexing resource snapshot",
+                    batchIndex + 1,
+                    batches.size()
+            );
+        }
+
+        boolean complete = resourceCoverageComplete(
+                store,
+                metadata,
+                observed
+        );
+        if (complete) {
+            if (markerInvalidated) {
+                store.markScanComplete();
+            }
+        } else if (!markerInvalidated) {
+            store.markScanIncomplete();
+        }
+        progress.done("Resource snapshot indexing complete");
+        return complete;
+    }
+
+    private boolean resourceCoverageComplete(
+            ResourceIndexStore store,
+            WorldMetadata metadata,
+            List<MapChunkCoordinate> observed
+    ) {
+        List<List<MapChunkCoordinate>> batches =
+                batchPlanner.plan(observed);
+        for (List<MapChunkCoordinate> batch : batches) {
+            List<ChunkPosition> positions =
+                    resourceChunkPositions(metadata, batch);
+            Map<ChunkPosition, ResourceChunkIndexLookup> lookups =
+                    store.readCoverage(positions);
+            for (ChunkPosition position : positions) {
+                if (lookups.getOrDefault(
+                        position,
+                        ResourceChunkIndexLookup.miss()
+                ).status() != ResourceChunkIndexLookup.Status.HIT) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private List<ChunkPosition> resourceChunkPositions(
+            WorldMetadata metadata,
+            List<MapChunkCoordinate> coordinates
+    ) {
+        int verticalChunkCount = Math.toIntExact(
+                Math.floorDiv(
+                        Math.addExact(
+                                (long) metadata.mapSizeY(),
+                                ChunkCoordinate.SIZE_BLOCKS - 1L
+                        ),
+                        ChunkCoordinate.SIZE_BLOCKS
+                )
+        );
+        if (verticalChunkCount <= 0) {
+            return List.of();
+        }
+
+        List<ChunkPosition> result = new ArrayList<>(
+                Math.multiplyExact(
+                        coordinates.size(),
+                        verticalChunkCount
+                )
+        );
+        for (MapChunkCoordinate coordinate : coordinates) {
+            for (int chunkY = 0;
+                 chunkY < verticalChunkCount;
+                 chunkY++) {
+                result.add(
+                        new ChunkPosition(
+                                coordinate.x(),
+                                chunkY,
+                                coordinate.z(),
+                                0
+                        )
+                );
+            }
+        }
+        return List.copyOf(result);
+    }
+
     private boolean terrainCoverageComplete(
             TerrainTileStore store,
             List<MapChunkCoordinate> coordinates
@@ -786,5 +989,9 @@ public final class PrepareWorldSnapshotUseCase {
         private int mapRegionPublished;
         private int upperRockHits;
         private int upperRockPublished;
+        private int resourceBlocksCatalogued;
+        private int resourceChunkHits;
+        private int resourceChunksPublished;
+        private long resourceOccurrenceColumnsPublished;
     }
 }

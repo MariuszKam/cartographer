@@ -8,7 +8,7 @@ import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.Objects;
 
-/** Reviewer-facing PF-2.3 entry point. Workstation UX is deferred to PF-2.7. */
+/** Reviewer-facing PF-2 snapshot preparation entry point. Workstation UX is deferred to PF-2.7. */
 public final class SnapshotCommand implements Command {
     private final PrintStream out;
     private final PrepareWorldSnapshotUseCase useCase;
@@ -71,6 +71,16 @@ public final class SnapshotCommand implements Command {
                 "UPPER_ROCK: hits=" + result.upperRockHits()
                         + ", published=" + result.upperRockPublished()
                         + ", complete=" + result.upperRockCoverageComplete()
+        );
+        out.println(
+                "Resources: blocks=" + result.resourceBlocksCatalogued()
+                        + ", chunk-hits=" + result.resourceChunkHits()
+                        + ", chunks-published="
+                        + result.resourceChunksPublished()
+                        + ", occurrence-columns="
+                        + result.resourceOccurrenceColumnsPublished()
+                        + ", complete="
+                        + result.resourceIndexCoverageComplete()
         );
         out.println(
                 "Catalog complete: " + result.mapChunkCatalogComplete()

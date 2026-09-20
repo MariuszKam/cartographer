@@ -8,6 +8,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class OreCodeMatcherTest {
 
     @Test
+    void classifiesNamespacedOreCodesWithoutAResourceHint() {
+        assertTrue(OreCodeMatcher.isOreCode(
+                "game:ore-nativecopper-granite"
+        ));
+        assertTrue(OreCodeMatcher.isOreCode(
+                "mod:ore-deep-silver-basalt"
+        ));
+        assertFalse(OreCodeMatcher.isOreCode(
+                "game:decorative-ore-nativecopper"
+        ));
+        assertFalse(OreCodeMatcher.isOreCode(
+                "game:rock-granite"
+        ));
+    }
+
+    @Test
     void matchesOreWithoutQuality() {
         assertTrue(OreCodeMatcher.matchesOreCode(
                 "ore-nativecopper-granite", "nativecopper"));

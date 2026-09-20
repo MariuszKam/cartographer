@@ -16,15 +16,21 @@ public record PrepareWorldSnapshotResult(
         int mapRegionPublished,
         int upperRockHits,
         int upperRockPublished,
+        int resourceBlocksCatalogued,
+        int resourceChunkHits,
+        int resourceChunksPublished,
+        long resourceOccurrenceColumnsPublished,
         boolean mapChunkCatalogComplete,
         boolean terrainCoverageComplete,
         boolean surfaceCoverageComplete,
         boolean mapRegionCoverageComplete,
         boolean upperRockCoverageComplete,
+        boolean resourceIndexCoverageComplete,
         ReadDiagnostics mapChunkDiagnostics,
         ReadDiagnostics chunkDiagnostics,
         ReadDiagnostics mapRegionDiagnostics,
-        ReadDiagnostics rockDiagnostics
+        ReadDiagnostics rockDiagnostics,
+        ReadDiagnostics resourceDiagnostics
 ) {
     public PrepareWorldSnapshotResult {
         revisionHash = Objects.requireNonNull(
@@ -40,7 +46,11 @@ public record PrepareWorldSnapshotResult(
                 || mapRegionHits < 0
                 || mapRegionPublished < 0
                 || upperRockHits < 0
-                || upperRockPublished < 0) {
+                || upperRockPublished < 0
+                || resourceBlocksCatalogued < 0
+                || resourceChunkHits < 0
+                || resourceChunksPublished < 0
+                || resourceOccurrenceColumnsPublished < 0L) {
             throw new IllegalArgumentException(
                     "world snapshot counters cannot be negative"
             );
@@ -61,6 +71,10 @@ public record PrepareWorldSnapshotResult(
                 rockDiagnostics,
                 "rockDiagnostics is required"
         );
+        Objects.requireNonNull(
+                resourceDiagnostics,
+                "resourceDiagnostics is required"
+        );
     }
 
     public boolean complete() {
@@ -68,6 +82,7 @@ public record PrepareWorldSnapshotResult(
                 && terrainCoverageComplete
                 && surfaceCoverageComplete
                 && mapRegionCoverageComplete
-                && upperRockCoverageComplete;
+                && upperRockCoverageComplete
+                && resourceIndexCoverageComplete;
     }
 }

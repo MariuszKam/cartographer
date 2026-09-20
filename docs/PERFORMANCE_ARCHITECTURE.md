@@ -609,6 +609,18 @@ batch. Valid mapregion/ROCK artifacts are reused by repeated
 `snapshot prepare` operations; consumer routing to these artifacts is
 deferred to PF-2.6.
 
+PF-2.5 extends the revision snapshot with a source-derived actual-resource
+index. Eligible ore block IDs come from the save registry's real `ore-*`
+block codes, never from OreMaps. The index persists terminal server-chunk
+coverage plus actual occurrence membership. Decoded occurrences are compacted
+to one 32-bit local-Y mask per block ID and local X/Z column, so exact Y-filter
+semantics remain recoverable without retaining decoded chunks or one row per
+voxel. Palette rejection is an available negative; missing and failed source
+coverage remain distinct. Repeated snapshot preparation reuses terminal
+coverage and rebuilds only missing/corrupt chunk entries. Consumer routing is
+still deferred to PF-2.6, where unsupported or incomplete snapshot queries
+must fall back to source authority.
+
 This remains derived-cache architecture: source authority, read-only safety,
 operation-scoped source sessions and fallback-to-source correctness are
 unchanged. No global collection of decoded source chunks is retained.

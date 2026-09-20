@@ -67,6 +67,10 @@ class WorldDataSnapshotTest {
                 second.upperRockTileStore().databasePath()
                         .startsWith(root.resolve("cache").toAbsolutePath().normalize())
         );
+        assertTrue(
+                second.resourceIndexStore().databasePath()
+                        .startsWith(root.resolve("cache").toAbsolutePath().normalize())
+        );
 
         assertArrayEquals(source, Files.readAllBytes(save));
     }
