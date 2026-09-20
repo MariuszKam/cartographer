@@ -317,7 +317,7 @@ class PrepareWorldSnapshotUseCaseTest {
                 ProgressReporter progress
         ) {
             mapRegionReads.incrementAndGet();
-            return new MapRegionStreamStats(0, 0, 0, 0, 0L);
+            return new MapRegionStreamStats(0, 0, 0, 0, 0, 0L);
         }
 
         @Override
