@@ -31,6 +31,17 @@ jobs:
         shell: pwsh
         run: .\gradlew.bat test
 
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-evidence
+          if-no-files-found: warn
+          path: |
+            build/test-results/test/**
+            build/reports/tests/test/**
+            build/reports/test-performance/**
+
       - name: Validate PowerShell tooling syntax
         shell: pwsh
         run: |
