@@ -325,6 +325,25 @@ tasks.register<JavaExec>("guiReleaseGate") {
     }
 }
 
+tasks.register<JavaExec>("pf28SnapshotValidation") {
+    group = "verification"
+    description = "Runs PF-2.8 cold snapshot build and warm snapshot render validation"
+    dependsOn("test", "classes")
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("cartographer.perf.snapshot.Pf28SnapshotValidationMain")
+    javaLauncher.set(jpackageJavaLauncher)
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    doFirst {
+        val save = project.findProperty("save")?.toString()
+            ?: throw GradleException("pf28SnapshotValidation requires -Psave=<path>")
+        val gitSha = project.findProperty("gitSha")?.toString()
+            ?: throw GradleException("pf28SnapshotValidation requires -PgitSha=<40-character-sha>")
+        val outputRoot = project.findProperty("outputRoot")?.toString()
+            ?: throw GradleException("pf28SnapshotValidation requires -PoutputRoot=<fresh-evidence-directory>")
+        args(save, gitSha, outputRoot)
+    }
+}
+
 tasks.register<JavaExec>("runGui") {
     group = "application"
     description = "Launches the VS Cartographer desktop UI"
