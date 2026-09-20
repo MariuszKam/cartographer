@@ -193,13 +193,6 @@ public final class SnapshotPreparedMapDataReader {
             RenderOptions options,
             ProgressReporter progress
     ) {
-        WorldIndexCatalogStore catalog = snapshot.indexCatalogStore();
-        if (!catalog.mapChunkScanComplete()) {
-            return Optional.empty();
-        }
-
-        Set<MapChunkCoordinate> observed =
-                catalog.observedAmong(coordinates);
         progress.start("Composing Terrain from world snapshot");
         MapTerrainPreparation.Builder builder =
                 MapTerrainPreparation.builder(
@@ -208,6 +201,21 @@ public final class SnapshotPreparedMapDataReader {
                         coordinates.size(),
                         progress
                 );
+        if (coordinates.isEmpty()) {
+            return Optional.of(new TerrainRead(
+                    builder.finish(),
+                    0,
+                    0
+            ));
+        }
+
+        WorldIndexCatalogStore catalog = snapshot.indexCatalogStore();
+        if (!catalog.mapChunkScanComplete()) {
+            return Optional.empty();
+        }
+
+        Set<MapChunkCoordinate> observed =
+                catalog.observedAmong(coordinates);
         int[] hits = {0};
         int[] knownAbsent = {0};
         boolean[] complete = {true};
