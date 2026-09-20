@@ -2,6 +2,8 @@ package cartographer.ui.workstation;
 
 import cartographer.application.MapDecorationState;
 import cartographer.application.PreparedMapData;
+import cartographer.application.PreparedSurfaceData;
+import cartographer.application.SurfaceDataRequirement;
 import cartographer.application.ProgressReporter;
 import cartographer.application.RenderDataCacheReport;
 import cartographer.model.HomeState;
@@ -90,7 +92,12 @@ class MapFrameCompositorTest {
                         0,
                         ProgressReporter.NONE
                 ).finish(),
-                surface,
+                PreparedSurfaceData.fromExact(
+                        surface,
+                        center,
+                        options,
+                        SurfaceDataRequirement.RENDER
+                ),
                 Map.of(),
                 new ReadDiagnostics(),
                 new ReadDiagnostics(),

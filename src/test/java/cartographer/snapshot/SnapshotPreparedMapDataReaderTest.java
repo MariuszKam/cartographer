@@ -46,7 +46,7 @@ class SnapshotPreparedMapDataReaderTest {
         assertEquals(fixture.player, prepared.player());
         assertEquals(fixture.player, prepared.center());
         assertEquals(1, prepared.terrain().mapChunkCount());
-        assertEquals(0, prepared.surface().chunksScanned());
+        assertEquals(0, prepared.surface().diagnostics().chunksScanned());
         assertEquals(1, prepared.renderDataCacheReport().terrain().hits());
         assertEquals(1, prepared.renderDataCacheReport().surface().hits());
         assertEquals(
