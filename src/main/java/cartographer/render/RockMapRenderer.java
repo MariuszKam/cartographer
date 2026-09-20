@@ -33,6 +33,22 @@ public final class RockMapRenderer {
         this.maxRasterSize = maxRasterSize;
     }
 
+    public RockSnapshotRenderAccumulator snapshotAccumulator(
+            cartographer.model.WorldMetadata metadata,
+            cartographer.geology.rock.RockCatalog catalog,
+            cartographer.model.WorldPosition center,
+            int radius
+    ) {
+        return new RockSnapshotRenderAccumulator(
+                metadata,
+                catalog,
+                center,
+                radius,
+                palette,
+                maxRasterSize
+        );
+    }
+
     public RockMapRenderResult render(RockMap rockMap) {
         return render(rockMap, Optional.empty());
     }
