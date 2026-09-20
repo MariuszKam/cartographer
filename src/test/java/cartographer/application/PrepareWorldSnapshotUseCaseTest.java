@@ -15,6 +15,7 @@ import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.perf.RenderDataCacheStore;
 import cartographer.perf.WorldDataSnapshot;
+import cartographer.perf.WorldSnapshotPreparationSummary;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.save.ChunkStreamStats;
