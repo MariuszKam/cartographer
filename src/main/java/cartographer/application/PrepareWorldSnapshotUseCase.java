@@ -1135,13 +1135,11 @@ public final class PrepareWorldSnapshotUseCase {
                 unitsPerPhase
         );
         return new ProgressReporter() {
+            private int highWaterUnits = baseUnits;
+
             @Override
             public void start(String stage) {
-                delegate.progress(
-                        prefix + " — " + stage,
-                        baseUnits,
-                        totalUnits
-                );
+                publish(stage, baseUnits);
             }
 
             @Override
@@ -1151,7 +1149,7 @@ public final class PrepareWorldSnapshotUseCase {
                     int total
             ) {
                 if (total <= 0) {
-                    start(stage);
+                    publish(stage, baseUnits);
                     return;
                 }
                 double fraction = Math.clamp(
@@ -1162,18 +1160,22 @@ public final class PrepareWorldSnapshotUseCase {
                 int withinPhase = (int) Math.round(
                         fraction * unitsPerPhase
                 );
-                delegate.progress(
-                        prefix + " — " + stage,
-                        baseUnits + withinPhase,
-                        totalUnits
-                );
+                publish(stage, baseUnits + withinPhase);
             }
 
             @Override
             public void done(String stage) {
+                publish(stage, baseUnits + unitsPerPhase);
+            }
+
+            private void publish(String stage, int candidateUnits) {
+                highWaterUnits = Math.max(
+                        highWaterUnits,
+                        candidateUnits
+                );
                 delegate.progress(
                         prefix + " — " + stage,
-                        baseUnits + unitsPerPhase,
+                        highWaterUnits,
                         totalUnits
                 );
             }
