@@ -320,7 +320,8 @@ function Get-InstallEntries {
         foreach ($key in Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue) {
             try {
                 $properties = Get-ItemProperty -LiteralPath $key.PSPath -ErrorAction Stop
-                if ([string]$properties.DisplayName -ne $applicationName) {
+                $displayName = Get-OptionalProperty $properties "DisplayName"
+                if ($displayName -ne $applicationName) {
                     continue
                 }
 
