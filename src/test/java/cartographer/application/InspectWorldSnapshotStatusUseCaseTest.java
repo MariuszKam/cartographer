@@ -84,7 +84,8 @@ class InspectWorldSnapshotStatusUseCaseTest {
                 useCase.execute(save).state()
         );
 
-        Thread.sleep(5L);
+        // Revision identity also includes file size, so this is deterministic
+        // without any scheduler or filesystem-timestamp waiting.
         Files.write(save, new byte[]{1, 2, 3, 4});
 
         WorldSnapshotStatus changed = useCase.execute(save);
