@@ -171,6 +171,7 @@ public final class Pf28SnapshotValidationRunner {
                     sourceConnectionsOpened == 0
                             && sourceConnectionsClosed == 0;
 
+            var cacheReport = warmResult.renderDataCacheReport();
             samples.add(new Pf28WarmRenderSample(
                     radius,
                     warmElapsed,
@@ -179,6 +180,11 @@ public final class Pf28SnapshotValidationRunner {
                     sourceConnectionsOpened,
                     sourceConnectionsClosed,
                     snapshotBacked,
+                    cacheReport.terrain().requested(),
+                    cacheReport.terrain().hits(),
+                    cacheReport.terrain().misses(),
+                    cacheReport.surface().requested(),
+                    cacheReport.surface().hits(),
                     warmResult.geometry().equals(source.geometry()),
                     ImageFingerprinter.fingerprint(warmResult.image()),
                     ImageFingerprinter.fingerprint(source.image())
