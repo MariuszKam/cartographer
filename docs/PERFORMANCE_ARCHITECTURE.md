@@ -672,9 +672,9 @@ Render
 
 Render never performs a hidden full-world prepare.
 
-Preparation progress is normalized into five monotonic phases so nested source
+Preparation progress is normalized into six monotonic phases so nested source
 reader progress cannot make the user-facing bar move backwards between
-Terrain, Surface, Map regions, Geology and Resources.
+Header, Terrain, Surface, Map regions, Geology and Resources.
 
 A small revision-local preparation summary is written only after a normal
 prepare completion. Cancellation may leave safe partial derived artifacts that
