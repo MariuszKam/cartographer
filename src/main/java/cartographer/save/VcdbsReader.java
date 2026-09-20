@@ -3232,7 +3232,9 @@ public class VcdbsReader {
             if (tableMissing(connection, SaveTable.MAPREGION.tableName())) {
                 diagnostics.missingTable(SaveTable.MAPREGION.tableName());
                 progress.done("Mapregion table absent");
-                return new MapRegionStreamStats(0, 0, 0, 0, 0L);
+                return new MapRegionStreamStats(
+                        0, 0, 0, 0, 0, 0L
+                );
             }
 
             int expectedRows = countRows(
@@ -3245,7 +3247,8 @@ public class VcdbsReader {
             int rowsFound = 0;
             int parsed = 0;
             int failed = 0;
-            int skipped = 0;
+            int invalid = 0;
+            int ignored = 0;
             long payloadBytes = 0L;
 
             try (PreparedStatement statement =
@@ -3259,21 +3262,35 @@ public class VcdbsReader {
                             expectedRows
                     );
 
-                    Optional<MapRegionCoordinate> coordinate =
-                            mapRegionCoordinateFromPackedPosition(
+                    Optional<ChunkPosition> decodedPosition =
+                            decodePackedPosition(
                                     resultSet.getObject("position")
                             );
-                    if (coordinate.isEmpty()) {
-                        skipped++;
+                    if (decodedPosition.isEmpty()) {
+                        invalid++;
                         diagnostics.recordSkipped(
-                                "mapregion row has no readable coordinate"
+                                "mapregion row has no readable position"
                         );
                         continue;
                     }
+                    ChunkPosition position =
+                            decodedPosition.orElseThrow();
+                    if (position.dimension() != 0 || position.y() != 0) {
+                        ignored++;
+                        diagnostics.recordSkipped(
+                                "mapregion row is outside the main world"
+                        );
+                        continue;
+                    }
+                    MapRegionCoordinate coordinate =
+                            new MapRegionCoordinate(
+                                    position.x(),
+                                    position.z()
+                            );
 
                     byte[] payload = resultSet.getBytes("data");
                     if (payload == null || payload.length == 0) {
-                        skipped++;
+                        invalid++;
                         diagnostics.recordSkipped(
                                 "mapregion row has no payload"
                         );
@@ -3286,7 +3303,7 @@ public class VcdbsReader {
 
                     ParseResult<ServerMapRegion> parsedRegion =
                             serverMapRegionParser.parse(
-                                    coordinate.orElseThrow(),
+                                    coordinate,
                                     payload
                             );
                     if (parsedRegion.isSuccess()) {
@@ -3311,7 +3328,8 @@ public class VcdbsReader {
                     rowsFound,
                     parsed,
                     failed,
-                    skipped,
+                    invalid,
+                    ignored,
                     payloadBytes
             );
         } catch (SQLException exception) {
