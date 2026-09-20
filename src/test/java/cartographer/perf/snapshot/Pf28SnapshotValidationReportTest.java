@@ -164,6 +164,76 @@ class Pf28SnapshotValidationReportTest {
     }
 
     @Test
+    void rejectsGeometryOrImageParityFailure() {
+        Pf28WarmRenderSample badGeometry =
+                new Pf28WarmRenderSample(
+                        2048,
+                        10L,
+                        20L,
+                        Pf18ResourceEvidence.unavailable(),
+                        0,
+                        0,
+                        true,
+                        100,
+                        90,
+                        10,
+                        100,
+                        100,
+                        false,
+                        FINGERPRINT,
+                        FINGERPRINT
+                );
+        Pf28WarmRenderSample badImage =
+                new Pf28WarmRenderSample(
+                        2048,
+                        10L,
+                        20L,
+                        Pf18ResourceEvidence.unavailable(),
+                        0,
+                        0,
+                        true,
+                        100,
+                        90,
+                        10,
+                        100,
+                        100,
+                        true,
+                        FINGERPRINT,
+                        new ResultFingerprint(
+                                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                                        + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                        )
+                );
+
+        assertFalse(reportWith(badGeometry).accepted());
+        assertFalse(reportWith(badImage).accepted());
+    }
+
+    @Test
+    void rejectsFailedRevisionInvalidation() {
+        Pf28SnapshotValidationReport report =
+                new Pf28SnapshotValidationReport(
+                        SHA,
+                        "revision",
+                        completeColdCoverage(),
+                        100L,
+                        Pf18ResourceEvidence.unavailable(),
+                        new SaveSafetyResult(
+                                SaveSafetyStatus.PASS,
+                                List.of()
+                        ),
+                        false,
+                        List.of(
+                                accepted(1024),
+                                accepted(2048),
+                                accepted(4096)
+                        )
+                );
+
+        assertFalse(report.accepted());
+    }
+
+    @Test
     void rejectsDuplicateRadiusEvenWhenRequiredSetIsPresent() {
         Pf28SnapshotValidationReport report =
                 new Pf28SnapshotValidationReport(
@@ -212,6 +282,28 @@ class Pf28SnapshotValidationReportTest {
                 );
 
         assertFalse(report.accepted());
+    }
+
+    private Pf28SnapshotValidationReport reportWith(
+            Pf28WarmRenderSample radius2048
+    ) {
+        return new Pf28SnapshotValidationReport(
+                SHA,
+                "revision",
+                completeColdCoverage(),
+                100L,
+                Pf18ResourceEvidence.unavailable(),
+                new SaveSafetyResult(
+                        SaveSafetyStatus.PASS,
+                        List.of()
+                ),
+                true,
+                List.of(
+                        accepted(1024),
+                        radius2048,
+                        accepted(4096)
+                )
+        );
     }
 
     private Pf28WarmRenderSample accepted(int radius) {
