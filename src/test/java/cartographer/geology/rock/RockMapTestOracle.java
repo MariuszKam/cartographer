@@ -4,17 +4,17 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
-/** Test-only normalization of the current legacy ROCK result. */
-public final class RockLegacyOracle {
-    private RockLegacyOracle() {
+/** Test-only deterministic normalization of a ROCK result. */
+final class RockMapTestOracle {
+    private RockMapTestOracle() {
     }
 
-    public static Snapshot snapshot(RockMap map) {
+    static Snapshot snapshot(RockMap map) {
         Objects.requireNonNull(map, "map is required");
         List<Cell> cells = map.columns().stream()
                 .sorted(Comparator.comparingInt(RockColumnSample::worldZ)
                         .thenComparingInt(RockColumnSample::worldX))
-                .map(RockLegacyOracle::cell)
+                .map(RockMapTestOracle::cell)
                 .toList();
         return new Snapshot(
                 cells,
@@ -38,25 +38,25 @@ public final class RockLegacyOracle {
         );
     }
 
-    public record Snapshot(
+    record Snapshot(
             List<Cell> cells,
             long observedCount,
             long noRockCount,
             long unavailableCount
     ) {
-        public Snapshot {
+        Snapshot {
             cells = List.copyOf(Objects.requireNonNull(cells, "cells are required"));
         }
     }
 
-    public record Cell(
+    record Cell(
             int worldX,
             int worldZ,
             RockColumnState state,
             String rockCode,
             Integer rockY
     ) {
-        public Cell {
+        Cell {
             Objects.requireNonNull(state, "state is required");
             if (state == RockColumnState.OBSERVED
                     && (rockCode == null || rockY == null)) {

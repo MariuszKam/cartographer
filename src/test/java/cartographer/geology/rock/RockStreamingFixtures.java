@@ -4,11 +4,10 @@ import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ParsedChunk;
 
-import java.util.List;
 import java.util.Map;
 
-/** Small deterministic test fixtures; this class does not scan ROCK data. */
-final class RockCharacterizationFixtures {
+/** Small deterministic fixtures for RockStreamingSession tests. */
+final class RockStreamingFixtures {
     static final RockCatalog CATALOG = RockCatalog.from(Map.of(
             1, new BlockInfo(1, "game:rock-granite"),
             2, new BlockInfo(2, "game:rock-shale"),
@@ -18,7 +17,7 @@ final class RockCharacterizationFixtures {
             6, new BlockInfo(6, "game:water-still")
     ));
 
-    private RockCharacterizationFixtures() {
+    private RockStreamingFixtures() {
     }
 
     static ParsedChunk chunk(ChunkCoordinate coordinate, BlockAt... entries) {
@@ -39,10 +38,6 @@ final class RockCharacterizationFixtures {
 
     static BlockAt at(int x, int y, int z, int id) {
         return new BlockAt(x, y, z, id);
-    }
-
-    static RockChunkCoverage coverage(ChunkCoordinate... coordinates) {
-        return RockChunkCoverage.fromChunkCoordinates(List.of(coordinates));
     }
 
     record BlockAt(int x, int y, int z, int id) {
