@@ -11,6 +11,7 @@ import cartographer.perf.RenderDataCacheStore;
 import cartographer.perf.UpperRockTileLookup;
 import cartographer.perf.WorldDataSnapshot;
 import cartographer.render.RockMapRenderResult;
+import cartographer.render.RockMapRenderer;
 import cartographer.render.RockSnapshotRenderAccumulator;
 
 import java.nio.file.Path;
@@ -28,15 +29,21 @@ import java.util.Optional;
  */
 public final class SnapshotUpperRockRenderReader {
     private final RenderDataCacheStore cacheStore;
+    private final RockMapRenderer renderer;
     private final MapChunkPositionPlanner planner =
             new MapChunkPositionPlanner();
 
     public SnapshotUpperRockRenderReader(
-            RenderDataCacheStore cacheStore
+            RenderDataCacheStore cacheStore,
+            RockMapRenderer renderer
     ) {
         this.cacheStore = Objects.requireNonNull(
                 cacheStore,
                 "cacheStore is required"
+        );
+        this.renderer = Objects.requireNonNull(
+                renderer,
+                "rock renderer is required"
         );
     }
 
@@ -89,7 +96,7 @@ public final class SnapshotUpperRockRenderReader {
                 radius
         );
         RockSnapshotRenderAccumulator accumulator =
-                new RockSnapshotRenderAccumulator(
+                renderer.snapshotAccumulator(
                         metadata,
                         catalog,
                         center,
