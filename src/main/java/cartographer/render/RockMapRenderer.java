@@ -12,11 +12,8 @@ import java.util.Objects;
 import java.util.Optional;
 
 public final class RockMapRenderer {
-    private static final int NO_ROCK_COLOR = 0xFF4A4A4A;
-    private static final int UNAVAILABLE_LIGHT = 0xFF888888;
-    private static final int UNAVAILABLE_DARK = 0xFF707070;
-
     private final RockPalette palette;
+    private final RockRenderColors colors;
     private final int maxRasterSize;
 
     public RockMapRenderer() {
@@ -29,6 +26,7 @@ public final class RockMapRenderer {
 
     RockMapRenderer(RockPalette palette, int maxRasterSize) {
         this.palette = Objects.requireNonNull(palette, "rock palette is required");
+        this.colors = new RockRenderColors(this.palette);
         if (maxRasterSize <= 0) {
             throw new IllegalArgumentException("maxRasterSize must be positive");
         }
@@ -181,34 +179,22 @@ public final class RockMapRenderer {
             int worldZ,
             Optional<String> highlightRockCode
     ) {
-        switch (rockMap.stateAtIndex(index)) {
-            case OBSERVED -> {
-                RockIdentity identity = rockMap.ordinalTable()
-                        .get(rockMap.rockOrdinalAtIndex(index) - 1);
-                int color = palette.colorFor(identity);
-                if (highlightRockCode.isPresent()
-                        && !highlightRockCode.orElseThrow().equals(identity.code())) {
-                    color = dim(color);
-                }
-                image.setRGB(imageX, imageY, color);
-            }
-            case NO_ROCK -> image.setRGB(imageX, imageY, NO_ROCK_COLOR);
-            case UNAVAILABLE -> image.setRGB(
-                    imageX,
-                    imageY,
-                    ((worldX + worldZ) & 1) == 0
-                            ? UNAVAILABLE_LIGHT
-                            : UNAVAILABLE_DARK
-            );
-        }
-    }
-
-    private int dim(int argb) {
-        int alpha = (argb >>> 24) & 0xff;
-        int red = ((argb >>> 16) & 0xff) / 4;
-        int green = ((argb >>> 8) & 0xff) / 4;
-        int blue = (argb & 0xff) / 4;
-        return (alpha << 24) | (red << 16) | (green << 8) | blue;
+        RockColumnState state = rockMap.stateAtIndex(index);
+        RockIdentity identity = state == RockColumnState.OBSERVED
+                ? rockMap.ordinalTable()
+                .get(rockMap.rockOrdinalAtIndex(index) - 1)
+                : null;
+        image.setRGB(
+                imageX,
+                imageY,
+                colors.color(
+                        state,
+                        identity,
+                        worldX,
+                        worldZ,
+                        highlightRockCode
+                )
+        );
     }
 
 }
