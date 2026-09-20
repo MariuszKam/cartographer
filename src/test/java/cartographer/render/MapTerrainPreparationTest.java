@@ -84,7 +84,7 @@ class MapTerrainPreparationTest {
                 16,
                 1,
                 RenderStyle.SIMPLE,
-                Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE)
+                Set.of(RenderLayer.SURFACE)
         );
         RenderSamplingPlan sampling =
                 RenderSamplingPlan.from(center, options);
