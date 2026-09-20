@@ -603,19 +603,33 @@ class VcdbsReaderSelectiveChunkLookupTest {
     }
 
     private Path databaseWithRows(int count) throws Exception {
-        Path database = databaseWithRow(
-                new ChunkPosition(0, 0, 0, 0), new byte[]{7}
+        Path database = temporaryDirectory.resolve(
+                "save-" + System.nanoTime() + ".vcdbs"
+        );
+        createDatabase(
+                database,
+                "CREATE TABLE chunk (position INTEGER PRIMARY KEY, data BLOB)"
         );
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database);
              PreparedStatement statement = connection.prepareStatement(
                      "INSERT INTO chunk(position, data) VALUES (?, ?)")) {
-            for (int index = 1; index < count; index++) {
-                statement.setLong(
-                        1,
-                        ChunkPosEncoder.encode(new ChunkPosition(index, 0, 0, 0))
-                );
-                statement.setBytes(2, new byte[]{7});
-                statement.executeUpdate();
+            connection.setAutoCommit(false);
+            try {
+                for (int index = 0; index < count; index++) {
+                    statement.setLong(
+                            1,
+                            ChunkPosEncoder.encode(
+                                    new ChunkPosition(index, 0, 0, 0)
+                            )
+                    );
+                    statement.setBytes(2, new byte[]{7});
+                    statement.addBatch();
+                }
+                statement.executeBatch();
+                connection.commit();
+            } catch (Exception exception) {
+                connection.rollback();
+                throw exception;
             }
         }
         return database;
