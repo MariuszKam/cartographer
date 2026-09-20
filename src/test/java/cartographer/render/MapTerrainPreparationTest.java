@@ -121,7 +121,7 @@ class MapTerrainPreparationTest {
         assertTrue(terrain.heights().hasHeightAt(17, 16));
         assertTrue(terrain.heights().hasHeightAt(16, 15));
         assertTrue(terrain.heights().hasHeightAt(16, 17));
-        assertTrue(terrain.heights().sampleCount() < 1024);
+        assertEquals(5, terrain.heights().sampleCount());
     }
 
     @Test
