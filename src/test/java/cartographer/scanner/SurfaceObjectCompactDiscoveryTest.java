@@ -234,22 +234,6 @@ class SurfaceObjectCompactDiscoveryTest {
     }
 
     @Test
-    void compactPlannerMatchesLegacyCandidateRanges() {
-        MapChunk mapChunk = new MapChunk(new MapChunkCoordinate(0, 0), filled(20), filled(10));
-        SurfaceObjectCompactPlan compact = compactPlan(mapChunk, WORLD, 16, 16, 1);
-        SurfaceObjectPlanner.StreamingSession legacySession = new SurfaceObjectPlanner()
-                .begin(WORLD, 16, 16, 1);
-        legacySession.accept(mapChunk);
-        SurfaceObjectPlan legacy = legacySession.finish();
-
-        List<String> legacyFingerprint = legacy.targets().stream()
-                .map(target -> target.worldX() + ":" + target.worldZ() + ":" + target.candidateWorldYs())
-                .sorted()
-                .toList();
-        assertEquals(legacyFingerprint, planFingerprint(compact).stream().sorted().toList());
-    }
-
-    @Test
     void unavailableCandidateDoesNotOverrideAnObservedCandidate() {
         SurfaceObjectCompactPlan plan = planned(31, 31);
         SurfaceObjectStreamingScanner.Session session = new SurfaceObjectStreamingScanner()

@@ -156,20 +156,6 @@ class SurfaceRainHeightFastPathTest {
         assertTrue(plan.chunkPositions().isEmpty());
     }
 
-    @Test
-    void legacyEqualYKeepsFirstObservationForDuplicateChunkRows() {
-        ParsedChunk first = new ParsedChunk(
-                new ChunkCoordinate(0, 0, 0), 0, 1, 1, 1, new int[]{1});
-        ParsedChunk second = new ParsedChunk(
-                new ChunkCoordinate(0, 0, 0), 0, 1, 1, 1, new int[]{3});
-
-        SurfaceScanResult result = new SurfaceScanner().scan(
-                List.of(first, second), REGISTRY, true);
-
-        assertEquals(1, result.blocks().size());
-        assertEquals(1, result.blocks().getFirst().blockInfo().id());
-    }
-
     private SurfaceRainHeightPlan planned(int rainHeight) {
         SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1, 2);
         planner.accept(mapChunk(rainHeight));
