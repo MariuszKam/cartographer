@@ -80,6 +80,15 @@ public final class SurfaceRegistryLookup {
 
     public int slot(int id) { return index(id); }
 
+    public String codeAt(int slot) {
+        Objects.checkIndex(slot, codes.length);
+        return codes[slot] == null ? "unknown:" + ids[slot] : codes[slot];
+    }
+
+    public SoilFertilityClassification fertilityAt(int slot) {
+        return fertility[Objects.checkIndex(slot, fertility.length)];
+    }
+
     public String materialTypeAt(int slot) { return materialTypes[slot]; }
 
     public String rockFamilyAt(int slot) { return rockFamilies[slot]; }
