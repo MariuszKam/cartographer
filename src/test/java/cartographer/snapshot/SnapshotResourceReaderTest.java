@@ -104,6 +104,57 @@ class SnapshotResourceReaderTest {
     }
 
     @Test
+    void prospectingIgnoresIndexedOccurrencesOutsideExactCircle()
+            throws Exception {
+        Fixture fixture = fixture("resource-circle");
+        var positions = new OreChunkPositionPlanner().plan(
+                fixture.metadata,
+                16,
+                16,
+                4,
+                ActualBlockYFilter.unbounded()
+        );
+        var entries = new java.util.ArrayList<ResourceChunkIndexEntry>();
+        for (var position : positions) {
+            if (position.y() == 0) {
+                entries.add(ResourceChunkIndexEntry.available(
+                        position,
+                        List.of(new ResourceOccurrence(
+                                position,
+                                2,
+                                0,
+                                0,
+                                1L << 5
+                        ))
+                ));
+            } else {
+                entries.add(ResourceChunkIndexEntry.available(
+                        position,
+                        List.of()
+                ));
+            }
+        }
+        fixture.snapshot.resourceIndexStore().publish(entries);
+
+        var observations = new SnapshotResourceReader(fixture.cache)
+                .readObservations(
+                        fixture.save,
+                        fixture.metadata,
+                        fixture.registry,
+                        16,
+                        16,
+                        4,
+                        List.of("nativecopper")
+                )
+                .orElseThrow();
+
+        assertEquals(
+                ActualOreObservation.NOT_OBSERVED,
+                observations.get("nativecopper")
+        );
+    }
+
+    @Test
     void missingRequestCoverageFallsBackToSource() throws Exception {
         Fixture fixture = fixture("resource-miss");
         SnapshotResourceReader reader =
