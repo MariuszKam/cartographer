@@ -8,6 +8,7 @@ import cartographer.environment.ForestSummary;
 import cartographer.environment.IdMapSummary;
 import cartographer.environment.OceanSummary;
 import cartographer.geology.GeologicProvinceSummary;
+import cartographer.model.IntDataMap2D;
 import cartographer.model.MapRegionCoordinate;
 
 import java.io.ByteArrayInputStream;
@@ -17,17 +18,22 @@ import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 /** Deterministic compact binary codec for interpreted PF-2.4 mapregion state. */
 final class MapRegionSnapshotEntryCodec {
     private static final int MAGIC = 0x4D523234; // MR24
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
     private static final int PROFILE_VERSION = 1;
     private static final int MAX_LIST_VALUES = 1_024;
+    private static final int MAX_RESOURCE_MAPS = 4_096;
+    private static final int MAX_RESOURCE_MAP_VALUES = 1_048_576;
 
     private MapRegionSnapshotEntryCodec() {
     }
@@ -49,6 +55,7 @@ final class MapRegionSnapshotEntryCodec {
                 writeOptionalIdSummary(out, entry.environmentProfile().landform());
                 writeOptionalIdSummary(out, entry.environmentProfile().geologicProvince());
                 writeOptionalGeology(out, entry.geologySummary());
+                writeOreMaps(out, entry.oreMaps());
             }
             return bytes.toByteArray();
         } catch (IOException exception) {
@@ -90,11 +97,16 @@ final class MapRegionSnapshotEntryCodec {
             );
             Optional<GeologicProvinceSummary> geology =
                     readOptionalGeology(in, coordinate);
-            require(in.available() == 0, "mapregion snapshot payload has trailing bytes");
+            Map<String, IntDataMap2D> oreMaps = readOreMaps(in);
+            require(
+                    in.available() == 0,
+                    "mapregion snapshot payload has trailing bytes"
+            );
             return new MapRegionSnapshotEntry(
                     coordinate,
                     profile,
-                    geology
+                    geology,
+                    oreMaps
             );
         } catch (EOFException exception) {
             throw new IllegalArgumentException(
@@ -242,6 +254,87 @@ final class MapRegionSnapshotEntryCodec {
                 nonNegative(in.readInt(), "geology distinct count"),
                 readIntList(in)
         ));
+    }
+
+    private static void writeOreMaps(
+            DataOutputStream out,
+            Map<String, IntDataMap2D> oreMaps
+    ) throws IOException {
+        List<Map.Entry<String, IntDataMap2D>> entries =
+                oreMaps.entrySet().stream()
+                        .sorted(Map.Entry.comparingByKey())
+                        .toList();
+        if (entries.size() > MAX_RESOURCE_MAPS) {
+            throw new IllegalArgumentException(
+                    "too many resource maps in mapregion snapshot"
+            );
+        }
+        out.writeInt(entries.size());
+        for (Map.Entry<String, IntDataMap2D> entry : entries) {
+            out.writeUTF(entry.getKey());
+            IntDataMap2D map = entry.getValue();
+            int[] values = map.data();
+            if (values.length > MAX_RESOURCE_MAP_VALUES) {
+                throw new IllegalArgumentException(
+                        "resource map is unexpectedly large"
+                );
+            }
+            out.writeInt(map.size());
+            out.writeInt(map.topLeftPadding());
+            out.writeInt(map.bottomRightPadding());
+            out.writeInt(values.length);
+            for (int value : values) {
+                out.writeInt(value);
+            }
+        }
+    }
+
+    private static Map<String, IntDataMap2D> readOreMaps(
+            DataInputStream in
+    ) throws IOException {
+        int count = in.readInt();
+        require(
+                count >= 0 && count <= MAX_RESOURCE_MAPS,
+                "invalid resource map count"
+        );
+        LinkedHashMap<String, IntDataMap2D> result =
+                new LinkedHashMap<>();
+        for (int index = 0; index < count; index++) {
+            String key = in.readUTF();
+            require(!key.isBlank(), "blank resource map key");
+            int size = in.readInt();
+            int topLeftPadding = in.readInt();
+            int bottomRightPadding = in.readInt();
+            int length = in.readInt();
+            require(size > 0, "invalid resource map size");
+            long expected = (long) size * size;
+            require(
+                    expected == length
+                            && length >= 0
+                            && length <= MAX_RESOURCE_MAP_VALUES,
+                    "invalid resource map payload length"
+            );
+            int[] values = new int[length];
+            for (int valueIndex = 0;
+                 valueIndex < length;
+                 valueIndex++) {
+                values[valueIndex] = in.readInt();
+            }
+            IntDataMap2D previous = result.put(
+                    key,
+                    new IntDataMap2D(
+                            size,
+                            topLeftPadding,
+                            bottomRightPadding,
+                            values
+                    )
+            );
+            require(
+                    previous == null,
+                    "duplicate resource map key"
+            );
+        }
+        return Map.copyOf(result);
     }
 
     private static void writeIntList(
