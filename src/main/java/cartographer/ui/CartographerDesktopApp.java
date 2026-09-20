@@ -32,8 +32,10 @@ import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.ui.update.DesktopUpdateController;
 import cartographer.update.ApplicationVersion;
+import cartographer.update.HttpUpdateInstallerSource;
 import cartographer.update.HttpUpdateManifestSource;
 import cartographer.update.UpdateCheckService;
+import cartographer.update.UpdateDownloadService;
 import cartographer.update.UpdateEndpoints;
 import cartographer.update.UpdateManifestParser;
 import cartographer.update.UpdatePreferencesStore;
@@ -168,7 +170,7 @@ public class CartographerDesktopApp extends Application {
         updateExecutor = Executors.newSingleThreadExecutor(runnable -> {
             Thread thread = new Thread(
                     runnable,
-                    "cartographer-update-check"
+                    "cartographer-update-worker"
             );
             thread.setDaemon(true);
             return thread;
@@ -177,6 +179,13 @@ public class CartographerDesktopApp extends Application {
         DesktopUpdateController updateController =
                 new DesktopUpdateController(
                         updateCheckService,
+                        new UpdateDownloadService(
+                                config.resolve("updates"),
+                                new HttpUpdateInstallerSource(
+                                        Duration.ofSeconds(5),
+                                        Duration.ofMinutes(30)
+                                )
+                        ),
                         new UpdatePreferencesStore(
                                 config.resolve("update.properties")
                         ),
