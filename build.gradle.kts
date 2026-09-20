@@ -462,12 +462,13 @@ tasks.test {
     reports.junitXml.required.set(true)
     reports.html.required.set(true)
     maxParallelForks = 1
+    mustRunAfter("testArchitectureGuard")
     attachTimingReports("test")
 }
 
 val testSuiteBudgetMs = 60_000L
 val testClassBudgetMs = 15_000L
-val minimumTestCount = 1_100L
+val minimumTestCount = 1_104L
 
 tasks.register("testPerformanceBudget") {
     group = "verification"
@@ -561,6 +562,12 @@ tasks.register("testPerformanceBudget") {
     }
 }
 
+tasks.register("testQualityGate") {
+    group = "verification"
+    description = "Runs the complete pull-request test quality gate"
+    dependsOn("testArchitectureGuard", "testPerformanceBudget")
+}
+
 val detectedTestCpuCount = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
 val defaultParallelProbeForks = if (detectedTestCpuCount <= 2) {
     1
@@ -580,12 +587,10 @@ val configuredParallelProbeForks = providers.gradleProperty("testParallelForks")
 tasks.register<Test>("testParallelProbe") {
     group = "verification"
     dependsOn("testClasses")
-    description = "Runs the non-serial JUnit suite with bounded Gradle worker-process parallelism"
+    description = "Runs the JUnit suite with bounded Gradle worker-process parallelism"
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
-    useJUnitPlatform {
-        excludeTags("serial")
-    }
+    useJUnitPlatform()
     disableInProcessJUnitParallelism()
     maxParallelForks = configuredParallelProbeForks.get()
     reports.junitXml.required.set(true)
@@ -598,21 +603,6 @@ tasks.register<Test>("testParallelProbe") {
                 "detectedProcessors=$detectedTestCpuCount"
         )
     }
-}
-
-tasks.register<Test>("testSerial") {
-    group = "verification"
-    dependsOn("testClasses")
-    description = "Runs tests explicitly tagged serial in a single Gradle test worker"
-    testClassesDirs = sourceSets["test"].output.classesDirs
-    classpath = sourceSets["test"].runtimeClasspath
-    useJUnitPlatform {
-        includeTags("serial")
-    }
-    disableInProcessJUnitParallelism()
-    maxParallelForks = 1
-    reports.junitXml.required.set(true)
-    reports.html.required.set(true)
 }
 
 fun registerTaggedTestTask(
@@ -646,12 +636,6 @@ registerTaggedTestTask(
     "Runs tests explicitly categorized as concurrency/lifecycle",
     "concurrency"
 )
-registerTaggedTestTask(
-    "testGui",
-    "Runs tests explicitly categorized as GUI/JavaFX",
-    "gui"
-)
-
 
 java {
     toolchain {

@@ -5,12 +5,12 @@
 This document is the engineering contract for tests in VS Cartographer.
 
 The goal is not merely to make the suite faster. The target architecture is a
-large test suite that can execute with controlled parallelism while remaining
-deterministic, isolated, order-independent, diagnosable, and safe on developer
-machines and CI.
+large test suite that executes in the fastest validated topology while
+remaining deterministic, isolated, order-independent, diagnosable, and safe on
+developer machines and CI.
 
-Parallelism is enabled only after the suite proves that it is safe for the
-chosen level of concurrency. A faster flaky suite is a regression.
+Parallelism is an optimization, not a goal. It is enabled only when repeated
+evidence shows a real benefit without weakening determinism or isolation.
 
 ## Core invariants
 
@@ -35,9 +35,11 @@ they are to run.
 Test categories are expressed with test-source meta-annotations:
 
 - `@IntegrationTest` -> JUnit tag `integration`;
-- `@ConcurrencyTest` -> JUnit tag `concurrency`;
-- `@GuiTest` -> JUnit tag `gui`;
-- `@SerialTest` -> JUnit tag `serial`.
+- `@ConcurrencyTest` -> JUnit tag `concurrency`.
+
+New categories are added only when the repository contains a concrete test that
+needs them; do not create speculative category annotations or empty diagnostic
+tasks.
 
 Classification is incremental. An unclassified test must not automatically be
 assumed to be a pure unit test until the audit has reviewed it. Multiple
@@ -70,24 +72,6 @@ futures, or callbacks.
 
 A timeout is a failure/deadlock guard. It is not the condition that proves the
 behavior.
-
-### GUI / JavaFX tests
-
-Tests that require JavaFX lifecycle or global toolkit state must make that
-requirement explicit. They must not silently assume that each test owns the
-process-wide JavaFX runtime.
-
-### Serial-only tests
-
-Serial execution is an exception, not a default escape hatch.
-
-A test may be classified as serial-only only when it exercises unavoidable
-process-wide mutable state or another resource that cannot be safely isolated.
-The reason must be documented close to the classification and should be
-periodically reconsidered.
-
-Serial classification must never be used to hide a race, shared fixture bug,
-fixed-path collision, leaked thread, or missing cleanup.
 
 ## Filesystem rules
 
@@ -138,9 +122,9 @@ Tests must not casually mutate process-wide state such as:
 When production behavior truly depends on process-wide state, prefer injecting
 an explicit dependency so tests can isolate it.
 
-If temporary mutation of JVM-global state is unavoidable, the test must restore
-the previous value on every path and must be classified so it cannot race with
-other tests that observe or mutate the same state.
+The current architecture treats JVM-global mutation as a HIGH-risk finding
+that blocks CI. Prefer refactoring production code toward an injectable
+dependency rather than adding an ad-hoc test exception.
 
 Immutable `static final` constants and immutable fixtures are safe. Mutable
 static test state is not.
@@ -254,7 +238,7 @@ microbenchmark thresholds:
 
 - complete suite: at most 60 seconds;
 - individual test class: at most 15 seconds;
-- at least 1100 tests must execute;
+- at least 1104 tests must execute;
 - zero failed and zero skipped tests.
 
 These limits are intentionally much wider than normal run-to-run noise. Their
@@ -278,8 +262,6 @@ experiments. It measures Gradle worker-process parallelism only. Any future
 JUnit in-process experiment must use an explicit dedicated task/configuration;
 it must not silently alter the production baseline.
 
-Serial-only tests must remain a small, explicit set.
-
 ### Current Gradle verification tasks
 
 The default `test` task intentionally uses one Gradle test worker. This is
@@ -292,11 +274,10 @@ The repository provides these TEST-PERF tasks:
 testArchitectureAudit
 testArchitectureGuard
 testPerformanceBudget
+testQualityGate
 testParallelProbe
-testSerial
 testIntegration
 testConcurrency
-testGui
 ```
 
 `testArchitectureAudit` writes detailed findings and a per-file summary under
@@ -325,8 +306,8 @@ per fixture row is both unnecessarily slow and increases timing noise in CI.
 The optimization must remain test-only and must not weaken the production
 read-only save contract.
 
-`testParallelProbe` is an opt-in validation task. It excludes tests tagged
-`serial` and uses bounded Gradle worker-process parallelism. The default probe
+`testParallelProbe` is an opt-in validation task that runs the complete
+JUnit suite with bounded Gradle worker-process parallelism. The default probe
 worker count is CPU-aware and capped conservatively; it may be overridden for a
 controlled experiment with:
 
@@ -338,24 +319,19 @@ The override must remain between 1 and 16. A higher number is not evidence of a
 better configuration; representative timing and repeated deterministic runs
 decide the final worker count.
 
-`testSerial` executes only tests explicitly tagged `serial` and always uses
-one Gradle test worker. A serial tag requires a concrete process-wide isolation
-reason; it is not a substitute for fixing test-owned filesystem, SQLite,
-threading, or cleanup defects.
-
-`testIntegration`, `testConcurrency`, and `testGui` execute the corresponding
-explicitly categorized subsets with one Gradle worker. They exist for focused
-diagnosis and later stress campaigns. Because categories may overlap, their
+`testIntegration` and `testConcurrency` execute the corresponding explicitly
+categorized subsets with one Gradle worker. They exist for focused diagnosis
+and deliberate stress campaigns. Because categories may overlap, their
 combined test counts must not be treated as the size of the complete suite.
 
 The normal pull-request correctness gate is the complete
 `test` task.
 
-Pull-request CI has exactly one test job. That job performs the architecture
-audit and guard, runs `testPerformanceBudget` (which executes the complete
-suite once with the selected one-worker topology and validates the coarse
-performance/completeness budget), retains timing/JUnit evidence, and then
-performs the existing tooling syntax validation.
+Pull-request CI has exactly one test job and one Gradle quality-gate
+invocation: `testQualityGate`. The gate runs the architecture audit and guard,
+executes the complete suite once with the selected one-worker topology, and
+validates the coarse performance/completeness budget. CI then retains
+timing/JUnit evidence and performs the existing tooling syntax validation.
 
 Topology matrices and repeated stress campaigns are diagnostic techniques, not
 normal PR checks. They may be run deliberately when test architecture changes,
@@ -417,7 +393,6 @@ Do not introduce:
 - process-global property mutation without restoration and isolation;
 - silent catches that turn cleanup or worker leaks into success;
 - arbitrary timeout increases as the only flaky-test fix;
-- serial-only labels used instead of fixing isolation.
 
 ## Merge checklist
 
@@ -433,7 +408,6 @@ Before merging a new or changed test, verify:
 - owned resources are cleaned up on failure paths;
 - the fixture is no heavier than necessary;
 - the test category matches what it actually exercises;
-- any serial-only requirement has a concrete documented reason;
 - failure messages provide enough information for CI diagnosis;
 - the change does not weaken the full quality gate.
 
