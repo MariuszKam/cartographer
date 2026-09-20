@@ -204,6 +204,47 @@ class DesktopUpdateControllerTest {
     }
 
     @Test
+    void failedDownloadCanBeRetriedAndReachReadyState() {
+        Instant now = Instant.parse("2026-09-20T10:00:00Z");
+        AtomicInteger loads = new AtomicInteger();
+        AtomicInteger attempts = new AtomicInteger();
+        UpdateDownloadService retrying = new UpdateDownloadService(
+                temporaryDirectory.resolve("retry-updates"),
+                (manifest, destination, listener) -> {
+                    if (attempts.incrementAndGet() == 1) {
+                        throw new java.io.IOException("temporary outage");
+                    }
+                    Files.write(destination, INSTALLER_BYTES);
+                    listener.accept(new UpdateDownloadProgress(
+                            INSTALLER_BYTES.length,
+                            INSTALLER_BYTES.length
+                    ));
+                }
+        );
+        TestHarness harness = controller(
+                store(),
+                now,
+                loads,
+                "1.1.0",
+                retrying
+        );
+
+        harness.controller.checkNow();
+        harness.view.downloadAction.run();
+        assertTrue(
+                harness.view.downloadFailure.contains("temporary outage")
+        );
+
+        harness.view.downloadAction.run();
+
+        assertEquals(2, attempts.get());
+        assertEquals(
+                ApplicationVersion.parse("1.1.0"),
+                harness.view.readyVersion
+        );
+    }
+
+    @Test
     void failedDownloadShowsRetryStateWithoutLosingAvailableUpdate() {
         Instant now = Instant.parse("2026-09-20T10:00:00Z");
         AtomicInteger loads = new AtomicInteger();
@@ -376,6 +417,7 @@ class DesktopUpdateControllerTest {
         @Override
         public void showUpdateReady(ApplicationVersion version) {
             readyVersion = version;
+            downloadFailure = null;
         }
 
         @Override
