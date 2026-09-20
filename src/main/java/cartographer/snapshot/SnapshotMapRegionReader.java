@@ -2,6 +2,7 @@ package cartographer.snapshot;
 
 import cartographer.environment.EnvironmentProfile;
 import cartographer.geology.GeologicProvinceSummary;
+import cartographer.model.ServerMapRegion;
 import cartographer.perf.MapRegionSnapshotRead;
 import cartographer.perf.RenderDataCacheStore;
 import cartographer.perf.WorldDataSnapshot;
@@ -43,7 +44,23 @@ public final class SnapshotMapRegionReader {
                     .map(entry -> entry.geologySummary())
                     .flatMap(Optional::stream)
                     .toList();
-            return Optional.of(new Result(environment, geology));
+            List<ServerMapRegion> resourceRegions = read.entries().stream()
+                    .map(entry -> new ServerMapRegion(
+                            entry.coordinate(),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty(),
+                            entry.oreMaps(),
+                            List.of()
+                    ))
+                    .toList();
+            return Optional.of(new Result(
+                    environment,
+                    geology,
+                    resourceRegions
+            ));
         } catch (RuntimeException failure) {
             return Optional.empty();
         }
@@ -51,7 +68,8 @@ public final class SnapshotMapRegionReader {
 
     public record Result(
             List<EnvironmentProfile> environmentProfiles,
-            List<GeologicProvinceSummary> geologySummaries
+            List<GeologicProvinceSummary> geologySummaries,
+            List<ServerMapRegion> resourceRegions
     ) {
         public Result {
             environmentProfiles = List.copyOf(
@@ -64,6 +82,12 @@ public final class SnapshotMapRegionReader {
                     Objects.requireNonNull(
                             geologySummaries,
                             "geologySummaries is required"
+                    )
+            );
+            resourceRegions = List.copyOf(
+                    Objects.requireNonNull(
+                            resourceRegions,
+                            "resourceRegions is required"
                     )
             );
         }
