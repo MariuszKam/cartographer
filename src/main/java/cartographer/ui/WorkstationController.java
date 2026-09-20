@@ -992,10 +992,15 @@ public final class WorkstationController {
     ) {
         localRecompositionGate.invalidate();
         rockHighlightGeneration++;
-        searchPanel.setRockLegend(result.map().ordinalTable());
+        var rockMap = result.retainedMap().orElseThrow(() ->
+                new IllegalStateException(
+                        "Geology Workstation render requires retained ROCK data"
+                )
+        );
+        searchPanel.setRockLegend(rockMap.ordinalTable());
         var displayed = searchPanel.selectedRockHighlight().isPresent()
                 ? rockUseCase.renderRetained(
-                result.map(),
+                rockMap,
                 searchPanel.selectedRockHighlight()
         )
                 : result.rendered();
@@ -1007,7 +1012,7 @@ public final class WorkstationController {
         mapFrameState.retain(MapFrame.geology(
                 request.savePath(),
                 displayed.geometry(),
-                result.map()
+                rockMap
         ));
         workstation.setMapGeometry(Optional.of(displayed.geometry()));
         resultInspector.showRockResult(result, request);

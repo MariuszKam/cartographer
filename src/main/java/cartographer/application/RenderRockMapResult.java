@@ -8,9 +8,10 @@ import cartographer.save.ReadDiagnostics;
 import cartographer.save.SelectiveChunkStreamStats;
 
 import java.util.Objects;
+import java.util.Optional;
 
 public record RenderRockMapResult(
-        RockMap map,
+        Optional<RockMap> retainedMap,
         RockMapRenderResult rendered,
         RockCatalog catalog,
         SelectiveChunkStreamStats chunkStats,
@@ -20,7 +21,10 @@ public record RenderRockMapResult(
         int maxYExclusive
 ) {
     public RenderRockMapResult {
-        Objects.requireNonNull(map, "rock map is required");
+        retainedMap = Objects.requireNonNull(
+                retainedMap,
+                "retained rock map option is required"
+        );
         Objects.requireNonNull(rendered, "rendered rock map is required");
         Objects.requireNonNull(catalog, "rock catalog is required");
         Objects.requireNonNull(chunkStats, "chunk stats are required");
