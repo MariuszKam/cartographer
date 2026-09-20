@@ -28,6 +28,17 @@ public final class TerrainTileStore {
     private static final String DATABASE_FILE = "terrain-cache.sqlite";
     private static final int SELECT_BATCH_SIZE = 400;
 
+    @FunctionalInterface
+    public interface LookupVisitor {
+        /**
+         * @return true to continue visiting, false to stop after this lookup
+         */
+        boolean visit(
+                MapChunkCoordinate coordinate,
+                TerrainTileLookup lookup
+        );
+    }
+
     private final RenderDataCacheStore cacheStore;
     private final RenderDataCacheRevision revision;
     private final Path databasePath;
@@ -70,6 +81,92 @@ public final class TerrainTileStore {
             requested.forEach(coordinate -> results.put(coordinate, TerrainTileLookup.corrupt()));
             return results;
         }
+    }
+
+    /**
+     * Visits requested lookups in first-occurrence request order while keeping
+     * at most one SELECT batch of decoded tiles live at a time.
+     *
+     * @return true when every unique requested coordinate was visited; false
+     * when the visitor stopped iteration early
+     */
+    public boolean forEachLookup(
+            Collection<MapChunkCoordinate> coordinates,
+            LookupVisitor visitor
+    ) {
+        List<MapChunkCoordinate> requested = uniqueCoordinates(coordinates);
+        Objects.requireNonNull(visitor, "lookup visitor is required");
+        if (requested.isEmpty()) {
+            return true;
+        }
+        if (cacheStore.find(revision).isEmpty()
+                || !Files.isRegularFile(databasePath)) {
+            return emit(
+                    requested,
+                    0,
+                    TerrainTileLookup.miss(),
+                    visitor
+            );
+        }
+
+        int nextUnvisited = 0;
+        int failureStart = -1;
+        boolean stopped = false;
+        try (Connection connection = openDatabase(false)) {
+            ensureSchema(connection);
+            batchLoop:
+            for (int start = 0;
+                 start < requested.size();
+                 start += SELECT_BATCH_SIZE) {
+                int end = Math.min(
+                        start + SELECT_BATCH_SIZE,
+                        requested.size()
+                );
+                List<MapChunkCoordinate> batch =
+                        requested.subList(start, end);
+                Map<MapChunkCoordinate, TerrainTileLookup> results =
+                        new LinkedHashMap<>();
+                batch.forEach(
+                        coordinate -> results.put(
+                                coordinate,
+                                TerrainTileLookup.miss()
+                        )
+                );
+                try {
+                    readBatch(connection, batch, results);
+                } catch (SQLException exception) {
+                    failureStart = start;
+                    break;
+                }
+                for (MapChunkCoordinate coordinate : batch) {
+                    if (!visitor.visit(
+                            coordinate,
+                            results.get(coordinate)
+                    )) {
+                        stopped = true;
+                        break batchLoop;
+                    }
+                    nextUnvisited++;
+                }
+            }
+        } catch (SQLException exception) {
+            if (failureStart < 0) {
+                failureStart = nextUnvisited;
+            }
+        }
+
+        if (stopped) {
+            return false;
+        }
+        if (failureStart >= 0) {
+            return emit(
+                    requested,
+                    failureStart,
+                    TerrainTileLookup.corrupt(),
+                    visitor
+            );
+        }
+        return true;
     }
 
     public void publish(Collection<TerrainHeightTile> tiles) {
@@ -184,6 +281,20 @@ public final class TerrainTileStore {
                             + ")"
             );
         }
+    }
+
+    private static boolean emit(
+            List<MapChunkCoordinate> requested,
+            int start,
+            TerrainTileLookup lookup,
+            LookupVisitor visitor
+    ) {
+        for (int index = start; index < requested.size(); index++) {
+            if (!visitor.visit(requested.get(index), lookup)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static List<MapChunkCoordinate> uniqueCoordinates(

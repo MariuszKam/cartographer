@@ -1,13 +1,19 @@
 package cartographer.render;
 
+import cartographer.geology.rock.RockCatalog;
 import cartographer.geology.rock.RockColumnSample;
 import cartographer.geology.rock.RockColumnState;
 import cartographer.geology.rock.RockIdentity;
 import cartographer.geology.rock.RockMap;
+import cartographer.geology.rock.RockMapAssembler;
+import cartographer.geology.rock.RockMapMode;
+import cartographer.model.BlockInfo;
 import cartographer.model.WorldPosition;
 import org.junit.jupiter.api.Test;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -160,10 +166,10 @@ class RockMapRendererTest {
 
     @Test
     void floorsFractionalNegativeCenterForPixelMapping() {
-        RockMap map = new RockMap(
+        RockMap map = map(
                 new WorldPosition(-0.2, 0, -0.2),
                 1,
-                List.of(RockColumnSample.observed(-1, -1, MODDED, 1))
+                RockColumnSample.observed(-1, -1, MODDED, 1)
         );
 
         RockMapRenderResult result = new RockMapRenderer().render(map);
@@ -180,10 +186,10 @@ class RockMapRendererTest {
 
     @Test
     void floorsFractionalPositiveCenterForPixelMapping() {
-        RockMap map = new RockMap(
+        RockMap map = map(
                 new WorldPosition(10.8, 0, 10.8),
                 1,
-                List.of(RockColumnSample.observed(10, 10, GRANITE, 1))
+                RockColumnSample.observed(10, 10, GRANITE, 1)
         );
 
         RockMapRenderResult result = new RockMapRenderer().render(map);
@@ -259,10 +265,50 @@ class RockMapRendererTest {
             int radius,
             RockColumnSample... samples
     ) {
-        return new RockMap(
+        return map(
                 new WorldPosition(centerX, 0, centerZ),
                 radius,
-                List.of(samples)
+                samples
         );
+    }
+
+    private RockMap map(
+            WorldPosition center,
+            int radius,
+            RockColumnSample... samples
+    ) {
+        Map<Integer, BlockInfo> registry = new LinkedHashMap<>();
+        int minY = Integer.MAX_VALUE;
+        int maxY = Integer.MIN_VALUE;
+        for (RockColumnSample sample : samples) {
+            if (sample.state() != RockColumnState.OBSERVED) {
+                continue;
+            }
+            RockIdentity identity = sample.rock().orElseThrow();
+            registry.put(
+                    identity.blockId(),
+                    new BlockInfo(identity.blockId(), identity.code())
+            );
+            int y = sample.rockY().orElseThrow();
+            minY = Math.min(minY, y);
+            maxY = Math.max(maxY, y);
+        }
+
+        int effectiveMinY = minY == Integer.MAX_VALUE ? 0 : minY;
+        int effectiveMaxY = maxY == Integer.MIN_VALUE
+                ? Math.addExact(effectiveMinY, 1)
+                : Math.addExact(maxY, 1);
+        RockMapAssembler assembler = new RockMapAssembler(
+                center,
+                radius,
+                effectiveMinY,
+                effectiveMaxY,
+                RockMapMode.UPPER_ROCK,
+                RockCatalog.from(registry)
+        );
+        for (RockColumnSample sample : samples) {
+            assembler.accept(sample);
+        }
+        return assembler.finish();
     }
 }

@@ -880,7 +880,6 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(1, third.renderDataCacheReport().surface().hits());
         assertEquals(0, third.renderDataCacheReport().surface().sourceLoaded());
         assertEquals(0, thirdReader.adaptiveExactChunkCalls);
-        assertSurfaceParity(first.surface().map(), third.surface().map());
         assertParity(first, third);
         assertArrayEquals(expectedSurfacePayload, surfacePayload(cacheStore, revision,
                 new MapChunkCoordinate(0, 0)));
@@ -974,7 +973,7 @@ class RenderActualOreMapUseCaseTest {
                 .noneMatch(position -> position.x() == 1 && position.z() == 0));
         assertEquals(first.surface().liquidUnavailableColumns(),
                 second.surface().liquidUnavailableColumns());
-        assertSurfaceParity(first.surface().map(), second.surface().map());
+        assertParity(first, second);
     }
 
     @Test
@@ -1081,8 +1080,8 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(1, second.renderDataCacheReport().surface().hits());
         assertEquals(1, second.renderDataCacheReport().surface().misses());
         assertEquals(1, second.renderDataCacheReport().surface().sourceLoaded());
-        assertTrue(second.surface().map().isResolved(32, 16));
-        assertEquals(1, second.surface().map().blockIdAt(32, 16));
+        assertTrue(hasSurfaceCode(second, "game:fire-clay-blue"));
+        assertTrue(hasSurfaceXAtLeast(second, 32));
         assertTrue(secondReader.directMapChunkRequests.getLast().contains(fallbackCoordinate));
         assertTrue(secondReader.directMapChunkRequests.getLast().stream()
                 .allMatch(coordinate -> coordinate.equals(fallbackCoordinate)));
@@ -1090,27 +1089,8 @@ class RenderActualOreMapUseCaseTest {
                 .flatMap(List::stream)
                 .allMatch(position -> position.x() == fallbackCoordinate.x()));
 
-        for (int worldZ = 0; worldZ < 32; worldZ++) {
-            for (int worldX = 16; worldX < 32; worldX++) {
-                if (!second.surface().map().contains(worldX, worldZ)) {
-                    continue;
-                }
-                assertEquals(first.surface().map().isConsidered(worldX, worldZ),
-                        second.surface().map().isConsidered(worldX, worldZ));
-                assertEquals(first.surface().map().isResolved(worldX, worldZ),
-                        second.surface().map().isResolved(worldX, worldZ));
-                assertEquals(first.surface().map().isLiquidUnavailable(worldX, worldZ),
-                        second.surface().map().isLiquidUnavailable(worldX, worldZ));
-                assertEquals(first.surface().map().surfaceYAt(worldX, worldZ),
-                        second.surface().map().surfaceYAt(worldX, worldZ));
-                assertEquals(first.surface().map().blockIdAt(worldX, worldZ),
-                        second.surface().map().blockIdAt(worldX, worldZ));
-                assertEquals(first.surface().map().liquidBlockIdAt(worldX, worldZ),
-                        second.surface().map().liquidBlockIdAt(worldX, worldZ));
-                assertEquals(first.surface().map().surfaceClassAt(worldX, worldZ),
-                        second.surface().map().surfaceClassAt(worldX, worldZ));
-            }
-        }
+        assertTrue(hasSurfaceXLessThan(second, 32));
+        assertTrue(hasSurfaceXAtLeast(second, 32));
     }
 
     @Test
@@ -1239,7 +1219,7 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(1, reader.adaptiveExactChunkCalls);
         assertEquals(1, reader.exactChunkCalls);
         assertEquals(1, reader.exactRequests.getFirst().size());
-        assertTrue(hasSurfaceBlockId(result, 1));
+        assertTrue(hasSurfaceCode(result, "game:fire-clay-blue"));
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
         assertEquals(0, reader.pathPlayerCalls);
@@ -1405,7 +1385,7 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(2, reader.exactChunkCalls);
         assertEquals(8, reader.exactRequests.get(1).size());
         assertTrue(result.actualOreMap().isEmpty());
-        assertTrue(hasSurfaceBlockId(result, 1));
+        assertTrue(hasSurfaceCode(result, "game:fire-clay-blue"));
     }
 
     @Test
@@ -1445,37 +1425,51 @@ class RenderActualOreMapUseCaseTest {
         );
     }
 
-    private boolean hasSurfaceBlockId(RenderActualOreMapResult result, int id) {
-        int[] found = {0};
-        result.surface().map().forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
-            if (blockId == id) found[0]++;
-        });
-        return found[0] != 0;
+    private boolean hasSurfaceCode(
+            RenderActualOreMapResult result,
+            String code
+    ) {
+        return result.surface()
+                .distinctSurfaceBlockCodes(Integer.MAX_VALUE)
+                .contains(code);
     }
 
-    private boolean hasSurfaceCode(RenderActualOreMapResult result, String code) {
-        int[] found = {0};
-        result.surface().map().forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
-            BlockInfo info = result.surface().registry().get(blockId);
-            if (info != null && code.equals(info.code())) found[0]++;
-        });
-        return found[0] != 0;
+    private boolean hasSurfaceXLessThan(
+            RenderActualOreMapResult result,
+            int bound
+    ) {
+        var renderData = result.preparedMapData()
+                .orElseThrow()
+                .surface()
+                .renderData();
+        for (int y = 0; y < renderData.rasterSize(); y++) {
+            for (int x = 0; x < renderData.rasterSize(); x++) {
+                if (renderData.hasSurfaceAt(x, y)
+                        && renderData.surfaceWorldXAt(x, y) < bound) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
-    private boolean hasSurfaceXLessThan(RenderActualOreMapResult result, int bound) {
-        int[] found = {0};
-        result.surface().map().forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
-            if (x < bound) found[0]++;
-        });
-        return found[0] != 0;
-    }
-
-    private boolean hasSurfaceXAtLeast(RenderActualOreMapResult result, int bound) {
-        int[] found = {0};
-        result.surface().map().forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
-            if (x >= bound) found[0]++;
-        });
-        return found[0] != 0;
+    private boolean hasSurfaceXAtLeast(
+            RenderActualOreMapResult result,
+            int bound
+    ) {
+        var renderData = result.preparedMapData()
+                .orElseThrow()
+                .surface()
+                .renderData();
+        for (int y = 0; y < renderData.rasterSize(); y++) {
+            for (int x = 0; x < renderData.rasterSize(); x++) {
+                if (renderData.hasSurfaceAt(x, y)
+                        && renderData.surfaceWorldXAt(x, y) >= bound) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private RenderActualOreMapResult execute(

@@ -1,5 +1,6 @@
 package cartographer.render;
 
+import cartographer.application.ProgressReporter;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.HomeState;
@@ -12,6 +13,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MapTerrainPreparationTest {
 
@@ -37,6 +39,89 @@ class MapTerrainPreparationTest {
                 new TerrainPalette().background(RenderStyle.SIMPLE),
                 rendered.image().getRGB(16, 16)
         );
+    }
+
+    @Test
+    void terrainOnlyUsesRenderSizedHeightState() {
+        RenderOptions options = options(RenderLayer.TERRAIN);
+        MapTerrainPreparation.Builder builder = MapTerrainPreparation.builder(
+                new WorldPosition(16, 0, 16),
+                options,
+                1
+        );
+        builder.accept(chunk(0, 0, 55));
+        MapTerrainPreparation terrain = builder.finish();
+
+        assertTrue(terrain.heights() instanceof SampledTerrainHeightField);
+        assertEquals(55, terrain.heights().minHeight());
+        assertEquals(55, terrain.heights().maxHeight());
+    }
+
+    @Test
+    void sourceStyleSurfacePreparationKeepsExactHeightState() {
+        RenderOptions options = new RenderOptions(
+                16,
+                1,
+                RenderStyle.SIMPLE,
+                Set.of(RenderLayer.SURFACE)
+        );
+        MapTerrainPreparation.Builder builder = MapTerrainPreparation.builder(
+                new WorldPosition(16, 0, 16),
+                options,
+                1
+        );
+        builder.accept(chunk(0, 0, 55));
+        MapTerrainPreparation terrain = builder.finish();
+
+        assertTrue(terrain.heights() instanceof DenseHeightGrid);
+        assertEquals(1024, terrain.heights().sampleCount());
+    }
+
+    @Test
+    void snapshotSurfacePreparationUsesOnlyFinalSurfaceSourcesAndNeighbours() {
+        WorldPosition center = new WorldPosition(16, 0, 16);
+        RenderOptions options = new RenderOptions(
+                16,
+                1,
+                RenderStyle.SIMPLE,
+                Set.of(RenderLayer.SURFACE)
+        );
+        RenderSamplingPlan sampling =
+                RenderSamplingPlan.from(center, options);
+        SurfaceRenderData.Builder surface =
+                SurfaceRenderData.builder(
+                        sampling,
+                        cartographer.scanner.SurfaceTileLayout.forSurface(
+                                center.x(),
+                                center.z(),
+                                16,
+                                new cartographer.model.WorldMetadata(
+                                        32,
+                                        256,
+                                        32
+                                )
+                        )
+                );
+        surface.acceptResolved(16, 16, cartographer.model.SurfaceClass.ROCK);
+
+        MapTerrainPreparation.Builder builder =
+                MapTerrainPreparation.builder(
+                        center,
+                        options,
+                        1,
+                        ProgressReporter.NONE,
+                        surface.finish()
+                );
+        builder.accept(chunk(0, 0, 55));
+        MapTerrainPreparation terrain = builder.finish();
+
+        assertTrue(terrain.heights() instanceof SampledTerrainHeightField);
+        assertTrue(terrain.heights().hasHeightAt(16, 16));
+        assertTrue(terrain.heights().hasHeightAt(15, 16));
+        assertTrue(terrain.heights().hasHeightAt(17, 16));
+        assertTrue(terrain.heights().hasHeightAt(16, 15));
+        assertTrue(terrain.heights().hasHeightAt(16, 17));
+        assertEquals(5, terrain.heights().sampleCount());
     }
 
     @Test

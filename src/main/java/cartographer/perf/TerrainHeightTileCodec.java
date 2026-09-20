@@ -20,7 +20,7 @@ public final class TerrainHeightTileCodec {
 
     public static byte[] encode(TerrainHeightTile tile) {
         Objects.requireNonNull(tile, "tile is required");
-        int[] heights = tile.effectiveHeights();
+        int[] heights = tile.effectiveHeightsView();
         int flags = (tile.rainHeightAvailable() ? RAIN_HEIGHT_FLAG : 0)
                 | (tile.effectiveHeightAvailable() ? EFFECTIVE_HEIGHT_FLAG : 0);
         ByteBuffer buffer = ByteBuffer.allocate(HEADER_BYTES + heights.length * Integer.BYTES)
@@ -76,7 +76,7 @@ public final class TerrainHeightTileCodec {
             }
             int[] heights = new int[count];
             buffer.asIntBuffer().get(heights);
-            return new TerrainHeightTile(
+            return TerrainHeightTile.owned(
                     new MapChunkCoordinate(x, z),
                     rainAvailable,
                     effectiveAvailable,

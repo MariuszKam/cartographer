@@ -4,7 +4,7 @@ import cartographer.render.MapRenderReport;
 import cartographer.render.MapViewportGeometry;
 import cartographer.render.OverlayRenderReport;
 import cartographer.scanner.ActualBlockMap;
-import cartographer.scanner.SurfaceMapScanResult;
+import cartographer.scanner.SurfaceDiagnosticsSummary;
 import cartographer.save.ReadDiagnostics;
 
 import java.awt.image.BufferedImage;
@@ -16,7 +16,7 @@ public record RenderActualOreMapResult(
         BufferedImage image,
         MapViewportGeometry geometry,
         MapRenderReport renderReport,
-        SurfaceMapScanResult surface,
+        SurfaceDiagnosticsSummary surface,
         OverlayRenderReport environmentOverlay,
         OverlayRenderReport geologyOverlay,
         Optional<ActualBlockMap> actualOreMap,
@@ -63,7 +63,7 @@ public record RenderActualOreMapResult(
             BufferedImage image,
             MapViewportGeometry geometry,
             MapRenderReport renderReport,
-            SurfaceMapScanResult surface,
+            SurfaceDiagnosticsSummary surface,
             OverlayRenderReport environmentOverlay,
             OverlayRenderReport geologyOverlay,
             Optional<ActualBlockMap> actualOreMap,
@@ -87,7 +87,7 @@ public record RenderActualOreMapResult(
             BufferedImage image,
             MapViewportGeometry geometry,
             MapRenderReport renderReport,
-            SurfaceMapScanResult surface,
+            SurfaceDiagnosticsSummary surface,
             OverlayRenderReport environmentOverlay,
             OverlayRenderReport geologyOverlay,
             Optional<ActualBlockMap> actualOreMap,
@@ -114,7 +114,7 @@ public record RenderActualOreMapResult(
             BufferedImage image,
             MapViewportGeometry geometry,
             MapRenderReport renderReport,
-            SurfaceMapScanResult surface,
+            SurfaceDiagnosticsSummary surface,
             OverlayRenderReport environmentOverlay,
             OverlayRenderReport geologyOverlay,
             Optional<ActualBlockMap> actualOreMap,
@@ -152,7 +152,7 @@ public record RenderActualOreMapResult(
             BufferedImage image,
             MapViewportGeometry geometry,
             MapRenderReport renderReport,
-            SurfaceMapScanResult surface,
+            SurfaceDiagnosticsSummary surface,
             OverlayRenderReport environmentOverlay,
             OverlayRenderReport geologyOverlay,
             Optional<ActualBlockMap> actualOreMap,

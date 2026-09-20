@@ -2,6 +2,7 @@ package cartographer.snapshot;
 
 import cartographer.application.PrepareMapDataRequest;
 import cartographer.application.ProgressReporter;
+import cartographer.application.SurfaceDataRequirement;
 import cartographer.model.BlockInfo;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.SurfaceClass;
@@ -45,7 +46,7 @@ class SnapshotPreparedMapDataReaderTest {
         assertEquals(fixture.player, prepared.player());
         assertEquals(fixture.player, prepared.center());
         assertEquals(1, prepared.terrain().mapChunkCount());
-        assertEquals(0, prepared.surface().chunksScanned());
+        assertEquals(0, prepared.surface().diagnostics().chunksScanned());
         assertEquals(1, prepared.renderDataCacheReport().terrain().hits());
         assertEquals(1, prepared.renderDataCacheReport().surface().hits());
         assertEquals(
@@ -58,6 +59,50 @@ class SnapshotPreparedMapDataReaderTest {
         );
         assertTrue(prepared.renderDataCacheReport().notes().stream()
                 .anyMatch(note -> note.contains("source SaveSession not opened")));
+    }
+
+    @Test
+    void renderSurfaceDoesNotRetainExactAnalysisMap() throws Exception {
+        Fixture fixture = fixture("render-only", true);
+
+        var prepared = new SnapshotPreparedMapDataReader(fixture.cache)
+                .read(
+                        request(
+                                fixture.save,
+                                SurfaceDataRequirement.RENDER
+                        ),
+                        ProgressReporter.NONE
+                )
+                .orElseThrow();
+
+        assertTrue(prepared.surface().analysis().isEmpty());
+        assertTrue(!prepared.surface().renderData().isEmpty());
+        assertTrue(
+                prepared.surface()
+                        .diagnostics()
+                        .columnsScanned() > 0
+        );
+        assertEquals(
+                1,
+                prepared.renderDataCacheReport().surface().hits()
+        );
+    }
+
+    @Test
+    void analysisSurfaceRetainsExactMapOnlyWhenRequested() throws Exception {
+        Fixture fixture = fixture("analysis", true);
+
+        var prepared = new SnapshotPreparedMapDataReader(fixture.cache)
+                .read(
+                        request(
+                                fixture.save,
+                                SurfaceDataRequirement.ANALYSIS
+                        ),
+                        ProgressReporter.NONE
+                )
+                .orElseThrow();
+
+        assertTrue(prepared.surface().analysis().isPresent());
     }
 
     @Test
@@ -150,6 +195,13 @@ class SnapshotPreparedMapDataReaderTest {
     }
 
     private PrepareMapDataRequest request(Path save) {
+        return request(save, SurfaceDataRequirement.ANALYSIS);
+    }
+
+    private PrepareMapDataRequest request(
+            Path save,
+            SurfaceDataRequirement requirement
+    ) {
         return new PrepareMapDataRequest(
                 save,
                 4,
@@ -157,7 +209,7 @@ class SnapshotPreparedMapDataReaderTest {
                 RenderStyle.SIMPLE,
                 Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
                 Optional.empty(),
-                true
+                requirement
         );
     }
 

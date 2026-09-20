@@ -220,7 +220,7 @@ public class RenderSurfaceResourceMapUseCase {
                         request.style(),
                         request.layers(),
                         request.center(),
-                        true
+                        SurfaceDataRequirement.ANALYSIS
                 ),
                 progress
         );
@@ -259,7 +259,7 @@ public class RenderSurfaceResourceMapUseCase {
                         request.style(),
                         request.layers(),
                         request.center(),
-                        true
+                        SurfaceDataRequirement.ANALYSIS
                 ),
                 progress
         );
@@ -336,7 +336,8 @@ public class RenderSurfaceResourceMapUseCase {
             );
         }
         Map<Integer, BlockInfo> registry = prepared.registry();
-        SurfaceMapScanResult surface = prepared.surface();
+        SurfaceMapScanResult surface =
+                prepared.surface().requireAnalysis();
 
         SurfaceRenderAnalysis analysis;
         if (request.material().isPresent()) {
@@ -358,6 +359,7 @@ public class RenderSurfaceResourceMapUseCase {
                 player,
                 decorations.home(),
                 prepared.terrain(),
+                prepared.surface().renderData(),
                 surface.map(),
                 registry,
                 options,

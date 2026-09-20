@@ -210,7 +210,7 @@ class PrepareWorldSnapshotUseCaseTest {
                         RenderStyle.SIMPLE,
                         Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
                         Optional.of(new WorldPosition(32, 0, 16)),
-                        true
+                        SurfaceDataRequirement.RENDER
                 ),
                 ProgressReporter.NONE
         );
@@ -243,7 +243,7 @@ class PrepareWorldSnapshotUseCaseTest {
                         RenderStyle.SIMPLE,
                         Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
                         Optional.of(new WorldPosition(80, 0, 16)),
-                        true
+                        SurfaceDataRequirement.RENDER
                 );
         renderUseCase.execute(
                 outsidePreparedSurface,

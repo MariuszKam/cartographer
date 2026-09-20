@@ -126,24 +126,9 @@ public final class SurfaceStreamingSession {
         scanner.acceptFallback(chunk);
     }
 
-    public void acceptCachedTile(
-            MapChunkCoordinate coordinate,
-            int width,
-            int height,
-            byte[] state,
-            int[] surfaceY,
-            int[] blockIds,
-            int[] liquidIds,
-            byte[] surfaceClassCodes,
-            boolean fallbackMode,
-            int diagnosticColumnsScanned,
-            int diagnosticEmptyColumns,
-            int diagnosticLiquidUnavailable
-    ) {
+    public void acceptCachedTile(CachedSurfaceTileView tile) {
         ensurePlanned();
-        scanner.acceptCachedTile(coordinate, width, height, state, surfaceY, blockIds,
-                liquidIds, surfaceClassCodes, fallbackMode, diagnosticColumnsScanned,
-                diagnosticEmptyColumns, diagnosticLiquidUnavailable);
+        scanner.acceptCachedTile(tile);
     }
 
     public java.util.List<MapChunkCoordinate> fallbackMapChunks() {

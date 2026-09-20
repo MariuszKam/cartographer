@@ -274,7 +274,11 @@ public final class AnalyzeProspectingAreaUseCase {
                                 java.util.OptionalInt.empty()
                         ),
                         ProgressReporter.NONE
-                ).map()
+                ).retainedMap().orElseThrow(() ->
+                        new IllegalStateException(
+                                "Prospecting geology analysis requires retained ROCK data"
+                        )
+                )
                 : fused.rockMap();
         Function<String, ActualOreObservation> observation =
                 fused == null

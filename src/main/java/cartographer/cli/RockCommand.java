@@ -154,7 +154,7 @@ public final class RockCommand implements Command {
         if (useCase == null) {
             throw new CommandException("Rock render renderer is unavailable");
         }
-        RenderRockMapResult result = useCase.execute(request);
+        RenderRockMapResult result = useCase.executeRenderOnly(request);
         Path output = Path.of(option(args, "--out").orElse(DEFAULT_OUTPUT.toString()));
         pngWriter.write(result.rendered().image(), output);
 

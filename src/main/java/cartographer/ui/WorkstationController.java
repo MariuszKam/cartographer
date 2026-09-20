@@ -292,7 +292,6 @@ public final class WorkstationController {
                                     : "Loaded " + discovered.size() + " resources."
                     );
                     setBusy(false);
-                    startSurfaceDiscovery(savePath);
                 },
                 failure -> {
                     searchPanel.setDiscoveryFailure();
@@ -768,26 +767,11 @@ public final class WorkstationController {
                             .orElseGet(List::of);
             searchPanel.setRockLegend(rocks);
         }
-        if (mode == WorkstationTool.SURFACE
-                && searchPanel.selectedSurfaceMode() == SurfaceToolMode.OBJECTS
-                && !worldPanel.savePathText().isBlank()) {
-            SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey currentKey = currentSurfaceDiscoveryKey();
-            if (!surfaceObjectDiscoveryState.isCurrentFor(
-                    surfaceDiscoveryTaskKey != null && surfaceDiscoveryTaskKey.equals(currentKey))) {
-                startSurfaceDiscovery(currentKey.savePath());
-            }
-        }
+        maybeStartSurfaceObjectDiscovery();
     }
 
     private void handleSurfaceModeChanged(SurfaceToolMode mode) {
-        if (mode == SurfaceToolMode.OBJECTS
-                && searchPanel.selectedMode() == WorkstationTool.SURFACE
-                && !worldPanel.savePathText().isBlank()
-                && !surfaceObjectDiscoveryState.isCurrentFor(
-                        surfaceDiscoveryTaskKey != null
-                                && surfaceDiscoveryTaskKey.equals(currentSurfaceDiscoveryKey()))) {
-            startSurfaceDiscovery(Path.of(worldPanel.savePathText()));
-        }
+        maybeStartSurfaceObjectDiscovery();
     }
 
     private void handleRenderLayersChanged(Set<cartographer.render.RenderLayer> layers) {
@@ -867,9 +851,26 @@ public final class WorkstationController {
     }
 
     private void handleRadiusChanged(int radius) {
-        if (!worldPanel.savePathText().isBlank()) {
-            startSurfaceDiscovery(Path.of(worldPanel.savePathText()));
+        maybeStartSurfaceObjectDiscovery();
+    }
+
+    private void maybeStartSurfaceObjectDiscovery() {
+        if (searchPanel.selectedMode() != WorkstationTool.SURFACE
+                || searchPanel.selectedSurfaceMode()
+                != SurfaceToolMode.OBJECTS
+                || worldPanel.savePathText().isBlank()) {
+            return;
         }
+
+        SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey currentKey =
+                currentSurfaceDiscoveryKey();
+        boolean currentTaskMatches = surfaceDiscoveryTaskKey != null
+                && surfaceDiscoveryTaskKey.equals(currentKey);
+        if (surfaceObjectDiscoveryState.isCurrentFor(currentTaskMatches)) {
+            return;
+        }
+
+        startSurfaceDiscovery(currentKey.savePath());
     }
 
     private SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey currentSurfaceDiscoveryKey() {
@@ -992,10 +993,15 @@ public final class WorkstationController {
     ) {
         localRecompositionGate.invalidate();
         rockHighlightGeneration++;
-        searchPanel.setRockLegend(result.map().ordinalTable());
+        var rockMap = result.retainedMap().orElseThrow(() ->
+                new IllegalStateException(
+                        "Geology Workstation render requires retained ROCK data"
+                )
+        );
+        searchPanel.setRockLegend(rockMap.ordinalTable());
         var displayed = searchPanel.selectedRockHighlight().isPresent()
                 ? rockUseCase.renderRetained(
-                result.map(),
+                rockMap,
                 searchPanel.selectedRockHighlight()
         )
                 : result.rendered();
@@ -1007,7 +1013,7 @@ public final class WorkstationController {
         mapFrameState.retain(MapFrame.geology(
                 request.savePath(),
                 displayed.geometry(),
-                result.map()
+                rockMap
         ));
         workstation.setMapGeometry(Optional.of(displayed.geometry()));
         resultInspector.showRockResult(result, request);

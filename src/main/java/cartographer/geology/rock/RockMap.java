@@ -1,12 +1,9 @@
 package cartographer.geology.rock;
 
-import cartographer.model.BlockInfo;
 import cartographer.model.WorldPosition;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -28,49 +25,6 @@ public final class RockMap {
     private final long observedCount;
     private final long noRockCount;
     private final long unavailableCount;
-
-    /** Transitional constructor for small legacy/test callers; samples are not retained. */
-    public RockMap(WorldPosition center, int radius, List<RockColumnSample> columns) {
-        Objects.requireNonNull(columns, "Rock map columns are required");
-        int min = Integer.MAX_VALUE;
-        int max = Integer.MIN_VALUE;
-        for (RockColumnSample sample : columns) {
-            Objects.requireNonNull(sample, "columns must not contain null");
-            if (sample.state() == RockColumnState.OBSERVED) {
-                int y = sample.rockY().orElseThrow();
-                min = Math.min(min, y);
-                max = Math.max(max, y);
-            }
-        }
-        int inferredMin = min == Integer.MAX_VALUE ? 0 : min;
-        int inferredMax = max == Integer.MIN_VALUE ? Math.addExact(inferredMin, 1) : Math.addExact(max, 1);
-        RockMapBuilder builder = new RockMapBuilder(center, radius, inferredMin, inferredMax,
-                RockMapMode.UPPER_ROCK, compatibilityCatalog(columns));
-        for (RockColumnSample sample : columns) builder.accept(sample);
-        RockMap built = builder.finish();
-        this.center = built.center;
-        this.radius = built.radius;
-        this.geometry = built.geometry;
-        this.minY = built.minY;
-        this.maxYExclusive = built.maxYExclusive;
-        this.mode = built.mode;
-        this.layout = built.layout;
-        this.ordinalTable = built.ordinalTable;
-        this.intCells = built.intCells;
-        this.longCells = built.longCells;
-        this.presentWords = built.presentWords;
-        this.countsByOrdinal = built.countsByOrdinal;
-        this.observedCount = built.observedCount;
-        this.noRockCount = built.noRockCount;
-        this.unavailableCount = built.unavailableCount;
-    }
-
-    static RockMap fromLegacySamples(WorldPosition center, int radius, int minY, int maxYExclusive,
-                                     RockMapMode mode, RockCatalog catalog, List<RockColumnSample> columns) {
-        RockMapBuilder builder = new RockMapBuilder(center, radius, minY, maxYExclusive, mode, catalog);
-        for (RockColumnSample sample : columns) builder.accept(sample);
-        return builder.finish();
-    }
 
     RockMap(WorldPosition center, int radius, RockCircleGeometry geometry, int minY, int maxYExclusive,
             RockMapMode mode, RockCellLayout layout, List<RockIdentity> ordinalTable, int[] intCells, long[] longCells,
@@ -106,17 +60,6 @@ public final class RockMap {
         return List.copyOf(result);
     }
 
-    private static RockCatalog compatibilityCatalog(List<RockColumnSample> columns) {
-        Map<Integer, BlockInfo> registry = new HashMap<>();
-        for (RockColumnSample sample : columns) {
-            if (sample.state() == RockColumnState.OBSERVED) {
-                RockIdentity identity = sample.rock().orElseThrow();
-                registry.put(identity.blockId(), new BlockInfo(identity.blockId(), identity.code()));
-            }
-        }
-        return RockCatalog.from(registry);
-    }
-
     public WorldPosition center() { return center; }
     public int radius() { return radius; }
     public RockCircleGeometry geometry() { return geometry; }
@@ -128,7 +71,7 @@ public final class RockMap {
     public long unavailableCount() { return unavailableCount; }
     public List<RockIdentity> ordinalTable() { return ordinalTable; }
     public long[] countsByOrdinal() { return countsByOrdinal.clone(); }
-    /** Returns whether the indexed cell was populated by the compatibility builder. */
+    /** Returns whether the indexed cell is populated in compact storage. */
     public boolean isPopulatedAtIndex(int index) {
         checkCellIndex(index);
         return present(index);

@@ -18,17 +18,35 @@ class RockMapCompactTest {
 
     @Test
     void storesAggregatesAndMaterializesCompatibilitySamplesOnDemand() {
-        RockMap map = new RockMap(new WorldPosition(0, 0, 0), 1, List.of(
-                RockColumnSample.observed(0, 0, GRANITE, 7),
-                RockColumnSample.noRock(0, -1),
-                RockColumnSample.unavailable(-1, 0)
+        RockCatalog catalog = RockCatalog.from(Map.of(
+                GRANITE.blockId(),
+                new BlockInfo(GRANITE.blockId(), GRANITE.code())
         ));
+        RockMapAssembler assembler = new RockMapAssembler(
+                new WorldPosition(0, 0, 0),
+                1,
+                0,
+                8,
+                RockMapMode.UPPER_ROCK,
+                catalog
+        );
+        assembler.accept(RockColumnSample.observed(0, 0, GRANITE, 7));
+        assembler.accept(RockColumnSample.noRock(0, -1));
+        assembler.accept(RockColumnSample.unavailable(-1, 0));
+        RockMap map = assembler.finish();
         assertEquals(1, map.observedCount());
         assertEquals(1, map.noRockCount());
         assertEquals(1, map.unavailableCount());
         assertEquals(RockColumnState.OBSERVED, map.sampleAt(0, 0).orElseThrow().state());
         assertEquals(7, map.sampleAt(0, 0).orElseThrow().rockY().orElseThrow());
-        assertEquals(List.of(-1, 0, 0), map.columns().stream().map(RockColumnSample::worldZ).toList());
+        assertEquals(
+                RockColumnState.NO_ROCK,
+                map.sampleAt(0, -1).orElseThrow().state()
+        );
+        assertEquals(
+                RockColumnState.UNAVAILABLE,
+                map.sampleAt(-1, 0).orElseThrow().state()
+        );
     }
 
     @Test
@@ -38,11 +56,21 @@ class RockMapCompactTest {
         registry.put(11, new BlockInfo(11, GRANITE_ALIAS.code()));
         registry.put(10, new BlockInfo(10, GRANITE.code()));
         RockCatalog catalog = RockCatalog.from(registry);
-        RockMap map = RockMap.fromLegacySamples(new WorldPosition(0, 0, 0), 1, 0, 8,
-                RockMapMode.UPPER_ROCK, catalog, List.of(
-                RockColumnSample.observed(0, 0, GRANITE_ALIAS, 3),
+        RockMapAssembler assembler = new RockMapAssembler(
+                new WorldPosition(0, 0, 0),
+                1,
+                0,
+                8,
+                RockMapMode.UPPER_ROCK,
+                catalog
+        );
+        assembler.accept(
+                RockColumnSample.observed(0, 0, GRANITE_ALIAS, 3)
+        );
+        assembler.accept(
                 RockColumnSample.observed(0, -1, SHALE, 4)
-        ));
+        );
+        RockMap map = assembler.finish();
         assertEquals(List.of("game:rock-granite", "game:rock-shale"),
                 map.ordinalTable().stream().map(RockIdentity::code).toList());
         assertEquals(GRANITE.blockId(), map.ordinalTable().get(0).blockId());

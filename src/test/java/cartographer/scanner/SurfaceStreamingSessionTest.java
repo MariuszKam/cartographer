@@ -175,10 +175,67 @@ class SurfaceStreamingSessionTest {
         Arrays.fill(blockIds, 1);
         byte[] classes = new byte[cells];
         Arrays.fill(classes, SurfaceClassCode.encode(SurfaceClass.SOIL));
-        session.acceptCachedTile(
-                cachedCoordinate, 32, 32, state, surfaceY, blockIds, liquidIds,
-                classes, false, cells, 0, 0
-        );
+        session.acceptCachedTile(new CachedSurfaceTileView() {
+            @Override
+            public MapChunkCoordinate coordinate() {
+                return cachedCoordinate;
+            }
+
+            @Override
+            public int width() {
+                return 32;
+            }
+
+            @Override
+            public int height() {
+                return 32;
+            }
+
+            @Override
+            public byte stateAtIndex(int cellIndex) {
+                return state[cellIndex];
+            }
+
+            @Override
+            public int surfaceYAtIndex(int cellIndex) {
+                return surfaceY[cellIndex];
+            }
+
+            @Override
+            public int blockIdAtIndex(int cellIndex) {
+                return blockIds[cellIndex];
+            }
+
+            @Override
+            public int liquidBlockIdAtIndex(int cellIndex) {
+                return liquidIds[cellIndex];
+            }
+
+            @Override
+            public byte surfaceClassCodeAtIndex(int cellIndex) {
+                return classes[cellIndex];
+            }
+
+            @Override
+            public boolean fallbackMode() {
+                return false;
+            }
+
+            @Override
+            public int diagnosticColumnsScanned() {
+                return cells;
+            }
+
+            @Override
+            public int diagnosticEmptyColumns() {
+                return 0;
+            }
+
+            @Override
+            public int diagnosticLiquidUnavailableColumns() {
+                return 0;
+            }
+        });
         session.acceptFallbackChunk(chunkFilledAt(1, 0, 0, 2));
 
         SurfaceRainHeightScanResult result = session.finish();

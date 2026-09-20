@@ -4,35 +4,35 @@ import cartographer.application.MapChunkPositionPlanner;
 import cartographer.application.MapChunkRenderWindowPlanner;
 import cartographer.application.PrepareMapDataRequest;
 import cartographer.application.PreparedMapData;
+import cartographer.application.PreparedSurfaceData;
 import cartographer.application.ProgressReporter;
 import cartographer.application.RenderDataCacheReport;
+import cartographer.application.SurfaceDataRequirement;
 import cartographer.model.MapChunkCoordinate;
+import cartographer.model.SurfaceClass;
+import cartographer.model.SurfaceClassCode;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.perf.RenderDataCacheStore;
 import cartographer.perf.SurfaceCacheTile;
 import cartographer.perf.SurfaceTileLookup;
-import cartographer.perf.TerrainHeightTile;
 import cartographer.perf.TerrainTileLookup;
 import cartographer.perf.WorldDataSnapshot;
 import cartographer.perf.WorldIndexCatalogStore;
 import cartographer.perf.WorldSnapshotHeader;
 import cartographer.render.MapTerrainPreparation;
 import cartographer.render.RenderOptions;
+import cartographer.render.RenderSamplingPlan;
+import cartographer.render.SurfaceRenderData;
 import cartographer.save.ReadDiagnostics;
+import cartographer.scanner.SurfaceDiagnosticsSummary;
 import cartographer.scanner.SurfaceMapScanResult;
 import cartographer.scanner.SurfaceRainHeightDiagnosticCounters;
 import cartographer.scanner.SurfaceRainHeightScanResult;
 import cartographer.scanner.SurfaceStreamingSession;
-import cartographer.scanner.SurfaceTileAccumulator;
 import cartographer.scanner.SurfaceTileLayout;
 
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -100,6 +100,36 @@ public final class SnapshotPreparedMapDataReader {
                     request.layers()
             );
 
+            Optional<SurfaceRead> surfaceRead;
+            if (request.surfaceDataRequirement()
+                    == SurfaceDataRequirement.NONE) {
+                surfaceRead = Optional.of(SurfaceRead.empty(
+                        PreparedSurfaceData.none(center, options)
+                ));
+            } else if (request.surfaceDataRequirement()
+                    == SurfaceDataRequirement.RENDER) {
+                surfaceRead = renderSurface(
+                        snapshot,
+                        metadata,
+                        header,
+                        center,
+                        request.radius(),
+                        options
+                );
+            } else {
+                surfaceRead = analysisSurface(
+                        snapshot,
+                        metadata,
+                        header,
+                        center,
+                        request.radius(),
+                        options
+                );
+            }
+            if (surfaceRead.isEmpty()) {
+                return Optional.empty();
+            }
+
             List<MapChunkCoordinate> terrainCoordinates =
                     renderWindowPlanner.plan(
                             metadata,
@@ -108,53 +138,24 @@ public final class SnapshotPreparedMapDataReader {
                     );
             Optional<TerrainRead> terrainRead = terrain(
                     snapshot,
-                    terrainCoordinates
+                    terrainCoordinates,
+                    center,
+                    options,
+                    surfaceRead.orElseThrow().data().renderData(),
+                    progress
             );
             if (terrainRead.isEmpty()) {
                 return Optional.empty();
             }
 
-            progress.start("Composing Terrain from world snapshot");
-            MapTerrainPreparation.Builder terrainBuilder =
-                    MapTerrainPreparation.builder(
-                            center,
-                            options,
-                            terrainCoordinates.size(),
-                            progress
-                    );
-            for (MapChunkCoordinate coordinate : terrainCoordinates) {
-                TerrainHeightTile tile =
-                        terrainRead.orElseThrow().hits().get(coordinate);
-                if (tile != null) {
-                    terrainBuilder.accept(tile);
-                }
-            }
-            MapTerrainPreparation terrain = terrainBuilder.finish();
-
-            Optional<SurfaceRead> surfaceRead = request.requireSurfaceData()
-                    ? surface(
-                    snapshot,
-                    metadata,
-                    header,
-                    center,
-                    request.radius()
-            )
-                    : Optional.of(SurfaceRead.empty(
-                    emptySurface(
-                            metadata,
-                            center,
-                            request.radius()
-                    )
-            ));
-            if (surfaceRead.isEmpty()) {
-                return Optional.empty();
-            }
+            MapTerrainPreparation terrain =
+                    terrainRead.orElseThrow().terrain();
 
             RenderDataCacheReport report = new RenderDataCacheReport(
                     true,
                     new RenderDataCacheReport.ArtifactStats(
                             terrainCoordinates.size(),
-                            terrainRead.orElseThrow().hits().size(),
+                            terrainRead.orElseThrow().hits(),
                             terrainRead.orElseThrow().knownAbsent(),
                             0,
                             0,
@@ -185,7 +186,7 @@ public final class SnapshotPreparedMapDataReader {
                     center,
                     options,
                     terrain,
-                    surfaceRead.orElseThrow().result(),
+                    surfaceRead.orElseThrow().data(),
                     header.blockRegistry(),
                     new ReadDiagnostics(),
                     new ReadDiagnostics(),
@@ -205,10 +206,27 @@ public final class SnapshotPreparedMapDataReader {
 
     private Optional<TerrainRead> terrain(
             WorldDataSnapshot snapshot,
-            List<MapChunkCoordinate> coordinates
+            List<MapChunkCoordinate> coordinates,
+            WorldPosition center,
+            RenderOptions options,
+            SurfaceRenderData surfaceRenderData,
+            ProgressReporter progress
     ) {
+        progress.start("Composing Terrain from world snapshot");
+        MapTerrainPreparation.Builder builder =
+                MapTerrainPreparation.builder(
+                        center,
+                        options,
+                        coordinates.size(),
+                        progress,
+                        surfaceRenderData
+                );
         if (coordinates.isEmpty()) {
-            return Optional.of(new TerrainRead(Map.of(), 0));
+            return Optional.of(new TerrainRead(
+                    builder.finish(),
+                    0,
+                    0
+            ));
         }
 
         WorldIndexCatalogStore catalog = snapshot.indexCatalogStore();
@@ -218,40 +236,47 @@ public final class SnapshotPreparedMapDataReader {
 
         Set<MapChunkCoordinate> observed =
                 catalog.observedAmong(coordinates);
-        Map<MapChunkCoordinate, TerrainTileLookup> lookups =
-                snapshot.terrainStore().read(coordinates);
-        LinkedHashMap<MapChunkCoordinate, TerrainHeightTile> hits =
-                new LinkedHashMap<>();
-        int knownAbsent = 0;
+        int[] hits = {0};
+        int[] knownAbsent = {0};
+        boolean[] complete = {true};
 
-        for (MapChunkCoordinate coordinate : coordinates) {
-            TerrainTileLookup lookup = lookups.getOrDefault(
-                    coordinate,
-                    TerrainTileLookup.miss()
-            );
-            if (lookup.status() == TerrainTileLookup.Status.HIT) {
-                hits.put(coordinate, lookup.tile());
-                continue;
-            }
-            if (lookup.status() == TerrainTileLookup.Status.MISS
-                    && !observed.contains(coordinate)) {
-                knownAbsent++;
-                continue;
-            }
+        snapshot.terrainStore().forEachLookup(
+                coordinates,
+                (coordinate, lookup) -> {
+                    if (lookup.status()
+                            == TerrainTileLookup.Status.HIT) {
+                        builder.accept(lookup.tile());
+                        hits[0]++;
+                        return true;
+                    }
+                    if (lookup.status()
+                            == TerrainTileLookup.Status.MISS
+                            && !observed.contains(coordinate)) {
+                        knownAbsent[0]++;
+                        return true;
+                    }
+                    complete[0] = false;
+                    return false;
+                }
+        );
+
+        if (!complete[0]) {
             return Optional.empty();
         }
         return Optional.of(new TerrainRead(
-                Map.copyOf(hits),
-                knownAbsent
+                builder.finish(),
+                hits[0],
+                knownAbsent[0]
         ));
     }
 
-    private Optional<SurfaceRead> surface(
+    private Optional<SurfaceRead> analysisSurface(
             WorldDataSnapshot snapshot,
             WorldMetadata metadata,
             WorldSnapshotHeader header,
             WorldPosition center,
-            int radius
+            int radius,
+            RenderOptions options
     ) {
         int centerX = checkedRound(center.x());
         int centerZ = checkedRound(center.z());
@@ -261,28 +286,6 @@ public final class SnapshotPreparedMapDataReader {
                 centerZ,
                 radius
         );
-        Map<MapChunkCoordinate, SurfaceTileLookup> lookups =
-                snapshot.surfaceStore().read(coordinates);
-        List<SurfaceCacheTile> hits = new ArrayList<>(
-                coordinates.size()
-        );
-
-        for (MapChunkCoordinate coordinate : coordinates) {
-            SurfaceTileLookup lookup = lookups.getOrDefault(
-                    coordinate,
-                    SurfaceTileLookup.miss()
-            );
-            if (lookup.status() != SurfaceTileLookup.Status.HIT
-                    || !lookup.tile().matchesWorld(metadata)) {
-                // A complete mapchunk catalog is deliberately not enough to
-                // infer server-chunk absence for Surface.
-                return Optional.empty();
-            }
-            hits.add(lookup.tile());
-        }
-
-        progresslessSurfaceValidation(hits);
-
         SurfaceStreamingSession session = SurfaceStreamingSession.begin(
                 metadata,
                 centerX,
@@ -294,74 +297,178 @@ public final class SnapshotPreparedMapDataReader {
                 true
         );
         session.finishPlanning();
-        for (SurfaceCacheTile tile : hits) {
-            session.acceptCachedTile(
-                    tile.coordinate(),
-                    tile.width(),
-                    tile.height(),
-                    tile.state(),
-                    tile.surfaceY(),
-                    tile.blockIds(),
-                    tile.liquidBlockIds(),
-                    tile.surfaceClassCodes(),
-                    tile.sourceMode()
-                            == SurfaceCacheTile.SourceMode.FALLBACK,
-                    tile.diagnosticColumnsScanned(),
-                    tile.diagnosticEmptyColumns(),
-                    tile.diagnosticLiquidUnavailableColumns()
-            );
+        int[] hits = {0};
+        boolean[] complete = {true};
+
+        snapshot.surfaceStore().forEachLookup(
+                coordinates,
+                (coordinate, lookup) -> {
+                    if (lookup.status() != SurfaceTileLookup.Status.HIT
+                            || !lookup.tile().matchesWorld(metadata)) {
+                        // A complete mapchunk catalog is deliberately not
+                        // enough to infer server-chunk absence for Surface.
+                        complete[0] = false;
+                        return false;
+                    }
+                    session.acceptCachedTile(lookup.tile());
+                    hits[0]++;
+                    return true;
+                }
+        );
+
+        if (!complete[0]) {
+            return Optional.empty();
         }
 
         SurfaceRainHeightScanResult result = session.finish();
         SurfaceRainHeightDiagnosticCounters diagnostics =
                 result.diagnostics();
+        SurfaceMapScanResult exact = new SurfaceMapScanResult(
+                result.surface(),
+                header.blockRegistry(),
+                0,
+                diagnostics.columnsScanned(),
+                diagnostics.emptyColumns(),
+                diagnostics.liquidUnavailableColumns()
+        );
         return Optional.of(new SurfaceRead(
-                new SurfaceMapScanResult(
-                        result.surface(),
-                        header.blockRegistry(),
-                        0,
-                        diagnostics.columnsScanned(),
-                        diagnostics.emptyColumns(),
-                        diagnostics.liquidUnavailableColumns()
+                PreparedSurfaceData.fromExact(
+                        exact,
+                        center,
+                        options,
+                        SurfaceDataRequirement.ANALYSIS
                 ),
                 coordinates.size(),
-                hits.size()
+                hits[0]
         ));
     }
 
-    /**
-     * Makes the full-tile requirement explicit before composition; no
-     * inference or source repair is allowed on this source-free path.
-     */
-    private void progresslessSurfaceValidation(
-            List<SurfaceCacheTile> tiles
-    ) {
-        for (SurfaceCacheTile tile : tiles) {
-            Objects.requireNonNull(tile, "Surface snapshot tile is required");
-        }
-    }
-
-    private SurfaceMapScanResult emptySurface(
+    private Optional<SurfaceRead> renderSurface(
+            WorldDataSnapshot snapshot,
             WorldMetadata metadata,
+            WorldSnapshotHeader header,
             WorldPosition center,
-            int radius
+            int radius,
+            RenderOptions options
     ) {
+        int centerX = checkedRound(center.x());
+        int centerZ = checkedRound(center.z());
+        List<MapChunkCoordinate> coordinates = surfacePlanner.plan(
+                metadata,
+                centerX,
+                centerZ,
+                radius
+        );
         SurfaceTileLayout layout = SurfaceTileLayout.forSurface(
-                center.x(),
-                center.z(),
+                centerX,
+                centerZ,
                 radius,
                 metadata
         );
-        SurfaceTileAccumulator accumulator =
-                new SurfaceTileAccumulator(layout);
-        return new SurfaceMapScanResult(
-                accumulator.finish(),
-                Map.of(),
-                0,
-                0,
-                0,
-                0
+        SurfaceRenderData.Builder renderBuilder =
+                SurfaceRenderData.builder(
+                        RenderSamplingPlan.from(center, options),
+                        layout
+                );
+        SurfaceDiagnosticsSummary.Builder diagnostics =
+                SurfaceDiagnosticsSummary.builder(
+                        header.blockRegistry()
+                );
+        int[] hits = {0};
+        boolean[] complete = {true};
+
+        snapshot.surfaceStore().forEachLookup(
+                coordinates,
+                (coordinate, lookup) -> {
+                    if (lookup.status() != SurfaceTileLookup.Status.HIT
+                            || !lookup.tile().matchesWorld(metadata)) {
+                        // Surface snapshot coverage must be complete. Missing
+                        // derived data never proves source absence.
+                        complete[0] = false;
+                        return false;
+                    }
+
+                    SurfaceCacheTile tile = lookup.tile();
+                    int tileX = tile.coordinate().x();
+                    int tileZ = tile.coordinate().z();
+                    for (int localZ = 0;
+                         localZ < tile.height();
+                         localZ++) {
+                        int worldZ = layout.worldZForTileLocal(
+                                tileZ,
+                                localZ
+                        );
+                        for (int localX = 0;
+                             localX < tile.width();
+                             localX++) {
+                            int worldX = layout.worldXForTileLocal(
+                                    tileX,
+                                    localX
+                            );
+                            if (!layout.isActive(worldX, worldZ)) {
+                                continue;
+                            }
+
+                            int cellIndex =
+                                    localZ * tile.width() + localX;
+                            byte state = tile.stateAtIndex(cellIndex);
+                            if (!tile.fallbackMode()
+                                    && (state
+                                    & SurfaceCacheTile.CONSIDERED) != 0) {
+                                diagnostics.addColumnsScanned(1);
+                            }
+                            if ((state & SurfaceCacheTile.RESOLVED) == 0) {
+                                continue;
+                            }
+
+                            SurfaceClass surfaceClass =
+                                    SurfaceClassCode.decode(
+                                            tile.surfaceClassCodeAtIndex(
+                                                    cellIndex
+                                            )
+                                    );
+                            int blockId =
+                                    tile.blockIdAtIndex(cellIndex);
+                            diagnostics.acceptResolved(
+                                    blockId,
+                                    surfaceClass
+                            );
+                            renderBuilder.acceptResolved(
+                                    worldX,
+                                    worldZ,
+                                    surfaceClass
+                            );
+                        }
+                    }
+
+                    if (tile.fallbackMode()) {
+                        diagnostics.addColumnsScanned(
+                                tile.diagnosticColumnsScanned()
+                        );
+                        diagnostics.addEmptyColumns(
+                                tile.diagnosticEmptyColumns()
+                        );
+                        diagnostics.addLiquidUnavailableColumns(
+                                tile.diagnosticLiquidUnavailableColumns()
+                        );
+                    }
+                    hits[0]++;
+                    return true;
+                }
         );
+
+        if (!complete[0]) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new SurfaceRead(
+                PreparedSurfaceData.renderOnly(
+                        renderBuilder.finish(),
+                        diagnostics.build()
+                ),
+                coordinates.size(),
+                hits[0]
+        ));
     }
 
     private int checkedRound(double value) {
@@ -380,29 +487,30 @@ public final class SnapshotPreparedMapDataReader {
     }
 
     private record TerrainRead(
-            Map<MapChunkCoordinate, TerrainHeightTile> hits,
+            MapTerrainPreparation terrain,
+            int hits,
             int knownAbsent
     ) {
         private TerrainRead {
-            hits = Map.copyOf(Objects.requireNonNull(
-                    hits,
-                    "terrain hits are required"
-            ));
-            if (knownAbsent < 0) {
+            Objects.requireNonNull(
+                    terrain,
+                    "terrain preparation is required"
+            );
+            if (hits < 0 || knownAbsent < 0) {
                 throw new IllegalArgumentException(
-                        "knownAbsent cannot be negative"
+                        "terrain counters cannot be negative"
                 );
             }
         }
     }
 
     private record SurfaceRead(
-            SurfaceMapScanResult result,
+            PreparedSurfaceData data,
             int requested,
             int hits
     ) {
         private SurfaceRead {
-            Objects.requireNonNull(result, "surface result is required");
+            Objects.requireNonNull(data, "prepared Surface data is required");
             if (requested < 0 || hits < 0 || hits > requested) {
                 throw new IllegalArgumentException(
                         "invalid Surface snapshot counters"
@@ -410,8 +518,8 @@ public final class SnapshotPreparedMapDataReader {
             }
         }
 
-        static SurfaceRead empty(SurfaceMapScanResult result) {
-            return new SurfaceRead(result, 0, 0);
+        static SurfaceRead empty(PreparedSurfaceData data) {
+            return new SurfaceRead(data, 0, 0);
         }
     }
 }

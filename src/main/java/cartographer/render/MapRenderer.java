@@ -60,50 +60,110 @@ public class MapRenderer {
         );
     }
 
-    /** Compact SurfaceMap production path; does not materialize SurfaceBlock objects. */
+    /**
+     * PF-3 raster-bounded Surface production path.
+     *
+     * <p>exactSurface is required only when SOIL_FERTILITY is enabled; the
+     * alpha-composited soil overlay still follows the exact compatibility path
+     * until it has its own parity-safe render-sized representation.</p>
+     */
     public RenderedMap render(
             WorldPosition center,
             WorldPosition player,
             HomeState home,
             MapTerrainPreparation terrain,
-            SurfaceMap surfaceMap,
+            SurfaceRenderData surfaceData,
+            SurfaceMap exactSurface,
             Map<Integer, BlockInfo> registry,
             RenderOptions options,
             ProgressReporter progress
     ) {
+        Objects.requireNonNull(center, "center is required");
+        Objects.requireNonNull(player, "player is required");
         Objects.requireNonNull(home, "Home state is required");
         Objects.requireNonNull(terrain, "terrain preparation is required");
+        Objects.requireNonNull(surfaceData, "Surface render data is required");
         Objects.requireNonNull(registry, "registry is required");
-        MapRasterContract rasterContract = MapRasterContract.from(options);
-        int diameter = rasterContract.rasterSize();
-        double scale = rasterContract.effectivePixelsPerBlock();
-        BufferedImage image = new BufferedImage(diameter, diameter, BufferedImage.TYPE_INT_ARGB);
+        Objects.requireNonNull(options, "render options are required");
+        Objects.requireNonNull(progress, "progress is required");
+
+        RenderSamplingPlan sampling = RenderSamplingPlan.from(center, options);
+        int diameter = sampling.rasterSize();
+        double scale = sampling.effectivePixelsPerBlock();
+        BufferedImage image = new BufferedImage(
+                diameter,
+                diameter,
+                BufferedImage.TYPE_INT_ARGB
+        );
         ArgbRaster raster = ArgbRaster.wrap(image);
         prepareBackground(raster, options, progress);
-        int minX = (int) Math.floor(center.x()) - options.radiusBlocks();
-        int minZ = (int) Math.floor(center.z()) - options.radiusBlocks();
-        MapViewportGeometry geometry = MapViewportGeometry.fullImage(
-                image.getWidth(), image.getHeight(), minX, minZ,
-                minX + options.radiusBlocks() * 2.0,
-                minZ + options.radiusBlocks() * 2.0);
+
         int tilesDrawn = options.layers().contains(RenderLayer.TERRAIN)
-                ? drawTerrain(raster, terrain.heights(), minX, minZ, scale, diameter, options, progress)
+                ? drawTerrain(
+                        raster,
+                        terrain.heights(),
+                        sampling,
+                        options,
+                        progress
+                )
                 : 0;
-        if (surfaceMap != null && options.layers().contains(RenderLayer.SURFACE)) {
-            drawSurfaceMap(raster, surfaceMap, terrain.heights(), minX, minZ, scale, diameter, progress);
+
+        if (options.layers().contains(RenderLayer.SURFACE)) {
+            drawSurfaceRenderData(
+                    raster,
+                    surfaceData,
+                    terrain.heights(),
+                    progress
+            );
         }
-        if (surfaceMap != null && options.layers().contains(RenderLayer.SOIL_FERTILITY)) {
-            soilFertilityRenderer.draw(image, surfaceMap, registry, minX, minZ, scale, progress);
+
+        if (options.layers().contains(RenderLayer.SOIL_FERTILITY)) {
+            if (exactSurface == null) {
+                throw new IllegalStateException(
+                        "exact Surface data is required for soil fertility"
+                );
+            }
+            soilFertilityRenderer.draw(
+                    image,
+                    exactSurface,
+                    registry,
+                    sampling.worldMinX(),
+                    sampling.worldMinZ(),
+                    scale,
+                    progress
+            );
         }
-        if (surfaceMap != null && options.layers().contains(RenderLayer.SURFACE)) {
-            drawLegend(image, surfaceMap);
+
+        if (options.layers().contains(RenderLayer.SURFACE)) {
+            drawLegend(image, surfaceData);
         }
-        int markerCount = drawMarkers(image, player, home, geometry, options, progress);
-        String layers = options.layers().stream().map(Enum::name).sorted()
+
+        int markerCount = drawMarkers(
+                image,
+                player,
+                home,
+                sampling.geometry(),
+                options,
+                progress
+        );
+        String layers = options.layers().stream()
+                .map(Enum::name)
+                .sorted()
                 .collect(Collectors.joining(","));
-        return new RenderedMap(image, new MapRenderReport(
-                diameter, diameter, terrain.mapChunkCount(), tilesDrawn, markerCount,
-                options.style(), layers), geometry);
+
+        return new RenderedMap(
+                image,
+                new MapRenderReport(
+                        diameter,
+                        diameter,
+                        terrain.mapChunkCount(),
+                        tilesDrawn,
+                        markerCount,
+                        options.style(),
+                        layers
+                ),
+                sampling.geometry()
+        );
     }
 
     public RenderedMap render(
@@ -146,7 +206,19 @@ public class MapRenderer {
         MapTerrainPreparation.Builder builder = MapTerrainPreparation.builder(
                 center, options, chunks.size(), progress);
         chunks.forEach(builder::accept);
-        return render(center, player, home, builder.finish(), null, Map.of(), options, progress);
+        return render(
+                center,
+                player,
+                home,
+                builder.finish(),
+                SurfaceRenderData.empty(
+                        RenderSamplingPlan.from(center, options)
+                ),
+                null,
+                Map.of(),
+                options,
+                progress
+        );
     }
 
     public RenderedMap render(
@@ -194,14 +266,14 @@ public class MapRenderer {
         );
         Objects.requireNonNull(terrain, "terrain preparation is required");
 
-        MapRasterContract rasterContract =
-                MapRasterContract.from(options);
+        RenderSamplingPlan sampling =
+                RenderSamplingPlan.from(center, options);
 
         int diameter =
-                rasterContract.rasterSize();
+                sampling.rasterSize();
 
         double scale =
-                rasterContract.effectivePixelsPerBlock();
+                sampling.effectivePixelsPerBlock();
 
         BufferedImage image =
                 new BufferedImage(
@@ -219,26 +291,13 @@ public class MapRenderer {
         );
 
         int minX =
-                (int) Math.floor(
-                        center.x()
-                )
-                        - options.radiusBlocks();
+                sampling.worldMinX();
 
         int minZ =
-                (int) Math.floor(
-                        center.z()
-                )
-                        - options.radiusBlocks();
+                sampling.worldMinZ();
 
         MapViewportGeometry geometry =
-                MapViewportGeometry.fullImage(
-                        image.getWidth(),
-                        image.getHeight(),
-                        minX,
-                        minZ,
-                        minX + options.radiusBlocks() * 2.0,
-                        minZ + options.radiusBlocks() * 2.0
-                );
+                sampling.geometry();
 
         boolean terrainEnabled =
                 options.layers()
@@ -252,7 +311,8 @@ public class MapRenderer {
                                 RenderLayer.SURFACE
                         );
 
-        DenseHeightGrid samples = terrain.heights();
+        TerrainHeightField terrainSamples = terrain.heights();
+        TerrainHeightField surfaceSamples = terrain.heights();
 
         int tilesDrawn =
                 0;
@@ -261,11 +321,8 @@ public class MapRenderer {
             tilesDrawn =
                     drawTerrain(
                             raster,
-                            samples,
-                            minX,
-                            minZ,
-                            scale,
-                            diameter,
+                            terrainSamples,
+                            sampling,
                             options,
                             progress
                     );
@@ -275,7 +332,7 @@ public class MapRenderer {
             drawSurfaceBlocks(
                     raster,
                     surfaceBlocks,
-                    samples,
+                    surfaceSamples,
                     minX,
                     minZ,
                     scale,
@@ -390,16 +447,16 @@ public class MapRenderer {
 
     private int drawTerrain(
             ArgbRaster raster,
-            DenseHeightGrid samples,
-            int minX,
-            int minZ,
-            double scale,
-            int diameter,
+            TerrainHeightField samples,
+            RenderSamplingPlan sampling,
             RenderOptions options,
             ProgressReporter progress
     ) {
         int tilesDrawn =
                 0;
+
+        int diameter =
+                sampling.rasterSize();
 
         progress.start(
                 "Drawing terrain"
@@ -410,32 +467,14 @@ public class MapRenderer {
              imageY++) {
 
             int worldZ =
-                    minZ
-                            + Math.min(
-                            options.radiusBlocks()
-                                    * 2
-                                    - 1,
-                            (int) Math.floor(
-                                    imageY
-                                            / scale
-                            )
-                    );
+                    sampling.worldZForImageRow(imageY);
 
             for (int imageX = 0;
                  imageX < diameter;
                  imageX++) {
 
                 int worldX =
-                        minX
-                                + Math.min(
-                                options.radiusBlocks()
-                                        * 2
-                                        - 1,
-                                (int) Math.floor(
-                                        imageX
-                                                / scale
-                                )
-                        );
+                        sampling.worldXForImageColumn(imageX);
 
                 if (!samples.hasHeightAt(worldX, worldZ)) {
                     continue;
@@ -475,7 +514,7 @@ public class MapRenderer {
     private void drawSurfaceBlocks(
             ArgbRaster raster,
             List<SurfaceBlock> surfaceBlocks,
-            DenseHeightGrid samples,
+            TerrainHeightField samples,
             int minX,
             int minZ,
             double scale,
@@ -591,31 +630,43 @@ public class MapRenderer {
         }
     }
 
-    private void drawSurfaceMap(
+    private void drawSurfaceRenderData(
             ArgbRaster raster,
-            SurfaceMap surfaceMap,
-            DenseHeightGrid samples,
-            int minX,
-            int minZ,
-            double scale,
-            int diameter,
+            SurfaceRenderData surfaceData,
+            TerrainHeightField samples,
             ProgressReporter progress
     ) {
-        progress.start("Drawing semantic surface");
-        surfaceMap.forEachResolvedCell((worldX, worldZ, y, blockId, liquidId, surfaceClass) -> {
-            int startX = (int) Math.floor((worldX - minX) * scale);
-            int endX = (int) Math.ceil((worldX + 1 - minX) * scale);
-            int startY = (int) Math.floor((worldZ - minZ) * scale);
-            int endY = (int) Math.ceil((worldZ + 1 - minZ) * scale);
-            if (endX <= 0 || endY <= 0 || startX >= diameter || startY >= diameter) return;
-            startX = Math.max(0, startX);
-            startY = Math.max(0, startY);
-            endX = Math.min(diameter, endX);
-            endY = Math.min(diameter, endY);
+        progress.start("Drawing render-sized semantic surface");
+        if (surfaceData.isEmpty()) {
+            progress.done("Semantic surface drawn");
+            return;
+        }
+
+        int diameter = surfaceData.rasterSize();
+        long[] sources = surfaceData.surfaceSourceByPixelView();
+        byte[] classes = surfaceData.surfaceClassByPixelView();
+        java.util.BitSet present = surfaceData.surfacePresentView();
+
+        for (int index = present.nextSetBit(0);
+             index >= 0;
+             index = present.nextSetBit(index + 1)) {
+            long packed = sources[index];
+            int worldX = (int) (packed >> 32);
+            int worldZ = (int) packed;
             double shade = !samples.hasHeightAt(worldX, worldZ)
-                    ? 0.0 : hillshade(samples, worldX, worldZ);
-            raster.fillRect(startX, startY, endX, endY, semanticPalette.color(surfaceClass, shade));
-        });
+                    ? 0.0
+                    : hillshade(samples, worldX, worldZ);
+            raster.setArgb(
+                    index % diameter,
+                    index / diameter,
+                    semanticPalette.color(
+                            cartographer.model.SurfaceClassCode.decode(
+                                    classes[index]
+                            ),
+                            shade
+                    )
+            );
+        }
         progress.done("Semantic surface drawn");
     }
 
@@ -844,15 +895,25 @@ public class MapRenderer {
         }
     }
 
-    private void drawLegend(BufferedImage image, SurfaceMap surfaceMap) {
-        if (image.getWidth() < MIN_LEGEND_WIDTH || image.getHeight() < MIN_LEGEND_HEIGHT) return;
-        Set<SurfaceClass> classes = EnumSet.noneOf(SurfaceClass.class);
-        surfaceMap.forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> classes.add(surfaceClass));
-        if (classes.isEmpty()) return;
+    private void drawLegend(
+            BufferedImage image,
+            SurfaceRenderData surfaceData
+    ) {
+        if (image.getWidth() < MIN_LEGEND_WIDTH
+                || image.getHeight() < MIN_LEGEND_HEIGHT) {
+            return;
+        }
+        Set<SurfaceClass> classes = surfaceData.surfaceClasses();
+        if (classes.isEmpty()) {
+            return;
+        }
+
         Graphics2D graphics = image.createGraphics();
         try {
-            graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
-                    RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            graphics.setRenderingHint(
+                    RenderingHints.KEY_TEXT_ANTIALIASING,
+                    RenderingHints.VALUE_TEXT_ANTIALIAS_ON
+            );
             int lineHeight = 14;
             int width = 160;
             int titleHeight = 18;
@@ -865,12 +926,21 @@ public class MapRenderer {
             graphics.drawString("Surface", x + 6, y + 13);
             int line = 0;
             for (SurfaceClass surfaceClass : SurfaceClass.values()) {
-                if (!classes.contains(surfaceClass)) continue;
+                if (!classes.contains(surfaceClass)) {
+                    continue;
+                }
                 int rowY = y + titleHeight + 4 + line++ * lineHeight;
-                graphics.setColor(new Color(semanticPalette.color(surfaceClass, 0.0), true));
+                graphics.setColor(new Color(
+                        semanticPalette.color(surfaceClass, 0.0),
+                        true
+                ));
                 graphics.fillRect(x + 6, rowY, 10, 10);
                 graphics.setColor(Color.WHITE);
-                graphics.drawString(surfaceClass.label(), x + 22, rowY + 10);
+                graphics.drawString(
+                        surfaceClass.label(),
+                        x + 22,
+                        rowY + 10
+                );
             }
         } finally {
             graphics.dispose();
@@ -878,7 +948,7 @@ public class MapRenderer {
     }
 
     private double hillshade(
-            DenseHeightGrid samples,
+            TerrainHeightField samples,
             int worldX,
             int worldZ
     ) {

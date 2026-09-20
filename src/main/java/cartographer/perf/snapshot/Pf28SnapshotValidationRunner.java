@@ -39,6 +39,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 public final class Pf28SnapshotValidationRunner {
@@ -50,9 +51,20 @@ public final class Pf28SnapshotValidationRunner {
             String candidateSha,
             Path outputRoot
     ) {
-        Pf28ValidationPaths paths =
-                Pf28ValidationPaths.prepare(savePath, outputRoot);
-        Path save = paths.save();
+        return runPrepared(
+                Pf28ValidationPaths.prepare(savePath, outputRoot),
+                candidateSha
+        );
+    }
+
+    Pf28SnapshotValidationReport runPrepared(
+            Pf28ValidationPaths paths,
+            String candidateSha
+    ) {
+        Path save = Objects.requireNonNull(
+                paths,
+                "validation paths are required"
+        ).save();
         String sha = Pf28SnapshotValidationReport.fullSha(candidateSha);
         Path root = paths.outputRoot();
         Path cacheRoot = paths.cacheRoot();

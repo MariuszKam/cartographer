@@ -7,10 +7,13 @@ import cartographer.model.WorldPosition;
 import java.util.Objects;
 
 public final class MapTerrainPreparation {
-    private final DenseHeightGrid heights;
+    private final TerrainHeightField heights;
     private final int mapChunkCount;
 
-    private MapTerrainPreparation(DenseHeightGrid heights, int mapChunkCount) {
+    private MapTerrainPreparation(
+            TerrainHeightField heights,
+            int mapChunkCount
+    ) {
         this.heights = heights;
         this.mapChunkCount = mapChunkCount;
     }
@@ -19,7 +22,7 @@ public final class MapTerrainPreparation {
         return mapChunkCount;
     }
 
-    DenseHeightGrid heights() {
+    TerrainHeightField heights() {
         return heights;
     }
 
@@ -37,18 +40,46 @@ public final class MapTerrainPreparation {
             int expectedMapChunks,
             ProgressReporter progress
     ) {
-        return new Builder(center, options, expectedMapChunks, progress);
+        return new Builder(
+                center,
+                options,
+                expectedMapChunks,
+                progress,
+                null
+        );
+    }
+
+    public static Builder builder(
+            WorldPosition center,
+            RenderOptions options,
+            int expectedMapChunks,
+            ProgressReporter progress,
+            SurfaceRenderData surfaceRenderData
+    ) {
+        Objects.requireNonNull(
+                surfaceRenderData,
+                "Surface render data is required"
+        );
+        return new Builder(
+                center,
+                options,
+                expectedMapChunks,
+                progress,
+                surfaceRenderData
+        );
     }
 
     public static final class Builder {
-        private final DenseHeightGrid.Builder heights;
+        private final DenseHeightGrid.Builder exactHeights;
+        private final SampledTerrainHeightField.Builder sampledHeights;
         private int mapChunkCount;
 
         private Builder(
                 WorldPosition center,
                 RenderOptions options,
                 int expectedMapChunks,
-                ProgressReporter progress
+                ProgressReporter progress,
+                SurfaceRenderData surfaceRenderData
         ) {
             Objects.requireNonNull(center, "center is required");
             Objects.requireNonNull(options, "options are required");
@@ -59,37 +90,80 @@ public final class MapTerrainPreparation {
                 );
             }
 
-            boolean collectHeights = options.layers().contains(RenderLayer.TERRAIN)
-                    || options.layers().contains(RenderLayer.SURFACE);
-            if (!collectHeights) {
-                heights = null;
-                return;
+            boolean collectSurface =
+                    options.layers().contains(RenderLayer.SURFACE);
+            boolean collectTerrain =
+                    options.layers().contains(RenderLayer.TERRAIN);
+            boolean collectExactHeights =
+                    collectSurface && surfaceRenderData == null;
+
+            if (collectExactHeights) {
+                int width = Math.multiplyExact(
+                        options.radiusBlocks(),
+                        2
+                );
+                int minX = (int) Math.floor(center.x())
+                        - options.radiusBlocks();
+                int minZ = (int) Math.floor(center.z())
+                        - options.radiusBlocks();
+                exactHeights = DenseHeightGrid.builder(
+                        minX,
+                        minZ,
+                        width,
+                        width,
+                        progress,
+                        expectedMapChunks
+                );
+            } else {
+                exactHeights = null;
             }
 
-            int width = Math.multiplyExact(options.radiusBlocks(), 2);
-            int minX = (int) Math.floor(center.x()) - options.radiusBlocks();
-            int minZ = (int) Math.floor(center.z()) - options.radiusBlocks();
-            heights = DenseHeightGrid.builder(
-                    minX,
-                    minZ,
-                    width,
-                    width,
-                    progress,
-                    expectedMapChunks
-            );
+            boolean collectSampledHeights =
+                    !collectExactHeights
+                            && (collectTerrain
+                            || (collectSurface
+                            && surfaceRenderData != null
+                            && !surfaceRenderData.isEmpty()));
+            if (collectSampledHeights) {
+                RenderSamplingPlan sampling =
+                        RenderSamplingPlan.from(center, options);
+                sampledHeights = SampledTerrainHeightField.builder(
+                        sampling,
+                        collectTerrain,
+                        surfaceRenderData == null
+                                ? SurfaceRenderData.empty(sampling)
+                                : surfaceRenderData,
+                        progress,
+                        expectedMapChunks
+                );
+            } else {
+                sampledHeights = null;
+            }
         }
 
         public void accept(MapChunkHeightView mapChunk) {
             Objects.requireNonNull(mapChunk, "map chunk height view is required");
             mapChunkCount++;
-            if (heights != null) {
-                heights.accept(mapChunk);
+            if (exactHeights != null) {
+                exactHeights.accept(mapChunk);
+            }
+            if (sampledHeights != null) {
+                sampledHeights.accept(mapChunk);
             }
         }
 
         public MapTerrainPreparation finish() {
+            DenseHeightGrid exact = exactHeights == null
+                    ? DenseHeightGrid.empty()
+                    : exactHeights.finish();
+            TerrainHeightField sampled = sampledHeights == null
+                    ? null
+                    : sampledHeights.finish();
+            TerrainHeightField terrain = sampled == null
+                    ? exact
+                    : sampled;
             return new MapTerrainPreparation(
-                    heights == null ? DenseHeightGrid.empty() : heights.finish(),
+                    terrain,
                     mapChunkCount
             );
         }

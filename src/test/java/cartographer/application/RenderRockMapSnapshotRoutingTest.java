@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RenderRockMapSnapshotRoutingTest {
     @TempDir
@@ -74,8 +75,42 @@ class RenderRockMapSnapshotRoutingTest {
         assertEquals(0, connectionFactory.opens.get());
         assertEquals(0, reader.sourceCalls.get());
         assertEquals(0, result.chunkStats().uniquePositionsRequested());
-        assertEquals(1, result.map().observedCount());
-        assertEquals(4, result.map().noRockCount());
+        assertEquals(1, result.retainedMap().orElseThrow().observedCount());
+        assertEquals(4, result.retainedMap().orElseThrow().noRockCount());
+    }
+
+    @Test
+    void renderOnlySnapshotSkipsRequestShapedRockMapAndSource()
+            throws Exception {
+        Path save = save("render-only");
+        RenderDataCacheStore cache =
+                new RenderDataCacheStore(root.resolve("cache-render-only"));
+        publishRockTile(cache, save);
+
+        CountingReader reader = new CountingReader();
+        MetadataReader metadataReader = new MetadataReader();
+        TestConnectionFactory connectionFactory =
+                new TestConnectionFactory();
+        RenderRockMapUseCase useCase = new RenderRockMapUseCase(
+                reader,
+                metadataReader,
+                new RockMapRenderer(),
+                new SaveSessionFactory(
+                        connectionFactory,
+                        reader,
+                        metadataReader
+                ),
+                Optional.of(cache)
+        );
+
+        RenderRockMapResult result =
+                useCase.executeRenderOnly(request(save));
+
+        assertEquals(0, connectionFactory.opens.get());
+        assertEquals(0, reader.sourceCalls.get());
+        assertTrue(result.retainedMap().isEmpty());
+        assertEquals(1, result.rendered().observedCount());
+        assertEquals(4, result.rendered().noRockCount());
     }
 
     @Test
@@ -106,7 +141,7 @@ class RenderRockMapSnapshotRoutingTest {
 
         assertEquals(1, connectionFactory.opens.get());
         assertEquals(1, reader.sourceCalls.get());
-        assertEquals(5, result.map().observedCount());
+        assertEquals(5, result.retainedMap().orElseThrow().observedCount());
     }
 
     @Test

@@ -5,10 +5,9 @@ import cartographer.model.MapChunkHeightView;
 import cartographer.model.MapChunkCoordinate;
 
 import java.util.BitSet;
-import java.util.List;
 import java.util.Objects;
 
-final class DenseHeightGrid {
+final class DenseHeightGrid implements TerrainHeightField {
 
     private final int minWorldX;
     private final int minWorldZ;
@@ -37,34 +36,6 @@ final class DenseHeightGrid {
         this.present = present;
         this.minHeight = minHeight;
         this.maxHeight = maxHeight;
-    }
-
-    static DenseHeightGrid fromMapChunks(
-            List<? extends MapChunkHeightView> chunks,
-            int minWorldX,
-            int minWorldZ,
-            int width,
-            int height
-    ) {
-        Objects.requireNonNull(chunks, "chunks are required");
-        if (width < 0 || height < 0) {
-            throw new IllegalArgumentException(
-                    "grid dimensions cannot be negative"
-            );
-        }
-
-        Builder builder = builder(
-                minWorldX,
-                minWorldZ,
-                width,
-                height,
-                ProgressReporter.NONE,
-                chunks.size()
-        );
-        for (MapChunkHeightView chunk : chunks) {
-            builder.accept(chunk);
-        }
-        return builder.finish();
     }
 
     static Builder builder(
@@ -193,12 +164,14 @@ final class DenseHeightGrid {
         );
     }
 
-    boolean hasHeightAt(int worldX, int worldZ) {
+    @Override
+    public boolean hasHeightAt(int worldX, int worldZ) {
         int index = indexOf(worldX, worldZ);
         return index >= 0 && present.get(index);
     }
 
-    int heightAt(int worldX, int worldZ) {
+    @Override
+    public int heightAt(int worldX, int worldZ) {
         int index = indexOf(worldX, worldZ);
         if (index < 0 || !present.get(index)) {
             throw new IllegalArgumentException(
@@ -208,15 +181,18 @@ final class DenseHeightGrid {
         return values[index];
     }
 
-    int minHeight() {
+    @Override
+    public int minHeight() {
         return minHeight;
     }
 
-    int maxHeight() {
+    @Override
+    public int maxHeight() {
         return maxHeight;
     }
 
-    int sampleCount() {
+    @Override
+    public int sampleCount() {
         return present.cardinality();
     }
 

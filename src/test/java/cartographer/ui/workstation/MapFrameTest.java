@@ -3,11 +3,17 @@ package cartographer.ui.workstation;
 import cartographer.application.MapDecorationState;
 import cartographer.application.MapRegionOverlayState;
 import cartographer.application.PreparedMapData;
+import cartographer.application.PreparedSurfaceData;
+import cartographer.application.SurfaceDataRequirement;
 import cartographer.application.ProgressReporter;
 import cartographer.application.RenderDataCacheReport;
+import cartographer.geology.rock.RockCatalog;
 import cartographer.geology.rock.RockColumnSample;
 import cartographer.geology.rock.RockIdentity;
 import cartographer.geology.rock.RockMap;
+import cartographer.geology.rock.RockMapAssembler;
+import cartographer.geology.rock.RockMapMode;
+import cartographer.model.BlockInfo;
 import cartographer.model.HomeState;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
@@ -85,8 +91,29 @@ class MapFrameTest {
         assertTrue(rich.supportsLocalRecomposition(Set.of(
                 RenderLayer.TERRAIN,
                 RenderLayer.SURFACE,
+                RenderLayer.MARKERS
+        )));
+        assertFalse(rich.supportsLocalRecomposition(Set.of(
+                RenderLayer.TERRAIN,
+                RenderLayer.SURFACE,
                 RenderLayer.SOIL_FERTILITY,
                 RenderLayer.MARKERS
+        )));
+
+        MapFrame soilPrepared = MapFrame.map(
+                Path.of("soil.vcdbs"),
+                geometry,
+                prepared(Set.of(
+                        RenderLayer.TERRAIN,
+                        RenderLayer.SURFACE,
+                        RenderLayer.SOIL_FERTILITY
+                )),
+                decorations
+        );
+        assertTrue(soilPrepared.supportsLocalRecomposition(Set.of(
+                RenderLayer.TERRAIN,
+                RenderLayer.SURFACE,
+                RenderLayer.SOIL_FERTILITY
         )));
 
         MapFrame sparse = MapFrame.map(
@@ -183,16 +210,29 @@ class MapFrameTest {
                 "game",
                 "granite"
         );
-        RockMap rockMap = new RockMap(
+        RockMapAssembler assembler = new RockMapAssembler(
                 new WorldPosition(32, 0, 32),
                 16,
-                List.of(RockColumnSample.observed(
+                0,
+                64,
+                RockMapMode.UPPER_ROCK,
+                RockCatalog.from(Map.of(
+                        granite.blockId(),
+                        new BlockInfo(
+                                granite.blockId(),
+                                granite.code()
+                        )
+                ))
+        );
+        assembler.accept(
+                RockColumnSample.observed(
                         32,
                         32,
                         granite,
                         5
-                ))
+                )
         );
+        RockMap rockMap = assembler.finish();
         MapFrame frame = MapFrame.prospecting(
                 Path.of("prospecting.vcdbs"),
                 MapViewportGeometry.fullImage(
@@ -258,6 +298,22 @@ class MapFrameTest {
                 Map.of(),
                 0, 0, 0, 0
         );
+        PreparedSurfaceData preparedSurface =
+                layers.contains(RenderLayer.SOIL_FERTILITY)
+                        ? PreparedSurfaceData.fromExact(
+                                surface,
+                                center,
+                                options,
+                                SurfaceDataRequirement.ANALYSIS
+                        )
+                        : layers.contains(RenderLayer.SURFACE)
+                        ? PreparedSurfaceData.fromExact(
+                                surface,
+                                center,
+                                options,
+                                SurfaceDataRequirement.RENDER
+                        )
+                        : PreparedSurfaceData.none(center, options);
         return new PreparedMapData(
                 metadata,
                 center,
@@ -266,7 +322,7 @@ class MapFrameTest {
                 MapTerrainPreparation.builder(
                         center, options, 0, ProgressReporter.NONE
                 ).finish(),
-                surface,
+                preparedSurface,
                 Map.of(),
                 new ReadDiagnostics(),
                 new ReadDiagnostics(),

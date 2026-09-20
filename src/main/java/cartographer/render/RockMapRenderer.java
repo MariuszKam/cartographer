@@ -12,11 +12,8 @@ import java.util.Objects;
 import java.util.Optional;
 
 public final class RockMapRenderer {
-    private static final int NO_ROCK_COLOR = 0xFF4A4A4A;
-    private static final int UNAVAILABLE_LIGHT = 0xFF888888;
-    private static final int UNAVAILABLE_DARK = 0xFF707070;
-
     private final RockPalette palette;
+    private final RockRenderColors colors;
     private final int maxRasterSize;
 
     public RockMapRenderer() {
@@ -29,10 +26,27 @@ public final class RockMapRenderer {
 
     RockMapRenderer(RockPalette palette, int maxRasterSize) {
         this.palette = Objects.requireNonNull(palette, "rock palette is required");
+        this.colors = new RockRenderColors(this.palette);
         if (maxRasterSize <= 0) {
             throw new IllegalArgumentException("maxRasterSize must be positive");
         }
         this.maxRasterSize = maxRasterSize;
+    }
+
+    public RockSnapshotRenderAccumulator snapshotAccumulator(
+            cartographer.model.WorldMetadata metadata,
+            cartographer.geology.rock.RockCatalog catalog,
+            cartographer.model.WorldPosition center,
+            int radius
+    ) {
+        return new RockSnapshotRenderAccumulator(
+                metadata,
+                catalog,
+                center,
+                radius,
+                palette,
+                maxRasterSize
+        );
     }
 
     public RockMapRenderResult render(RockMap rockMap) {
@@ -49,44 +63,32 @@ public final class RockMapRenderer {
                 "highlightRockCode is required"
         ).map(String::trim).filter(value -> !value.isEmpty());
 
-        int radius = rockMap.radius();
-        int worldDiameter;
-        try {
-            worldDiameter = Math.addExact(Math.multiplyExact(radius, 2), 1);
-        } catch (ArithmeticException exception) {
-            throw new IllegalArgumentException("rock map image is too large", exception);
-        }
-        int diameter = Math.min(worldDiameter, maxRasterSize);
+        RockRenderSamplingPlan sampling =
+                RockRenderSamplingPlan.from(
+                        rockMap.center(),
+                        rockMap.radius(),
+                        maxRasterSize
+                );
+        int diameter = sampling.rasterSize();
 
         BufferedImage image = new BufferedImage(
                 diameter,
                 diameter,
                 BufferedImage.TYPE_INT_ARGB
         );
-        int centerX = floorBlockCoordinate(rockMap.center().x());
-        int centerZ = floorBlockCoordinate(rockMap.center().z());
-        int minX = centerX - radius;
-        int minZ = centerZ - radius;
-        MapViewportGeometry geometry = MapViewportGeometry.fullImage(
-                diameter, diameter, minX, minZ,
-                minX + (double) worldDiameter,
-                minZ + (double) worldDiameter
-        );
-        if (diameter == worldDiameter) {
+        if (diameter == sampling.worldDiameter()) {
             drawOneToOne(
                     image,
                     rockMap,
-                    minX,
-                    minZ,
+                    sampling.minWorldX(),
+                    sampling.minWorldZ(),
                     highlightRockCode
             );
         } else {
             drawSampled(
                     image,
                     rockMap,
-                    minX,
-                    minZ,
-                    worldDiameter,
+                    sampling,
                     highlightRockCode
             );
         }
@@ -114,7 +116,7 @@ public final class RockMapRenderer {
 
         return new RockMapRenderResult(
                 image,
-                geometry,
+                sampling.geometry(),
                 legend,
                 observedCount,
                 rockMap.noRockCount(),
@@ -154,16 +156,14 @@ public final class RockMapRenderer {
     private void drawSampled(
             BufferedImage image,
             RockMap rockMap,
-            int minX,
-            int minZ,
-            int worldDiameter,
+            RockRenderSamplingPlan sampling,
             Optional<String> highlightRockCode
     ) {
         int raster = image.getWidth();
         for (int imageY = 0; imageY < raster; imageY++) {
-            int worldZ = minZ + sampleOffset(imageY, raster, worldDiameter);
+            int worldZ = sampling.worldZForImageY(imageY);
             for (int imageX = 0; imageX < raster; imageX++) {
-                int worldX = minX + sampleOffset(imageX, raster, worldDiameter);
+                int worldX = sampling.worldXForImageX(imageX);
                 if (!rockMap.geometry().contains(worldX, worldZ)) {
                     continue;
                 }
@@ -185,15 +185,6 @@ public final class RockMapRenderer {
         }
     }
 
-    private int sampleOffset(int pixel, int rasterSize, int worldDiameter) {
-        double worldCoordinate =
-                (pixel + 0.5) * worldDiameter / (double) rasterSize;
-        return Math.min(
-                worldDiameter - 1,
-                Math.max(0, (int) Math.floor(worldCoordinate))
-        );
-    }
-
     private void paintCell(
             BufferedImage image,
             int imageX,
@@ -204,43 +195,22 @@ public final class RockMapRenderer {
             int worldZ,
             Optional<String> highlightRockCode
     ) {
-        switch (rockMap.stateAtIndex(index)) {
-            case OBSERVED -> {
-                RockIdentity identity = rockMap.ordinalTable()
-                        .get(rockMap.rockOrdinalAtIndex(index) - 1);
-                int color = palette.colorFor(identity);
-                if (highlightRockCode.isPresent()
-                        && !highlightRockCode.orElseThrow().equals(identity.code())) {
-                    color = dim(color);
-                }
-                image.setRGB(imageX, imageY, color);
-            }
-            case NO_ROCK -> image.setRGB(imageX, imageY, NO_ROCK_COLOR);
-            case UNAVAILABLE -> image.setRGB(
-                    imageX,
-                    imageY,
-                    ((worldX + worldZ) & 1) == 0
-                            ? UNAVAILABLE_LIGHT
-                            : UNAVAILABLE_DARK
-            );
-        }
+        RockColumnState state = rockMap.stateAtIndex(index);
+        RockIdentity identity = state == RockColumnState.OBSERVED
+                ? rockMap.ordinalTable()
+                .get(rockMap.rockOrdinalAtIndex(index) - 1)
+                : null;
+        image.setRGB(
+                imageX,
+                imageY,
+                colors.color(
+                        state,
+                        identity,
+                        worldX,
+                        worldZ,
+                        highlightRockCode
+                )
+        );
     }
 
-    private int dim(int argb) {
-        int alpha = (argb >>> 24) & 0xff;
-        int red = ((argb >>> 16) & 0xff) / 4;
-        int green = ((argb >>> 8) & 0xff) / 4;
-        int blue = (argb & 0xff) / 4;
-        return (alpha << 24) | (red << 16) | (green << 8) | blue;
-    }
-
-    private int floorBlockCoordinate(double coordinate) {
-        double floored = Math.floor(coordinate);
-        if (floored < Integer.MIN_VALUE || floored > Integer.MAX_VALUE) {
-            throw new IllegalArgumentException(
-                    "world coordinate is outside the supported block range"
-            );
-        }
-        return (int) floored;
-    }
 }

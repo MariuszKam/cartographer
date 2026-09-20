@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -174,6 +175,56 @@ class SurfaceCacheTileTest {
         firstStore.publish(List.of(tile));
         assertEquals(SurfaceTileLookup.Status.HIT,
                 firstStore.read(List.of(coordinate)).get(coordinate).status());
+    }
+
+    @Test
+    void streamingLookupVisitsInRequestOrderAndCanStopEarly(
+            @TempDir Path cacheRoot
+    ) {
+        RenderDataCacheStore cacheStore = new RenderDataCacheStore(cacheRoot);
+        RenderDataCacheRevision revision = revision(7);
+        cacheStore.publish(revision);
+        SurfaceTileStore store = new SurfaceTileStore(cacheStore, revision);
+        MapChunkCoordinate first = new MapChunkCoordinate(1, 2);
+        MapChunkCoordinate missing = new MapChunkCoordinate(8, 9);
+        MapChunkCoordinate third = new MapChunkCoordinate(3, 4);
+        store.publish(List.of(
+                resolvedTile(
+                        first,
+                        SurfaceCacheTile.SourceMode.RAIN_HEIGHT_FAST,
+                        4,
+                        0,
+                        0
+                ),
+                resolvedTile(
+                        third,
+                        SurfaceCacheTile.SourceMode.RAIN_HEIGHT_FAST,
+                        4,
+                        0,
+                        0
+                )
+        ));
+
+        List<MapChunkCoordinate> visited = new ArrayList<>();
+        List<SurfaceTileLookup.Status> statuses = new ArrayList<>();
+        boolean exhausted = store.forEachLookup(
+                List.of(first, missing, third, first),
+                (coordinate, lookup) -> {
+                    visited.add(coordinate);
+                    statuses.add(lookup.status());
+                    return visited.size() < 2;
+                }
+        );
+
+        assertFalse(exhausted);
+        assertEquals(List.of(first, missing), visited);
+        assertEquals(
+                List.of(
+                        SurfaceTileLookup.Status.HIT,
+                        SurfaceTileLookup.Status.MISS
+                ),
+                statuses
+        );
     }
 
     private static SurfaceCacheTile resolvedTile(MapChunkCoordinate coordinate,

@@ -29,13 +29,12 @@ import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.render.MapViewportGeometry;
 import cartographer.render.RenderedMap;
+import cartographer.render.SurfaceRenderData;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.render.ActualOreOverlayPainter;
 import cartographer.scanner.ActualBlockMapScanner;
-import cartographer.scanner.SurfaceMapScanResult;
+import cartographer.scanner.SurfaceDiagnosticsSummary;
 import cartographer.scanner.SurfaceMap;
-import cartographer.scanner.SurfaceTileAccumulator;
-import cartographer.scanner.SurfaceTileLayout;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.MapChunkStreamStats;
@@ -876,7 +875,8 @@ class MapCommandTest {
                 WorldPosition player,
                 HomeState home,
                 MapTerrainPreparation terrain,
-                SurfaceMap surfaceMap,
+                SurfaceRenderData surfaceData,
+                SurfaceMap exactSurface,
                 Map<Integer, BlockInfo> registry,
                 RenderOptions options,
                 cartographer.application.ProgressReporter progress
@@ -978,7 +978,7 @@ class MapCommandTest {
                             request.style(),
                             useCaseLayers(request)
                     ),
-                    emptySurface(),
+                    SurfaceDiagnosticsSummary.empty(),
                     OverlayRenderReport.none(),
                     OverlayRenderReport.none(),
                     Optional.empty(),
@@ -989,13 +989,6 @@ class MapCommandTest {
                     0,
                     List.of()
             );
-        }
-
-        private SurfaceMapScanResult emptySurface() {
-            return new SurfaceMapScanResult(
-                    new SurfaceTileAccumulator(SurfaceTileLayout.forSurface(
-                            0, 0, 1, new WorldMetadata(1, 1, 1))).finish(),
-                    Map.of(), 0, 0, 0, 0);
         }
 
         private String useCaseLayers(RenderActualOreMapRequest request) {

@@ -8,16 +8,76 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.DriverManager;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class UpperRockTileStoreTest {
 
     @TempDir
     Path root;
+
+    @Test
+    void boundedVisitorPreservesOrderAndCanStopEarly() throws Exception {
+        Path save = root.resolve("visitor-save").resolve("world.vcdbs");
+        Files.createDirectories(save.getParent());
+        Files.write(save, new byte[]{1, 2, 3});
+
+        RenderDataCacheStore cache =
+                new RenderDataCacheStore(root.resolve("visitor-cache"));
+        WorldDataSnapshot snapshot =
+                WorldDataSnapshot.openOrCreate(cache, save).orElseThrow();
+        UpperRockTileStore store = snapshot.upperRockTileStore();
+
+        int cells = 32 * 32;
+        byte[] states = new byte[cells];
+        int[] blockIds = new int[cells];
+        int[] rockY = new int[cells];
+        java.util.Arrays.fill(
+                states,
+                UpperRockTile.encodeState(RockColumnState.NO_ROCK)
+        );
+        java.util.Arrays.fill(blockIds, -1);
+        java.util.Arrays.fill(rockY, -1);
+        MapChunkCoordinate hit = new MapChunkCoordinate(0, 0);
+        store.publish(List.of(new UpperRockTile(
+                hit,
+                64,
+                64,
+                32,
+                32,
+                32,
+                states,
+                blockIds,
+                rockY
+        )));
+
+        MapChunkCoordinate miss = new MapChunkCoordinate(1, 0);
+        List<MapChunkCoordinate> visited = new ArrayList<>();
+        List<UpperRockTileLookup.Status> statuses = new ArrayList<>();
+        boolean exhausted = store.forEachLookup(
+                List.of(hit, miss, hit),
+                (coordinate, lookup) -> {
+                    visited.add(coordinate);
+                    statuses.add(lookup.status());
+                    return visited.size() < 2;
+                }
+        );
+
+        assertFalse(exhausted);
+        assertEquals(List.of(hit, miss), visited);
+        assertEquals(
+                List.of(
+                        UpperRockTileLookup.Status.HIT,
+                        UpperRockTileLookup.Status.MISS
+                ),
+                statuses
+        );
+    }
 
     @Test
     void roundTripsAndRejectsCorruptDerivedTile() throws Exception {
