@@ -9,9 +9,23 @@ public interface UpdateCheckView {
 
     void setOnOpenUpdateRelease(Runnable action);
 
+    void setOnDownloadUpdate(Runnable action);
+
     void showUpdateChecking();
 
     void showUpdateAvailable(ApplicationVersion version);
+
+    void showUpdateDownloading(
+            ApplicationVersion version,
+            int percent
+    );
+
+    void showUpdateReady(ApplicationVersion version);
+
+    void showUpdateDownloadFailed(
+            ApplicationVersion version,
+            String message
+    );
 
     void showUpToDate();
 
