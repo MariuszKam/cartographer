@@ -702,6 +702,9 @@ cache authority.
 The harness creates a fresh derived snapshot cache, performs one complete world
 prepare, and then compares snapshot-backed Map + Surface renders at R1024,
 R2048 and R4096 against source-authoritative renders of the same requests.
+Cold evidence includes per-layer HIT/publish counters; PASS requires zero
+Terrain, Surface, mapregion, UPPER_ROCK and resource-chunk HITs so the measured
+ingest cannot silently reuse derived artifacts.
 
 For each warm render, a recording `SaveSessionLifecycleProbe` is injected into
 the existing source fallback factory. PASS requires zero source connections to
