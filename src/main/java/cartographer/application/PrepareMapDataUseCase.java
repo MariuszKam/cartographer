@@ -545,7 +545,22 @@ public final class PrepareMapDataUseCase {
                 new ArrayList<>(CACHE_WRITE_BATCH_SIZE);
 
         for (MapChunkCoordinate coordinate : surfaceMisses) {
-            if (!surfacePlanningInputsAvailable.contains(coordinate)) {
+            boolean fallbackMode = fallback.contains(coordinate);
+            SurfaceTileDiagnosticSummary fallbackSummary = fallbackMode
+                    ? result.fallbackDiagnosticsByMapChunk().get(coordinate)
+                    : null;
+
+            // RainHeight-fast tiles require authoritative mapchunk planning
+            // input. A fallback tile is different: the established full
+            // fallback scan is itself the authoritative source for that
+            // mapchunk coordinate, even when the complete world-index catalog
+            // proves the mapchunk row is absent. In that case the terminal
+            // fallback summary is the completeness proof needed for cache
+            // publication.
+            boolean publishableWithoutPlanningInput =
+                    fallbackMode && fallbackSummary != null;
+            if (!surfacePlanningInputsAvailable.contains(coordinate)
+                    && !publishableWithoutPlanningInput) {
                 cache.surface.skippedIncompleteForPublish++;
                 continue;
             }
@@ -553,10 +568,6 @@ public final class PrepareMapDataUseCase {
                 SurfaceTile tile = map.tileAt(
                         map.layout().tileIndex(coordinate.x(), coordinate.z())
                 );
-                boolean fallbackMode = fallback.contains(coordinate);
-                SurfaceTileDiagnosticSummary fallbackSummary = fallbackMode
-                        ? result.fallbackDiagnosticsByMapChunk().get(coordinate)
-                        : null;
                 if (fallbackMode && fallbackSummary == null) {
                     cache.surface.skippedIncompleteForPublish++;
                     continue;
