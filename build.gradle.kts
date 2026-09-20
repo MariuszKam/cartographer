@@ -270,6 +270,9 @@ fun Test.attachTimingReports(reportPrefix: String) {
     val classDurations = ConcurrentHashMap<String, Long>()
     val methodDurations = ConcurrentHashMap<String, Long>()
 
+    fun csvCell(value: String): String =
+        "\"" + value.replace("\"", "\"\"") + "\""
+
     addTestListener(object : TestListener {
         override fun beforeSuite(suite: TestDescriptor) = Unit
 
@@ -295,7 +298,7 @@ fun Test.attachTimingReports(reportPrefix: String) {
                     classDurations.entries
                         .sortedByDescending { it.value }
                         .forEach { (testClass, durationMs) ->
-                            writer.appendLine("$testClass,$durationMs")
+                            writer.appendLine("${csvCell(testClass)},$durationMs")
                         }
                 }
 
@@ -308,7 +311,7 @@ fun Test.attachTimingReports(reportPrefix: String) {
                     methodDurations.entries
                         .sortedByDescending { it.value }
                         .forEach { (testName, durationMs) ->
-                            writer.appendLine("$testName,$durationMs")
+                            writer.appendLine("${csvCell(testName)},$durationMs")
                         }
                 }
 
