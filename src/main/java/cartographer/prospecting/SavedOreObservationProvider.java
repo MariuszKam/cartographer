@@ -5,6 +5,7 @@ import cartographer.perf.RenderDataCacheStore;
 import cartographer.save.SaveSession;
 import cartographer.snapshot.SnapshotResourceReader;
 import cartographer.snapshot.SnapshotUpperRockReader;
+import cartographer.snapshot.SnapshotWorldHeaderReader;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 
@@ -18,6 +19,7 @@ public final class SavedOreObservationProvider implements ActualOreObservationPr
     private final FusedProspectingEngine fusedEngine;
     private final Optional<SnapshotUpperRockReader> snapshotRockReader;
     private final Optional<SnapshotResourceReader> snapshotResourceReader;
+    private final Optional<SnapshotWorldHeaderReader> snapshotHeaderReader;
 
     public SavedOreObservationProvider(
             VcdbsReader reader,
@@ -63,6 +65,7 @@ public final class SavedOreObservationProvider implements ActualOreObservationPr
         );
         this.snapshotRockReader = cache.map(SnapshotUpperRockReader::new);
         this.snapshotResourceReader = cache.map(SnapshotResourceReader::new);
+        this.snapshotHeaderReader = cache.map(SnapshotWorldHeaderReader::new);
     }
 
     @Override
@@ -125,7 +128,52 @@ public final class SavedOreObservationProvider implements ActualOreObservationPr
             int radius,
             List<String> resourceKeys
     ) {
-        return fusedEngine.analyze(savePath, center, radius, resourceKeys);
+        Objects.requireNonNull(savePath, "savePath is required");
+        Objects.requireNonNull(center, "center is required");
+        resourceKeys = List.copyOf(Objects.requireNonNull(
+                resourceKeys,
+                "resourceKeys are required"
+        ));
+
+        if (snapshotRockReader.isPresent()
+                && snapshotResourceReader.isPresent()
+                && snapshotHeaderReader.isPresent()) {
+            var header = snapshotHeaderReader.orElseThrow().read(savePath);
+            if (header.isPresent()) {
+                var metadata = header.orElseThrow().metadata();
+                var registry = header.orElseThrow().blockRegistry();
+                var rockMap = snapshotRockReader.orElseThrow().read(
+                        savePath,
+                        metadata,
+                        registry,
+                        center,
+                        radius
+                );
+                var observations =
+                        snapshotResourceReader.orElseThrow().readObservations(
+                                savePath,
+                                metadata,
+                                registry,
+                                floor(center.x()),
+                                floor(center.z()),
+                                radius,
+                                resourceKeys
+                        );
+                if (rockMap.isPresent() && observations.isPresent()) {
+                    return new FusedProspectingResult(
+                            rockMap.orElseThrow(),
+                            observations.orElseThrow()
+                    );
+                }
+            }
+        }
+
+        return fusedEngine.analyze(
+                savePath,
+                center,
+                radius,
+                resourceKeys
+        );
     }
 
     @Override
