@@ -6,7 +6,6 @@ import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.scanner.SurfaceRegistryLookup;
 import cartographer.scanner.SurfaceTileLayout;
-import cartographer.soil.SoilFertilityTier;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -14,7 +13,6 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SurfaceRenderDataTest {
@@ -36,23 +34,6 @@ class SurfaceRenderDataTest {
     }
 
     @Test
-    void nonSoilSurfaceDoesNotEraseEarlierSoilOverlay() {
-        Fixture fixture = fixture();
-        SurfaceRenderData.Builder builder = fixture.builder();
-
-        builder.acceptResolved(20, 20, 3, SurfaceClass.SOIL);
-        builder.acceptResolved(21, 20, 2, SurfaceClass.ROCK);
-        SurfaceRenderData data = builder.finish();
-
-        assertEquals(SurfaceClass.ROCK, data.surfaceClassAt(33, 32));
-        assertEquals(
-                SoilFertilityTier.MEDIUM,
-                data.soilTierAt(33, 32)
-        );
-        assertNull(data.soilTierAt(35, 32));
-    }
-
-    @Test
     void emptyDataDoesNotAllocateRasterSizedBackingArrays() {
         RenderSamplingPlan sampling = RenderSamplingPlan.from(
                 new WorldPosition(0, 0, 0),
@@ -68,10 +49,8 @@ class SurfaceRenderDataTest {
 
         assertTrue(data.isEmpty());
         assertFalse(data.hasSurfaceAt(4095, 4095));
-        assertNull(data.soilTierAt(4095, 4095));
         assertEquals(0, data.surfaceSourceByPixelView().length);
         assertEquals(0, data.surfaceClassByPixelView().length);
-        assertEquals(0, data.soilTierByPixelView().length);
     }
 
     @Test
@@ -108,7 +87,7 @@ class SurfaceRenderDataTest {
                 20,
                 1,
                 RenderStyle.SIMPLE,
-                Set.of(RenderLayer.SURFACE, RenderLayer.SOIL_FERTILITY)
+                Set.of(RenderLayer.SURFACE)
         );
         WorldPosition center = new WorldPosition(20, 0, 20);
         RenderSamplingPlan sampling =

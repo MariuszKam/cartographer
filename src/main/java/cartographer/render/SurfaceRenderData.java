@@ -7,8 +7,6 @@ import cartographer.scanner.SurfaceMap;
 import cartographer.scanner.SurfaceRegistryLookup;
 import cartographer.scanner.SurfaceTile;
 import cartographer.scanner.SurfaceTileLayout;
-import cartographer.soil.SoilFertilityClassification;
-import cartographer.soil.SoilFertilityTier;
 
 import java.util.Arrays;
 import java.util.BitSet;
@@ -27,7 +25,6 @@ public final class SurfaceRenderData {
     private final int rasterSize;
     private final long[] surfaceSourceByPixel;
     private final byte[] surfaceClassByPixel;
-    private final byte[] soilTierByPixel;
     private final BitSet surfacePresent;
     private final long surfaceClassMask;
 
@@ -35,14 +32,12 @@ public final class SurfaceRenderData {
             int rasterSize,
             long[] surfaceSourceByPixel,
             byte[] surfaceClassByPixel,
-            byte[] soilTierByPixel,
             BitSet surfacePresent,
             long surfaceClassMask
     ) {
         this.rasterSize = rasterSize;
         this.surfaceSourceByPixel = surfaceSourceByPixel;
         this.surfaceClassByPixel = surfaceClassByPixel;
-        this.soilTierByPixel = soilTierByPixel;
         this.surfacePresent = surfacePresent;
         this.surfaceClassMask = surfaceClassMask;
     }
@@ -84,7 +79,6 @@ public final class SurfaceRenderData {
                 sampling.rasterSize(),
                 new long[0],
                 new byte[0],
-                new byte[0],
                 new BitSet(),
                 0L
         );
@@ -125,17 +119,6 @@ public final class SurfaceRenderData {
         return SurfaceClassCode.decode(surfaceClassByPixel[index]);
     }
 
-    public SoilFertilityTier soilTierAt(int imageX, int imageY) {
-        int index = pixelIndex(imageX, imageY);
-        if (soilTierByPixel.length == 0) {
-            return null;
-        }
-        byte code = soilTierByPixel[index];
-        return code == 0
-                ? null
-                : SoilFertilityTier.values()[Byte.toUnsignedInt(code) - 1];
-    }
-
     public Set<SurfaceClass> surfaceClasses() {
         EnumSet<SurfaceClass> classes =
                 EnumSet.noneOf(SurfaceClass.class);
@@ -153,10 +136,6 @@ public final class SurfaceRenderData {
 
     byte[] surfaceClassByPixelView() {
         return surfaceClassByPixel;
-    }
-
-    byte[] soilTierByPixelView() {
-        return soilTierByPixel;
     }
 
     BitSet surfacePresentView() {
@@ -185,7 +164,6 @@ public final class SurfaceRenderData {
         private final int worldMinZ;
         private final long[] surfaceSourceByPixel;
         private final byte[] surfaceClassByPixel;
-        private final byte[] soilTierByPixel;
         private final BitSet surfacePresent;
         private long surfaceClassMask;
         private boolean finished;
@@ -214,7 +192,6 @@ public final class SurfaceRenderData {
             int pixels = Math.multiplyExact(rasterSize, rasterSize);
             this.surfaceSourceByPixel = new long[pixels];
             this.surfaceClassByPixel = new byte[pixels];
-            this.soilTierByPixel = new byte[pixels];
             this.surfacePresent = new BitSet(pixels);
         }
 
@@ -298,17 +275,6 @@ public final class SurfaceRenderData {
             byte classCode = SurfaceClassCode.encode(surfaceClass);
             surfaceClassMask |= 1L << surfaceClass.ordinal();
 
-            int slot = registry.slot(blockId);
-            SoilFertilityClassification fertility =
-                    surfaceClass == SurfaceClass.WATER
-                            || surfaceClass == SurfaceClass.SNOW
-                            || slot < 0
-                            ? null
-                            : registry.fertilityAt(slot);
-            byte soilCode = fertility == null
-                    ? 0
-                    : (byte) (fertility.tier().ordinal() + 1);
-
             for (int imageY = startY; imageY < endY; imageY++) {
                 int rowStart = imageY * rasterSize + startX;
                 int rowEnd = imageY * rasterSize + endX;
@@ -325,14 +291,6 @@ public final class SurfaceRenderData {
                         classCode
                 );
                 surfacePresent.set(rowStart, rowEnd);
-                if (soilCode != 0) {
-                    Arrays.fill(
-                            soilTierByPixel,
-                            rowStart,
-                            rowEnd,
-                            soilCode
-                    );
-                }
             }
         }
 
@@ -343,7 +301,6 @@ public final class SurfaceRenderData {
                     rasterSize,
                     surfaceSourceByPixel,
                     surfaceClassByPixel,
-                    soilTierByPixel,
                     surfacePresent,
                     surfaceClassMask
             );
