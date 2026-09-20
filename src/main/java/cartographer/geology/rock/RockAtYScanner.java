@@ -4,10 +4,8 @@ import cartographer.model.ChunkCoordinate;
 import cartographer.model.ParsedChunk;
 import cartographer.model.WorldPosition;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -39,7 +37,14 @@ public final class RockAtYScanner {
         int chunkY = Math.floorDiv(worldY, ChunkCoordinate.SIZE_BLOCKS);
         int localY = Math.floorMod(worldY, ChunkCoordinate.SIZE_BLOCKS);
         long radiusSquared = (long) radius * radius;
-        List<RockColumnSample> samples = new ArrayList<>();
+        RockMapAssembler assembler = new RockMapAssembler(
+                center,
+                radius,
+                worldY,
+                Math.addExact(worldY, 1),
+                RockMapMode.AT_Y,
+                catalog
+        );
 
         for (long z = (long) centerZ - radius;
              z <= (long) centerZ + radius;
@@ -73,13 +78,13 @@ public final class RockAtYScanner {
                         chunkZ
                 );
                 if (!coverage.contains(required)) {
-                    samples.add(RockColumnSample.unavailable(worldX, worldZ));
+                    assembler.accept(RockColumnSample.unavailable(worldX, worldZ));
                     continue;
                 }
 
                 ParsedChunk chunk = decoded.get(required);
                 if (chunk == null) {
-                    samples.add(RockColumnSample.noRock(worldX, worldZ));
+                    assembler.accept(RockColumnSample.noRock(worldX, worldZ));
                     continue;
                 }
 
@@ -92,7 +97,7 @@ public final class RockAtYScanner {
                 if (rock == null) {
                     samples.add(RockColumnSample.noRock(worldX, worldZ));
                 } else {
-                    samples.add(
+                    assembler.accept(
                             RockColumnSample.observed(
                                     worldX,
                                     worldZ,
@@ -104,10 +109,7 @@ public final class RockAtYScanner {
             }
         }
 
-        return RockMap.fromLegacySamples(
-                center, radius, worldY, Math.addExact(worldY, 1),
-                RockMapMode.AT_Y, catalog, samples
-        );
+        return assembler.finish();
     }
 
     private Map<ChunkCoordinate, ParsedChunk> indexChunks(
