@@ -332,9 +332,43 @@ Any missing compatibility/coverage proof selects the second path.
 
 ### PF-2.7 — Prepare World UX
 
-Expose snapshot preparation, coverage and revision state in the Workstation
-with cancellable progress. Rendering an already-prepared region must remain
-separate from indexing work.
+Implemented on the PF-2.7 branch:
+
+- the Workstation World Bar exposes an explicit **Prepare world** action;
+- preparation is a normal cancellable `FOREGROUND` operation and therefore
+  reuses the P12 operation coordinator, progress reporting, stale-result
+  suppression and cooperative interruption semantics;
+- `Prepare world` invokes the existing `PrepareWorldSnapshotUseCase`; Render
+  remains a separate action and never starts whole-world indexing implicitly;
+- preparation progress is mapped into six monotonic top-level phases:
+  Header, Terrain, Surface, Map regions, Geology and Resources. Nested reader
+  progress is scaled into the active phase rather than resetting the bar;
+- `WorldSnapshotPreparationSummary` is checkpointed after each verified phase,
+  so cancellation preserves honest resumable coverage;
+- refresh of an already READY immutable revision preserves previously verified
+  later-phase flags until those phases are actually revisited. Cancelling a
+  refresh therefore cannot downgrade still-valid untouched coverage;
+- snapshot status inspection uses `WorldDataSnapshot.openExisting(...)` and
+  derived-cache metadata/store presence only; displaying status does not open
+  the source SQLite database or create a cache manifest;
+- the World Bar distinguishes `NOT_PREPARED`, `PARTIAL` and `READY`,
+  shows the current revision plus compact per-layer coverage, and changes the
+  action label between Prepare / Resume / Refresh;
+- existing PF-2.3–2.6 derived stores without a PF-2.7 summary are recognized as
+  resumable PARTIAL state and can be verified/reused by Prepare World;
+- changing the source revision selects a new immutable namespace, so an old
+  READY summary cannot make a changed save appear prepared;
+- the Inspector presents per-layer coverage and current-run hit/publish counts.
+
+The preparation summary is UX metadata, not source authority. PF-2.6 consumers
+still prove their own required compatibility/coverage and fall back to source
+when those proofs fail.
+
+PF-2.7 does not change Surface fallback ordering or scanning semantics and does
+not introduce top-down early-stop fallback.
+
+Runtime and real-save validation remain reviewer-controlled and are deferred
+to PF-2.8.
 
 ### PF-2.8 — cold-ingest / warm-render validation
 

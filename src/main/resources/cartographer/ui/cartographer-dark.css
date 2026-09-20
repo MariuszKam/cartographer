@@ -42,6 +42,51 @@
     -fx-font-size: 11px;
 }
 
+.world-snapshot-pane {
+    -fx-background-color: #151a20;
+    -fx-background-radius: 7px;
+    -fx-border-color: #303844;
+    -fx-border-radius: 7px;
+    -fx-padding: 4px 6px;
+}
+
+.snapshot-state {
+    -fx-text-fill: #aeb9c6;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+}
+
+.snapshot-state:ready {
+    -fx-text-fill: #88c999;
+}
+
+.snapshot-state:partial {
+    -fx-text-fill: #e8bd73;
+}
+
+.snapshot-revision {
+    -fx-text-fill: #6f7c8b;
+    -fx-font-family: "Cascadia Mono", "Consolas", monospace;
+    -fx-font-size: 10px;
+}
+
+.snapshot-coverage {
+    -fx-text-fill: #8f9cac;
+    -fx-font-size: 10px;
+}
+
+.snapshot-prepare-button {
+    -fx-background-color: #24384d;
+    -fx-border-color: #456987;
+    -fx-text-fill: #dcecff;
+    -fx-font-size: 11px;
+    -fx-padding: 4px 8px;
+}
+
+.snapshot-prepare-button:hover {
+    -fx-background-color: #2d4862;
+}
+
 .world-summary:available {
     -fx-text-fill: #88c999;
 }

@@ -36,12 +36,19 @@ public final class WorkstationView {
     private boolean discoveryBusy;
     private boolean localBusy;
 
-    public WorkstationView(Runnable onBrowse, Runnable onRender) {
+    public WorkstationView(
+            Runnable onBrowse,
+            Runnable onRender,
+            Runnable onPrepareWorld
+    ) {
         root.getStyleClass().add("workstation-root");
         workspace.getStyleClass().add("workspace-body");
 
         worldPanel = new WorldPanel(panel -> onBrowse.run());
-        worldBar = new WorkstationWorldBar(worldPanel);
+        worldBar = new WorkstationWorldBar(
+                worldPanel,
+                onPrepareWorld
+        );
         searchPanel = new SearchPanel(onRender);
         layerPanel = new LayerPanel();
         resultInspectorPane = new ResultInspectorPane(layerPanel);
@@ -93,6 +100,13 @@ public final class WorkstationView {
 
         setMode(WorkstationTool.ORE);
         refreshDockState();
+    }
+
+    public WorkstationView(
+            Runnable onBrowse,
+            Runnable onRender
+    ) {
+        this(onBrowse, onRender, () -> { });
     }
 
     public Parent root() {
@@ -150,6 +164,9 @@ public final class WorkstationView {
     public void setBusy(boolean busy) {
         foregroundBusy = busy;
         worldPanel.setBusy(foregroundBusy || discoveryBusy);
+        worldBar.setSnapshotSourceBusy(
+                foregroundBusy || discoveryBusy
+        );
         toolNavigationPane.setBusy(foregroundBusy);
         searchPanel.setBusy(foregroundBusy);
         // Layer toggles stay available against the previous retained frame.
@@ -159,6 +176,9 @@ public final class WorkstationView {
     public void setDiscoveryBusy(boolean busy) {
         discoveryBusy = busy;
         worldPanel.setBusy(foregroundBusy || discoveryBusy);
+        worldBar.setSnapshotSourceBusy(
+                foregroundBusy || discoveryBusy
+        );
         searchPanel.setDiscoveryBusy(discoveryBusy);
         refreshOperationState();
     }
@@ -193,6 +213,20 @@ public final class WorkstationView {
 
     public void setProgress(double completed, double total) {
         statusBar.setProgress(completed, total);
+    }
+
+    public void setSnapshotSaveAvailable(boolean available) {
+        worldBar.setSnapshotSaveAvailable(available);
+    }
+
+    public void setSnapshotPreparing(boolean preparing) {
+        worldBar.setSnapshotPreparing(preparing);
+    }
+
+    public void setSnapshotStatus(
+            cartographer.application.WorldSnapshotStatus status
+    ) {
+        worldBar.setSnapshotStatus(status);
     }
 
     public void setSavePath(java.nio.file.Path path) {

@@ -13,10 +13,20 @@ public final class WorkstationWorldBar extends HBox {
     private final Label tool = new Label("ORES");
     private final Label save = new Label("No save");
     private final Label player = new Label("Player —");
+    private final WorldSnapshotPane snapshotPane;
 
-    public WorkstationWorldBar(WorldPanel worldPanel) {
+    public WorkstationWorldBar(
+            WorldPanel worldPanel,
+            Runnable onPrepareWorld
+    ) {
         super(12);
         Objects.requireNonNull(worldPanel, "worldPanel is required");
+        snapshotPane = new WorldSnapshotPane(
+                Objects.requireNonNull(
+                        onPrepareWorld,
+                        "onPrepareWorld is required"
+                )
+        );
         getStyleClass().add("world-bar");
         setAlignment(Pos.CENTER_LEFT);
 
@@ -36,9 +46,28 @@ public final class WorkstationWorldBar extends HBox {
                 tool,
                 worldPanel,
                 spacer,
+                snapshotPane,
                 save,
                 player
         );
+    }
+
+    public void setSnapshotSaveAvailable(boolean available) {
+        snapshotPane.setSaveAvailable(available);
+    }
+
+    public void setSnapshotSourceBusy(boolean busy) {
+        snapshotPane.setSourceBusy(busy);
+    }
+
+    public void setSnapshotPreparing(boolean preparing) {
+        snapshotPane.setPreparing(preparing);
+    }
+
+    public void setSnapshotStatus(
+            cartographer.application.WorldSnapshotStatus status
+    ) {
+        snapshotPane.showStatus(status);
     }
 
     public void setSavePath(Path path) {

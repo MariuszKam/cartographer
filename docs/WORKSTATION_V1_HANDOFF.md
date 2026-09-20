@@ -139,6 +139,30 @@ Do not move JavaFX types into parser, save, scanner, application or render code.
 
 Do not add mock analytical data or infer missing save metadata. Any future viewport metadata must come from verified renderer geometry.
 
+## PF-2.7 Prepare World extension
+
+The World Bar exposes an explicit `Prepare world` action for the selected
+save revision. Preparation is separate from Render and runs in the existing
+`FOREGROUND` scope, using the same Cancel and stale-result protection from
+P12.
+
+The badge shows revision-scoped `Not prepared / Partial / Ready` state and
+compact Terrain/Surface/mapregion/ROCK/resource coverage. Status inspection is
+cache-only and does not open the source game database.
+
+Prepare World reports six monotonic phases: Header, Terrain, Surface,
+Map regions, Geology and Resources. Verified phase state is checkpointed so a
+cancelled operation can resume from already-derived artifacts. Refreshing an
+already READY immutable revision preserves valid later-phase evidence until it
+is actually revalidated.
+
+Normal Render never implicitly starts full-world preparation. Compatible warm
+renders continue to use PF-2.6 snapshot-backed paths; incomplete or unsupported
+coverage keeps the authoritative source fallback.
+
+PF-2.7 does not alter Surface fallback ordering/scanning semantics and does not
+introduce top-down early-stop fallback.
+
 ## Final P13/P14 state
 
 GUI-P13 implements the final map-first Workstation shell while preserving the

@@ -652,6 +652,47 @@ render. After a compatible region has been prepared, the warm render path
 avoids source SQLite/BLOB/protobuf/Zstd traversal and reuses the existing
 analysis/rendering code over compact derived state.
 
+
+### PF-2.7 Prepare World Workstation UX
+
+PF-2.7 exposes the existing snapshot builder as an explicit Workstation
+operation. The World Bar shows revision-scoped preparation state and coverage,
+while the existing operation bar supplies progress and Cancel.
+
+```text
+Prepare world
+    -> source ingest / derived indexing / repair
+
+Render
+    -> query compatible prepared data when available
+    -> otherwise preserve PF-2.6 source fallback
+```
+
+Render never performs a hidden full-world prepare.
+
+Preparation progress is normalized into six monotonic phases: Header, Terrain,
+Surface, Map regions, Geology and Resources. Nested source-reader progress is
+scaled into the active phase, so an inner read cannot make the user-facing bar
+jump to 100% before later preparation work runs.
+
+A small revision-local preparation summary is checkpointed after each verified
+phase. Cancellation can therefore leave safe partial derived artifacts and
+honest resumable coverage. For an already READY immutable revision, verified
+later phases remain valid until those phases are actually rechecked, so a
+cancelled refresh cannot erase still-valid evidence simply because it stopped
+early.
+
+Snapshot status inspection reads only derived-cache metadata/store presence
+and does not open the source game database. Existing PF-2.3–2.6 stores without
+the new summary are exposed as resumable PARTIAL coverage.
+
+The badge states are `NOT_PREPARED`, `PARTIAL` and `READY`. They are
+revision-specific UX evidence only. Individual snapshot consumers still prove
+their own compatible coverage before avoiding source IO.
+
+PF-2.7 changes no Surface fallback ordering/scanning semantics and introduces
+no top-down early-stop fallback.
+
 ## 14. Explicit non-goals and current boundaries
 
 - There is no global decoded-world cache.

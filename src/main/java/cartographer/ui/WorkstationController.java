@@ -6,6 +6,11 @@ import cartographer.application.DiscoverObservedSurfaceResourcesRequest;
 import cartographer.application.DiscoverObservedSurfaceResourcesResult;
 import cartographer.application.DiscoverObservedSurfaceResourcesUseCase;
 import cartographer.application.LoadWorldOverviewUseCase;
+import cartographer.application.InspectWorldSnapshotStatusUseCase;
+import cartographer.application.PrepareWorldSnapshotRequest;
+import cartographer.application.PrepareWorldSnapshotResult;
+import cartographer.application.PrepareWorldSnapshotUseCase;
+import cartographer.application.WorldSnapshotStatus;
 import cartographer.application.ProspectingAreaRequest;
 import cartographer.application.ProspectingAreaResult;
 import cartographer.application.RenderActualOreMapRequest;
@@ -86,6 +91,8 @@ public final class WorkstationController {
     private final RenderRockMapUseCase rockUseCase;
     private final AnalyzeProspectingAreaUseCase prospectingUseCase;
     private final LoadWorldOverviewUseCase worldOverviewUseCase;
+    private final PrepareWorldSnapshotUseCase prepareWorldSnapshotUseCase;
+    private final InspectWorldSnapshotStatusUseCase snapshotStatusUseCase;
     private final OreResourceResolver resourceResolver = new OreResourceResolver();
 
     private DiscoverObservedSurfaceResourcesResult surfaceDiscoveryResult;
@@ -110,7 +117,9 @@ public final class WorkstationController {
             DiscoverObservedSurfaceResourcesUseCase surfaceDiscoveryUseCase,
             RenderRockMapUseCase rockUseCase,
             AnalyzeProspectingAreaUseCase prospectingUseCase,
-            LoadWorldOverviewUseCase worldOverviewUseCase
+            LoadWorldOverviewUseCase worldOverviewUseCase,
+            PrepareWorldSnapshotUseCase prepareWorldSnapshotUseCase,
+            InspectWorldSnapshotStatusUseCase snapshotStatusUseCase
     ) {
         this.saveChooser = Objects.requireNonNull(saveChooser, "save chooser is required");
         this.useCase = Objects.requireNonNull(useCase, "map/ore use case is required");
@@ -123,8 +132,20 @@ public final class WorkstationController {
                 prospectingUseCase, "prospecting use case is required");
         this.worldOverviewUseCase = Objects.requireNonNull(
                 worldOverviewUseCase, "world overview use case is required");
+        this.prepareWorldSnapshotUseCase = Objects.requireNonNull(
+                prepareWorldSnapshotUseCase,
+                "prepare world snapshot use case is required"
+        );
+        this.snapshotStatusUseCase = Objects.requireNonNull(
+                snapshotStatusUseCase,
+                "snapshot status use case is required"
+        );
 
-        workstation = new WorkstationView(this::chooseSave, this::render);
+        workstation = new WorkstationView(
+                this::chooseSave,
+                this::render,
+                this::prepareWorldSnapshot
+        );
         worldPanel = workstation.worldPanel();
         searchPanel = workstation.searchPanel();
         mapPanel = workstation.mapPanel();
@@ -149,15 +170,81 @@ public final class WorkstationController {
         saveChooser.get().ifPresent(savePath -> {
             worldPanel.setSavePath(savePath.toString());
             workstation.setSavePath(savePath);
+            workstation.setSnapshotSaveAvailable(true);
+            refreshSnapshotStatus(savePath);
             workstation.setStatus("");
             loadSaveData(savePath);
         });
+    }
+
+    private void prepareWorldSnapshot() {
+        if (worldPanel.savePathText().isBlank()) {
+            showFailure(
+                    new IllegalArgumentException("Select a .vcdbs save.")
+            );
+            return;
+        }
+        Path savePath = Path.of(worldPanel.savePathText())
+                .toAbsolutePath()
+                .normalize();
+        setBusy(true);
+        workstation.setSnapshotPreparing(true);
+        workstation.setStatus("Preparing reusable world snapshot...");
+
+        PrepareWorldSnapshotRequest request =
+                new PrepareWorldSnapshotRequest(savePath);
+        operationCoordinator.submitProgress(
+                WorkstationOperationScope.FOREGROUND,
+                "world-snapshot-prepare",
+                "Prepare world " + savePath.getFileName(),
+                progress -> prepareWorldSnapshotUseCase.execute(
+                        request,
+                        progress
+                ),
+                result -> showPreparedWorld(result, savePath),
+                failure -> {
+                    workstation.setSnapshotPreparing(false);
+                    refreshSnapshotStatus(savePath);
+                    showFailure(failure);
+                }
+        );
+    }
+
+    private void showPreparedWorld(
+            PrepareWorldSnapshotResult result,
+            Path savePath
+    ) {
+        setBusy(false);
+        workstation.setSnapshotPreparing(false);
+        refreshSnapshotStatus(savePath);
+        resultInspector.showWorldSnapshotResult(result);
+        workstation.setStatus(
+                result.complete()
+                        ? "World snapshot ready. Compatible renders can reuse indexed data."
+                        : "World snapshot prepared with partial coverage; Prepare World can resume it."
+        );
+    }
+
+    private void refreshSnapshotStatus(Path savePath) {
+        try {
+            WorldSnapshotStatus status =
+                    snapshotStatusUseCase.execute(savePath);
+            workstation.setSnapshotStatus(status);
+        } catch (RuntimeException failure) {
+            workstation.setSnapshotPreparing(false);
+            workstation.setStatus(
+                    "Snapshot status unavailable: "
+                            + conciseMessage(failure)
+            );
+        }
     }
 
     private void loadSaveData(Path savePath) {
         operationCoordinator.cancelAll();
         loadedPlayerAbsolute = Optional.empty();
         loadedWorldMetadata = Optional.empty();
+        workstation.setSnapshotPreparing(false);
+        refreshSnapshotStatus(savePath);
         mapPanel.clearNavigationContext();
         localRecompositionGate.invalidate();
         rockHighlightGeneration++;
@@ -1085,7 +1172,15 @@ public final class WorkstationController {
 
     private void handleOperationCancelled(WorkstationOperationScope scope) {
         switch (scope) {
-            case FOREGROUND -> setBusy(false);
+            case FOREGROUND -> {
+                setBusy(false);
+                workstation.setSnapshotPreparing(false);
+                if (!worldPanel.savePathText().isBlank()) {
+                    refreshSnapshotStatus(
+                            Path.of(worldPanel.savePathText())
+                    );
+                }
+            }
             case DISCOVERY -> {
                 workstation.setDiscoveryBusy(false);
                 if (surfaceObjectDiscoveryState == SurfaceObjectDiscoveryState.SCANNING) {

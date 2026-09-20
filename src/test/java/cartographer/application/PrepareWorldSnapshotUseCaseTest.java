@@ -15,6 +15,7 @@ import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.perf.RenderDataCacheStore;
 import cartographer.perf.WorldDataSnapshot;
+import cartographer.perf.WorldSnapshotPreparationSummary;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.save.ChunkStreamStats;
@@ -35,16 +36,19 @@ import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PrepareWorldSnapshotUseCaseTest {
@@ -81,10 +85,20 @@ class PrepareWorldSnapshotUseCaseTest {
         PrepareWorldSnapshotRequest request =
                 new PrepareWorldSnapshotRequest(save);
 
+        RecordingProgressReporter progress =
+                new RecordingProgressReporter();
         PrepareWorldSnapshotResult first =
-                useCase.execute(request, ProgressReporter.NONE);
+                useCase.execute(request, progress);
 
         assertTrue(first.complete());
+        assertTrue(
+                progress.monotonic(),
+                "PF-2.7 Workstation progress must never move backwards"
+        );
+        assertEquals(1.0, progress.lastFraction());
+        assertTrue(
+                progress.doneStages.contains("World snapshot prepared")
+        );
         assertEquals(2, first.observedMapChunks());
         assertEquals(2, first.terrainPublished());
         assertEquals(2, first.surfacePublished());
@@ -98,6 +112,14 @@ class PrepareWorldSnapshotUseCaseTest {
         assertTrue(first.upperRockCoverageComplete());
         assertEquals(2, first.upperRockPublished());
         assertTrue(first.resourceIndexCoverageComplete());
+        var preparationSummary = WorldDataSnapshot.openExisting(
+                cacheStore,
+                save
+        ).orElseThrow().preparationSummaryStore().read().orElseThrow();
+        assertEquals(first.revisionHash(), preparationSummary.revisionHash());
+        assertEquals(first.observedMapChunks(), preparationSummary.observedMapChunks());
+        assertTrue(preparationSummary.complete());
+
         assertEquals(1, first.resourceBlocksCatalogued());
         assertEquals(0, first.resourceChunkHits());
         assertEquals(4, first.resourceChunksPublished());
@@ -252,6 +274,184 @@ class PrepareWorldSnapshotUseCaseTest {
         );
     }
 
+    @Test
+    void cancellationDuringHeaderPlayerReadIsNotSwallowed()
+            throws Exception {
+        Path save = root.resolve("header-cancel").resolve("world.vcdbs");
+        Files.createDirectories(save.getParent());
+        Files.write(save, new byte[]{9, 8, 7});
+
+        TestReader reader = new TestReader(List.of(mapChunk(0, 0)));
+        WorldMetadataReader metadataReader = new TestMetadataReader();
+        RenderDataCacheStore cacheStore =
+                new RenderDataCacheStore(root.resolve("header-cancel-cache"));
+        PrepareWorldSnapshotUseCase useCase =
+                new PrepareWorldSnapshotUseCase(
+                        reader,
+                        new SaveSessionFactory(
+                                new TestConnectionFactory(),
+                                reader,
+                                metadataReader
+                        ),
+                        cacheStore,
+                        new WorldIndexBatchPlanner(16)
+                );
+
+        assertThrows(
+                CancellationException.class,
+                () -> useCase.execute(
+                        new PrepareWorldSnapshotRequest(save),
+                        new ProgressReporter() {
+                            @Override
+                            public void progress(
+                                    String stage,
+                                    int current,
+                                    int total
+                            ) {
+                                if (stage.contains("Reading PLAYER")) {
+                                    throw new CancellationException(
+                                            "header cancelled"
+                                    );
+                                }
+                            }
+                        }
+                )
+        );
+
+        WorldDataSnapshot snapshot = WorldDataSnapshot.openExisting(
+                cacheStore,
+                save
+        ).orElseThrow();
+        assertTrue(
+                snapshot.headerStore().read().isEmpty(),
+                "cancelled PLAYER read must not publish a synthetic header"
+        );
+    }
+
+    @Test
+    void cancellationDuringHeaderReadIsNotDowngradedToMissingPlayer()
+            throws Exception {
+        Path save = root.resolve("header-cancel").resolve("world.vcdbs");
+        Files.createDirectories(save.getParent());
+        Files.write(save, new byte[]{3, 1, 4});
+
+        TestReader reader = new TestReader(List.of(mapChunk(0, 0))) {
+            @Override
+            public WorldPosition readPlayerPosition(
+                    SaveSession session,
+                    ProgressReporter progress
+            ) {
+                throw new CancellationException("header cancelled");
+            }
+        };
+        WorldMetadataReader metadataReader = new TestMetadataReader();
+        RenderDataCacheStore cacheStore =
+                new RenderDataCacheStore(root.resolve("header-cancel-cache"));
+        PrepareWorldSnapshotUseCase useCase =
+                new PrepareWorldSnapshotUseCase(
+                        reader,
+                        new SaveSessionFactory(
+                                new TestConnectionFactory(),
+                                reader,
+                                metadataReader
+                        ),
+                        cacheStore,
+                        new WorldIndexBatchPlanner(16)
+                );
+
+        assertThrows(
+                CancellationException.class,
+                () -> useCase.execute(
+                        new PrepareWorldSnapshotRequest(save),
+                        ProgressReporter.NONE
+                )
+        );
+
+        WorldDataSnapshot snapshot = WorldDataSnapshot.openExisting(
+                cacheStore,
+                save
+        ).orElseThrow();
+        assertTrue(
+                snapshot.headerStore().read().isEmpty(),
+                "cancelled Header phase must not publish a fabricated header"
+        );
+        assertTrue(
+                snapshot.preparationSummaryStore().read().isEmpty(),
+                "cancelled Header phase must not publish later coverage"
+        );
+    }
+
+    @Test
+    void cancelledRefreshDoesNotDowngradePreviouslyVerifiedLaterCoverage()
+            throws Exception {
+        Path save = root.resolve("refresh").resolve("world.vcdbs");
+        Files.createDirectories(save.getParent());
+        Files.write(save, new byte[]{7, 8, 9});
+
+        TestReader reader = new TestReader(List.of(
+                mapChunk(0, 0),
+                mapChunk(1, 0)
+        ));
+        WorldMetadataReader metadataReader = new TestMetadataReader();
+        SaveSessionFactory sessionFactory = new SaveSessionFactory(
+                new TestConnectionFactory(),
+                reader,
+                metadataReader
+        );
+        RenderDataCacheStore cacheStore =
+                new RenderDataCacheStore(root.resolve("refresh-cache"));
+        PrepareWorldSnapshotUseCase useCase =
+                new PrepareWorldSnapshotUseCase(
+                        reader,
+                        sessionFactory,
+                        cacheStore,
+                        new WorldIndexBatchPlanner(16)
+                );
+        PrepareWorldSnapshotRequest request =
+                new PrepareWorldSnapshotRequest(save);
+
+        assertTrue(
+                useCase.execute(request, ProgressReporter.NONE).complete()
+        );
+
+        assertThrows(
+                CancellationException.class,
+                () -> useCase.execute(
+                        request,
+                        new ProgressReporter() {
+                            @Override
+                            public void progress(
+                                    String stage,
+                                    int current,
+                                    int total
+                            ) {
+                                if (stage.startsWith(
+                                        "[3/6] Surface"
+                                )) {
+                                    throw new CancellationException(
+                                            "test cancellation"
+                                    );
+                                }
+                            }
+                        }
+                )
+        );
+
+        WorldSnapshotPreparationSummary summary =
+                WorldDataSnapshot.openExisting(
+                        cacheStore,
+                        save
+                ).orElseThrow()
+                        .preparationSummaryStore()
+                        .read()
+                        .orElseThrow();
+
+        assertTrue(
+                summary.complete(),
+                "a cancelled refresh must not discard still-valid later-phase evidence"
+        );
+    }
+
     private static MapChunk mapChunk(int x, int z) {
         int[] heights = new int[MapChunk.HEIGHT_VALUE_COUNT];
         Arrays.fill(heights, 0);
@@ -262,7 +462,7 @@ class PrepareWorldSnapshotUseCaseTest {
         );
     }
 
-    private static final class TestReader extends VcdbsReader {
+    private static class TestReader extends VcdbsReader {
         private final List<MapChunk> mapChunks;
         private final AtomicInteger observedScans = new AtomicInteger();
         private final AtomicInteger exactMapChunkReads = new AtomicInteger();
@@ -286,6 +486,14 @@ class PrepareWorldSnapshotUseCaseTest {
                 SaveSession session,
                 ProgressReporter progress
         ) {
+            // Mimic the real reader's nested lifecycle: finishing one nested
+            // stage and starting another must never move PF-2.7 progress
+            // backwards within the Header phase.
+            progress.start("Reading PLAYER records");
+            progress.progress("Reading PLAYER records", 1, 2);
+            progress.done("PLAYER records read");
+            progress.start("Parsing PLAYER position");
+            progress.done("PLAYER position parsed");
             return new WorldPosition(16, 0, 16);
         }
 
@@ -488,4 +696,50 @@ class PrepareWorldSnapshotUseCaseTest {
             );
         }
     }
+    private static final class RecordingProgressReporter
+            extends ProgressReporter {
+        private final List<Double> fractions = new ArrayList<>();
+        private final List<String> doneStages = new ArrayList<>();
+
+        @Override
+        public void progress(
+                String stage,
+                int current,
+                int total
+        ) {
+            if (total > 0) {
+                fractions.add(
+                        Math.clamp(
+                                current / (double) total,
+                                0.0,
+                                1.0
+                        )
+                );
+            }
+        }
+
+        @Override
+        public void done(String stage) {
+            doneStages.add(stage);
+        }
+
+        private boolean monotonic() {
+            double previous = -1.0;
+            for (double fraction : fractions) {
+                if (fraction < previous) {
+                    return false;
+                }
+                previous = fraction;
+            }
+            return true;
+        }
+
+        private double lastFraction() {
+            if (fractions.isEmpty()) {
+                throw new AssertionError("no numeric progress was reported");
+            }
+            return fractions.get(fractions.size() - 1);
+        }
+    }
+
 }

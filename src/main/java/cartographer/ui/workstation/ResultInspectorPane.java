@@ -103,6 +103,77 @@ public final class ResultInspectorPane extends VBox {
         tabs.getSelectionModel().select(resultsTab);
     }
 
+    public void showWorldSnapshotResult(
+            PrepareWorldSnapshotResult result
+    ) {
+        List<javafx.scene.Node> nodes = new ArrayList<>();
+        nodes.add(sectionTitle("Prepared World Snapshot"));
+        nodes.add(label("Revision: " + result.revisionHash()));
+        nodes.add(label(
+                "Observed mapchunks: " + result.observedMapChunks()
+        ));
+        nodes.add(card(
+                "Coverage",
+                List.of(
+                        "Catalog: " + ready(result.mapChunkCatalogComplete()),
+                        "Terrain: " + ready(result.terrainCoverageComplete()),
+                        "Surface: " + ready(result.surfaceCoverageComplete()),
+                        "Map regions: " + ready(result.mapRegionCoverageComplete()),
+                        "UPPER_ROCK: " + ready(result.upperRockCoverageComplete()),
+                        "Resources: " + ready(result.resourceIndexCoverageComplete())
+                )
+        ));
+        nodes.add(card(
+                "This run",
+                List.of(
+                        "Terrain hit/published: "
+                                + result.terrainHits()
+                                + " / " + result.terrainPublished(),
+                        "Surface hit/published: "
+                                + result.surfaceHits()
+                                + " / " + result.surfacePublished(),
+                        "Mapregion hit/published: "
+                                + result.mapRegionHits()
+                                + " / " + result.mapRegionPublished(),
+                        "ROCK hit/published: "
+                                + result.upperRockHits()
+                                + " / " + result.upperRockPublished(),
+                        "Resource chunks hit/published: "
+                                + result.resourceChunkHits()
+                                + " / " + result.resourceChunksPublished()
+                )
+        ));
+        content.getChildren().setAll(nodes);
+
+        List<String> detail = new ArrayList<>();
+        detail.add("Snapshot complete: " + result.complete());
+        detail.add(
+                "Surface skipped incomplete: "
+                        + result.surfaceSkippedIncomplete()
+        );
+        detail.add(
+                "Resource block IDs: "
+                        + result.resourceBlocksCatalogued()
+        );
+        detail.add(
+                "Resource occurrence columns published: "
+                        + result.resourceOccurrenceColumnsPublished()
+        );
+        detail.addAll(diagnostics(
+                result.mapChunkDiagnostics(),
+                result.chunkDiagnostics(),
+                result.mapRegionDiagnostics(),
+                result.rockDiagnostics(),
+                result.resourceDiagnostics()
+        ));
+        diagnostics.show(detail);
+        tabs.getSelectionModel().select(resultsTab);
+    }
+
+    private String ready(boolean complete) {
+        return complete ? "ready" : "partial";
+    }
+
     public void showOreResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
         List<javafx.scene.Node> nodes = new ArrayList<>();
         nodes.add(sectionTitle("Ore Map"));
