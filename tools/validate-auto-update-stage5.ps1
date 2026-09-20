@@ -673,9 +673,13 @@ function Invoke-TamperInstaller {
     $afterHash = (
         Get-FileHash -LiteralPath $installer -Algorithm SHA256
     ).Hash.ToLowerInvariant()
+    $afterLength = (Get-Item -LiteralPath $installer).Length
 
     if ($beforeHash -eq $afterHash) {
         throw "Tamper helper did not change installer SHA-256."
+    }
+    if ([int64]$afterLength -ne [int64]$item.Length) {
+        throw "Tamper helper unexpectedly changed installer length."
     }
 
     Write-Pass "staged installer was changed without changing its length"
@@ -693,8 +697,26 @@ function Invoke-RestoreInstaller {
         throw "Stage 5 installer backup is missing: $backup"
     }
 
+    $backupItem = Get-Item -LiteralPath $backup
+    $backupHash = (
+        Get-FileHash -LiteralPath $backup -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
+
     Move-Item -LiteralPath $backup -Destination $installer -Force
-    Write-Pass "original staged installer restored"
+
+    $restoredItem = Get-Item -LiteralPath $installer
+    $restoredHash = (
+        Get-FileHash -LiteralPath $installer -Algorithm SHA256
+    ).Hash.ToLowerInvariant()
+
+    if ([int64]$restoredItem.Length -ne [int64]$backupItem.Length) {
+        throw "Restored installer length does not match the Stage 5 backup."
+    }
+    if ($restoredHash -ne $backupHash) {
+        throw "Restored installer SHA-256 does not match the Stage 5 backup."
+    }
+
+    Write-Pass "original staged installer restored and verified"
     Write-Host "SUMMARY: PASS - staged installer restored"
 }
 
