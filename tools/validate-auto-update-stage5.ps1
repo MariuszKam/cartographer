@@ -21,7 +21,11 @@ param(
 
     [Parameter(Mandatory = $false)]
     [string]$StateRoot = (
-        Join-Path ([Environment]::GetFolderPath("UserProfile")) ".vs-cartographer"
+        Join-Path (
+            [Environment]::GetFolderPath(
+                [Environment+SpecialFolder]::UserProfile
+            )
+        ) ".vs-cartographer"
     )
 )
 
@@ -288,6 +292,18 @@ function Assert-AutoCheckPreferencePreserved(
     }
 }
 
+
+function Get-OptionalProperty(
+    $Object,
+    [string]$Name
+) {
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property -or $null -eq $property.Value) {
+        return ""
+    }
+    return [string]$property.Value
+}
+
 function Get-InstallEntries {
     $roots = @(
         "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall",
@@ -310,10 +326,10 @@ function Get-InstallEntries {
 
                 $entries += [ordered]@{
                     RegistryPath = $key.PSPath
-                    DisplayName = [string]$properties.DisplayName
-                    DisplayVersion = [string]$properties.DisplayVersion
-                    InstallLocation = [string]$properties.InstallLocation
-                    UninstallString = [string]$properties.UninstallString
+                    DisplayName = Get-OptionalProperty $properties "DisplayName"
+                    DisplayVersion = Get-OptionalProperty $properties "DisplayVersion"
+                    InstallLocation = Get-OptionalProperty $properties "InstallLocation"
+                    UninstallString = Get-OptionalProperty $properties "UninstallString"
                 }
             } catch {
                 Write-WarningMessage "could not read uninstall entry: $($key.PSPath)"
@@ -366,8 +382,12 @@ function Assert-InstalledVersion([string]$ExpectedVersion) {
 }
 
 function Get-ShortcutPaths {
-    $desktop = [Environment]::GetFolderPath("Desktop")
-    $programs = [Environment]::GetFolderPath("Programs")
+    $desktop = [Environment]::GetFolderPath(
+        [Environment+SpecialFolder]::Desktop
+    )
+    $programs = [Environment]::GetFolderPath(
+        [Environment+SpecialFolder]::Programs
+    )
 
     return [ordered]@{
         Desktop = Join-Path $desktop "$applicationName.lnk"
