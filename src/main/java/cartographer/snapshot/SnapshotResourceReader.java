@@ -128,6 +128,9 @@ public final class SnapshotResourceReader {
             }
             return Optional.of(session.finish());
         } catch (RuntimeException failure) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw failure;
+            }
             return Optional.empty();
         }
     }
@@ -258,6 +261,9 @@ public final class SnapshotResourceReader {
             }
             return Optional.of(Map.copyOf(result));
         } catch (RuntimeException failure) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw failure;
+            }
             return Optional.empty();
         }
     }
@@ -279,6 +285,9 @@ public final class SnapshotResourceReader {
             }
             return Optional.of(store);
         } catch (RuntimeException failure) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw failure;
+            }
             return Optional.empty();
         }
     }
