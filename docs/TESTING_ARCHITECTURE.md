@@ -258,6 +258,13 @@ The worker count must be bounded and related to available CPU and workload
 characteristics. More workers are not automatically faster when tests compete
 for filesystem or SQLite resources.
 
+Current Gradle test tasks explicitly set
+`junit.jupiter.execution.parallel.enabled=false`. This pins methods and
+classes assigned to one worker to sequential JUnit execution, so
+`testParallelProbe` measures Gradle worker-process parallelism only. A future
+JUnit in-process experiment must use an explicit dedicated task/configuration;
+it must not silently alter the meaning of the existing baseline or probe.
+
 JUnit in-process parallel execution is a later optimization. It increases the
 importance of thread-safe fixtures and process-wide state audits, so it must not
 be enabled repository-wide before those contracts are satisfied.
@@ -333,6 +340,12 @@ combined test counts must not be treated as the size of the complete suite.
 The normal PR correctness gate must not switch from `test` to
 `testParallelProbe` until the parallel-safety audit and repeated validation
 support that change.
+
+During TEST-PERF rollout, draft PR CI may run a fixed two-worker
+`testParallelProbe` *after* the complete serial `test` gate. This is
+validation evidence, not a replacement for the serial correctness gate. Probe
+JUnit XML/HTML and timing reports are retained as CI artifacts so test counts,
+failures, and elapsed time can be compared directly with the serial run.
 
 ## CI contract
 
