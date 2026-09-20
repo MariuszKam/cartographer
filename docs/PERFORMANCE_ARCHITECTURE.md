@@ -758,7 +758,8 @@ mark PF-2.8 DONE.
 - Unrelated render paths may retain their own source-read architecture; the
   integrated render-data cache contract applies to render paths that delegate
   terrain/Surface preparation to `PrepareMapDataUseCase`.
-- Complete real incremental rendering is not claimed merely because legacy
-  cache/incremental commands exist.
+- Legacy table-fingerprint cache/incremental commands have been removed.
+  Snapshot-backed reuse is represented by the revision-scoped render-data and
+  world-snapshot architecture described above.
 - This architecture does not justify GC tuning, thread-count tuning, off-heap
   storage, JNI, SIMD, GPU work, or invented performance targets.

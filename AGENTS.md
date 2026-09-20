@@ -80,8 +80,6 @@ src/main/java/cartographer/
 │   ├── ScanCommand
 │   ├── GeologyCommand
 │   ├── MarkerCommand
-│   ├── CacheCommand
-│   ├── IncrementalCommand
 │   ├── AtlasCommand
 │   └── ProgressReporter
 │
@@ -89,7 +87,6 @@ src/main/java/cartographer/
 │   ├── SqliteSaveConnection
 │   ├── VcdbsReader
 │   ├── WorldMetadataReader
-│   ├── SaveIndexReader
 │   └── SaveInspector
 │
 ├── parser/
@@ -100,8 +97,11 @@ src/main/java/cartographer/
 │   └── ServerMapRegionParser
 │
 ├── scanner/
-│   ├── SurfaceScanner
-│   └── SurfaceScanResult
+│   ├── SurfaceStreamingSession
+│   ├── SurfaceRainHeightPlanner
+│   ├── SurfaceRainHeightScanner
+│   ├── SurfaceObjectCompactPlanner
+│   └── SurfaceObjectStreamingScanner
 │
 ├── render/
 │   ├── MapRenderer
