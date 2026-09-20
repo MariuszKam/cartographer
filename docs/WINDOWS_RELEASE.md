@@ -307,9 +307,11 @@ Stage 6 uses:
 
 for both manual package validation and tag-driven stable releases.
 
-A manual `workflow_dispatch` still builds and validates the selected ref, then
+A manual `workflow_dispatch` builds and validates the selected ref, generates
+the same stable `update.properties` contract using the canonical version, and
 uploads the Windows deliverables as a short-lived Actions artifact. It does not
-publish a GitHub Release.
+publish a GitHub Release. This provides a safe release-pipeline dry run without
+creating a tag.
 
 A pushed stable tag matching:
 
