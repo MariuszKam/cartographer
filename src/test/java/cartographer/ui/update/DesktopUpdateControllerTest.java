@@ -4,6 +4,8 @@ import cartographer.update.ApplicationVersion;
 import cartographer.update.UpdateCheckService;
 import cartographer.update.UpdateDownloadProgress;
 import cartographer.update.UpdateDownloadService;
+import cartographer.update.UpdateInstallLaunchResult;
+import cartographer.update.UpdateInstallOutcome;
 import cartographer.update.UpdateManifestParser;
 import cartographer.update.UpdatePreferences;
 import cartographer.update.UpdatePreferencesStore;
@@ -338,6 +340,206 @@ class DesktopUpdateControllerTest {
         assertTrue(harness.view.downloadFailure.contains("network lost"));
     }
 
+    @Test
+    void readyUpdateStartsInstallerBootstrapThenRequestsExit() {
+        Instant now = Instant.parse("2026-09-20T10:00:00Z");
+        AtomicInteger loads = new AtomicInteger();
+        AtomicInteger installs = new AtomicInteger();
+        AtomicInteger exits = new AtomicInteger();
+        FakeView view = new FakeView();
+        UpdateCheckService service = new UpdateCheckService(
+                ApplicationVersion.parse("1.0.0"),
+                () -> {
+                    loads.incrementAndGet();
+                    return validManifest("1.1.0");
+                },
+                new UpdateManifestParser()
+        );
+        DesktopUpdateController controller = new DesktopUpdateController(
+                service,
+                successfulDownloadService(),
+                ready -> {
+                    installs.incrementAndGet();
+                    return UpdateInstallLaunchResult.started();
+                },
+                Optional::empty,
+                store(),
+                view,
+                Runnable::run,
+                Runnable::run,
+                ignored -> { },
+                exits::incrementAndGet,
+                Clock.fixed(now, ZoneOffset.UTC),
+                Duration.ofHours(24)
+        );
+
+        controller.checkNow();
+        view.downloadAction.run();
+        view.installAction.run();
+
+        assertEquals(1, installs.get());
+        assertEquals(1, exits.get());
+        assertTrue(view.installLaunching);
+        assertNull(view.installFailure);
+    }
+
+    @Test
+    void invalidInstallerReturnsToDownloadRetryWithoutExiting() {
+        Instant now = Instant.parse("2026-09-20T10:00:00Z");
+        AtomicInteger exits = new AtomicInteger();
+        FakeView view = new FakeView();
+        UpdateCheckService service = new UpdateCheckService(
+                ApplicationVersion.parse("1.0.0"),
+                () -> validManifest("1.1.0"),
+                new UpdateManifestParser()
+        );
+        DesktopUpdateController controller = new DesktopUpdateController(
+                service,
+                successfulDownloadService(),
+                ready -> UpdateInstallLaunchResult.invalidInstaller(
+                        "installer changed"
+                ),
+                Optional::empty,
+                store(),
+                view,
+                Runnable::run,
+                Runnable::run,
+                ignored -> { },
+                exits::incrementAndGet,
+                Clock.fixed(now, ZoneOffset.UTC),
+                Duration.ofHours(24)
+        );
+
+        controller.checkNow();
+        view.downloadAction.run();
+        view.installAction.run();
+
+        assertEquals(0, exits.get());
+        assertTrue(view.downloadFailure.contains("installer changed"));
+        assertNull(view.installFailure);
+    }
+
+    @Test
+    void bootstrapStartFailureKeepsInstallRetryable() {
+        Instant now = Instant.parse("2026-09-20T10:00:00Z");
+        AtomicInteger attempts = new AtomicInteger();
+        FakeView view = new FakeView();
+        UpdateCheckService service = new UpdateCheckService(
+                ApplicationVersion.parse("1.0.0"),
+                () -> validManifest("1.1.0"),
+                new UpdateManifestParser()
+        );
+        DesktopUpdateController controller = new DesktopUpdateController(
+                service,
+                successfulDownloadService(),
+                ready -> {
+                    if (attempts.incrementAndGet() == 1) {
+                        return UpdateInstallLaunchResult.failed(
+                                "PowerShell unavailable"
+                        );
+                    }
+                    return UpdateInstallLaunchResult.started();
+                },
+                Optional::empty,
+                store(),
+                view,
+                Runnable::run,
+                Runnable::run,
+                ignored -> { },
+                () -> { },
+                Clock.fixed(now, ZoneOffset.UTC),
+                Duration.ofHours(24)
+        );
+
+        controller.checkNow();
+        view.downloadAction.run();
+        view.installAction.run();
+
+        assertTrue(view.installFailure.contains("PowerShell unavailable"));
+
+        view.installAction.run();
+
+        assertEquals(2, attempts.get());
+    }
+
+    @Test
+    void previousSuccessfulOutcomeIsSurfacedOnceAtStartup() {
+        Instant now = Instant.parse("2026-09-20T10:00:00Z");
+        FakeView view = new FakeView();
+        AtomicInteger outcomeLoads = new AtomicInteger();
+        UpdateCheckService service = new UpdateCheckService(
+                ApplicationVersion.parse("1.1.0"),
+                () -> validManifest("1.1.0"),
+                new UpdateManifestParser()
+        );
+        DesktopUpdateController controller = new DesktopUpdateController(
+                service,
+                successfulDownloadService(),
+                ready -> UpdateInstallLaunchResult.started(),
+                () -> {
+                    if (outcomeLoads.getAndIncrement() > 0) {
+                        return Optional.empty();
+                    }
+                    return Optional.of(new UpdateInstallOutcome(
+                            UpdateInstallOutcome.Status.SUCCESS,
+                            ApplicationVersion.parse("1.1.0"),
+                            UpdateInstallOutcome.Reason.SUCCESS,
+                            0
+                    ));
+                },
+                store(),
+                view,
+                Runnable::run,
+                Runnable::run,
+                ignored -> { },
+                () -> { },
+                Clock.fixed(now, ZoneOffset.UTC),
+                Duration.ofHours(24)
+        );
+
+        controller.showPreviousInstallOutcome();
+
+        assertEquals(
+                ApplicationVersion.parse("1.1.0"),
+                view.installedVersion
+        );
+        assertNull(view.previousInstallFailure);
+    }
+
+    @Test
+    void previousInstallerFailureIsSurfacedWithoutBlockingStartup() {
+        Instant now = Instant.parse("2026-09-20T10:00:00Z");
+        FakeView view = new FakeView();
+        UpdateCheckService service = new UpdateCheckService(
+                ApplicationVersion.parse("1.0.0"),
+                () -> validManifest("1.1.0"),
+                new UpdateManifestParser()
+        );
+        DesktopUpdateController controller = new DesktopUpdateController(
+                service,
+                successfulDownloadService(),
+                ready -> UpdateInstallLaunchResult.started(),
+                () -> Optional.of(new UpdateInstallOutcome(
+                        UpdateInstallOutcome.Status.FAILED,
+                        ApplicationVersion.parse("1.1.0"),
+                        UpdateInstallOutcome.Reason.INSTALLER_FAILED,
+                        1603
+                )),
+                store(),
+                view,
+                Runnable::run,
+                Runnable::run,
+                ignored -> { },
+                () -> { },
+                Clock.fixed(now, ZoneOffset.UTC),
+                Duration.ofHours(24)
+        );
+
+        controller.showPreviousInstallOutcome();
+
+        assertTrue(view.previousInstallFailure.contains("1603"));
+    }
+
     private TestHarness controller(
             UpdatePreferencesStore store,
             Instant now,
@@ -436,9 +638,14 @@ class DesktopUpdateControllerTest {
         private int downloadPercent = -1;
         private String failureMessage;
         private String downloadFailure;
+        private boolean installLaunching;
+        private String installFailure;
+        private ApplicationVersion installedVersion;
+        private String previousInstallFailure;
         private Runnable checkAction = () -> { };
         private Runnable openAction = () -> { };
         private Runnable downloadAction = () -> { };
+        private Runnable installAction = () -> { };
 
         @Override
         public void showCurrentVersion(ApplicationVersion version) {
@@ -458,6 +665,11 @@ class DesktopUpdateControllerTest {
         @Override
         public void setOnDownloadUpdate(Runnable action) {
             downloadAction = action;
+        }
+
+        @Override
+        public void setOnInstallUpdate(Runnable action) {
+            installAction = action;
         }
 
         @Override
@@ -492,6 +704,34 @@ class DesktopUpdateControllerTest {
         ) {
             availableVersion = version;
             downloadFailure = message;
+        }
+
+        @Override
+        public void showUpdateInstallLaunching(ApplicationVersion version) {
+            installLaunching = true;
+            installFailure = null;
+        }
+
+        @Override
+        public void showUpdateInstallFailed(
+                ApplicationVersion version,
+                String message
+        ) {
+            installFailure = message;
+        }
+
+        @Override
+        public void showUpdateInstalled(ApplicationVersion version) {
+            installedVersion = version;
+            previousInstallFailure = null;
+        }
+
+        @Override
+        public void showPreviousUpdateInstallFailed(
+                ApplicationVersion version,
+                String message
+        ) {
+            previousInstallFailure = message;
         }
 
         @Override

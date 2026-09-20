@@ -1,10 +1,14 @@
 package cartographer.ui.update;
 
+import cartographer.update.ApplicationVersion;
 import cartographer.update.UpdateCheckResult;
 import cartographer.update.UpdateCheckService;
 import cartographer.update.UpdateDownloadProgress;
 import cartographer.update.UpdateDownloadResult;
 import cartographer.update.UpdateDownloadService;
+import cartographer.update.UpdateInstallLaunchResult;
+import cartographer.update.UpdateInstallOutcome;
+import cartographer.update.UpdateInstallerLauncher;
 import cartographer.update.UpdateManifest;
 import cartographer.update.UpdatePreferences;
 import cartographer.update.UpdatePreferencesStore;
@@ -21,6 +25,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 public final class DesktopUpdateController {
     public static final Duration DEFAULT_AUTOMATIC_CHECK_INTERVAL =
@@ -28,11 +33,15 @@ public final class DesktopUpdateController {
 
     private final UpdateCheckService updateCheckService;
     private final UpdateDownloadService updateDownloadService;
+    private final UpdateInstallerLauncher installerLauncher;
+    private final Supplier<Optional<UpdateInstallOutcome>>
+            previousInstallOutcomeSupplier;
     private final UpdatePreferencesStore preferencesStore;
     private final UpdateCheckView view;
     private final Executor backgroundExecutor;
     private final Consumer<Runnable> uiDispatcher;
     private final Consumer<URI> releaseOpener;
+    private final Runnable exitApplication;
     private final Clock clock;
     private final Duration automaticCheckInterval;
     private final AtomicBoolean operationInProgress = new AtomicBoolean();
@@ -44,11 +53,15 @@ public final class DesktopUpdateController {
     public DesktopUpdateController(
             UpdateCheckService updateCheckService,
             UpdateDownloadService updateDownloadService,
+            UpdateInstallerLauncher installerLauncher,
+            Supplier<Optional<UpdateInstallOutcome>>
+                    previousInstallOutcomeSupplier,
             UpdatePreferencesStore preferencesStore,
             UpdateCheckView view,
             Executor backgroundExecutor,
             Consumer<Runnable> uiDispatcher,
             Consumer<URI> releaseOpener,
+            Runnable exitApplication,
             Clock clock,
             Duration automaticCheckInterval
     ) {
@@ -59,6 +72,14 @@ public final class DesktopUpdateController {
         this.updateDownloadService = Objects.requireNonNull(
                 updateDownloadService,
                 "updateDownloadService is required"
+        );
+        this.installerLauncher = Objects.requireNonNull(
+                installerLauncher,
+                "installerLauncher is required"
+        );
+        this.previousInstallOutcomeSupplier = Objects.requireNonNull(
+                previousInstallOutcomeSupplier,
+                "previousInstallOutcomeSupplier is required"
         );
         this.preferencesStore = Objects.requireNonNull(
                 preferencesStore,
@@ -77,6 +98,10 @@ public final class DesktopUpdateController {
                 releaseOpener,
                 "releaseOpener is required"
         );
+        this.exitApplication = Objects.requireNonNull(
+                exitApplication,
+                "exitApplication is required"
+        );
         this.clock = Objects.requireNonNull(clock, "clock is required");
         this.automaticCheckInterval = Objects.requireNonNull(
                 automaticCheckInterval,
@@ -87,6 +112,51 @@ public final class DesktopUpdateController {
         view.setOnCheckForUpdates(this::checkNow);
         view.setOnOpenUpdateRelease(this::openAvailableRelease);
         view.setOnDownloadUpdate(this::downloadAvailableUpdate);
+        view.setOnInstallUpdate(this::installReadyUpdate);
+    }
+
+    /**
+     * Backwards-compatible Stage 2/3 constructor used by focused tests and
+     * non-installing compositions. Stage 4 production wiring uses the full
+     * constructor above.
+     */
+    public DesktopUpdateController(
+            UpdateCheckService updateCheckService,
+            UpdateDownloadService updateDownloadService,
+            UpdatePreferencesStore preferencesStore,
+            UpdateCheckView view,
+            Executor backgroundExecutor,
+            Consumer<Runnable> uiDispatcher,
+            Consumer<URI> releaseOpener,
+            Clock clock,
+            Duration automaticCheckInterval
+    ) {
+        this(
+                updateCheckService,
+                updateDownloadService,
+                ignored -> UpdateInstallLaunchResult.failed(
+                        "Update installation is not configured"
+                ),
+                Optional::empty,
+                preferencesStore,
+                view,
+                backgroundExecutor,
+                uiDispatcher,
+                releaseOpener,
+                () -> { },
+                clock,
+                automaticCheckInterval
+        );
+    }
+
+    public void showPreviousInstallOutcome() {
+        Optional<UpdateInstallOutcome> outcome;
+        try {
+            outcome = previousInstallOutcomeSupplier.get();
+        } catch (RuntimeException ignored) {
+            return;
+        }
+        outcome.ifPresent(this::publishPreviousInstallOutcome);
     }
 
     public void startAutomaticCheck() {
@@ -248,6 +318,112 @@ public final class DesktopUpdateController {
         } finally {
             operationInProgress.set(false);
         }
+    }
+
+    private void installReadyUpdate() {
+        UpdateDownloadResult ready = readyUpdate.get();
+        if (ready == null
+                || !operationInProgress.compareAndSet(false, true)) {
+            return;
+        }
+
+        ApplicationVersion version = ready.manifest().version();
+        uiDispatcher.accept(() ->
+                view.showUpdateInstallLaunching(version)
+        );
+
+        try {
+            backgroundExecutor.execute(() -> runInstall(ready));
+        } catch (RuntimeException exception) {
+            operationInProgress.set(false);
+            uiDispatcher.accept(() ->
+                    view.showUpdateInstallFailed(
+                            version,
+                            conciseMessage(exception)
+                    )
+            );
+        }
+    }
+
+    private void runInstall(UpdateDownloadResult ready) {
+        ApplicationVersion version = ready.manifest().version();
+        try {
+            UpdateInstallLaunchResult result =
+                    installerLauncher.launch(ready);
+            switch (result.status()) {
+                case STARTED -> uiDispatcher.accept(exitApplication);
+                case INVALID_INSTALLER -> {
+                    readyUpdate.compareAndSet(ready, null);
+                    String message = result.failureMessage()
+                            .orElse("Installer verification failed");
+                    uiDispatcher.accept(() ->
+                            view.showUpdateDownloadFailed(
+                                    version,
+                                    message
+                            )
+                    );
+                }
+                case FAILED -> {
+                    String message = result.failureMessage()
+                            .orElse("Update installation could not start");
+                    uiDispatcher.accept(() ->
+                            view.showUpdateInstallFailed(
+                                    version,
+                                    message
+                            )
+                    );
+                }
+            }
+        } catch (RuntimeException exception) {
+            uiDispatcher.accept(() ->
+                    view.showUpdateInstallFailed(
+                            version,
+                            conciseMessage(exception)
+                    )
+            );
+        } finally {
+            operationInProgress.set(false);
+        }
+    }
+
+    private void publishPreviousInstallOutcome(
+            UpdateInstallOutcome outcome
+    ) {
+        ApplicationVersion current = updateCheckService.currentVersion();
+        if (outcome.status() == UpdateInstallOutcome.Status.SUCCESS) {
+            if (current.compareTo(outcome.version()) >= 0) {
+                uiDispatcher.accept(() ->
+                        view.showUpdateInstalled(outcome.version())
+                );
+            } else {
+                uiDispatcher.accept(() ->
+                        view.showPreviousUpdateInstallFailed(
+                                outcome.version(),
+                                "Installer reported success, but the running "
+                                        + "application is still v" + current
+                        )
+                );
+            }
+            return;
+        }
+
+        String message = switch (outcome.reason()) {
+            case INTEGRITY_CHECK_FAILED ->
+                    "Installer integrity changed before execution; "
+                            + "download the update again.";
+            case INSTALLER_FAILED ->
+                    "Installer exited with code " + outcome.exitCode() + ".";
+            case BOOTSTRAP_FAILED ->
+                    "Update bootstrap failed before installation completed.";
+            case SUCCESS ->
+                    "Update installation failed.";
+        };
+        uiDispatcher.accept(() ->
+                view.showPreviousUpdateInstallFailed(
+                        outcome.version(),
+                        message
+                )
+        );
     }
 
     private void publishProgress(

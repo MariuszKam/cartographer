@@ -37,8 +37,12 @@ import cartographer.update.HttpUpdateManifestSource;
 import cartographer.update.UpdateCheckService;
 import cartographer.update.UpdateDownloadService;
 import cartographer.update.UpdateEndpoints;
+import cartographer.update.UpdateInstallOutcomeStore;
+import cartographer.update.UpdateInstallerVerifier;
+import cartographer.update.UpdateInstallService;
 import cartographer.update.UpdateManifestParser;
 import cartographer.update.UpdatePreferencesStore;
+import cartographer.update.WindowsUpdateBootstrapper;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.scene.Scene;
@@ -55,6 +59,7 @@ import java.util.concurrent.Executors;
 
 public class CartographerDesktopApp extends Application {
     private ExecutorService updateExecutor;
+    private WorkstationController workstationController;
 
     @Override
     public void start(Stage stage) {
@@ -132,6 +137,8 @@ public class CartographerDesktopApp extends Application {
                 snapshotStatusUseCase
         );
 
+        workstationController = controller;
+
         stage.setTitle("VS Cartographer");
         Scene scene = new Scene(controller.root(), 1440, 880);
         scene.getStylesheets().add(
@@ -147,6 +154,9 @@ public class CartographerDesktopApp extends Application {
 
     @Override
     public void stop() {
+        if (workstationController != null) {
+            workstationController.shutdown();
+        }
         if (updateExecutor != null) {
             updateExecutor.shutdownNow();
         }
@@ -176,16 +186,31 @@ public class CartographerDesktopApp extends Application {
             return thread;
         });
 
+        Path updatesRoot = config.resolve("updates");
+        UpdateInstallerVerifier verifier = new UpdateInstallerVerifier();
+        WindowsUpdateBootstrapper bootstrapper =
+                new WindowsUpdateBootstrapper(updatesRoot);
+        UpdateInstallOutcomeStore installOutcomeStore =
+                new UpdateInstallOutcomeStore(
+                        bootstrapper.outcomePath()
+                );
+
         DesktopUpdateController updateController =
                 new DesktopUpdateController(
                         updateCheckService,
                         new UpdateDownloadService(
-                                config.resolve("updates"),
+                                updatesRoot,
                                 new HttpUpdateInstallerSource(
                                         Duration.ofSeconds(5),
                                         Duration.ofMinutes(30)
-                                )
+                                ),
+                                verifier
                         ),
+                        new UpdateInstallService(
+                                verifier,
+                                bootstrapper
+                        ),
+                        installOutcomeStore::consume,
                         new UpdatePreferencesStore(
                                 config.resolve("update.properties")
                         ),
@@ -195,9 +220,11 @@ public class CartographerDesktopApp extends Application {
                         uri -> getHostServices().showDocument(
                                 uri.toString()
                         ),
+                        Platform::exit,
                         Clock.systemUTC(),
                         DesktopUpdateController.DEFAULT_AUTOMATIC_CHECK_INTERVAL
                 );
+        updateController.showPreviousInstallOutcome();
         updateController.startAutomaticCheck();
     }
 
