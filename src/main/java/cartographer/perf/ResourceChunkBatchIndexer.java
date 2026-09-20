@@ -3,6 +3,7 @@ package cartographer.perf;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
 import cartographer.model.ParsedChunk;
+import cartographer.model.WorldMetadata;
 import cartographer.save.SelectiveChunkVisit;
 import cartographer.save.SelectiveChunkVisitStatus;
 
@@ -25,15 +26,21 @@ import java.util.TreeMap;
  * compacted into one 32-bit local-Y mask per block/local-X/local-Z column.</p>
  */
 public final class ResourceChunkBatchIndexer {
+    private final WorldMetadata metadata;
     private final ResourceBlockCatalog catalog;
     private final List<ChunkPosition> positions;
     private final Map<ChunkPosition, ResourceChunkIndexEntry> entries;
     private boolean finished;
 
     public ResourceChunkBatchIndexer(
+            WorldMetadata metadata,
             Collection<ChunkPosition> positions,
             ResourceBlockCatalog catalog
     ) {
+        this.metadata = Objects.requireNonNull(
+                metadata,
+                "metadata is required"
+        );
         Objects.requireNonNull(positions, "positions are required");
         this.catalog = Objects.requireNonNull(catalog, "catalog is required");
 
@@ -143,10 +150,22 @@ public final class ResourceChunkBatchIndexer {
         Map<Integer, long[]> masksByBlockId = new TreeMap<>();
 
         for (int localY = 0; localY < chunk.sizeY(); localY++) {
+            int worldY = chunk.worldY(localY);
+            if (worldY < 0 || worldY >= metadata.mapSizeY()) {
+                continue;
+            }
             long yBit = 1L << localY;
             for (int localZ = 0; localZ < chunk.sizeZ(); localZ++) {
+                int worldZ = chunk.worldZ(localZ);
+                if (worldZ < 0 || worldZ >= metadata.mapSizeZ()) {
+                    continue;
+                }
                 int row = localZ * chunk.sizeX();
                 for (int localX = 0; localX < chunk.sizeX(); localX++) {
+                    int worldX = chunk.worldX(localX);
+                    if (worldX < 0 || worldX >= metadata.mapSizeX()) {
+                        continue;
+                    }
                     int blockId = chunk.blockIdAt(
                             localX,
                             localY,
