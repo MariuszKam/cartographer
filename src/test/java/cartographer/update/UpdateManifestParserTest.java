@@ -73,6 +73,16 @@ class UpdateManifestParserTest {
                                 .replace("installerSize=123456", "installerSize=0")
                 )
         );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> parser.parse(
+                        validManifest("1.2.3")
+                                .replace(
+                                        "installerFile=VS-Cartographer-Setup-1.2.3.exe",
+                                        "installerFile=../evil.exe"
+                                )
+                )
+        );
     }
 
     static String validManifest(String version) {
