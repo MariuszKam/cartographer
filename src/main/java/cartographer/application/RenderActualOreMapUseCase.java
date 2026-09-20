@@ -35,7 +35,6 @@ import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockMatchSpec;
 import cartographer.scanner.MultiActualBlockMapScanner;
-import cartographer.scanner.SurfaceMapScanResult;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -347,14 +346,19 @@ public class RenderActualOreMapUseCase {
             );
         }
 
-        SurfaceMapScanResult compactSurface = prepared.surface();
+        PreparedSurfaceData preparedSurface = prepared.surface();
+        cartographer.scanner.SurfaceMap exactSoil =
+                options.layers().contains(RenderLayer.SOIL_FERTILITY)
+                        ? preparedSurface.requireAnalysis().map()
+                        : null;
         progress.start("Rendering map from world snapshot");
         RenderedMap rendered = renderer.render(
                 center,
                 player,
                 decorations.home(),
                 prepared.terrain(),
-                compactSurface.map(),
+                preparedSurface.renderData(),
+                exactSoil,
                 prepared.registry(),
                 options,
                 progress
@@ -418,7 +422,7 @@ public class RenderActualOreMapUseCase {
                 rendered.image(),
                 rendered.geometry(),
                 rendered.report(),
-                compactSurface,
+                preparedSurface.diagnostics(),
                 environmentOverlay,
                 geologyOverlay,
                 actualOreOverlays.isEmpty()
@@ -649,14 +653,19 @@ public class RenderActualOreMapUseCase {
                     "retained marker state is unavailable; full render is required"
             );
         }
-        SurfaceMapScanResult compactSurface = prepared.surface();
+        PreparedSurfaceData preparedSurface = prepared.surface();
+        cartographer.scanner.SurfaceMap exactSoil =
+                options.layers().contains(RenderLayer.SOIL_FERTILITY)
+                        ? preparedSurface.requireAnalysis().map()
+                        : null;
 
         RenderedMap rendered = renderer.render(
                 center,
                 player,
                 decorations.home(),
                 prepared.terrain(),
-                compactSurface.map(),
+                preparedSurface.renderData(),
+                exactSoil,
                 prepared.registry(),
                 options,
                 progress
@@ -728,7 +737,7 @@ public class RenderActualOreMapUseCase {
                 rendered.image(),
                 rendered.geometry(),
                 rendered.report(),
-                compactSurface,
+                preparedSurface.diagnostics(),
                 environmentOverlay,
                 geologyOverlay,
                 actualOreOverlays.isEmpty()
