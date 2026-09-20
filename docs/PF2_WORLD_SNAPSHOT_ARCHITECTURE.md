@@ -332,9 +332,43 @@ Any missing compatibility/coverage proof selects the second path.
 
 ### PF-2.7 — Prepare World UX
 
-Expose snapshot preparation, coverage and revision state in the Workstation
-with cancellable progress. Rendering an already-prepared region must remain
-separate from indexing work.
+Implemented on the PF-2.7 branch:
+
+- the Workstation World Bar exposes an explicit **Prepare world** action;
+- preparation is a normal cancellable `FOREGROUND` operation and therefore
+  reuses the P12 operation coordinator, progress reporting, stale-result
+  suppression and cooperative interruption semantics;
+- `Prepare world` invokes the existing `PrepareWorldSnapshotUseCase`; Render
+  remains a separate action and never starts whole-world indexing implicitly;
+- preparation progress is mapped into five monotonic top-level phases:
+  Terrain, Surface, Map regions, Geology and Resources;
+- the revision-scoped derived cache persists a small
+  `WorldSnapshotPreparationSummary` only after a prepare operation returns
+  normally. Interrupted work keeps already-published bounded artifacts, but
+  does not fabricate a completed summary;
+- Workstation status inspection uses `WorldDataSnapshot.openExisting(...)`
+  and cache-local summary/header/catalog metadata. Merely displaying snapshot
+  status does not open the source SQLite database and does not create a new
+  cache manifest;
+- the World Bar distinguishes `NOT_PREPARED`, `PARTIAL` and `READY`,
+  shows the current revision hash plus compact per-layer coverage, and changes
+  the action label between Prepare / Resume / Refresh;
+- a plain PF-1.7 render-cache manifest is not enough to claim that a PF-2
+  snapshot was prepared;
+- changing the source revision selects a new immutable revision namespace, so
+  an old READY summary cannot make the new save revision appear prepared;
+- the Inspector presents preparation coverage plus hit/publish counts for the
+  current run;
+- cancellation returns the Workstation to its normal responsive state and
+  refreshes the badge from whatever revision-local derived evidence actually
+  exists.
+
+The preparation summary is UX metadata, not source authority. Warm consumers
+continue to validate their own required coverage and fall back to source when
+PF-2.6 compatibility/coverage checks fail.
+
+Runtime and real-save validation remain reviewer-controlled and are deferred
+to PF-2.8.
 
 ### PF-2.8 — cold-ingest / warm-render validation
 
