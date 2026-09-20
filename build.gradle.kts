@@ -160,11 +160,21 @@ application {
     applicationDefaultJvmArgs = listOf("--enable-native-access=ALL-UNNAMED")
 }
 
-val testArchitecturePatterns = linkedMapOf(
-    "SLEEP" to Regex("""\b(?:Thread\.sleep|TimeUnit\.[A-Z]+\.sleep)\s*\("""),
-    "SYSTEM_PROPERTY_MUTATION" to Regex("""\bSystem\.(?:setProperty|clearProperty)\s*\("""),
-    "SYSTEM_DEFAULTapply(from = "gradle/test-architecture.gradle.kts")
-cessorPath = configurations["jmhAnnotationProcessor"]
+apply(from = "gradle/test-architecture.gradle.kts")
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+javafx {
+    version = "25"
+    modules("javafx.controls", "javafx.swing")
+}
+
+tasks.named<JavaCompile>("compileJmhJava") {
+    options.annotationProcessorPath = configurations["jmhAnnotationProcessor"]
 }
 
 tasks.register<JavaExec>("jmh") {
