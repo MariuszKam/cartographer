@@ -218,8 +218,54 @@ Runtime tests and real-save validation remain reviewer-controlled.
 
 ### PF-2.5 — resource index
 
-Build compact source-derived membership/occurrence indexes needed by Ore and
-Prospecting without fabricating ore presence from OreMaps.
+Implemented on the PF-2.5 branch:
+
+- `WorldDataSnapshot` exposes a revision-scoped `ResourceIndexStore`
+  alongside Terrain, Surface, mapregion and UPPER_ROCK state;
+- the indexed block catalog is derived only from the authoritative save block
+  registry. A block is eligible when its normalized block-code path starts
+  with `ore-`; OreMaps are not consulted as occurrence authority and cannot
+  fabricate actual ore presence;
+- preparation covers the full vertical server-chunk range beneath every
+  authoritative observed main-world mapchunk in the PF-2.3 catalog. This is
+  prepared snapshot coverage, not a claim that mapchunk absence proves
+  server-chunk absence outside that catalog;
+- source reads use the existing palette-aware selective chunk reader. A
+  `PALETTE_REJECTED` visit is an authoritative AVAILABLE negative for the
+  indexed ore IDs. `DECODED`, `MISSING` and `FAILED` remain distinct
+  terminal coverage states;
+- decoded matching chunks are reduced immediately. For each actual ore block
+  ID and local X/Z column the index stores one 32-bit local-Y occurrence mask,
+  preserving exact count/minY/maxY and future Y-filter semantics without one
+  database row per matching voxel;
+- membership rows are derived from actual decoded occurrences, not merely from
+  palette membership. A registry entry or unused palette entry therefore does
+  not prove that ore occurs in a chunk;
+- coverage, block catalog, membership and occurrence state live in
+  cache-local `resource-index-v1.sqlite` under the same revision namespace.
+  Decoded source chunks, source payloads and JDBC resources are never retained;
+- indexing is bounded by the existing world spatial batches. Valid terminal
+  coverage rows are HITs on a repeated prepare; only missing/corrupt coverage
+  positions are sent back to the authoritative source reader. Completed
+  batches survive interruption;
+- the resource scan-complete marker is published only after every expected
+  server-chunk position under the observed mapchunk catalog has a terminal
+  derived coverage entry. AVAILABLE-empty, MISSING and FAILED are all explicit
+  source observations rather than invented absence;
+- `snapshot prepare` reports registry ore IDs, resource chunk HITs,
+  republished chunks and compact occurrence-column counts separately;
+- PF-2.5 builds the index only. Ore and Prospecting still use their established
+  source-authoritative consumers until PF-2.6 routes compatible requests to
+  the snapshot with source fallback for missing/incompatible coverage;
+- the current index is intentionally compatible with actual `ore-*`
+  resource semantics. Generic non-ore substring overlays are outside PF-2.5
+  snapshot authority and must retain source fallback when consumer routing is
+  introduced.
+
+PF-2.5 does not change Surface planning or fallback behavior. The explicit
+no-top-down-early-stop boundary remains unchanged.
+
+Runtime tests and real-save validation remain reviewer-controlled.
 
 ### PF-2.6 — snapshot-backed operations
 
