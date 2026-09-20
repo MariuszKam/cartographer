@@ -63,13 +63,36 @@ public final class ResourceIndexStore {
     }
 
     public void publishBlockCatalog(Collection<BlockInfo> blocks) {
-        List<BlockInfo> safe = List.copyOf(
+        List<BlockInfo> input = List.copyOf(
                 Objects.requireNonNull(blocks, "blocks are required")
-        ).stream()
-                .peek(block -> Objects.requireNonNull(
-                        block,
-                        "blocks cannot contain null"
-                ))
+        );
+        LinkedHashMap<Integer, BlockInfo> uniqueById =
+                new LinkedHashMap<>();
+        for (BlockInfo block : input) {
+            Objects.requireNonNull(
+                    block,
+                    "blocks cannot contain null"
+            );
+            if (block.id() < 0
+                    || block.code() == null
+                    || block.code().isBlank()) {
+                throw new IllegalArgumentException(
+                        "resource block ID/code must be valid"
+                );
+            }
+            BlockInfo previous = uniqueById.putIfAbsent(
+                    block.id(),
+                    block
+            );
+            if (previous != null
+                    && !previous.code().equals(block.code())) {
+                throw new IllegalArgumentException(
+                        "resource block ID has conflicting codes: "
+                                + block.id()
+                );
+            }
+        }
+        List<BlockInfo> safe = uniqueById.values().stream()
                 .sorted(
                         Comparator.comparingInt(BlockInfo::id)
                                 .thenComparing(BlockInfo::code)
@@ -317,6 +340,20 @@ public final class ResourceIndexStore {
         if (safe.isEmpty()) {
             return;
         }
+        LinkedHashSet<ChunkPosition> uniquePositions =
+                new LinkedHashSet<>();
+        for (ResourceChunkIndexEntry entry : safe) {
+            Objects.requireNonNull(
+                    entry,
+                    "entries cannot contain null"
+            );
+            if (!uniquePositions.add(entry.position())) {
+                throw new IllegalArgumentException(
+                        "duplicate resource chunk entry: "
+                                + entry.position()
+                );
+            }
+        }
         requirePublishedRevision();
 
         try {
@@ -356,10 +393,6 @@ public final class ResourceIndexStore {
                                              + "VALUES (?, ?, ?, ?, ?)"
                              )) {
                     for (ResourceChunkIndexEntry entry : safe) {
-                        Objects.requireNonNull(
-                                entry,
-                                "entries cannot contain null"
-                        );
                         long packed = ChunkPosEncoder.encode(entry.position());
 
                         deleteMembership.setLong(1, packed);
