@@ -92,6 +92,16 @@ public record Pf28SnapshotValidationReport(
         out.append("Source safety: ")
                 .append(sourceSafety.status())
                 .append('\n');
+        if (!sourceSafety.violations().isEmpty()) {
+            out.append("Source-safety violations:\n");
+            sourceSafety.violations().forEach(violation ->
+                    out.append("- ")
+                            .append(violation.type())
+                            .append(": ")
+                            .append(violation.path())
+                            .append('\n')
+            );
+        }
         out.append("Revision invalidation: ")
                 .append(revisionInvalidationPassed ? "PASS" : "FAIL")
                 .append('\n');
