@@ -58,6 +58,53 @@ class Pf28SnapshotValidationReportTest {
                         1,
                         1,
                         false,
+                        100,
+                        100,
+                        0,
+                        100,
+                        100,
+                        true,
+                        FINGERPRINT,
+                        FINGERPRINT
+                );
+        Pf28SnapshotValidationReport report =
+                new Pf28SnapshotValidationReport(
+                        SHA,
+                        "revision",
+                        true,
+                        100L,
+                        Pf18ResourceEvidence.unavailable(),
+                        new SaveSafetyResult(
+                                SaveSafetyStatus.PASS,
+                                List.of()
+                        ),
+                        true,
+                        List.of(
+                                accepted(1024),
+                                bad,
+                                accepted(4096)
+                        )
+                );
+
+        assertFalse(report.accepted());
+    }
+
+    @Test
+    void rejectsIncompleteWarmSnapshotCoverage() {
+        Pf28WarmRenderSample bad =
+                new Pf28WarmRenderSample(
+                        2048,
+                        10L,
+                        20L,
+                        Pf18ResourceEvidence.unavailable(),
+                        0,
+                        0,
+                        true,
+                        100,
+                        100,
+                        0,
+                        100,
+                        99,
                         true,
                         FINGERPRINT,
                         FINGERPRINT
@@ -144,6 +191,11 @@ class Pf28SnapshotValidationReportTest {
                 0,
                 0,
                 true,
+                100,
+                90,
+                10,
+                100,
+                100,
                 true,
                 FINGERPRINT,
                 FINGERPRINT
