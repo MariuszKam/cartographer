@@ -34,8 +34,8 @@ public final class UpdatePreferencesStore {
             return UpdatePreferences.defaults();
         }
 
-        boolean autoCheck = Boolean.parseBoolean(
-                properties.getProperty("autoCheck", "true")
+        boolean autoCheck = parseBoolean(
+                properties.getProperty("autoCheck")
         );
         Optional<Instant> lastSuccessfulCheck = parseInstant(
                 properties.getProperty("lastSuccessfulCheck")
@@ -85,6 +85,19 @@ public final class UpdatePreferencesStore {
                     StandardCopyOption.REPLACE_EXISTING
             );
         }
+    }
+
+    private boolean parseBoolean(String value) {
+        if (value == null || value.isBlank()) {
+            return true;
+        }
+        if ("true".equalsIgnoreCase(value.trim())) {
+            return true;
+        }
+        if ("false".equalsIgnoreCase(value.trim())) {
+            return false;
+        }
+        return true;
     }
 
     private Optional<Instant> parseInstant(String value) {
