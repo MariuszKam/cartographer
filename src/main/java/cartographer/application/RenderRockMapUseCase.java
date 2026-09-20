@@ -114,7 +114,10 @@ public final class RenderRockMapUseCase {
                 );
         this.snapshotReader = cache.map(SnapshotUpperRockReader::new);
         this.snapshotRenderReader =
-                cache.map(SnapshotUpperRockRenderReader::new);
+                cache.map(store -> new SnapshotUpperRockRenderReader(
+                        store,
+                        this.renderer
+                ));
         this.snapshotHeaderReader =
                 cache.map(SnapshotWorldHeaderReader::new);
     }
