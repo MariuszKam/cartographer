@@ -201,4 +201,16 @@ class Pf28SnapshotValidationReportTest {
                 FINGERPRINT
         );
     }
+    private Pf28ColdSnapshotCoverage completeColdCoverage() {
+        return new Pf28ColdSnapshotCoverage(
+                100,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+        );
+    }
+
 }
