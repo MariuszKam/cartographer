@@ -325,12 +325,16 @@ function Get-InstallEntries {
                     continue
                 }
 
+                $displayVersion = Get-OptionalProperty $properties "DisplayVersion"
+                $installLocation = Get-OptionalProperty $properties "InstallLocation"
+                $uninstallString = Get-OptionalProperty $properties "UninstallString"
+
                 $entries += [ordered]@{
                     RegistryPath = $key.PSPath
-                    DisplayName = Get-OptionalProperty $properties "DisplayName"
-                    DisplayVersion = Get-OptionalProperty $properties "DisplayVersion"
-                    InstallLocation = Get-OptionalProperty $properties "InstallLocation"
-                    UninstallString = Get-OptionalProperty $properties "UninstallString"
+                    DisplayName = $displayName
+                    DisplayVersion = $displayVersion
+                    InstallLocation = $installLocation
+                    UninstallString = $uninstallString
                 }
             } catch {
                 Write-WarningMessage "could not read uninstall entry: $($key.PSPath)"
@@ -482,7 +486,26 @@ function Read-Baseline {
     if (-not (Test-Path -LiteralPath $baselinePath -PathType Leaf)) {
         throw "Stage 5 baseline is missing: $baselinePath. Run BeforeUpgrade first."
     }
-    return Get-Content -LiteralPath $baselinePath -Raw | ConvertFrom-Json
+
+    $baseline = Get-Content -LiteralPath $baselinePath -Raw | ConvertFrom-Json
+    if ([int]$baseline.SchemaVersion -ne 1) {
+        throw "Unsupported Stage 5 baseline schema: $($baseline.SchemaVersion)"
+    }
+
+    Assert-UpgradeDirection (
+        [string]$baseline.OldVersion
+    ) (
+        [string]$baseline.TargetVersion
+    )
+
+    if ([string]::IsNullOrWhiteSpace([string]$baseline.StateRoot)) {
+        throw "Stage 5 baseline is missing StateRoot."
+    }
+    if ($null -eq $baseline.Save) {
+        throw "Stage 5 baseline is missing save evidence."
+    }
+
+    return $baseline
 }
 
 function Invoke-BeforeUpgrade {
