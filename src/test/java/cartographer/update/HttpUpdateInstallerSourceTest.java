@@ -67,6 +67,45 @@ class HttpUpdateInstallerSourceTest {
     }
 
     @Test
+    void httpPayloadIsVerifiedAndPromotedByDownloadService()
+            throws Exception {
+        byte[] bytes = "verified-http-installer".getBytes();
+        UpdateManifest manifest = manifest(bytes);
+        HttpUpdateInstallerSource source = new HttpUpdateInstallerSource(
+                request -> response(
+                        request,
+                        200,
+                        manifest.installerUri(),
+                        Map.of(
+                                "Content-Length",
+                                List.of(Long.toString(bytes.length))
+                        ),
+                        bytes
+                ),
+                Duration.ofSeconds(5)
+        );
+        Path updates = temporaryDirectory.resolve("updates");
+        UpdateDownloadService service = new UpdateDownloadService(
+                updates,
+                source
+        );
+
+        UpdateDownloadResult result = service.download(
+                manifest,
+                ignored -> { }
+        );
+
+        assertEquals(UpdateDownloadResult.Status.READY, result.status());
+        Path installer = result.installerPath().orElseThrow();
+        assertArrayEquals(bytes, Files.readAllBytes(installer));
+        assertFalse(Files.exists(
+                installer.resolveSibling(
+                        installer.getFileName().toString() + ".part"
+                )
+        ));
+    }
+
+    @Test
     void rejectsNonSuccessStatusBeforeCreatingDestination() {
         byte[] bytes = "installer-payload".getBytes();
         UpdateManifest manifest = manifest(bytes);
