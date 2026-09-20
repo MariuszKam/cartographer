@@ -18,8 +18,10 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayDeque;
 import java.util.HexFormat;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -241,6 +243,69 @@ class DesktopUpdateControllerTest {
         assertEquals(
                 ApplicationVersion.parse("1.1.0"),
                 harness.view.readyVersion
+        );
+    }
+
+    @Test
+    void queuedDownloadBlocksOverlappingChecksAndDuplicateDownloads() {
+        Instant now = Instant.parse("2026-09-20T10:00:00Z");
+        AtomicInteger loads = new AtomicInteger();
+        AtomicInteger downloads = new AtomicInteger();
+        Queue<Runnable> backgroundTasks = new ArrayDeque<>();
+        FakeView view = new FakeView();
+
+        UpdateCheckService service = new UpdateCheckService(
+                ApplicationVersion.parse("1.0.0"),
+                () -> {
+                    loads.incrementAndGet();
+                    return validManifest("1.1.0");
+                },
+                new UpdateManifestParser()
+        );
+        UpdateDownloadService downloadService = new UpdateDownloadService(
+                temporaryDirectory.resolve("serialized-updates"),
+                (manifest, destination, listener) -> {
+                    downloads.incrementAndGet();
+                    Files.write(destination, INSTALLER_BYTES);
+                    listener.accept(new UpdateDownloadProgress(
+                            INSTALLER_BYTES.length,
+                            INSTALLER_BYTES.length
+                    ));
+                }
+        );
+        DesktopUpdateController controller = new DesktopUpdateController(
+                service,
+                downloadService,
+                store(),
+                view,
+                backgroundTasks::add,
+                Runnable::run,
+                ignored -> { },
+                Clock.fixed(now, ZoneOffset.UTC),
+                Duration.ofHours(24)
+        );
+
+        controller.checkNow();
+        assertEquals(1, backgroundTasks.size());
+        backgroundTasks.remove().run();
+        assertEquals(1, loads.get());
+
+        view.downloadAction.run();
+        assertEquals(1, backgroundTasks.size());
+
+        view.downloadAction.run();
+        controller.checkNow();
+
+        assertEquals(1, backgroundTasks.size());
+        assertEquals(1, loads.get());
+        assertEquals(0, downloads.get());
+
+        backgroundTasks.remove().run();
+
+        assertEquals(1, downloads.get());
+        assertEquals(
+                ApplicationVersion.parse("1.1.0"),
+                view.readyVersion
         );
     }
 
