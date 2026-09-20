@@ -7,8 +7,10 @@ import cartographer.geology.rock.RockStreamingSession;
 import cartographer.model.ChunkPosition;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
+import cartographer.perf.RenderDataCacheStore;
 import cartographer.render.RockMapRenderResult;
 import cartographer.render.RockMapRenderer;
+import cartographer.snapshot.SnapshotUpperRockReader;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
@@ -26,6 +28,7 @@ public final class RenderRockMapUseCase {
     private final VcdbsReader reader;
     private final SaveSessionFactory sessionFactory;
     private final RockMapRenderer renderer;
+    private final Optional<SnapshotUpperRockReader> snapshotReader;
     private final OreChunkPositionPlanner positionPlanner =
             new OreChunkPositionPlanner();
 
@@ -50,12 +53,60 @@ public final class RenderRockMapUseCase {
             VcdbsReader reader,
             WorldMetadataReader metadataReader,
             RockMapRenderer renderer,
+            RenderDataCacheStore renderDataCacheStore
+    ) {
+        this(
+                reader,
+                metadataReader,
+                renderer,
+                new SaveSessionFactory(
+                        new SqliteSaveConnection(),
+                        reader,
+                        metadataReader
+                ),
+                Optional.of(Objects.requireNonNull(
+                        renderDataCacheStore,
+                        "render data cache store is required"
+                ))
+        );
+    }
+
+    public RenderRockMapUseCase(
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            RockMapRenderer renderer,
             SaveSessionFactory sessionFactory
+    ) {
+        this(
+                reader,
+                metadataReader,
+                renderer,
+                sessionFactory,
+                Optional.empty()
+        );
+    }
+
+    RenderRockMapUseCase(
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            RockMapRenderer renderer,
+            SaveSessionFactory sessionFactory,
+            Optional<RenderDataCacheStore> renderDataCacheStore
     ) {
         this.reader = Objects.requireNonNull(reader, "reader is required");
         Objects.requireNonNull(metadataReader, "metadata reader is required");
-        this.sessionFactory = Objects.requireNonNull(sessionFactory, "sessionFactory is required");
-        this.renderer = Objects.requireNonNull(renderer, "renderer is required");
+        this.sessionFactory = Objects.requireNonNull(
+                sessionFactory,
+                "sessionFactory is required"
+        );
+        this.renderer = Objects.requireNonNull(
+                renderer,
+                "renderer is required"
+        );
+        this.snapshotReader = Objects.requireNonNull(
+                renderDataCacheStore,
+                "render data cache option is required"
+        ).map(SnapshotUpperRockReader::new);
     }
 
     public RockMapRenderResult renderRetained(RockMap rockMap) {
@@ -117,6 +168,38 @@ public final class RenderRockMapUseCase {
         if (minY < 0 || maxYExclusive > metadata.mapSizeY()
                 || minY >= maxYExclusive) {
             throw new IllegalArgumentException("Rock Y range is outside the world vertical range");
+        }
+
+        if (request.mode() == RockMapMode.UPPER_ROCK
+                && minY == 0
+                && maxYExclusive == metadata.mapSizeY()
+                && snapshotReader.isPresent()) {
+            progress.start("Reading geology from world snapshot");
+            Optional<RockMap> snapshotMap = snapshotReader.orElseThrow().read(
+                    request.savePath(),
+                    metadata,
+                    saveSession.snapshot().blockRegistry(),
+                    center,
+                    request.radius()
+            );
+            if (snapshotMap.isPresent()) {
+                RockMap map = snapshotMap.orElseThrow();
+                progress.start("Rendering geology map");
+                RockMapRenderResult rendered = renderer.render(map);
+                progress.done("Rendered geology from world snapshot");
+                return new RenderRockMapResult(
+                        map,
+                        rendered,
+                        catalog,
+                        new SelectiveChunkStreamStats(
+                                0, 0, 0, 0, 0, 0, 0, 0
+                        ),
+                        new ReadDiagnostics(),
+                        center,
+                        minY,
+                        maxYExclusive
+                );
+            }
         }
 
         List<ChunkPosition> positions = positionPlanner.plan(
