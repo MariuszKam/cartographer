@@ -59,6 +59,57 @@ class Pf3RenderSizedValidationReportTest {
         assertFalse(missingRadius.accepted());
     }
 
+    @Test
+    void rejectsRockSourceReadOrRetainedMap() {
+        Pf3RockWarmRenderSample sourceRead =
+                new Pf3RockWarmRenderSample(
+                        2048,
+                        10L,
+                        20L,
+                        Pf18ResourceEvidence.unavailable(),
+                        1,
+                        1,
+                        true,
+                        true,
+                        true,
+                        true,
+                        FINGERPRINT,
+                        FINGERPRINT
+                );
+        Pf3RockWarmRenderSample retained =
+                new Pf3RockWarmRenderSample(
+                        2048,
+                        10L,
+                        20L,
+                        Pf18ResourceEvidence.unavailable(),
+                        0,
+                        0,
+                        false,
+                        true,
+                        true,
+                        true,
+                        FINGERPRINT,
+                        FINGERPRINT
+                );
+
+        assertFalse(reportWith(sourceRead).accepted());
+        assertFalse(reportWith(retained).accepted());
+    }
+
+    private Pf3RenderSizedValidationReport reportWith(
+            Pf3RockWarmRenderSample radius2048
+    ) {
+        return new Pf3RenderSizedValidationReport(
+                mapSurface(),
+                passSafety(),
+                List.of(
+                        rock(1024, true),
+                        radius2048,
+                        rock(4096, true)
+                )
+        );
+    }
+
     private Pf28SnapshotValidationReport mapSurface() {
         return new Pf28SnapshotValidationReport(
                 SHA,
@@ -117,6 +168,9 @@ class Pf3RenderSizedValidationReportTest {
                 10L,
                 20L,
                 Pf18ResourceEvidence.unavailable(),
+                0,
+                0,
+                true,
                 parity,
                 parity,
                 parity,
