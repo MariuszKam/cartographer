@@ -244,14 +244,16 @@ tasks.register("testArchitectureAudit") {
             writer.appendLine(
                 "path,signals,reviewSignalCount,reviewPriority,reviewReasons"
             )
-            val informationalSignals = setOf(
-                "TEMP_DIR",
-                "TEST_CATEGORY",
+            val reviewSignals = setOf(
+                "USER_HOME_REFERENCE",
+                "EXECUTOR",
+                "THREAD_CREATION",
+                "NETWORK_FIXTURE",
                 "RESOURCE_LOCK"
             )
             categoriesByFile.forEach { (path, categories) ->
-                val reviewSignals = categories.count { category ->
-                    category !in informationalSignals
+                val reviewSignalCount = categories.count { category ->
+                    category in reviewSignals
                 }
                 val reviewReasons = linkedSetOf<String>()
                 if ("FILESYSTEM_MUTATION" in categories
@@ -268,23 +270,32 @@ tasks.register("testArchitectureAudit") {
                 if ("MUTABLE_STATIC" in categories) {
                     reviewReasons.add("mutable-static")
                 }
-                if ("NETWORK_FIXTURE" in categories) {
-                    reviewReasons.add("network-fixture")
-                }
                 if ("SLEEP" in categories) {
                     reviewReasons.add("scheduler-timing")
                 }
                 if ("UNBOUNDED_THREAD_JOIN" in categories) {
                     reviewReasons.add("unbounded-thread-join")
                 }
+                if ("THREAD_CREATION" in categories
+                    && "TEST_CATEGORY" !in categories) {
+                    reviewReasons.add("uncategorized-thread-creation")
+                }
+                if ("EXECUTOR" in categories
+                    && "TEST_CATEGORY" !in categories) {
+                    reviewReasons.add("uncategorized-executor")
+                }
+                if ("NETWORK_FIXTURE" in categories
+                    && "TEST_CATEGORY" !in categories) {
+                    reviewReasons.add("uncategorized-network-fixture")
+                }
                 val reviewPriority = when {
                     reviewReasons.isNotEmpty() -> "HIGH"
-                    reviewSignals > 0 -> "REVIEW"
+                    reviewSignalCount > 0 -> "REVIEW"
                     else -> "INFO"
                 }
                 writer.appendLine(
                     "$path,${categories.sorted().joinToString("|")}," +
-                        "$reviewSignals,$reviewPriority," +
+                        "$reviewSignalCount,$reviewPriority," +
                         reviewReasons.joinToString("|")
                 )
             }
@@ -304,48 +315,31 @@ tasks.register("testArchitectureAudit") {
     }
 }
 
-val forbiddenTestArchitecturePatterns = linkedMapOf(
-    "SLEEP" to testArchitecturePatterns.getValue("SLEEP"),
-    "UNBOUNDED_THREAD_JOIN" to
-        testArchitecturePatterns.getValue("UNBOUNDED_THREAD_JOIN")
-)
-
 tasks.register("testArchitectureGuard") {
     group = "verification"
-    description = "Fails on test patterns forbidden by the testing architecture"
+    description = "Fails when the generated test architecture audit contains HIGH-risk files"
     dependsOn("testArchitectureAudit")
 
-    val sources = fileTree("src/test/java") {
-        include("**/*.java")
-    }
-    inputs.files(sources)
+    val summaryReport = layout.buildDirectory.file(
+        "reports/test-performance/test-architecture-summary.csv"
+    )
+    inputs.file(summaryReport)
 
     doLast {
-        val violations = mutableListOf<String>()
-        sources.files
-            .sortedBy { it.relativeTo(project.projectDir).invariantSeparatorsPath }
-            .forEach { source ->
-                val relative = source
-                    .relativeTo(project.projectDir)
-                    .invariantSeparatorsPath
-                source.readLines().forEachIndexed { index, line ->
-                    forbiddenTestArchitecturePatterns.forEach { (category, pattern) ->
-                        if (pattern.containsMatchIn(line)) {
-                            violations.add(
-                                "$category $relative:${index + 1} ${line.trim()}"
-                            )
-                        }
-                    }
-                }
+        val highRiskRows = summaryReport.get().asFile
+            .readLines()
+            .drop(1)
+            .filter { line ->
+                line.split(",", limit = 5).getOrNull(3) == "HIGH"
             }
 
-        if (violations.isNotEmpty()) {
+        if (highRiskRows.isNotEmpty()) {
             throw GradleException(
-                "Forbidden test architecture patterns detected:\n" +
-                    violations.joinToString("\n")
+                "HIGH-risk test architecture findings detected:\n" +
+                    highRiskRows.joinToString("\n")
             )
         }
-        logger.lifecycle("Test architecture guard: PASS")
+        logger.lifecycle("Test architecture guard: PASS (no HIGH-risk files)")
     }
 }
 
