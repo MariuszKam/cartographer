@@ -241,13 +241,19 @@ tasks.register("testArchitectureAudit") {
         }
 
         summaryOutput.bufferedWriter().use { writer ->
-            writer.appendLine("path,categories,reviewSignalCount")
+            writer.appendLine("path,signals,reviewSignalCount,parallelReviewRequired")
+            val informationalSignals = setOf(
+                "TEMP_DIR",
+                "TEST_CATEGORY",
+                "RESOURCE_LOCK"
+            )
             categoriesByFile.forEach { (path, categories) ->
                 val reviewSignals = categories.count { category ->
-                    category != "TEMP_DIR"
+                    category !in informationalSignals
                 }
                 writer.appendLine(
-                    "$path,${categories.sorted().joinToString("|")},$reviewSignals"
+                    "$path,${categories.sorted().joinToString("|")}," +
+                        "$reviewSignals,${reviewSignals > 0}"
                 )
             }
         }
@@ -315,6 +321,22 @@ fun Test.attachTimingReports(reportPrefix: String) {
                         }
                 }
 
+                val summaryOutput = File(
+                    reportDirectory,
+                    "$reportPrefix-suite-summary.csv"
+                )
+                summaryOutput.bufferedWriter().use { writer ->
+                    writer.appendLine("metric,value")
+                    writer.appendLine("durationMs,${result.endTime - result.startTime}")
+                    writer.appendLine("testCount,${result.testCount}")
+                    writer.appendLine(
+                        "successfulTestCount,${result.successfulTestCount}"
+                    )
+                    writer.appendLine("failedTestCount,${result.failedTestCount}")
+                    writer.appendLine("skippedTestCount,${result.skippedTestCount}")
+                    writer.appendLine("maxParallelForks,$maxParallelForks")
+                }
+
                 logger.lifecycle(
                     "Test class timing report: ${classOutput.absolutePath}"
                 )
@@ -351,7 +373,10 @@ fun Test.attachTimingReports(reportPrefix: String) {
         ) {
             val className = testDescriptor.className ?: return
             val testName = "$className#${testDescriptor.name}"
-            methodDurations[testName] = result.endTime - result.startTime
+            val durationMs = result.endTime - result.startTime
+            methodDurations.merge(testName, durationMs) { left, right ->
+                left + right
+            }
         }
     })
 }
