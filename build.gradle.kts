@@ -1,6 +1,10 @@
 import java.util.Locale
 import java.io.File
 import java.security.MessageDigest
+import java.util.concurrent.ConcurrentHashMap
+import org.gradle.api.tasks.testing.TestDescriptor
+import org.gradle.api.tasks.testing.TestListener
+import org.gradle.api.tasks.testing.TestResult
 import org.gradle.api.GradleException
 import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.compile.JavaCompile
@@ -160,8 +164,54 @@ application {
     applicationDefaultJvmArgs = listOf("--enable-native-access=ALL-UNNAMED")
 }
 
+val testClassDurationsMs = ConcurrentHashMap<String, Long>()
+
 tasks.test {
     useJUnitPlatform()
+    reports.junitXml.required.set(true)
+    reports.html.required.set(true)
+
+    addTestListener(object : TestListener {
+        override fun beforeSuite(suite: TestDescriptor) = Unit
+
+        override fun afterSuite(suite: TestDescriptor, result: TestResult) {
+            val className = suite.className
+            if (className != null && suite.parent?.className == null) {
+                testClassDurationsMs[className] = result.endTime - result.startTime
+            }
+
+            if (suite.parent == null) {
+                val output = layout.buildDirectory
+                    .file("reports/test-performance/test-class-timings.csv")
+                    .get()
+                    .asFile
+                output.parentFile.mkdirs()
+                output.bufferedWriter().use { writer ->
+                    writer.appendLine("class,durationMs")
+                    testClassDurationsMs.entries
+                        .sortedByDescending { it.value }
+                        .forEach { (testClass, durationMs) ->
+                            val escapedClass = testClass.replace(""", """")
+                            writer.appendLine(""$escapedClass",$durationMs")
+                        }
+                }
+
+                logger.lifecycle("Test timing report: ${output.absolutePath}")
+                testClassDurationsMs.entries
+                    .sortedByDescending { it.value }
+                    .take(20)
+                    .forEachIndexed { index, entry ->
+                        logger.lifecycle(
+                            "TEST-TIMING #${index + 1} ${entry.value} ms ${entry.key}"
+                        )
+                    }
+            }
+        }
+
+        override fun beforeTest(testDescriptor: TestDescriptor) = Unit
+
+        override fun afterTest(testDescriptor: TestDescriptor, result: TestResult) = Unit
+    })
 }
 
 java {
