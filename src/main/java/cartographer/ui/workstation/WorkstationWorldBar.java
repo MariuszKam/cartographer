@@ -1,5 +1,6 @@
 package cartographer.ui.workstation;
 
+import cartographer.update.ApplicationVersion;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -18,9 +19,11 @@ public final class WorkstationWorldBar extends HBox {
     private final Label player = new Label("Player —");
     private final Button checkUpdates = new Button("Check updates");
     private final Button updateAvailable = new Button();
+    private final Button downloadUpdate = new Button("Download");
     private final WorldSnapshotPane snapshotPane;
     private Runnable onCheckForUpdates = () -> { };
     private Runnable onOpenUpdateRelease = () -> { };
+    private Runnable onDownloadUpdate = () -> { };
 
     public WorkstationWorldBar(
             WorldPanel worldPanel,
@@ -45,10 +48,14 @@ public final class WorkstationWorldBar extends HBox {
         player.getStyleClass().add("world-summary");
         checkUpdates.getStyleClass().add("update-check-button");
         updateAvailable.getStyleClass().add("update-available-chip");
+        downloadUpdate.getStyleClass().add("update-check-button");
         updateAvailable.setVisible(false);
         updateAvailable.setManaged(false);
+        downloadUpdate.setVisible(false);
+        downloadUpdate.setManaged(false);
         checkUpdates.setOnAction(event -> onCheckForUpdates.run());
         updateAvailable.setOnAction(event -> onOpenUpdateRelease.run());
+        downloadUpdate.setOnAction(event -> onDownloadUpdate.run());
 
         Region spacer = new Region();
         HBox.setHgrow(worldPanel, Priority.ALWAYS);
@@ -63,14 +70,14 @@ public final class WorkstationWorldBar extends HBox {
                 spacer,
                 snapshotPane,
                 updateAvailable,
+                downloadUpdate,
                 checkUpdates,
                 save,
                 player
         );
     }
 
-
-    public void setCurrentVersion(cartographer.update.ApplicationVersion currentVersion) {
+    public void setCurrentVersion(ApplicationVersion currentVersion) {
         version.setText("v" + Objects.requireNonNull(
                 currentVersion,
                 "currentVersion is required"
@@ -85,34 +92,108 @@ public final class WorkstationWorldBar extends HBox {
         onOpenUpdateRelease = action == null ? () -> { } : action;
     }
 
+    public void setOnDownloadUpdate(Runnable action) {
+        onDownloadUpdate = action == null ? () -> { } : action;
+    }
+
     public void showUpdateChecking() {
         checkUpdates.setDisable(true);
         checkUpdates.setText("Checking…");
         checkUpdates.setTooltip(null);
+        downloadUpdate.setDisable(true);
     }
 
-    public void showUpdateAvailable(
-            cartographer.update.ApplicationVersion availableVersion
-    ) {
-        updateAvailable.setText(
-                "Update " + Objects.requireNonNull(
-                        availableVersion,
-                        "availableVersion is required"
-                )
+    public void showUpdateAvailable(ApplicationVersion availableVersion) {
+        ApplicationVersion checkedVersion = Objects.requireNonNull(
+                availableVersion,
+                "availableVersion is required"
         );
+        updateAvailable.setText("Update " + checkedVersion);
         updateAvailable.setVisible(true);
         updateAvailable.setManaged(true);
+        updateAvailable.setDisable(false);
         updateAvailable.setTooltip(
                 new Tooltip("Open release notes on GitHub")
+        );
+
+        downloadUpdate.setText("Download");
+        downloadUpdate.setVisible(true);
+        downloadUpdate.setManaged(true);
+        downloadUpdate.setDisable(false);
+        downloadUpdate.setTooltip(
+                new Tooltip("Download and verify the installer")
+        );
+
+        checkUpdates.setDisable(false);
+        checkUpdates.setText("Check again");
+        checkUpdates.setTooltip(null);
+    }
+
+    public void showUpdateDownloading(
+            ApplicationVersion availableVersion,
+            int percent
+    ) {
+        Objects.requireNonNull(
+                availableVersion,
+                "availableVersion is required"
+        );
+        int boundedPercent = Math.max(0, Math.min(100, percent));
+        downloadUpdate.setVisible(true);
+        downloadUpdate.setManaged(true);
+        downloadUpdate.setDisable(true);
+        downloadUpdate.setText("Downloading " + boundedPercent + "%");
+        downloadUpdate.setTooltip(
+                new Tooltip("Downloading and verifying update")
+        );
+        checkUpdates.setDisable(true);
+    }
+
+    public void showUpdateReady(ApplicationVersion availableVersion) {
+        ApplicationVersion checkedVersion = Objects.requireNonNull(
+                availableVersion,
+                "availableVersion is required"
+        );
+        downloadUpdate.setVisible(true);
+        downloadUpdate.setManaged(true);
+        downloadUpdate.setDisable(true);
+        downloadUpdate.setText("Ready " + checkedVersion);
+        downloadUpdate.setTooltip(
+                new Tooltip(
+                        "Verified installer is ready; installation is Stage 4"
+                )
         );
         checkUpdates.setDisable(false);
         checkUpdates.setText("Check again");
         checkUpdates.setTooltip(null);
     }
 
+    public void showUpdateDownloadFailed(
+            ApplicationVersion availableVersion,
+            String message
+    ) {
+        Objects.requireNonNull(
+                availableVersion,
+                "availableVersion is required"
+        );
+        downloadUpdate.setVisible(true);
+        downloadUpdate.setManaged(true);
+        downloadUpdate.setDisable(false);
+        downloadUpdate.setText("Retry download");
+        downloadUpdate.setTooltip(
+                new Tooltip(
+                        message == null || message.isBlank()
+                                ? "Update download failed"
+                                : message
+                )
+        );
+        checkUpdates.setDisable(false);
+    }
+
     public void showUpToDate() {
         updateAvailable.setVisible(false);
         updateAvailable.setManaged(false);
+        downloadUpdate.setVisible(false);
+        downloadUpdate.setManaged(false);
         checkUpdates.setDisable(false);
         checkUpdates.setText("Up to date");
         checkUpdates.setTooltip(
@@ -130,6 +211,9 @@ public final class WorkstationWorldBar extends HBox {
                                 : message
                 )
         );
+        if (updateAvailable.isVisible()) {
+            downloadUpdate.setDisable(false);
+        }
     }
 
     public void setSnapshotSaveAvailable(boolean available) {
