@@ -625,6 +625,33 @@ This remains derived-cache architecture: source authority, read-only safety,
 operation-scoped source sessions and fallback-to-source correctness are
 unchanged. No global collection of decoded source chunks is retained.
 
+
+### PF-2.6 snapshot-backed warm operations
+
+PF-2.6 turns the PF-2.3/2.4/2.5 stores into runtime consumers rather than only
+preparation artifacts. A small revision-scoped world header supplies metadata,
+registry and optional PLAYER state so compatible warm operations can prove
+their inputs before opening the game database.
+
+Map/Surface prepared data, mapregion overlays, full-range UPPER_ROCK and
+exact-ore occurrence queries are composed from the derived snapshot when all
+required coverage is present and compatible. Prospecting uses the persisted
+mapregion OreMaps together with snapshot ROCK and actual-resource evidence.
+
+Snapshot data never become authority. MISS, CORRUPT, incompatible registry,
+incomplete catalog/coverage, unsupported query mode or absent PLAYER state
+selects the existing source-backed operation. Cancellation/interruption crosses
+the snapshot boundary unchanged rather than being reinterpreted as a cache
+miss.
+
+PF-2.6 does not modify Surface fallback ordering or scanning behavior. In
+particular, it introduces no top-down early-stop fallback.
+
+The performance target is therefore explicitly split into cold ingest and warm
+render. After a compatible region has been prepared, the warm render path
+avoids source SQLite/BLOB/protobuf/Zstd traversal and reuses the existing
+analysis/rendering code over compact derived state.
+
 ## 14. Explicit non-goals and current boundaries
 
 - There is no global decoded-world cache.
