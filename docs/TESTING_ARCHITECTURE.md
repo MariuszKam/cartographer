@@ -439,8 +439,12 @@ Before merging a new or changed test, verify:
 
 ## Rollout rule
 
-Parallelism is introduced incrementally. At each checkpoint the suite must stay
-under the same or stronger correctness contract.
+Execution-topology changes are introduced incrementally. At each checkpoint the
+suite must stay under the same or stronger correctness contract.
 
-The target state is 1100+ tests executing with controlled parallelism,
-deterministically, without flaky behavior and without dependence on test order.
+The current target state is 1100+ tests executing deterministically in the
+fastest validated topology, without flaky behavior and without dependence on
+test order. For the present suite that topology is one Gradle worker with JUnit
+in-process parallelism disabled. Parallel execution remains an opt-in diagnostic
+and may become a production choice only if future measurements show a real,
+repeatable benefit without weakening isolation.
