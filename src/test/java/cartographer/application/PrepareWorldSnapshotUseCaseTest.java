@@ -147,14 +147,18 @@ class PrepareWorldSnapshotUseCaseTest {
         // the absence of server chunks. The first request therefore performs
         // the established authoritative Surface fallback and publishes the
         // resulting complete tile.
+        // Center the request inside the unobserved (2,0) mapchunk and
+        // choose a radius that covers that whole 32x32 tile. Lazy cache
+        // publication is only valid for complete mapchunk Surface tiles;
+        // request-clipped tiles must remain non-reusable.
         PrepareMapDataRequest outsidePreparedSurface =
                 new PrepareMapDataRequest(
                         save,
-                        31,
+                        23,
                         1,
                         RenderStyle.SIMPLE,
                         Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
-                        Optional.of(new WorldPosition(64, 0, 16)),
+                        Optional.of(new WorldPosition(80, 0, 16)),
                         true
                 );
         renderUseCase.execute(
