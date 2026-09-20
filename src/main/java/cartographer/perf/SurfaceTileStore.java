@@ -90,8 +90,12 @@ public final class SurfaceTileStore {
             );
         }
 
+        int nextUnvisited = 0;
+        int failureStart = -1;
+        boolean stopped = false;
         try (Connection connection = openDatabase(false)) {
             ensureSchema(connection);
+            batchLoop:
             for (int start = 0;
                  start < requested.size();
                  start += SELECT_BATCH_SIZE) {
@@ -112,31 +116,38 @@ public final class SurfaceTileStore {
                 try {
                     readBatch(connection, batch, results);
                 } catch (SQLException exception) {
-                    return emit(
-                            requested,
-                            start,
-                            SurfaceTileLookup.corrupt(),
-                            visitor
-                    );
+                    failureStart = start;
+                    break;
                 }
                 for (MapChunkCoordinate coordinate : batch) {
                     if (!visitor.visit(
                             coordinate,
                             results.get(coordinate)
                     )) {
-                        return false;
+                        stopped = true;
+                        break batchLoop;
                     }
+                    nextUnvisited++;
                 }
             }
-            return true;
         } catch (SQLException exception) {
+            if (failureStart < 0) {
+                failureStart = nextUnvisited;
+            }
+        }
+
+        if (stopped) {
+            return false;
+        }
+        if (failureStart >= 0) {
             return emit(
                     requested,
-                    0,
+                    failureStart,
                     SurfaceTileLookup.corrupt(),
                     visitor
             );
         }
+        return true;
     }
 
     public void publish(Collection<SurfaceCacheTile> tiles) {
