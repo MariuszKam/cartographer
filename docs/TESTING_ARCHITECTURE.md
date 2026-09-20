@@ -266,6 +266,10 @@ it must not silently alter the production baseline.
 
 ### Current Gradle verification tasks
 
+TEST-PERF build logic lives in `gradle/test-architecture.gradle.kts`. The root
+`build.gradle.kts` applies that script but does not own the audit, timing,
+parallel-probe, category-task, budget, or quality-gate implementation.
+
 The default `test` task intentionally uses one Gradle test worker. This is
 the selected production topology for the current suite because repeated
 whole-suite worker experiments did not outperform the one-worker baseline.
