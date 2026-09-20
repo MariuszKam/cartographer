@@ -27,8 +27,13 @@ public record UpdateManifest(
             );
         }
         version = Objects.requireNonNull(version, "version is required");
-        installerFile = requireText(installerFile, "installerFile");
+        installerFile = requireInstallerFile(installerFile);
         installerUri = requireHttpsGithubUri(installerUri, "installerUrl");
+        if (!installerUri.getPath().endsWith("/" + installerFile)) {
+            throw new IllegalArgumentException(
+                    "installerUrl must end with installerFile"
+            );
+        }
         installerSha256 = requireSha256(installerSha256);
         if (installerSize <= 0L) {
             throw new IllegalArgumentException(
@@ -45,6 +50,18 @@ public record UpdateManifest(
             throw new IllegalArgumentException(field + " cannot be blank");
         }
         return trimmed;
+    }
+
+    private static String requireInstallerFile(String value) {
+        String fileName = requireText(value, "installerFile");
+        if (fileName.contains("/")
+                || fileName.contains("\\")
+                || !fileName.endsWith(".exe")) {
+            throw new IllegalArgumentException(
+                    "installerFile must be a Windows EXE base name"
+            );
+        }
+        return fileName;
     }
 
     private static URI requireHttpsGithubUri(URI uri, String field) {
