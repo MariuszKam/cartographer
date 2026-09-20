@@ -164,6 +164,24 @@ public final class MapRegionSnapshotStore {
         }
     }
 
+    public void clearEntries() {
+        if (!compatibleStoreAvailable()) {
+            return;
+        }
+        try (Connection connection = openDatabase(false)) {
+            ensureSchema(connection);
+            try (var statement = connection.createStatement()) {
+                statement.executeUpdate("DELETE FROM mapregion_snapshot");
+            }
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot clear mapregion snapshot entries: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
     public void markScanIncomplete() {
         writeMeta(SCAN_COMPLETE, "false");
     }
