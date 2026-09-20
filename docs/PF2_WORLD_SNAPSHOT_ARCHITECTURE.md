@@ -398,8 +398,11 @@ requested evidence directory. It then:
   render;
 - protects the real save with before/after SHA-256 + metadata + SQLite sidecar
   snapshots;
-- performs an isolated revision-invalidation probe and requires a changed
-  source revision to miss the prior derived namespace.
+- performs an isolated revision-invalidation probe through the real
+  `WorldDataSnapshot` facade: a marker header is published in revision A,
+  the source identity is changed to revision B, `openExisting` must miss B
+  before publication, and a newly created B namespace must not expose A's
+  derived header.
 
 The Gradle entry point is:
 
