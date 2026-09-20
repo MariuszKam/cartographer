@@ -168,11 +168,19 @@ application {
 val testArchitecturePatterns = linkedMapOf(
     "SLEEP" to Regex("""\b(?:Thread\.sleep|TimeUnit\.[A-Z]+\.sleep)\s*\("""),
     "SYSTEM_PROPERTY_MUTATION" to Regex("""\bSystem\.(?:setProperty|clearProperty)\s*\("""),
+    "SYSTEM_DEFAULT_MUTATION" to Regex("""\b(?:Locale|TimeZone)\.setDefault\s*\("""),
     "USER_HOME_REFERENCE" to Regex("""["']user\.home["']"""),
     "TEMP_DIR" to Regex("""@TempDir\b"""),
     "SQLITE" to Regex("""jdbc:sqlite:"""),
+    "FILESYSTEM_MUTATION" to Regex(
+        """\bFiles\.(?:write|writeString|createDirectories|createFile|delete|deleteIfExists|move|copy)\s*\("""
+    ),
     "EXECUTOR" to Regex("""\bExecutors\."""),
     "THREAD_CREATION" to Regex("""\b(?:new\s+Thread\s*\(|Thread\.of(?:Platform|Virtual)\s*\()"""),
+    "UNBOUNDED_THREAD_JOIN" to Regex("""\.join\s*\(\s*\)"""),
+    "MUTABLE_STATIC" to Regex(
+        """\bstatic\s+(?!final\b)(?!class\b)(?!interface\b)(?!enum\b)[^();{}]+\s+\w+\s*(?:=|;)"""
+    ),
     "NETWORK_FIXTURE" to Regex("""\b(?:ServerSocket|HttpServer|localhost|127\.0\.0\.1)\b"""),
     "RESOURCE_LOCK" to Regex("""@ResourceLock\b""")
 )
