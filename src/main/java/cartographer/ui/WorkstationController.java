@@ -51,6 +51,7 @@ import cartographer.ui.workstation.WorkstationOperationCoordinator;
 import cartographer.ui.workstation.WorkstationOperationScope;
 import cartographer.ui.workstation.WorkstationTool;
 import cartographer.ui.workstation.WorkstationView;
+import cartographer.ui.update.UpdateCheckView;
 import cartographer.ui.workstation.WorldPanel;
 import javafx.concurrent.Task;
 import javafx.scene.Parent;
@@ -164,6 +165,10 @@ public final class WorkstationController {
 
     public Parent root() {
         return workstation.root();
+    }
+
+    public UpdateCheckView updateCheckView() {
+        return workstation;
     }
 
     private void chooseSave() {
