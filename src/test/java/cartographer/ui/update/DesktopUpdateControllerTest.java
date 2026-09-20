@@ -2,6 +2,8 @@ package cartographer.ui.update;
 
 import cartographer.update.ApplicationVersion;
 import cartographer.update.UpdateCheckService;
+import cartographer.update.UpdateDownloadProgress;
+import cartographer.update.UpdateDownloadService;
 import cartographer.update.UpdateManifestParser;
 import cartographer.update.UpdatePreferences;
 import cartographer.update.UpdatePreferencesStore;
@@ -9,11 +11,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.HexFormat;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -23,6 +28,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DesktopUpdateControllerTest {
+    private static final byte[] INSTALLER_BYTES =
+            "controller-installer".getBytes();
 
     @TempDir
     Path temporaryDirectory;
@@ -41,7 +48,8 @@ class DesktopUpdateControllerTest {
                 store,
                 now,
                 loads,
-                "1.1.0"
+                "1.1.0",
+                successfulDownloadService()
         );
 
         harness.controller.startAutomaticCheck();
@@ -60,7 +68,8 @@ class DesktopUpdateControllerTest {
                 store,
                 now,
                 loads,
-                "1.1.0"
+                "1.1.0",
+                successfulDownloadService()
         );
 
         harness.controller.startAutomaticCheck();
@@ -89,7 +98,8 @@ class DesktopUpdateControllerTest {
                 store,
                 now,
                 loads,
-                "1.0.0"
+                "1.0.0",
+                successfulDownloadService()
         );
 
         harness.controller.checkNow();
@@ -115,6 +125,7 @@ class DesktopUpdateControllerTest {
         );
         DesktopUpdateController controller = new DesktopUpdateController(
                 service,
+                successfulDownloadService(),
                 store,
                 view,
                 Runnable::run,
@@ -147,6 +158,7 @@ class DesktopUpdateControllerTest {
         );
         DesktopUpdateController controller = new DesktopUpdateController(
                 service,
+                successfulDownloadService(),
                 store(),
                 view,
                 Runnable::run,
@@ -168,11 +180,105 @@ class DesktopUpdateControllerTest {
         );
     }
 
+    @Test
+    void downloadActionPublishesProgressAndReadyState() {
+        Instant now = Instant.parse("2026-09-20T10:00:00Z");
+        AtomicInteger loads = new AtomicInteger();
+        TestHarness harness = controller(
+                store(),
+                now,
+                loads,
+                "1.1.0",
+                successfulDownloadService()
+        );
+
+        harness.controller.checkNow();
+        harness.view.downloadAction.run();
+
+        assertEquals(
+                ApplicationVersion.parse("1.1.0"),
+                harness.view.readyVersion
+        );
+        assertEquals(100, harness.view.downloadPercent);
+        assertNull(harness.view.downloadFailure);
+    }
+
+    @Test
+    void failedDownloadCanBeRetriedAndReachReadyState() {
+        Instant now = Instant.parse("2026-09-20T10:00:00Z");
+        AtomicInteger loads = new AtomicInteger();
+        AtomicInteger attempts = new AtomicInteger();
+        UpdateDownloadService retrying = new UpdateDownloadService(
+                temporaryDirectory.resolve("retry-updates"),
+                (manifest, destination, listener) -> {
+                    if (attempts.incrementAndGet() == 1) {
+                        throw new java.io.IOException("temporary outage");
+                    }
+                    Files.write(destination, INSTALLER_BYTES);
+                    listener.accept(new UpdateDownloadProgress(
+                            INSTALLER_BYTES.length,
+                            INSTALLER_BYTES.length
+                    ));
+                }
+        );
+        TestHarness harness = controller(
+                store(),
+                now,
+                loads,
+                "1.1.0",
+                retrying
+        );
+
+        harness.controller.checkNow();
+        harness.view.downloadAction.run();
+        assertTrue(
+                harness.view.downloadFailure.contains("temporary outage")
+        );
+
+        harness.view.downloadAction.run();
+
+        assertEquals(2, attempts.get());
+        assertEquals(
+                ApplicationVersion.parse("1.1.0"),
+                harness.view.readyVersion
+        );
+    }
+
+    @Test
+    void failedDownloadShowsRetryStateWithoutLosingAvailableUpdate() {
+        Instant now = Instant.parse("2026-09-20T10:00:00Z");
+        AtomicInteger loads = new AtomicInteger();
+        UpdateDownloadService failing = new UpdateDownloadService(
+                temporaryDirectory.resolve("failed-updates"),
+                (manifest, destination, listener) -> {
+                    throw new java.io.IOException("network lost");
+                }
+        );
+        TestHarness harness = controller(
+                store(),
+                now,
+                loads,
+                "1.1.0",
+                failing
+        );
+
+        harness.controller.checkNow();
+        harness.view.downloadAction.run();
+
+        assertEquals(
+                ApplicationVersion.parse("1.1.0"),
+                harness.view.availableVersion
+        );
+        assertNull(harness.view.readyVersion);
+        assertTrue(harness.view.downloadFailure.contains("network lost"));
+    }
+
     private TestHarness controller(
             UpdatePreferencesStore store,
             Instant now,
             AtomicInteger loads,
-            String remoteVersion
+            String remoteVersion,
+            UpdateDownloadService downloadService
     ) {
         FakeView view = new FakeView();
         UpdateCheckService service = new UpdateCheckService(
@@ -185,6 +291,7 @@ class DesktopUpdateControllerTest {
         );
         DesktopUpdateController controller = new DesktopUpdateController(
                 service,
+                downloadService,
                 store,
                 view,
                 Runnable::run,
@@ -196,30 +303,57 @@ class DesktopUpdateControllerTest {
         return new TestHarness(controller, view);
     }
 
+    private UpdateDownloadService successfulDownloadService() {
+        return new UpdateDownloadService(
+                temporaryDirectory.resolve("updates-" + System.nanoTime()),
+                (manifest, destination, listener) -> {
+                    Files.write(destination, INSTALLER_BYTES);
+                    listener.accept(new UpdateDownloadProgress(
+                            INSTALLER_BYTES.length,
+                            INSTALLER_BYTES.length
+                    ));
+                }
+        );
+    }
+
     private UpdatePreferencesStore store() {
         return new UpdatePreferencesStore(
-                temporaryDirectory.resolve("update.properties")
+                temporaryDirectory.resolve(
+                        "update-" + System.nanoTime() + ".properties"
+                )
         );
     }
 
     private static String validManifest(String version) {
+        String file = "VS-Cartographer-Setup-" + version + ".exe";
         return """
                 schemaVersion=1
                 channel=stable
                 version=%s
-                installerFile=VS-Cartographer-Setup-%s.exe
-                installerUrl=https://github.com/MariuszKam/cartographer/releases/download/v%s/VS-Cartographer-Setup-%s.exe
+                installerFile=%s
+                installerUrl=https://github.com/MariuszKam/cartographer/releases/download/v%s/%s
                 installerSha256=%s
-                installerSize=123456
+                installerSize=%d
                 releaseUrl=https://github.com/MariuszKam/cartographer/releases/tag/v%s
                 """.formatted(
                 version,
+                file,
                 version,
-                version,
-                version,
-                "a".repeat(64),
+                file,
+                sha256(INSTALLER_BYTES),
+                INSTALLER_BYTES.length,
                 version
         );
+    }
+
+    private static String sha256(byte[] bytes) {
+        try {
+            return HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(bytes)
+            );
+        } catch (Exception exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 
     private record TestHarness(
@@ -231,11 +365,15 @@ class DesktopUpdateControllerTest {
     private static final class FakeView implements UpdateCheckView {
         private ApplicationVersion currentVersion;
         private ApplicationVersion availableVersion;
+        private ApplicationVersion readyVersion;
         private boolean checking;
         private boolean upToDate;
+        private int downloadPercent = -1;
         private String failureMessage;
+        private String downloadFailure;
         private Runnable checkAction = () -> { };
         private Runnable openAction = () -> { };
+        private Runnable downloadAction = () -> { };
 
         @Override
         public void showCurrentVersion(ApplicationVersion version) {
@@ -253,6 +391,11 @@ class DesktopUpdateControllerTest {
         }
 
         @Override
+        public void setOnDownloadUpdate(Runnable action) {
+            downloadAction = action;
+        }
+
+        @Override
         public void showUpdateChecking() {
             checking = true;
         }
@@ -260,6 +403,30 @@ class DesktopUpdateControllerTest {
         @Override
         public void showUpdateAvailable(ApplicationVersion version) {
             availableVersion = version;
+        }
+
+        @Override
+        public void showUpdateDownloading(
+                ApplicationVersion version,
+                int percent
+        ) {
+            availableVersion = version;
+            downloadPercent = percent;
+        }
+
+        @Override
+        public void showUpdateReady(ApplicationVersion version) {
+            readyVersion = version;
+            downloadFailure = null;
+        }
+
+        @Override
+        public void showUpdateDownloadFailed(
+                ApplicationVersion version,
+                String message
+        ) {
+            availableVersion = version;
+            downloadFailure = message;
         }
 
         @Override
