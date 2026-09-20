@@ -30,16 +30,29 @@ import cartographer.resource.SurfaceMaterialAnalyzer;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMapScanner;
+import cartographer.ui.update.DesktopUpdateController;
+import cartographer.update.ApplicationVersion;
+import cartographer.update.HttpUpdateManifestSource;
+import cartographer.update.UpdateCheckService;
+import cartographer.update.UpdateEndpoints;
+import cartographer.update.UpdateManifestParser;
+import cartographer.update.UpdatePreferencesStore;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class CartographerDesktopApp extends Application {
+    private ExecutorService updateExecutor;
 
     @Override
     public void start(Stage stage) {
@@ -126,6 +139,57 @@ public class CartographerDesktopApp extends Application {
         stage.setMinWidth(1024);
         stage.setMinHeight(680);
         stage.show();
+
+        startUpdateDetection(controller, config);
+    }
+
+    @Override
+    public void stop() {
+        if (updateExecutor != null) {
+            updateExecutor.shutdownNow();
+        }
+    }
+
+    private void startUpdateDetection(
+            WorkstationController controller,
+            Path config
+    ) {
+        ApplicationVersion currentVersion = ApplicationVersion.current();
+        UpdateCheckService updateCheckService = new UpdateCheckService(
+                currentVersion,
+                new HttpUpdateManifestSource(
+                        UpdateEndpoints.latestStableManifest(),
+                        Duration.ofSeconds(3),
+                        Duration.ofSeconds(5)
+                ),
+                new UpdateManifestParser()
+        );
+
+        updateExecutor = Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(
+                    runnable,
+                    "cartographer-update-check"
+            );
+            thread.setDaemon(true);
+            return thread;
+        });
+
+        DesktopUpdateController updateController =
+                new DesktopUpdateController(
+                        updateCheckService,
+                        new UpdatePreferencesStore(
+                                config.resolve("update.properties")
+                        ),
+                        controller.updateCheckView(),
+                        updateExecutor,
+                        Platform::runLater,
+                        uri -> getHostServices().showDocument(
+                                uri.toString()
+                        ),
+                        Clock.systemUTC(),
+                        DesktopUpdateController.DEFAULT_AUTOMATIC_CHECK_INTERVAL
+                );
+        updateController.startAutomaticCheck();
     }
 
     private Optional<Path> chooseSave(Stage stage) {

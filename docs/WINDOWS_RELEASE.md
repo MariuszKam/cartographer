@@ -1,5 +1,10 @@
 # Windows Release Structure
 
+> **Numbering note:** the Stage 1–5 headings in this document describe the
+> historical Windows packaging rollout. The application-level auto-update
+> roadmap uses a separate Stage 1–5 sequence documented in
+> [AUTO_UPDATE.md](AUTO_UPDATE.md).
+
 ## Entry points
 
 VS Cartographer has two entry points:

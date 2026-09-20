@@ -1,6 +1,8 @@
 package cartographer.ui.workstation;
 
 import cartographer.render.MapViewportGeometry;
+import cartographer.ui.update.UpdateCheckView;
+import cartographer.update.ApplicationVersion;
 import cartographer.render.RenderLayer;
 import cartographer.resource.ObservedSurfaceResourceCatalog;
 import javafx.geometry.Insets;
@@ -17,7 +19,7 @@ import javafx.scene.layout.VBox;
 import java.util.Set;
 import java.util.function.Consumer;
 
-public final class WorkstationView {
+public final class WorkstationView implements UpdateCheckView {
     private final BorderPane root = new BorderPane();
     private final BorderPane workspace = new BorderPane();
     private final WorldPanel worldPanel;
@@ -112,6 +114,43 @@ public final class WorkstationView {
     public Parent root() {
         return root;
     }
+
+
+    @Override
+    public void showCurrentVersion(ApplicationVersion version) {
+        worldBar.setCurrentVersion(version);
+    }
+
+    @Override
+    public void setOnCheckForUpdates(Runnable action) {
+        worldBar.setOnCheckForUpdates(action);
+    }
+
+    @Override
+    public void setOnOpenUpdateRelease(Runnable action) {
+        worldBar.setOnOpenUpdateRelease(action);
+    }
+
+    @Override
+    public void showUpdateChecking() {
+        worldBar.showUpdateChecking();
+    }
+
+    @Override
+    public void showUpdateAvailable(ApplicationVersion version) {
+        worldBar.showUpdateAvailable(version);
+    }
+
+    @Override
+    public void showUpToDate() {
+        worldBar.showUpToDate();
+    }
+
+    @Override
+    public void showUpdateCheckFailed(String message) {
+        worldBar.showUpdateCheckFailed(message);
+    }
+
 
     public WorldPanel worldPanel() {
         return worldPanel;

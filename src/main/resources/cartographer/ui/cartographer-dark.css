@@ -526,3 +526,46 @@
     -fx-background-radius: 4px;
     -fx-border-radius: 4px;
 }
+
+
+.app-version {
+    -fx-text-fill: #7f8b9a;
+    -fx-font-size: 10px;
+    -fx-font-family: "Cascadia Mono", "Consolas", monospace;
+}
+
+.update-check-button {
+    -fx-background-color: transparent;
+    -fx-border-color: #3a4552;
+    -fx-border-radius: 999px;
+    -fx-background-radius: 999px;
+    -fx-text-fill: #8f9cac;
+    -fx-font-size: 10px;
+    -fx-padding: 4px 8px;
+    -fx-cursor: hand;
+}
+
+.update-check-button:hover {
+    -fx-background-color: #202731;
+    -fx-text-fill: #dce5ef;
+}
+
+.update-check-button:disabled {
+    -fx-opacity: 0.7;
+}
+
+.update-available-chip {
+    -fx-background-color: #294b37;
+    -fx-border-color: #4d7d5d;
+    -fx-border-radius: 999px;
+    -fx-background-radius: 999px;
+    -fx-text-fill: #bfe8ca;
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-padding: 4px 9px;
+    -fx-cursor: hand;
+}
+
+.update-available-chip:hover {
+    -fx-background-color: #345e45;
+}

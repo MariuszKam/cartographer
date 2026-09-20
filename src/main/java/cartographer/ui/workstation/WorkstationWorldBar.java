@@ -1,7 +1,9 @@
 package cartographer.ui.workstation;
 
 import javafx.geometry.Pos;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -11,9 +13,14 @@ import java.util.Objects;
 
 public final class WorkstationWorldBar extends HBox {
     private final Label tool = new Label("ORES");
+    private final Label version = new Label("v—");
     private final Label save = new Label("No save");
     private final Label player = new Label("Player —");
+    private final Button checkUpdates = new Button("Check updates");
+    private final Button updateAvailable = new Button();
     private final WorldSnapshotPane snapshotPane;
+    private Runnable onCheckForUpdates = () -> { };
+    private Runnable onOpenUpdateRelease = () -> { };
 
     public WorkstationWorldBar(
             WorldPanel worldPanel,
@@ -32,9 +39,16 @@ public final class WorkstationWorldBar extends HBox {
 
         Label brand = new Label("VS CARTOGRAPHER");
         brand.getStyleClass().add("brand-title");
+        version.getStyleClass().add("app-version");
         tool.getStyleClass().add("active-tool-chip");
         save.getStyleClass().add("world-summary");
         player.getStyleClass().add("world-summary");
+        checkUpdates.getStyleClass().add("update-check-button");
+        updateAvailable.getStyleClass().add("update-available-chip");
+        updateAvailable.setVisible(false);
+        updateAvailable.setManaged(false);
+        checkUpdates.setOnAction(event -> onCheckForUpdates.run());
+        updateAvailable.setOnAction(event -> onOpenUpdateRelease.run());
 
         Region spacer = new Region();
         HBox.setHgrow(worldPanel, Priority.ALWAYS);
@@ -43,12 +57,78 @@ public final class WorkstationWorldBar extends HBox {
 
         getChildren().addAll(
                 brand,
+                version,
                 tool,
                 worldPanel,
                 spacer,
                 snapshotPane,
+                updateAvailable,
+                checkUpdates,
                 save,
                 player
+        );
+    }
+
+
+    public void setCurrentVersion(cartographer.update.ApplicationVersion currentVersion) {
+        version.setText("v" + Objects.requireNonNull(
+                currentVersion,
+                "currentVersion is required"
+        ));
+    }
+
+    public void setOnCheckForUpdates(Runnable action) {
+        onCheckForUpdates = action == null ? () -> { } : action;
+    }
+
+    public void setOnOpenUpdateRelease(Runnable action) {
+        onOpenUpdateRelease = action == null ? () -> { } : action;
+    }
+
+    public void showUpdateChecking() {
+        checkUpdates.setDisable(true);
+        checkUpdates.setText("Checking…");
+        checkUpdates.setTooltip(null);
+    }
+
+    public void showUpdateAvailable(
+            cartographer.update.ApplicationVersion availableVersion
+    ) {
+        updateAvailable.setText(
+                "Update " + Objects.requireNonNull(
+                        availableVersion,
+                        "availableVersion is required"
+                )
+        );
+        updateAvailable.setVisible(true);
+        updateAvailable.setManaged(true);
+        updateAvailable.setTooltip(
+                new Tooltip("Open release notes on GitHub")
+        );
+        checkUpdates.setDisable(false);
+        checkUpdates.setText("Check again");
+        checkUpdates.setTooltip(null);
+    }
+
+    public void showUpToDate() {
+        updateAvailable.setVisible(false);
+        updateAvailable.setManaged(false);
+        checkUpdates.setDisable(false);
+        checkUpdates.setText("Up to date");
+        checkUpdates.setTooltip(
+                new Tooltip("Click to check again")
+        );
+    }
+
+    public void showUpdateCheckFailed(String message) {
+        checkUpdates.setDisable(false);
+        checkUpdates.setText("Retry updates");
+        checkUpdates.setTooltip(
+                new Tooltip(
+                        message == null || message.isBlank()
+                                ? "Update check failed"
+                                : message
+                )
         );
     }
 
