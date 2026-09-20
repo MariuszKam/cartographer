@@ -10,6 +10,9 @@ public record Pf3RockWarmRenderSample(
         long warmElapsedNanoseconds,
         long exactParityElapsedNanoseconds,
         Pf18ResourceEvidence warmResources,
+        int sourceConnectionsOpened,
+        int sourceConnectionsClosed,
+        boolean retainedMapAbsent,
         boolean geometryParity,
         boolean legendParity,
         boolean countParity,
@@ -30,6 +33,11 @@ public record Pf3RockWarmRenderSample(
                 warmResources,
                 "warmResources is required"
         );
+        if (sourceConnectionsOpened < 0 || sourceConnectionsClosed < 0) {
+            throw new IllegalArgumentException(
+                    "source connection counts cannot be negative"
+            );
+        }
         warmFingerprint = Objects.requireNonNull(
                 warmFingerprint,
                 "warmFingerprint is required"
@@ -44,8 +52,15 @@ public record Pf3RockWarmRenderSample(
         return warmFingerprint.equals(exactFingerprint);
     }
 
+    public boolean sourceReadEliminated() {
+        return sourceConnectionsOpened == 0
+                && sourceConnectionsClosed == 0;
+    }
+
     public boolean accepted() {
-        return geometryParity
+        return sourceReadEliminated()
+                && retainedMapAbsent
+                && geometryParity
                 && legendParity
                 && countParity
                 && imageParity();
