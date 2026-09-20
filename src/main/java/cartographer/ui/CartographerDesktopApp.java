@@ -3,6 +3,8 @@ package cartographer.ui;
 import cartographer.application.AnalyzeProspectingAreaUseCase;
 import cartographer.application.DiscoverObservedSurfaceResourcesUseCase;
 import cartographer.application.LoadWorldOverviewUseCase;
+import cartographer.application.InspectWorldSnapshotStatusUseCase;
+import cartographer.application.PrepareWorldSnapshotUseCase;
 import cartographer.application.RenderActualOreMapUseCase;
 import cartographer.application.RenderCoverageMapUseCase;
 import cartographer.application.RenderRockMapUseCase;
@@ -73,6 +75,17 @@ public class CartographerDesktopApp extends Application {
                         new RockMapRenderer(),
                         renderDataCacheStore
                 );
+        PrepareWorldSnapshotUseCase prepareWorldSnapshotUseCase =
+                new PrepareWorldSnapshotUseCase(
+                        reader,
+                        metadataReader,
+                        renderDataCacheStore
+                );
+        InspectWorldSnapshotStatusUseCase snapshotStatusUseCase =
+                new InspectWorldSnapshotStatusUseCase(
+                        renderDataCacheStore
+                );
+
         AnalyzeProspectingAreaUseCase prospectingUseCase =
                 new AnalyzeProspectingAreaUseCase(
                         reader,
@@ -99,7 +112,9 @@ public class CartographerDesktopApp extends Application {
                         reader,
                         metadataReader,
                         new ResourceAnalyzer()
-                )
+                ),
+                prepareWorldSnapshotUseCase,
+                snapshotStatusUseCase
         );
 
         stage.setTitle("VS Cartographer");
