@@ -121,7 +121,7 @@ class PrepareWorldSnapshotUseCaseTest {
         renderUseCase.execute(
                 new PrepareMapDataRequest(
                         save,
-                        47,
+                        31,
                         1,
                         RenderStyle.SIMPLE,
                         Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
