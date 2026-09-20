@@ -55,6 +55,11 @@ class Pf28SnapshotValidationReportTest {
                         "revision",
                         new Pf28ColdSnapshotCoverage(
                                 100,
+                                0, 100,
+                                0, 100,
+                                0, 10,
+                                0, 100,
+                                0, 800,
                                 true,
                                 true,
                                 false,
@@ -62,6 +67,45 @@ class Pf28SnapshotValidationReportTest {
                                 true,
                                 true
                         ),
+                        100L,
+                        Pf18ResourceEvidence.unavailable(),
+                        new SaveSafetyResult(
+                                SaveSafetyStatus.PASS,
+                                List.of()
+                        ),
+                        true,
+                        List.of(
+                                accepted(1024),
+                                accepted(2048),
+                                accepted(4096)
+                        )
+                );
+
+        assertFalse(report.accepted());
+    }
+
+    @Test
+    void rejectsColdCampaignThatReusedDerivedArtifacts() {
+        Pf28ColdSnapshotCoverage reused =
+                new Pf28ColdSnapshotCoverage(
+                        100,
+                        1, 99,
+                        0, 100,
+                        0, 10,
+                        0, 100,
+                        0, 800,
+                        true,
+                        true,
+                        true,
+                        true,
+                        true,
+                        true
+                );
+        Pf28SnapshotValidationReport report =
+                new Pf28SnapshotValidationReport(
+                        SHA,
+                        "revision",
+                        reused,
                         100L,
                         Pf18ResourceEvidence.unavailable(),
                         new SaveSafetyResult(
@@ -323,6 +367,11 @@ class Pf28SnapshotValidationReportTest {
     private Pf28ColdSnapshotCoverage completeColdCoverage() {
         return new Pf28ColdSnapshotCoverage(
                 100,
+                0, 100,
+                0, 100,
+                0, 10,
+                0, 100,
+                0, 800,
                 true,
                 true,
                 true,
