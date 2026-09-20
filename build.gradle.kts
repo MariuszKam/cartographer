@@ -183,7 +183,7 @@ val testArchitecturePatterns = linkedMapOf(
     ),
     "NETWORK_FIXTURE" to Regex("""\b(?:ServerSocket|HttpServer|localhost|127\.0\.0\.1)\b"""),
     "RESOURCE_LOCK" to Regex("""@ResourceLock\b"""),
-    "TEST_CATEGORY" to Regex("""@(IntegrationTest|ConcurrencyTest|GuiTest|SerialTest)\b""")
+    "TEST_CATEGORY" to Regex("""@(IntegrationTest|ConcurrencyTest)\b""")
 )
 
 tasks.register("testArchitectureAudit") {
