@@ -31,12 +31,13 @@ public record MapRegionSnapshotEntry(
                     "environment profile coordinate must match entry coordinate"
             );
         }
-        geologySummary.ifPresent(summary -> {
-            if (!coordinate.equals(summary.coordinate())) {
-                throw new IllegalArgumentException(
-                        "geology summary coordinate must match entry coordinate"
-                );
-            }
-        });
+        if (geologySummary.isPresent()
+                && !coordinate.equals(
+                geologySummary.orElseThrow().coordinate()
+        )) {
+            throw new IllegalArgumentException(
+                    "geology summary coordinate must match entry coordinate"
+            );
+        }
     }
 }
