@@ -8,7 +8,7 @@ import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 
-final class DenseHeightGrid {
+final class DenseHeightGrid implements TerrainHeightField {
 
     private final int minWorldX;
     private final int minWorldZ;
