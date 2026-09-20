@@ -73,6 +73,16 @@ public final class SnapshotCommand implements Command {
                         + ", complete=" + result.upperRockCoverageComplete()
         );
         out.println(
+                "Resources: blocks=" + result.resourceBlocksCatalogued()
+                        + ", chunk-hits=" + result.resourceChunkHits()
+                        + ", chunks-published="
+                        + result.resourceChunksPublished()
+                        + ", occurrence-columns="
+                        + result.resourceOccurrenceColumnsPublished()
+                        + ", complete="
+                        + result.resourceIndexCoverageComplete()
+        );
+        out.println(
                 "Catalog complete: " + result.mapChunkCatalogComplete()
         );
         out.println(
