@@ -273,6 +273,7 @@ The repository provides these TEST-PERF tasks:
 
 ```text
 testArchitectureAudit
+testArchitectureGuard
 testParallelProbe
 testSerial
 testIntegration
@@ -282,6 +283,29 @@ testGui
 
 `testArchitectureAudit` writes detailed findings and a per-file summary under
 `build/reports/test-performance/`.
+
+The audit summary is triage evidence, not a static proof that a test is safe.
+It assigns each file one of three review priorities:
+
+- `HIGH` when a signal points at likely cross-test interference or forbidden
+  synchronization, such as filesystem/SQLite mutation without `@TempDir`,
+  process-global mutation, mutable static state, network fixtures, sleeps, or
+  unbounded thread joins;
+- `REVIEW` when the file contains stateful infrastructure that still requires
+  human inspection, but the static scan has not found a high-priority reason;
+- `INFO` when the current findings are informational only.
+
+`testArchitectureGuard` is the enforceable subset of that contract. It fails
+the build when test sources introduce sleep-based synchronization or an
+unbounded `Thread.join()`. These patterns are forbidden rather than merely
+reported because they conflict directly with the deterministic concurrency
+rules above.
+
+Large SQLite fixture populations must be inserted inside an explicit
+transaction and should use JDBC batching. Repeating one auto-committed insert
+per fixture row is both unnecessarily slow and increases timing noise in CI.
+The optimization must remain test-only and must not weaken the production
+read-only save contract.
 
 `testParallelProbe` is an opt-in validation task. It excludes tests tagged
 `serial` and uses bounded Gradle worker-process parallelism. The default probe
