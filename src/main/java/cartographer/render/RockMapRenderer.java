@@ -49,44 +49,32 @@ public final class RockMapRenderer {
                 "highlightRockCode is required"
         ).map(String::trim).filter(value -> !value.isEmpty());
 
-        int radius = rockMap.radius();
-        int worldDiameter;
-        try {
-            worldDiameter = Math.addExact(Math.multiplyExact(radius, 2), 1);
-        } catch (ArithmeticException exception) {
-            throw new IllegalArgumentException("rock map image is too large", exception);
-        }
-        int diameter = Math.min(worldDiameter, maxRasterSize);
+        RockRenderSamplingPlan sampling =
+                RockRenderSamplingPlan.from(
+                        rockMap.center(),
+                        rockMap.radius(),
+                        maxRasterSize
+                );
+        int diameter = sampling.rasterSize();
 
         BufferedImage image = new BufferedImage(
                 diameter,
                 diameter,
                 BufferedImage.TYPE_INT_ARGB
         );
-        int centerX = floorBlockCoordinate(rockMap.center().x());
-        int centerZ = floorBlockCoordinate(rockMap.center().z());
-        int minX = centerX - radius;
-        int minZ = centerZ - radius;
-        MapViewportGeometry geometry = MapViewportGeometry.fullImage(
-                diameter, diameter, minX, minZ,
-                minX + (double) worldDiameter,
-                minZ + (double) worldDiameter
-        );
-        if (diameter == worldDiameter) {
+        if (diameter == sampling.worldDiameter()) {
             drawOneToOne(
                     image,
                     rockMap,
-                    minX,
-                    minZ,
+                    sampling.minWorldX(),
+                    sampling.minWorldZ(),
                     highlightRockCode
             );
         } else {
             drawSampled(
                     image,
                     rockMap,
-                    minX,
-                    minZ,
-                    worldDiameter,
+                    sampling,
                     highlightRockCode
             );
         }
@@ -114,7 +102,7 @@ public final class RockMapRenderer {
 
         return new RockMapRenderResult(
                 image,
-                geometry,
+                sampling.geometry(),
                 legend,
                 observedCount,
                 rockMap.noRockCount(),
@@ -154,16 +142,14 @@ public final class RockMapRenderer {
     private void drawSampled(
             BufferedImage image,
             RockMap rockMap,
-            int minX,
-            int minZ,
-            int worldDiameter,
+            RockRenderSamplingPlan sampling,
             Optional<String> highlightRockCode
     ) {
         int raster = image.getWidth();
         for (int imageY = 0; imageY < raster; imageY++) {
-            int worldZ = minZ + sampleOffset(imageY, raster, worldDiameter);
+            int worldZ = sampling.worldZForImageY(imageY);
             for (int imageX = 0; imageX < raster; imageX++) {
-                int worldX = minX + sampleOffset(imageX, raster, worldDiameter);
+                int worldX = sampling.worldXForImageX(imageX);
                 if (!rockMap.geometry().contains(worldX, worldZ)) {
                     continue;
                 }
@@ -183,15 +169,6 @@ public final class RockMapRenderer {
                 );
             }
         }
-    }
-
-    private int sampleOffset(int pixel, int rasterSize, int worldDiameter) {
-        double worldCoordinate =
-                (pixel + 0.5) * worldDiameter / (double) rasterSize;
-        return Math.min(
-                worldDiameter - 1,
-                Math.max(0, (int) Math.floor(worldCoordinate))
-        );
     }
 
     private void paintCell(
@@ -234,13 +211,4 @@ public final class RockMapRenderer {
         return (alpha << 24) | (red << 16) | (green << 8) | blue;
     }
 
-    private int floorBlockCoordinate(double coordinate) {
-        double floored = Math.floor(coordinate);
-        if (floored < Integer.MIN_VALUE || floored > Integer.MAX_VALUE) {
-            throw new IllegalArgumentException(
-                    "world coordinate is outside the supported block range"
-            );
-        }
-        return (int) floored;
-    }
 }
