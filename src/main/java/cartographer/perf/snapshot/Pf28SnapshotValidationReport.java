@@ -90,6 +90,18 @@ public record Pf28SnapshotValidationReport(
                     .append(" opened / ")
                     .append(sample.sourceConnectionsClosed())
                     .append(" closed\n");
+            out.append("Terrain snapshot coverage: ")
+                    .append(sample.terrainHits())
+                    .append(" HIT + ")
+                    .append(sample.terrainKnownAbsent())
+                    .append(" proven absent / ")
+                    .append(sample.terrainRequested())
+                    .append(" requested\n");
+            out.append("Surface snapshot coverage: ")
+                    .append(sample.surfaceHits())
+                    .append(" HIT / ")
+                    .append(sample.surfaceRequested())
+                    .append(" requested\n");
             out.append("Geometry parity: ")
                     .append(sample.geometryParity())
                     .append('\n');
