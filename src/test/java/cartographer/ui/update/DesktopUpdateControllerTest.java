@@ -37,15 +37,17 @@ class DesktopUpdateControllerTest {
         ));
         AtomicInteger loads = new AtomicInteger();
 
-        FakeView view = controller(
+        TestHarness harness = controller(
                 store,
                 now,
                 loads,
                 "1.1.0"
-        ).view();
+        );
+
+        harness.controller.startAutomaticCheck();
 
         assertEquals(0, loads.get());
-        assertNull(view.availableVersion);
+        assertNull(harness.view.availableVersion);
     }
 
     @Test
