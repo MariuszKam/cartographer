@@ -340,8 +340,8 @@ Implemented on the PF-2.7 branch:
   suppression and cooperative interruption semantics;
 - `Prepare world` invokes the existing `PrepareWorldSnapshotUseCase`; Render
   remains a separate action and never starts whole-world indexing implicitly;
-- preparation progress is mapped into five monotonic top-level phases:
-  Terrain, Surface, Map regions, Geology and Resources;
+- preparation progress is mapped into six monotonic top-level phases:
+  Header, Terrain, Surface, Map regions, Geology and Resources;
 - the revision-scoped derived cache persists a small
   `WorldSnapshotPreparationSummary` only after a prepare operation returns
   normally. Interrupted work keeps already-published bounded artifacts, but
