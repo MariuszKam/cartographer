@@ -14,6 +14,7 @@ import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.perf.RenderDataCacheStore;
+import cartographer.perf.WorldDataSnapshot;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.save.ChunkStreamStats;
@@ -101,6 +102,30 @@ class PrepareWorldSnapshotUseCaseTest {
         assertEquals(0, first.resourceChunkHits());
         assertEquals(4, first.resourceChunksPublished());
         assertEquals(0L, first.resourceOccurrenceColumnsPublished());
+
+        var resourceStore = WorldDataSnapshot.openOrCreate(
+                cacheStore,
+                save
+        ).orElseThrow().resourceIndexStore();
+        assertEquals(
+                Map.of(
+                        2,
+                        "game:ore-nativecopper-granite"
+                ),
+                resourceStore.blockCatalog()
+        );
+        assertTrue(
+                resourceStore.positionsContainingAny(
+                        List.of(
+                                new ChunkPosition(0, 0, 0, 0),
+                                new ChunkPosition(0, 1, 0, 0),
+                                new ChunkPosition(1, 0, 0, 0),
+                                new ChunkPosition(1, 1, 0, 0)
+                        ),
+                        List.of(2)
+                ).isEmpty(),
+                "registry catalog must not fabricate occurrence membership"
+        );
 
         PrepareWorldSnapshotResult second =
                 useCase.execute(request, ProgressReporter.NONE);
