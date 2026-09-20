@@ -61,19 +61,24 @@ final class SampledTerrainHeightField implements TerrainHeightField {
 
     @Override
     public boolean hasHeightAt(int worldX, int worldZ) {
-        Cell cell = cell(worldX, worldZ);
-        return cell != null && cell.row.present.get(cell.index);
+        Row row = rowAt(worldZ);
+        if (row == null) {
+            return false;
+        }
+        int index = indexAt(row, worldX);
+        return index >= 0 && row.present.get(index);
     }
 
     @Override
     public int heightAt(int worldX, int worldZ) {
-        Cell cell = cell(worldX, worldZ);
-        if (cell == null || !cell.row.present.get(cell.index)) {
+        Row row = rowAt(worldZ);
+        int index = row == null ? -1 : indexAt(row, worldX);
+        if (index < 0 || !row.present.get(index)) {
             throw new IllegalArgumentException(
                     "height sample is absent at " + worldX + "," + worldZ
             );
         }
-        return cell.row.values[cell.index];
+        return row.values[index];
     }
 
     @Override
@@ -91,22 +96,22 @@ final class SampledTerrainHeightField implements TerrainHeightField {
         return sampleCount;
     }
 
-    private Cell cell(int worldX, int worldZ) {
-        long xOffsetLong = (long) worldX - minWorldX;
-        long zOffsetLong = (long) worldZ - minWorldZ;
-        if (xOffsetLong < 0 || xOffsetLong >= worldDiameter
-                || zOffsetLong < 0 || zOffsetLong >= worldDiameter) {
+    private Row rowAt(int worldZ) {
+        long zOffset = (long) worldZ - minWorldZ;
+        if (zOffset < 0 || zOffset >= worldDiameter) {
             return null;
         }
-        int xOffset = (int) xOffsetLong;
-        Row row = rows[(int) zOffsetLong];
-        if (row == null) {
-            return null;
+        return rows[(int) zOffset];
+    }
+
+    private int indexAt(Row row, int worldX) {
+        long xOffset = (long) worldX - minWorldX;
+        if (xOffset < 0 || xOffset >= worldDiameter) {
+            return -1;
         }
-        int index = row.horizontal
-                ? horizontalXIndexByOffset[xOffset]
-                : sampleXIndexByOffset[xOffset];
-        return index < 0 ? null : new Cell(row, index);
+        return row.horizontal
+                ? horizontalXIndexByOffset[(int) xOffset]
+                : sampleXIndexByOffset[(int) xOffset];
     }
 
     static final class Builder {
@@ -306,9 +311,6 @@ final class SampledTerrainHeightField implements TerrainHeightField {
             this.values = new int[size];
             this.present = new BitSet(size);
         }
-    }
-
-    private record Cell(Row row, int index) {
     }
 
     private record HeightRange(int min, int max) {

@@ -193,12 +193,14 @@ final class DenseHeightGrid implements TerrainHeightField {
         );
     }
 
-    boolean hasHeightAt(int worldX, int worldZ) {
+    @Override
+    public boolean hasHeightAt(int worldX, int worldZ) {
         int index = indexOf(worldX, worldZ);
         return index >= 0 && present.get(index);
     }
 
-    int heightAt(int worldX, int worldZ) {
+    @Override
+    public int heightAt(int worldX, int worldZ) {
         int index = indexOf(worldX, worldZ);
         if (index < 0 || !present.get(index)) {
             throw new IllegalArgumentException(
@@ -208,15 +210,18 @@ final class DenseHeightGrid implements TerrainHeightField {
         return values[index];
     }
 
-    int minHeight() {
+    @Override
+    public int minHeight() {
         return minHeight;
     }
 
-    int maxHeight() {
+    @Override
+    public int maxHeight() {
         return maxHeight;
     }
 
-    int sampleCount() {
+    @Override
+    public int sampleCount() {
         return present.cardinality();
     }
 
