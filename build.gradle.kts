@@ -182,7 +182,8 @@ val testArchitecturePatterns = linkedMapOf(
         """\bstatic\s+(?!final\b)(?!class\b)(?!interface\b)(?!enum\b)[^();{}]+\s+\w+\s*(?:=|;)"""
     ),
     "NETWORK_FIXTURE" to Regex("""\b(?:ServerSocket|HttpServer|localhost|127\.0\.0\.1)\b"""),
-    "RESOURCE_LOCK" to Regex("""@ResourceLock\b""")
+    "RESOURCE_LOCK" to Regex("""@ResourceLock\b"""),
+    "TEST_CATEGORY" to Regex("""@(IntegrationTest|ConcurrencyTest|GuiTest|SerialTest)\b""")
 )
 
 tasks.register("testArchitectureAudit") {
@@ -336,6 +337,7 @@ val configuredParallelProbeForks = providers.gradleProperty("testParallelForks")
 
 tasks.register<Test>("testParallelProbe") {
     group = "verification"
+    dependsOn("testClasses")
     description = "Runs the non-serial JUnit suite with bounded Gradle worker-process parallelism"
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
@@ -357,6 +359,7 @@ tasks.register<Test>("testParallelProbe") {
 
 tasks.register<Test>("testSerial") {
     group = "verification"
+    dependsOn("testClasses")
     description = "Runs tests explicitly tagged serial in a single Gradle test worker"
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
@@ -367,6 +370,42 @@ tasks.register<Test>("testSerial") {
     reports.junitXml.required.set(true)
     reports.html.required.set(true)
 }
+
+fun registerTaggedTestTask(
+    taskName: String,
+    taskDescription: String,
+    tag: String
+) {
+    tasks.register<Test>(taskName) {
+        group = "verification"
+        description = taskDescription
+        dependsOn("testClasses")
+        testClassesDirs = sourceSets["test"].output.classesDirs
+        classpath = sourceSets["test"].runtimeClasspath
+        useJUnitPlatform {
+            includeTags(tag)
+        }
+        maxParallelForks = 1
+        reports.junitXml.required.set(true)
+        reports.html.required.set(true)
+    }
+}
+
+registerTaggedTestTask(
+    "testIntegration",
+    "Runs tests explicitly categorized as integration",
+    "integration"
+)
+registerTaggedTestTask(
+    "testConcurrency",
+    "Runs tests explicitly categorized as concurrency/lifecycle",
+    "concurrency"
+)
+registerTaggedTestTask(
+    "testGui",
+    "Runs tests explicitly categorized as GUI/JavaFX",
+    "gui"
+)
 
 
 java {
