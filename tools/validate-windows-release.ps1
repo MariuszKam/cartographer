@@ -8,8 +8,7 @@ param(
     [string]$SavePath,
 
     [Parameter(Mandatory = $false)]
-    [ValidatePattern("^\d+\.\d+\.\d+$")]
-    [string]$Version = "1.0.0"
+    [string]$Version
 )
 
 Set-StrictMode -Version Latest
@@ -35,6 +34,33 @@ function Write-WarningMessage([string]$Message) {
 function Write-Fail([string]$Message) {
     $script:FailureCount++
     Write-Output "FAIL: $Message"
+}
+
+function Resolve-ArtifactVersion {
+    if (-not [string]::IsNullOrWhiteSpace($Version)) {
+        if ($Version -notmatch "^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$") {
+            throw "-Version must use stable MAJOR.MINOR.PATCH form: $Version"
+        }
+        return $Version
+    }
+
+    $propertiesPath = Join-Path $repositoryRoot "gradle.properties"
+    if (-not (Test-Path -LiteralPath $propertiesPath -PathType Leaf)) {
+        throw "Cannot resolve release version because gradle.properties is missing: $propertiesPath"
+    }
+
+    $matches = @(Get-Content -LiteralPath $propertiesPath | Where-Object {
+        $_ -match "^version=(.+)$"
+    })
+    if ($matches.Count -ne 1) {
+        throw "gradle.properties must contain exactly one version=<MAJOR.MINOR.PATCH> entry"
+    }
+
+    $resolved = ($matches[0] -replace "^version=", "").Trim()
+    if ($resolved -notmatch "^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$") {
+        throw "Project version must use stable MAJOR.MINOR.PATCH form: $resolved"
+    }
+    return $resolved
 }
 
 function Ensure-ValidationDirectory {
@@ -190,10 +216,12 @@ function Test-ZipDirectory([string[]]$Entries, [string]$DirectoryName) {
 
 function Invoke-ArtifactValidation {
     Ensure-ValidationDirectory
+    $artifactVersion = Resolve-ArtifactVersion
     $buildRoot = Join-Path $repositoryRoot "build"
     $appImageRoot = Join-Path $buildRoot "jpackage\app-image\VS Cartographer"
-    $portableZipPath = Join-Path $buildRoot "distributions\VS-Cartographer-$Version-win-x64.zip"
-    $installerPath = Join-Path $buildRoot "distributions\VS-Cartographer-Setup-$Version.exe"
+    $portableZipPath = Join-Path $buildRoot "distributions\VS-Cartographer-$artifactVersion-win-x64.zip"
+    $installerPath = Join-Path $buildRoot "distributions\VS-Cartographer-Setup-$artifactVersion.exe"
+    Write-Info "release version: $artifactVersion"
 
     $null = Assert-ArtifactFile (Join-Path $appImageRoot "VS Cartographer.exe") "native app-image launcher"
     $null = Assert-ArtifactDirectory (Join-Path $appImageRoot "app") "app-image app directory"
