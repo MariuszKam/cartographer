@@ -11,6 +11,7 @@ import cartographer.perf.RenderDataCacheStore;
 import cartographer.render.RockMapRenderResult;
 import cartographer.render.RockMapRenderer;
 import cartographer.snapshot.SnapshotUpperRockReader;
+import cartographer.snapshot.SnapshotWorldHeaderReader;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
@@ -29,6 +30,7 @@ public final class RenderRockMapUseCase {
     private final SaveSessionFactory sessionFactory;
     private final RockMapRenderer renderer;
     private final Optional<SnapshotUpperRockReader> snapshotReader;
+    private final Optional<SnapshotWorldHeaderReader> snapshotHeaderReader;
     private final OreChunkPositionPlanner positionPlanner =
             new OreChunkPositionPlanner();
 
@@ -103,10 +105,14 @@ public final class RenderRockMapUseCase {
                 renderer,
                 "renderer is required"
         );
-        this.snapshotReader = Objects.requireNonNull(
-                renderDataCacheStore,
-                "render data cache option is required"
-        ).map(SnapshotUpperRockReader::new);
+        Optional<RenderDataCacheStore> cache =
+                Objects.requireNonNull(
+                        renderDataCacheStore,
+                        "render data cache option is required"
+                );
+        this.snapshotReader = cache.map(SnapshotUpperRockReader::new);
+        this.snapshotHeaderReader =
+                cache.map(SnapshotWorldHeaderReader::new);
     }
 
     public RockMapRenderResult renderRetained(RockMap rockMap) {
@@ -132,9 +138,85 @@ public final class RenderRockMapUseCase {
     ) {
         Objects.requireNonNull(request, "rock map request is required");
         Objects.requireNonNull(progress, "progress is required");
+
+        Optional<RenderRockMapResult> snapshot =
+                executeSnapshot(request, progress);
+        if (snapshot.isPresent()) {
+            return snapshot.orElseThrow();
+        }
+
         try (SaveSession session = sessionFactory.open(request.savePath())) {
             return execute(session, request, progress);
         }
+    }
+
+    private Optional<RenderRockMapResult> executeSnapshot(
+            RenderRockMapRequest request,
+            ProgressReporter progress
+    ) {
+        if (request.mode() != RockMapMode.UPPER_ROCK
+                || snapshotReader.isEmpty()
+                || snapshotHeaderReader.isEmpty()) {
+            return Optional.empty();
+        }
+
+        var header = snapshotHeaderReader.orElseThrow()
+                .read(request.savePath());
+        if (header.isEmpty()) {
+            return Optional.empty();
+        }
+        WorldMetadata metadata = header.orElseThrow().metadata();
+        WorldPosition center;
+        if (request.center().isPresent()) {
+            center = request.center().orElseThrow();
+        } else if (header.orElseThrow().player().isPresent()) {
+            center = header.orElseThrow().player().orElseThrow();
+        } else {
+            return Optional.empty();
+        }
+
+        int minY = request.minY().orElse(0);
+        int maxYExclusive = request.maxYExclusive()
+                .orElse(metadata.mapSizeY());
+        if (minY != 0 || maxYExclusive != metadata.mapSizeY()) {
+            return Optional.empty();
+        }
+
+        RockCatalog catalog = RockCatalog.from(
+                header.orElseThrow().blockRegistry()
+        );
+        if (catalog.rocks().isEmpty()) {
+            return Optional.empty();
+        }
+
+        progress.start("Reading geology from world snapshot");
+        Optional<RockMap> snapshotMap = snapshotReader.orElseThrow().read(
+                request.savePath(),
+                metadata,
+                header.orElseThrow().blockRegistry(),
+                center,
+                request.radius()
+        );
+        if (snapshotMap.isEmpty()) {
+            return Optional.empty();
+        }
+
+        RockMap map = snapshotMap.orElseThrow();
+        progress.start("Rendering geology map");
+        RockMapRenderResult rendered = renderer.render(map);
+        progress.done("Rendered geology from world snapshot");
+        return Optional.of(new RenderRockMapResult(
+                map,
+                rendered,
+                catalog,
+                new SelectiveChunkStreamStats(
+                        0, 0, 0, 0, 0, 0, 0, 0
+                ),
+                new ReadDiagnostics(),
+                center,
+                minY,
+                maxYExclusive
+        ));
     }
 
     public RenderRockMapResult execute(
