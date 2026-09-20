@@ -319,7 +319,7 @@ val minimumTestCount = 1_104L
 tasks.register("testPerformanceBudget") {
     group = "verification"
     description = "Checks coarse regression budgets for the complete test suite"
-    dependsOn(tasks.test)
+    dependsOn(tasks.named("test"))
 
     val reportDirectory = layout.buildDirectory.dir("reports/test-performance")
     val suiteSummary = reportDirectory.map { it.file("test-suite-summary.csv") }
