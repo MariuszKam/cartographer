@@ -433,7 +433,14 @@ class PrepareWorldSnapshotUseCaseTest {
                 SaveSession session,
                 ProgressReporter progress
         ) {
-            progress.start("Reading PLAYER position");
+            // Mimic the real reader's nested lifecycle: finishing one nested
+            // stage and starting another must never move PF-2.7 progress
+            // backwards within the Header phase.
+            progress.start("Reading PLAYER records");
+            progress.progress("Reading PLAYER records", 1, 2);
+            progress.done("PLAYER records read");
+            progress.start("Parsing PLAYER position");
+            progress.done("PLAYER position parsed");
             return new WorldPosition(16, 0, 16);
         }
 
