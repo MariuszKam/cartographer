@@ -190,7 +190,7 @@ class SnapshotResourceReaderTest {
                 4,
                 List.of(new ActualBlockMatchSpec(
                         "copper",
-                        ActualBlockMatchMode.CONTAINS
+                        ActualBlockMatchMode.GENERIC_SUBSTRING
                 )),
                 ActualBlockYFilter.unbounded()
         ).isEmpty());
