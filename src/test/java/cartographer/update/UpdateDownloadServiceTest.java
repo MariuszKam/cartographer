@@ -177,6 +177,31 @@ class UpdateDownloadServiceTest {
     }
 
     @Test
+    void stagingFilesystemFailureReturnsFailedWithoutStartingTransfer()
+            throws Exception {
+        byte[] installerBytes = "filesystem-failure".getBytes();
+        UpdateManifest manifest = manifest(installerBytes);
+        Path updates = temporaryDirectory.resolve("updates-as-file");
+        Files.writeString(updates, "not-a-directory");
+        AtomicInteger sourceCalls = new AtomicInteger();
+
+        UpdateDownloadService service = new UpdateDownloadService(
+                updates,
+                (requested, destination, listener) ->
+                        sourceCalls.incrementAndGet()
+        );
+
+        UpdateDownloadResult result = service.download(
+                manifest,
+                ignored -> { }
+        );
+
+        assertEquals(UpdateDownloadResult.Status.FAILED, result.status());
+        assertEquals(0, sourceCalls.get());
+        assertTrue(result.failureMessage().isPresent());
+    }
+
+    @Test
     void failedPartialDownloadIsCleanedAndRetryStartsFresh()
             throws Exception {
         byte[] installerBytes = "retry-installer".getBytes();
