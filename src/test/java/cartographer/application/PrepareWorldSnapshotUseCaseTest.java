@@ -6,6 +6,7 @@ import cartographer.model.ChunkPosition;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParsedChunk;
+import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.parser.ChunkParser;
@@ -17,9 +18,12 @@ import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.MapChunkStreamStats;
+import cartographer.save.MapRegionStreamStats;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
+import cartographer.save.SelectiveChunkStreamStats;
+import cartographer.save.SelectiveChunkVisit;
 import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
@@ -86,6 +90,11 @@ class PrepareWorldSnapshotUseCaseTest {
         assertEquals(1, reader.observedScans.get());
         assertEquals(0, reader.exactMapChunkReads.get());
         assertEquals(1, reader.surfaceReads.get());
+        assertEquals(1, reader.mapRegionReads.get());
+        assertEquals(1, reader.rockReads.get());
+        assertTrue(first.mapRegionCoverageComplete());
+        assertTrue(first.upperRockCoverageComplete());
+        assertEquals(2, first.upperRockPublished());
 
         PrepareWorldSnapshotResult second =
                 useCase.execute(request, ProgressReporter.NONE);
@@ -112,6 +121,19 @@ class PrepareWorldSnapshotUseCaseTest {
                 reader.surfaceReads.get(),
                 "valid Surface coverage must avoid another server-chunk traversal"
         );
+        assertEquals(
+                1,
+                reader.mapRegionReads.get(),
+                "complete mapregion snapshot must avoid another source scan"
+        );
+        assertEquals(
+                1,
+                reader.rockReads.get(),
+                "complete UPPER_ROCK coverage must avoid another selective source traversal"
+        );
+        assertEquals(2, second.upperRockHits());
+        assertEquals(0, second.upperRockPublished());
+
 
         PrepareMapDataUseCase renderUseCase = new PrepareMapDataUseCase(
                 reader,
@@ -205,6 +227,8 @@ class PrepareWorldSnapshotUseCaseTest {
         private final AtomicInteger observedScans = new AtomicInteger();
         private final AtomicInteger exactMapChunkReads = new AtomicInteger();
         private final AtomicInteger surfaceReads = new AtomicInteger();
+        private final AtomicInteger mapRegionReads = new AtomicInteger();
+        private final AtomicInteger rockReads = new AtomicInteger();
 
         private TestReader(List<MapChunk> mapChunks) {
             super(
@@ -282,6 +306,45 @@ class PrepareWorldSnapshotUseCaseTest {
                     matching.size(),
                     0,
                     0
+            );
+        }
+
+        @Override
+        public MapRegionStreamStats forEachObservedMapRegion(
+                SaveSession session,
+                ReadDiagnostics diagnostics,
+                Consumer<ServerMapRegion> consumer,
+                ProgressReporter progress
+        ) {
+            mapRegionReads.incrementAndGet();
+            return new MapRegionStreamStats(0, 0, 0, 0, 0L);
+        }
+
+        @Override
+        public SelectiveChunkStreamStats
+        forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                SaveSession session,
+                Collection<ChunkPosition> positions,
+                int[] wantedBlockIds,
+                ReadDiagnostics diagnostics,
+                Consumer<SelectiveChunkVisit> consumer,
+                ProgressReporter progress
+        ) {
+            rockReads.incrementAndGet();
+            for (ChunkPosition position : positions) {
+                consumer.accept(
+                        SelectiveChunkVisit.paletteRejected(position)
+                );
+            }
+            return new SelectiveChunkStreamStats(
+                    positions.size(),
+                    positions.isEmpty() ? 0 : 1,
+                    positions.size(),
+                    positions.size(),
+                    positions.size(),
+                    0,
+                    0,
+                    0L
             );
         }
 
