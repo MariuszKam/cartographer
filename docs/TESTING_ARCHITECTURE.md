@@ -251,30 +251,28 @@ not encourage weakening correctness.
 
 ## Parallel execution strategy
 
-The preferred first level of parallelism is Gradle test-worker process
-parallelism because separate JVMs provide a strong isolation boundary.
-
-The worker count must be bounded and related to available CPU and workload
-characteristics. More workers are not automatically faster when tests compete
-for filesystem or SQLite resources.
+The production pull-request test topology uses one Gradle test worker.
+Controlled 1/2/3/4-worker experiments showed that whole-suite process-level
+parallelism increased elapsed time after the SQLite fixture refactor, so adding
+workers would make CI slower while increasing resource contention.
 
 Current Gradle test tasks explicitly set
-`junit.jupiter.execution.parallel.enabled=false`. This pins methods and
-classes assigned to one worker to sequential JUnit execution, so
-`testParallelProbe` measures Gradle worker-process parallelism only. A future
-JUnit in-process experiment must use an explicit dedicated task/configuration;
-it must not silently alter the meaning of the existing baseline or probe.
+`junit.jupiter.execution.parallel.enabled=false`. The production `test`
+task therefore runs one worker with sequential JUnit execution. This is an
+evidence-based final topology, not a temporary fallback.
 
-JUnit in-process parallel execution is a later optimization. It increases the
-importance of thread-safe fixtures and process-wide state audits, so it must not
-be enabled repository-wide before those contracts are satisfied.
+`testParallelProbe` remains an opt-in developer diagnostic for future
+experiments. It measures Gradle worker-process parallelism only. Any future
+JUnit in-process experiment must use an explicit dedicated task/configuration;
+it must not silently alter the production baseline.
 
 Serial-only tests must remain a small, explicit set.
 
 ### Current Gradle verification tasks
 
-The default `test` task is intentionally kept at one Gradle test worker while
-the serial baseline and audit are established.
+The default `test` task intentionally uses one Gradle test worker. This is
+the selected production topology for the current suite because repeated
+whole-suite worker experiments did not outperform the one-worker baseline.
 
 The repository provides these TEST-PERF tasks:
 
@@ -337,30 +335,26 @@ explicitly categorized subsets with one Gradle worker. They exist for focused
 diagnosis and later stress campaigns. Because categories may overlap, their
 combined test counts must not be treated as the size of the complete suite.
 
-The normal PR correctness gate must not switch from `test` to
-`testParallelProbe` until the parallel-safety audit and repeated validation
-support that change.
+The normal pull-request correctness gate is the complete
+`test` task.
 
-During TEST-PERF rollout, draft PR CI may run additional
-`testParallelProbe` evidence *after* the complete serial `test` gate. This
-is validation evidence, not a replacement for the serial correctness gate.
+Pull-request CI has exactly one test job. That job performs the architecture
+audit and guard, runs the complete test suite once with the selected one-worker
+topology, retains timing/JUnit evidence, and then performs the existing tooling
+syntax validation.
 
-The TEST-PERF branch currently uses an isolated topology matrix with
-1, 2, 3 and 4 Gradle worker JVMs. Each worker count runs on a fresh Windows
-runner and uploads its own JUnit and timing evidence. A summary job then checks
-that all topology runs executed the same test count with zero reported failures
-and emits one machine-readable `test-topology-summary.csv`.
-
-The topology matrix is intentionally scoped to the
-`test-perf-parallel-test-architecture` branch. It is measurement
-infrastructure, not a permanent four-run tax for every future pull request.
-Once repeated evidence selects a production topology, normal PR CI should keep
-only the smallest set of executions needed for correctness and regression
-detection.
+Topology matrices and repeated stress campaigns are diagnostic techniques, not
+normal PR checks. They may be run deliberately when test architecture changes,
+but they must not be added as permanent matrix jobs to the pull-request
+workflow. A red stress result must still be investigated; removing the stress
+job from PR CI is not permission to ignore previously observed failures.
 
 ## CI contract
 
-Pull-request CI must preserve the complete correctness gate.
+Pull-request CI must preserve the complete correctness gate and expose one
+test job only. Multiple worker-matrix or repeated stress jobs must not be part
+of the normal pull-request workflow.
+
 
 Optimization may change execution topology, but must not:
 
