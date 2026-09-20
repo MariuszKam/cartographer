@@ -42,14 +42,26 @@ public final class InspectWorldSnapshotStatusUseCase {
             );
         }
 
+        WorldDataSnapshot existing = snapshot.orElseThrow();
         Optional<WorldSnapshotPreparationSummary> summary =
-                snapshot.orElseThrow()
-                        .preparationSummaryStore()
-                        .read();
-        WorldSnapshotStatus.State state = summary
+                existing.preparationSummaryStore().read();
+
+        boolean pf2ArtifactsPresent = summary.isPresent()
+                || existing.headerStore().read().isPresent()
+                || existing.indexCatalogStore().mapChunkScanComplete()
+                || existing.mapRegionStore().scanComplete()
+                || existing.resourceIndexStore().scanComplete();
+
+        WorldSnapshotStatus.State state;
+        if (!pf2ArtifactsPresent) {
+            state = WorldSnapshotStatus.State.NOT_PREPARED;
+        } else if (summary
                 .filter(WorldSnapshotPreparationSummary::complete)
-                .map(ignored -> WorldSnapshotStatus.State.READY)
-                .orElse(WorldSnapshotStatus.State.PARTIAL);
+                .isPresent()) {
+            state = WorldSnapshotStatus.State.READY;
+        } else {
+            state = WorldSnapshotStatus.State.PARTIAL;
+        }
 
         return new WorldSnapshotStatus(
                 normalized,
