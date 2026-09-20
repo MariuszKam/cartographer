@@ -241,7 +241,9 @@ tasks.register("testArchitectureAudit") {
         }
 
         summaryOutput.bufferedWriter().use { writer ->
-            writer.appendLine("path,signals,reviewSignalCount,parallelReviewRequired")
+            writer.appendLine(
+                "path,signals,reviewSignalCount,reviewPriority,reviewReasons"
+            )
             val informationalSignals = setOf(
                 "TEMP_DIR",
                 "TEST_CATEGORY",
@@ -251,9 +253,39 @@ tasks.register("testArchitectureAudit") {
                 val reviewSignals = categories.count { category ->
                     category !in informationalSignals
                 }
+                val reviewReasons = linkedSetOf<String>()
+                if ("FILESYSTEM_MUTATION" in categories
+                    && "TEMP_DIR" !in categories) {
+                    reviewReasons.add("filesystem-without-tempdir")
+                }
+                if ("SQLITE" in categories && "TEMP_DIR" !in categories) {
+                    reviewReasons.add("sqlite-without-tempdir")
+                }
+                if ("SYSTEM_PROPERTY_MUTATION" in categories
+                    || "SYSTEM_DEFAULT_MUTATION" in categories) {
+                    reviewReasons.add("process-global-state")
+                }
+                if ("MUTABLE_STATIC" in categories) {
+                    reviewReasons.add("mutable-static")
+                }
+                if ("NETWORK_FIXTURE" in categories) {
+                    reviewReasons.add("network-fixture")
+                }
+                if ("SLEEP" in categories) {
+                    reviewReasons.add("scheduler-timing")
+                }
+                if ("UNBOUNDED_THREAD_JOIN" in categories) {
+                    reviewReasons.add("unbounded-thread-join")
+                }
+                val reviewPriority = when {
+                    reviewReasons.isNotEmpty() -> "HIGH"
+                    reviewSignals > 0 -> "REVIEW"
+                    else -> "INFO"
+                }
                 writer.appendLine(
                     "$path,${categories.sorted().joinToString("|")}," +
-                        "$reviewSignals,${reviewSignals > 0}"
+                        "$reviewSignals,$reviewPriority," +
+                        reviewReasons.joinToString("|")
                 )
             }
         }
@@ -269,6 +301,51 @@ tasks.register("testArchitectureAudit") {
         logger.lifecycle(
             "Test architecture summary: ${summaryOutput.absolutePath}"
         )
+    }
+}
+
+val forbiddenTestArchitecturePatterns = linkedMapOf(
+    "SLEEP" to testArchitecturePatterns.getValue("SLEEP"),
+    "UNBOUNDED_THREAD_JOIN" to
+        testArchitecturePatterns.getValue("UNBOUNDED_THREAD_JOIN")
+)
+
+tasks.register("testArchitectureGuard") {
+    group = "verification"
+    description = "Fails on test patterns forbidden by the testing architecture"
+    dependsOn("testArchitectureAudit")
+
+    val sources = fileTree("src/test/java") {
+        include("**/*.java")
+    }
+    inputs.files(sources)
+
+    doLast {
+        val violations = mutableListOf<String>()
+        sources.files
+            .sortedBy { it.relativeTo(project.projectDir).invariantSeparatorsPath }
+            .forEach { source ->
+                val relative = source
+                    .relativeTo(project.projectDir)
+                    .invariantSeparatorsPath
+                source.readLines().forEachIndexed { index, line ->
+                    forbiddenTestArchitecturePatterns.forEach { (category, pattern) ->
+                        if (pattern.containsMatchIn(line)) {
+                            violations.add(
+                                "$category $relative:${index + 1} ${line.trim()}"
+                            )
+                        }
+                    }
+                }
+            }
+
+        if (violations.isNotEmpty()) {
+            throw GradleException(
+                "Forbidden test architecture patterns detected:\n" +
+                    violations.joinToString("\n")
+            )
+        }
+        logger.lifecycle("Test architecture guard: PASS")
     }
 }
 
