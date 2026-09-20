@@ -139,21 +139,55 @@ public final class RenderRockMapUseCase {
         return execute(request, ProgressReporter.NONE);
     }
 
+    /**
+     * Executes with exact retained ROCK state for interactive callers.
+     */
     public RenderRockMapResult execute(
             RenderRockMapRequest request,
             ProgressReporter progress
     ) {
+        return executeInternal(request, progress, true);
+    }
+
+    /**
+     * Executes without retaining request-shaped ROCK state when a compatible
+     * UPPER_ROCK snapshot can render directly into the bounded raster.
+     */
+    public RenderRockMapResult executeRenderOnly(
+            RenderRockMapRequest request
+    ) {
+        return executeRenderOnly(request, ProgressReporter.NONE);
+    }
+
+    public RenderRockMapResult executeRenderOnly(
+            RenderRockMapRequest request,
+            ProgressReporter progress
+    ) {
+        return executeInternal(request, progress, false);
+    }
+
+    private RenderRockMapResult executeInternal(
+            RenderRockMapRequest request,
+            ProgressReporter progress,
+            boolean retainRockMap
+    ) {
         Objects.requireNonNull(request, "rock map request is required");
         Objects.requireNonNull(progress, "progress is required");
 
-        Optional<RenderRockMapResult> snapshot =
-                executeSnapshot(request, progress);
+        Optional<RenderRockMapResult> snapshot = retainRockMap
+                ? executeSnapshot(request, progress)
+                : executeSnapshotRenderOnly(request, progress);
         if (snapshot.isPresent()) {
             return snapshot.orElseThrow();
         }
 
         try (SaveSession session = sessionFactory.open(request.savePath())) {
-            return execute(session, request, progress);
+            return executeSource(
+                    session,
+                    request,
+                    progress,
+                    retainRockMap
+            );
         }
     }
 
