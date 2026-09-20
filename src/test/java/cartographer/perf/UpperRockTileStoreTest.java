@@ -1,5 +1,6 @@
 package cartographer.perf;
 
+import cartographer.testing.IntegrationTest;
 import cartographer.geology.rock.RockColumnState;
 import cartographer.model.MapChunkCoordinate;
 import org.junit.jupiter.api.Test;
@@ -16,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@IntegrationTest
 class UpperRockTileStoreTest {
 
     @TempDir
