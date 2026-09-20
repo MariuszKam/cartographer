@@ -139,7 +139,8 @@ Required evidence includes:
 - R1024/R2048/R4096 warm render timing;
 - process CPU where available;
 - peak heap and GC evidence;
-- zero source connections for compatible READY Map/Surface warm renders;
+- zero source connections for every compatible READY warm render, including
+  render-only UPPER_ROCK;
 - viewport geometry parity;
 - exact logical ARGB fingerprint parity;
 - UPPER_ROCK R1024/R2048/R4096 snapshot-direct resource evidence;
@@ -151,7 +152,10 @@ Required evidence includes:
 PF-3 reuses the PF-2.8 cold-build and Map/Surface validation implementation.
 It does not maintain a second copy of that harness. The PF-3 layer adds the
 render-sized UPPER_ROCK gate and one outer source-safety snapshot covering the
-whole campaign.
+whole campaign. ROCK is executed through the production
+`RenderRockMapUseCase.executeRenderOnly(...)` route with a recording
+`SaveSessionLifecycleProbe`; PASS requires zero opened/closed source
+connections and no retained request-shaped `RockMap`.
 
 The Gradle entry point is:
 
