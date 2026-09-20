@@ -171,6 +171,10 @@ public final class WorkstationController {
         return workstation;
     }
 
+    public void shutdown() {
+        operationCoordinator.cancelAll();
+    }
+
     private void chooseSave() {
         saveChooser.get().ifPresent(savePath -> {
             worldPanel.setSavePath(savePath.toString());

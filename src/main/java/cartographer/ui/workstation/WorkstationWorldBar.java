@@ -24,6 +24,7 @@ public final class WorkstationWorldBar extends HBox {
     private Runnable onCheckForUpdates = () -> { };
     private Runnable onOpenUpdateRelease = () -> { };
     private Runnable onDownloadUpdate = () -> { };
+    private Runnable onInstallUpdate = () -> { };
     private boolean updateReady;
 
     public WorkstationWorldBar(
@@ -56,7 +57,13 @@ public final class WorkstationWorldBar extends HBox {
         downloadUpdate.setManaged(false);
         checkUpdates.setOnAction(event -> onCheckForUpdates.run());
         updateAvailable.setOnAction(event -> onOpenUpdateRelease.run());
-        downloadUpdate.setOnAction(event -> onDownloadUpdate.run());
+        downloadUpdate.setOnAction(event -> {
+            if (updateReady) {
+                onInstallUpdate.run();
+            } else {
+                onDownloadUpdate.run();
+            }
+        });
 
         Region spacer = new Region();
         HBox.setHgrow(worldPanel, Priority.ALWAYS);
@@ -95,6 +102,10 @@ public final class WorkstationWorldBar extends HBox {
 
     public void setOnDownloadUpdate(Runnable action) {
         onDownloadUpdate = action == null ? () -> { } : action;
+    }
+
+    public void setOnInstallUpdate(Runnable action) {
+        onInstallUpdate = action == null ? () -> { } : action;
     }
 
     public void showUpdateChecking() {
@@ -159,16 +170,103 @@ public final class WorkstationWorldBar extends HBox {
         );
         downloadUpdate.setVisible(true);
         downloadUpdate.setManaged(true);
-        downloadUpdate.setDisable(true);
-        downloadUpdate.setText("Ready " + checkedVersion);
+        downloadUpdate.setDisable(false);
+        downloadUpdate.setText("Restart & update");
         downloadUpdate.setTooltip(
                 new Tooltip(
-                        "Verified installer is ready; installation is Stage 4"
+                        "Close VS Cartographer, install v"
+                                + checkedVersion
+                                + ", then relaunch"
                 )
         );
         checkUpdates.setDisable(false);
         checkUpdates.setText("Check again");
         checkUpdates.setTooltip(null);
+    }
+
+    public void showUpdateInstallLaunching(
+            ApplicationVersion availableVersion
+    ) {
+        updateReady = true;
+        Objects.requireNonNull(
+                availableVersion,
+                "availableVersion is required"
+        );
+        downloadUpdate.setVisible(true);
+        downloadUpdate.setManaged(true);
+        downloadUpdate.setDisable(true);
+        downloadUpdate.setText("Preparing update…");
+        downloadUpdate.setTooltip(
+                new Tooltip(
+                        "The application will close after the external "
+                                + "updater starts"
+                )
+        );
+        checkUpdates.setDisable(true);
+    }
+
+    public void showUpdateInstallFailed(
+            ApplicationVersion availableVersion,
+            String message
+    ) {
+        updateReady = true;
+        Objects.requireNonNull(
+                availableVersion,
+                "availableVersion is required"
+        );
+        downloadUpdate.setVisible(true);
+        downloadUpdate.setManaged(true);
+        downloadUpdate.setDisable(false);
+        downloadUpdate.setText("Retry update");
+        downloadUpdate.setTooltip(
+                new Tooltip(
+                        message == null || message.isBlank()
+                                ? "Update installation could not start"
+                                : message
+                )
+        );
+        checkUpdates.setDisable(false);
+    }
+
+    public void showUpdateInstalled(ApplicationVersion installedVersion) {
+        updateReady = false;
+        ApplicationVersion version = Objects.requireNonNull(
+                installedVersion,
+                "installedVersion is required"
+        );
+        updateAvailable.setVisible(false);
+        updateAvailable.setManaged(false);
+        downloadUpdate.setVisible(false);
+        downloadUpdate.setManaged(false);
+        checkUpdates.setDisable(false);
+        checkUpdates.setText("Updated v" + version);
+        checkUpdates.setTooltip(
+                new Tooltip("Update installed; click to check again")
+        );
+    }
+
+    public void showPreviousUpdateInstallFailed(
+            ApplicationVersion attemptedVersion,
+            String message
+    ) {
+        updateReady = false;
+        Objects.requireNonNull(
+                attemptedVersion,
+                "attemptedVersion is required"
+        );
+        updateAvailable.setVisible(false);
+        updateAvailable.setManaged(false);
+        downloadUpdate.setVisible(false);
+        downloadUpdate.setManaged(false);
+        checkUpdates.setDisable(false);
+        checkUpdates.setText("Retry updates");
+        checkUpdates.setTooltip(
+                new Tooltip(
+                        message == null || message.isBlank()
+                                ? "Previous update installation failed"
+                                : message
+                )
+        );
     }
 
     public void showUpdateDownloadFailed(
@@ -217,7 +315,7 @@ public final class WorkstationWorldBar extends HBox {
                                 : message
                 )
         );
-        if (updateAvailable.isVisible() && !updateReady) {
+        if (updateAvailable.isVisible()) {
             downloadUpdate.setDisable(false);
         }
     }

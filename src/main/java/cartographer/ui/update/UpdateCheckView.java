@@ -11,6 +11,8 @@ public interface UpdateCheckView {
 
     void setOnDownloadUpdate(Runnable action);
 
+    void setOnInstallUpdate(Runnable action);
+
     void showUpdateChecking();
 
     void showUpdateAvailable(ApplicationVersion version);
@@ -23,6 +25,20 @@ public interface UpdateCheckView {
     void showUpdateReady(ApplicationVersion version);
 
     void showUpdateDownloadFailed(
+            ApplicationVersion version,
+            String message
+    );
+
+    void showUpdateInstallLaunching(ApplicationVersion version);
+
+    void showUpdateInstallFailed(
+            ApplicationVersion version,
+            String message
+    );
+
+    void showUpdateInstalled(ApplicationVersion version);
+
+    void showPreviousUpdateInstallFailed(
             ApplicationVersion version,
             String message
     );
