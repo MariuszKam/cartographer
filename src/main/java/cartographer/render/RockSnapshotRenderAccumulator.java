@@ -32,6 +32,7 @@ public final class RockSnapshotRenderAccumulator {
     private final BufferedImage image;
     private final ArgbRaster raster;
     private final RockRenderColors colors;
+    private final RockPalette palette;
     private final Map<Integer, Integer> ordinalByBlockId;
     private final long[] countsByOrdinal;
     private long observedCount;
@@ -39,11 +40,13 @@ public final class RockSnapshotRenderAccumulator {
     private long unavailableCount;
     private boolean finished;
 
-    public RockSnapshotRenderAccumulator(
+    RockSnapshotRenderAccumulator(
             WorldMetadata metadata,
             RockCatalog catalog,
             WorldPosition center,
-            int radius
+            int radius,
+            RockPalette palette,
+            int maxRasterSize
     ) {
         this.metadata = Objects.requireNonNull(
                 metadata,
@@ -61,14 +64,22 @@ public final class RockSnapshotRenderAccumulator {
         }
 
         this.circle = RockCircleGeometry.from(center, radius);
-        this.sampling = RockRenderSamplingPlan.from(center, radius);
+        this.palette = Objects.requireNonNull(
+                palette,
+                "rock palette is required"
+        );
+        this.sampling = RockRenderSamplingPlan.from(
+                center,
+                radius,
+                maxRasterSize
+        );
         this.image = new BufferedImage(
                 sampling.rasterSize(),
                 sampling.rasterSize(),
                 BufferedImage.TYPE_INT_ARGB
         );
         this.raster = ArgbRaster.wrap(image);
-        this.colors = new RockRenderColors(new RockPalette());
+        this.colors = new RockRenderColors(this.palette);
         this.ordinalByBlockId = new HashMap<>();
         List<RockIdentity> rocks = catalog.rocks();
         this.countsByOrdinal = new long[rocks.size()];
@@ -165,7 +176,6 @@ public final class RockSnapshotRenderAccumulator {
         List<RockIdentity> rocks = catalog.rocks();
         java.util.ArrayList<RockLegendEntry> legend =
                 new java.util.ArrayList<>();
-        RockPalette palette = new RockPalette();
         for (int ordinal = 0; ordinal < rocks.size(); ordinal++) {
             long count = countsByOrdinal[ordinal];
             if (count <= 0) {
