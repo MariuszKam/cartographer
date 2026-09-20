@@ -715,9 +715,12 @@ logical row-major ARGB pixels. Cold build and warm renders separately record
 elapsed time plus available process CPU, peak-heap and GC evidence.
 
 The campaign also protects the real save with before/after file and SQLite
-sidecar snapshots and executes an isolated revision-invalidation probe. The
-Gradle task depends on the full unit-test suite, preserving PF-2.7's
-deterministic cancellation tests as the automated cancellation gate.
+sidecar snapshots and executes an isolated revision-invalidation probe through
+the real `WorldDataSnapshot` facade. The probe publishes derived header state
+for one synthetic revision, changes the source revision, and proves that the
+new namespace cannot observe the prior revision's header. The Gradle task
+depends on the full unit-test suite, preserving PF-2.7's deterministic
+cancellation tests as the automated cancellation gate.
 
 No timing or memory threshold is invented by PF-2.8. Factual resource values
 are comparison evidence; complete snapshot coverage, source safety, revision
