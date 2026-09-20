@@ -6,6 +6,7 @@ import cartographer.scanner.OreCodeMatcher;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 
 /**
  * Registry-derived catalog of real ore block IDs eligible for PF-2.5 indexing.
@@ -29,16 +30,26 @@ public final class ResourceBlockCatalog {
             Map<Integer, BlockInfo> registry
     ) {
         Objects.requireNonNull(registry, "registry is required");
-        List<BlockInfo> blocks = registry.values().stream()
-                .filter(Objects::nonNull)
-                .filter(block -> block.code() != null)
-                .filter(block -> OreCodeMatcher.isOreCode(block.code()))
-                .sorted(
-                        java.util.Comparator.comparingInt(BlockInfo::id)
-                                .thenComparing(BlockInfo::code)
-                )
-                .toList();
-        return new ResourceBlockCatalog(blocks);
+        TreeMap<Integer, BlockInfo> byId = new TreeMap<>();
+        for (BlockInfo block : registry.values()) {
+            if (block == null
+                    || block.id() < 0
+                    || block.code() == null
+                    || !OreCodeMatcher.isOreCode(block.code())) {
+                continue;
+            }
+            byId.merge(
+                    block.id(),
+                    block,
+                    (left, right) ->
+                            left.code().compareTo(right.code()) <= 0
+                                    ? left
+                                    : right
+            );
+        }
+        return new ResourceBlockCatalog(
+                List.copyOf(byId.values())
+        );
     }
 
     public List<BlockInfo> blocks() {
