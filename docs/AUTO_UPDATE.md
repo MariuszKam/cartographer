@@ -203,6 +203,8 @@ The production source:
 - uses bounded connection and request timeouts;
 - requires HTTP 200;
 - rejects redirects that do not remain on HTTPS;
+- rejects final redirect targets outside GitHub-owned hosts
+  (`github.com` or `*.githubusercontent.com`);
 - streams the response instead of buffering the complete EXE in memory;
 - rejects responses that exceed the manifest installer size;
 - rejects a present `Content-Length` that disagrees with the manifest.
