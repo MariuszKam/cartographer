@@ -5,8 +5,10 @@ import java.util.Objects;
 /**
  * Persisted PF-2 preparation summary for one immutable save revision.
  *
- * <p>This is derived evidence only. It never replaces source authority and is
- * written only after a Prepare World operation returns normally.</p>
+ * <p>This is derived evidence only. It never replaces source authority.
+ * PF-2.7 checkpoints it after verified preparation phases so interrupted
+ * work can expose honest resumable coverage without claiming unverified
+ * layers complete.</p>
  */
 public record WorldSnapshotPreparationSummary(
         String revisionHash,
