@@ -1,6 +1,7 @@
 package cartographer.save;
 
 import cartographer.testing.IntegrationTest;
+import cartographer.testing.ConcurrencyTest;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
 import cartographer.model.ParseResult;
@@ -552,6 +553,7 @@ class VcdbsReaderDirectChunkLookupTest {
     }
 
     @Test
+    @ConcurrencyTest
     void tableStreamDecodeStillRunsConcurrently() throws Exception {
         ChunkPosition first = new ChunkPosition(1, 0, 2, 0);
         ChunkPosition second = new ChunkPosition(3, 0, 4, 0);
@@ -595,6 +597,7 @@ class VcdbsReaderDirectChunkLookupTest {
     }
 
     @Test
+    @ConcurrencyTest
     void parallelDecodeOverlapsWhileConsumerRemainsCallerThread() throws Exception {
         ChunkPosition first = new ChunkPosition(1, 0, 2, 0);
         ChunkPosition second = new ChunkPosition(3, 0, 4, 0);
