@@ -48,12 +48,12 @@ class RenderRockMapUseCaseStreamingTest {
                 1, java.util.Optional.of(center), java.util.OptionalInt.of(31),
                 java.util.OptionalInt.empty(), java.util.OptionalInt.empty()));
 
-        assertEquals(5, upper.map().observedCount());
-        assertEquals(5, atY.map().observedCount());
-        assertEquals(0, upper.map().unavailableCount());
-        assertEquals(0, atY.map().unavailableCount());
-        assertEquals(cartographer.geology.rock.RockMapMode.UPPER_ROCK, upper.map().mode());
-        assertEquals(cartographer.geology.rock.RockMapMode.AT_Y, atY.map().mode());
+        assertEquals(5, upper.retainedMap().orElseThrow().observedCount());
+        assertEquals(5, atY.retainedMap().orElseThrow().observedCount());
+        assertEquals(0, upper.retainedMap().orElseThrow().unavailableCount());
+        assertEquals(0, atY.retainedMap().orElseThrow().unavailableCount());
+        assertEquals(cartographer.geology.rock.RockMapMode.UPPER_ROCK, upper.retainedMap().orElseThrow().mode());
+        assertEquals(cartographer.geology.rock.RockMapMode.AT_Y, atY.retainedMap().orElseThrow().mode());
         assertEquals(center, upper.center());
         assertEquals(center, atY.center());
         assertEquals(0, upper.minY());
