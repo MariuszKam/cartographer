@@ -60,6 +60,112 @@ public class MapRenderer {
         );
     }
 
+    /**
+     * PF-3 raster-bounded Surface production path.
+     *
+     * <p>exactSurface is required only when SOIL_FERTILITY is enabled; the
+     * alpha-composited soil overlay still follows the exact compatibility path
+     * until it has its own parity-safe render-sized representation.</p>
+     */
+    public RenderedMap render(
+            WorldPosition center,
+            WorldPosition player,
+            HomeState home,
+            MapTerrainPreparation terrain,
+            SurfaceRenderData surfaceData,
+            SurfaceMap exactSurface,
+            Map<Integer, BlockInfo> registry,
+            RenderOptions options,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(center, "center is required");
+        Objects.requireNonNull(player, "player is required");
+        Objects.requireNonNull(home, "Home state is required");
+        Objects.requireNonNull(terrain, "terrain preparation is required");
+        Objects.requireNonNull(surfaceData, "Surface render data is required");
+        Objects.requireNonNull(registry, "registry is required");
+        Objects.requireNonNull(options, "render options are required");
+        Objects.requireNonNull(progress, "progress is required");
+
+        RenderSamplingPlan sampling = RenderSamplingPlan.from(center, options);
+        int diameter = sampling.rasterSize();
+        double scale = sampling.effectivePixelsPerBlock();
+        BufferedImage image = new BufferedImage(
+                diameter,
+                diameter,
+                BufferedImage.TYPE_INT_ARGB
+        );
+        ArgbRaster raster = ArgbRaster.wrap(image);
+        prepareBackground(raster, options, progress);
+
+        int tilesDrawn = options.layers().contains(RenderLayer.TERRAIN)
+                ? drawTerrain(
+                        raster,
+                        terrain.heights(),
+                        sampling,
+                        options,
+                        progress
+                )
+                : 0;
+
+        if (options.layers().contains(RenderLayer.SURFACE)) {
+            drawSurfaceRenderData(
+                    raster,
+                    surfaceData,
+                    terrain.surfaceHeights(),
+                    progress
+            );
+        }
+
+        if (options.layers().contains(RenderLayer.SOIL_FERTILITY)) {
+            if (exactSurface == null) {
+                throw new IllegalStateException(
+                        "exact Surface data is required for soil fertility"
+                );
+            }
+            soilFertilityRenderer.draw(
+                    image,
+                    exactSurface,
+                    registry,
+                    sampling.worldMinX(),
+                    sampling.worldMinZ(),
+                    scale,
+                    progress
+            );
+        }
+
+        if (options.layers().contains(RenderLayer.SURFACE)) {
+            drawLegend(image, surfaceData);
+        }
+
+        int markerCount = drawMarkers(
+                image,
+                player,
+                home,
+                sampling.geometry(),
+                options,
+                progress
+        );
+        String layers = options.layers().stream()
+                .map(Enum::name)
+                .sorted()
+                .collect(Collectors.joining(","));
+
+        return new RenderedMap(
+                image,
+                new MapRenderReport(
+                        diameter,
+                        diameter,
+                        terrain.mapChunkCount(),
+                        tilesDrawn,
+                        markerCount,
+                        options.style(),
+                        layers
+                ),
+                sampling.geometry()
+        );
+    }
+
     /** Compact SurfaceMap production path; does not materialize SurfaceBlock objects. */
     public RenderedMap render(
             WorldPosition center,
@@ -555,6 +661,46 @@ public class MapRenderer {
         }
     }
 
+    private void drawSurfaceRenderData(
+            ArgbRaster raster,
+            SurfaceRenderData surfaceData,
+            TerrainHeightField samples,
+            ProgressReporter progress
+    ) {
+        progress.start("Drawing render-sized semantic surface");
+        if (surfaceData.isEmpty()) {
+            progress.done("Semantic surface drawn");
+            return;
+        }
+
+        int diameter = surfaceData.rasterSize();
+        long[] sources = surfaceData.surfaceSourceByPixelView();
+        byte[] classes = surfaceData.surfaceClassByPixelView();
+        java.util.BitSet present = surfaceData.surfacePresentView();
+
+        for (int index = present.nextSetBit(0);
+             index >= 0;
+             index = present.nextSetBit(index + 1)) {
+            long packed = sources[index];
+            int worldX = (int) (packed >> 32);
+            int worldZ = (int) packed;
+            double shade = !samples.hasHeightAt(worldX, worldZ)
+                    ? 0.0
+                    : hillshade(samples, worldX, worldZ);
+            raster.setArgb(
+                    index % diameter,
+                    index / diameter,
+                    semanticPalette.color(
+                            cartographer.model.SurfaceClassCode.decode(
+                                    classes[index]
+                            ),
+                            shade
+                    )
+            );
+        }
+        progress.done("Semantic surface drawn");
+    }
+
     private void drawSurfaceMap(
             ArgbRaster raster,
             SurfaceMap surfaceMap,
@@ -803,6 +949,58 @@ public class MapRenderer {
                 line++;
             }
 
+        } finally {
+            graphics.dispose();
+        }
+    }
+
+    private void drawLegend(
+            BufferedImage image,
+            SurfaceRenderData surfaceData
+    ) {
+        if (image.getWidth() < MIN_LEGEND_WIDTH
+                || image.getHeight() < MIN_LEGEND_HEIGHT) {
+            return;
+        }
+        Set<SurfaceClass> classes = surfaceData.surfaceClasses();
+        if (classes.isEmpty()) {
+            return;
+        }
+
+        Graphics2D graphics = image.createGraphics();
+        try {
+            graphics.setRenderingHint(
+                    RenderingHints.KEY_TEXT_ANTIALIASING,
+                    RenderingHints.VALUE_TEXT_ANTIALIAS_ON
+            );
+            int lineHeight = 14;
+            int width = 160;
+            int titleHeight = 18;
+            int height = 8 + titleHeight + classes.size() * lineHeight;
+            int x = 8;
+            int y = Math.max(8, image.getHeight() - height - 8);
+            graphics.setColor(new Color(0, 0, 0, 145));
+            graphics.fillRect(x, y, width, height);
+            graphics.setColor(Color.WHITE);
+            graphics.drawString("Surface", x + 6, y + 13);
+            int line = 0;
+            for (SurfaceClass surfaceClass : SurfaceClass.values()) {
+                if (!classes.contains(surfaceClass)) {
+                    continue;
+                }
+                int rowY = y + titleHeight + 4 + line++ * lineHeight;
+                graphics.setColor(new Color(
+                        semanticPalette.color(surfaceClass, 0.0),
+                        true
+                ));
+                graphics.fillRect(x + 6, rowY, 10, 10);
+                graphics.setColor(Color.WHITE);
+                graphics.drawString(
+                        surfaceClass.label(),
+                        x + 22,
+                        rowY + 10
+                );
+            }
         } finally {
             graphics.dispose();
         }

@@ -244,6 +244,8 @@ public final class SurfaceRenderData {
                 return;
             }
 
+            surfaceClassMask |= 1L << surfaceClass.ordinal();
+
             int startX = (int) Math.floor(
                     (worldX - (double) worldMinX) * scale
             );
@@ -273,7 +275,6 @@ public final class SurfaceRenderData {
 
             long packedSource = pack(worldX, worldZ);
             byte classCode = SurfaceClassCode.encode(surfaceClass);
-            surfaceClassMask |= 1L << surfaceClass.ordinal();
 
             for (int imageY = startY; imageY < endY; imageY++) {
                 int rowStart = imageY * rasterSize + startX;
