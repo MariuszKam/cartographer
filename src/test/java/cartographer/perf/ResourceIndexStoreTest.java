@@ -13,12 +13,57 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ResourceIndexStoreTest {
 
     @TempDir
     Path root;
+
+    @Test
+    void rejectsConflictingCatalogCodesForOneBlockId() throws Exception {
+        Path save = root.resolve("catalog-save").resolve("world.vcdbs");
+        Files.createDirectories(save.getParent());
+        Files.write(save, new byte[]{4, 5, 6});
+
+        ResourceIndexStore store = WorldDataSnapshot.openOrCreate(
+                new RenderDataCacheStore(root.resolve("catalog-cache")),
+                save
+        ).orElseThrow().resourceIndexStore();
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> store.publishBlockCatalog(List.of(
+                        new BlockInfo(2, "game:ore-nativecopper-granite"),
+                        new BlockInfo(2, "mod:ore-other-granite")
+                ))
+        );
+    }
+
+    @Test
+    void rejectsDuplicateChunkEntriesInOnePublication() throws Exception {
+        Path save = root.resolve("duplicate-save").resolve("world.vcdbs");
+        Files.createDirectories(save.getParent());
+        Files.write(save, new byte[]{7, 8, 9});
+
+        ResourceIndexStore store = WorldDataSnapshot.openOrCreate(
+                new RenderDataCacheStore(root.resolve("duplicate-cache")),
+                save
+        ).orElseThrow().resourceIndexStore();
+        ChunkPosition position = new ChunkPosition(0, 0, 0, 0);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> store.publish(List.of(
+                        ResourceChunkIndexEntry.available(
+                                position,
+                                List.of()
+                        ),
+                        ResourceChunkIndexEntry.missing(position)
+                ))
+        );
+    }
 
     @Test
     void roundTripsCoverageMembershipOccurrencesAndDetectsCorruption()
