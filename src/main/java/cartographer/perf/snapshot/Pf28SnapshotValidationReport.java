@@ -52,6 +52,7 @@ public record Pf28SnapshotValidationReport(
                 .map(Pf28WarmRenderSample::radius)
                 .collect(Collectors.toSet());
         return coldCoverage.complete()
+                && coldCoverage.coldBuildProven()
                 && sourceSafety.status() == SaveSafetyStatus.PASS
                 && revisionInvalidationPassed
                 && warmRenders.size() == REQUIRED_RADII.size()
@@ -81,6 +82,31 @@ public record Pf28SnapshotValidationReport(
                 .append(coldCoverage.upperRockCoverageComplete())
                 .append(", resources: ")
                 .append(coldCoverage.resourceIndexCoverageComplete())
+                .append('\n');
+        out.append("Cold reuse — terrain HIT: ")
+                .append(coldCoverage.terrainHits())
+                .append(", surface HIT: ")
+                .append(coldCoverage.surfaceHits())
+                .append(", mapregion HIT: ")
+                .append(coldCoverage.mapRegionHits())
+                .append(", rock HIT: ")
+                .append(coldCoverage.upperRockHits())
+                .append(", resource chunk HIT: ")
+                .append(coldCoverage.resourceChunkHits())
+                .append('\n');
+        out.append("Cold publish — terrain: ")
+                .append(coldCoverage.terrainPublished())
+                .append(", surface: ")
+                .append(coldCoverage.surfacePublished())
+                .append(", mapregion: ")
+                .append(coldCoverage.mapRegionPublished())
+                .append(", rock: ")
+                .append(coldCoverage.upperRockPublished())
+                .append(", resource chunks: ")
+                .append(coldCoverage.resourceChunksPublished())
+                .append('\n');
+        out.append("Cold build proven: ")
+                .append(coldCoverage.coldBuildProven())
                 .append('\n');
         out.append("Snapshot complete: ")
                 .append(coldCoverage.complete())
