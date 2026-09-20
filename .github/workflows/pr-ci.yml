@@ -31,6 +31,10 @@ jobs:
         shell: pwsh
         run: .\gradlew.bat testArchitectureAudit
 
+      - name: Enforce test architecture guard
+        shell: pwsh
+        run: .\gradlew.bat testArchitectureGuard
+
       - name: Run tests
         shell: pwsh
         run: .\gradlew.bat test
