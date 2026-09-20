@@ -113,6 +113,37 @@ class UpdateDownloadServiceTest {
     }
 
     @Test
+    void removesPreExistingStalePartialBeforeFreshDownload()
+            throws Exception {
+        byte[] installerBytes = "fresh-installer".getBytes();
+        UpdateManifest manifest = manifest(installerBytes);
+        Path partial = temporaryDirectory.resolve("updates")
+                .resolve("1.1.0")
+                .resolve(manifest.installerFile() + ".part");
+        Files.createDirectories(partial.getParent());
+        Files.writeString(partial, "stale-data");
+
+        UpdateDownloadService service = new UpdateDownloadService(
+                temporaryDirectory.resolve("updates"),
+                (requested, destination, listener) -> {
+                    assertFalse(
+                            Files.exists(destination),
+                            "fresh transfer must start after stale .part cleanup"
+                    );
+                    Files.write(destination, installerBytes);
+                }
+        );
+
+        UpdateDownloadResult result = service.download(
+                manifest,
+                ignored -> { }
+        );
+
+        assertEquals(UpdateDownloadResult.Status.READY, result.status());
+        assertFalse(Files.exists(partial));
+    }
+
+    @Test
     void reusesAlreadyVerifiedInstallerWithoutDownloadingAgain()
             throws Exception {
         byte[] installerBytes = "already-downloaded".getBytes();

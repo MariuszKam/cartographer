@@ -3,6 +3,7 @@ package cartographer.update;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -10,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
@@ -90,11 +92,7 @@ public final class HttpUpdateInstallerSource implements UpdateInstallerSource {
                                 + response.statusCode()
                 );
             }
-            if (!"https".equalsIgnoreCase(response.uri().getScheme())) {
-                throw new IOException(
-                        "Installer redirect did not remain on HTTPS"
-                );
-            }
+            requireTrustedFinalUri(response.uri());
 
             OptionalLong contentLength = response.headers()
                     .firstValueAsLong("Content-Length");
@@ -154,5 +152,28 @@ public final class HttpUpdateInstallerSource implements UpdateInstallerSource {
                 }
             }
         }
+    }
+
+    private void requireTrustedFinalUri(URI uri) throws IOException {
+        if (!isTrustedDownloadUri(uri)) {
+            throw new IOException(
+                    "Installer redirect left trusted GitHub HTTPS hosts"
+            );
+        }
+    }
+
+    static boolean isTrustedDownloadUri(URI uri) {
+        if (uri == null || !"https".equalsIgnoreCase(uri.getScheme())) {
+            return false;
+        }
+
+        String host = uri.getHost();
+        if (host == null) {
+            return false;
+        }
+
+        String normalizedHost = host.toLowerCase(Locale.ROOT);
+        return "github.com".equals(normalizedHost)
+                || normalizedHost.endsWith(".githubusercontent.com");
     }
 }

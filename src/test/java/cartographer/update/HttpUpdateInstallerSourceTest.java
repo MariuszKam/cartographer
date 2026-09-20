@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HttpUpdateInstallerSourceTest {
 
@@ -199,6 +200,67 @@ class HttpUpdateInstallerSourceTest {
                 () -> source.download(manifest, destination, ignored -> { })
         );
         assertEquals(0L, Files.size(destination));
+    }
+
+    @Test
+    void acceptsGithubAndGithubusercontentHttpsTargets() {
+        assertTrue(HttpUpdateInstallerSource.isTrustedDownloadUri(
+                URI.create(
+                        "https://github.com/MariuszKam/cartographer/"
+                                + "releases/download/v1.1.0/file.exe"
+                )
+        ));
+        assertTrue(HttpUpdateInstallerSource.isTrustedDownloadUri(
+                URI.create(
+                        "https://release-assets.githubusercontent.com/"
+                                + "github-production-release-asset/file"
+                )
+        ));
+        assertTrue(HttpUpdateInstallerSource.isTrustedDownloadUri(
+                URI.create(
+                        "https://objects.githubusercontent.com/"
+                                + "github-production-release-asset/file"
+                )
+        ));
+    }
+
+    @Test
+    void rejectsNonHttpsAndNonGithubTargets() {
+        assertFalse(HttpUpdateInstallerSource.isTrustedDownloadUri(
+                URI.create(
+                        "http://github.com/MariuszKam/cartographer/"
+                                + "releases/download/v1.1.0/file.exe"
+                )
+        ));
+        assertFalse(HttpUpdateInstallerSource.isTrustedDownloadUri(
+                URI.create("https://example.com/file.exe")
+        ));
+        assertFalse(HttpUpdateInstallerSource.isTrustedDownloadUri(
+                URI.create("https://evilgithubusercontent.com/file.exe")
+        ));
+    }
+
+    @Test
+    void rejectsHttpsRedirectOutsideTrustedGithubHosts() {
+        byte[] bytes = "installer-payload".getBytes();
+        UpdateManifest manifest = manifest(bytes);
+        HttpUpdateInstallerSource source = new HttpUpdateInstallerSource(
+                request -> response(
+                        request,
+                        200,
+                        URI.create("https://example.com/update.exe"),
+                        Map.of(),
+                        bytes
+                ),
+                Duration.ofSeconds(5)
+        );
+        Path destination = temporaryDirectory.resolve("installer.exe.part");
+
+        assertThrows(
+                IOException.class,
+                () -> source.download(manifest, destination, ignored -> { })
+        );
+        assertFalse(Files.exists(destination));
     }
 
     @Test
