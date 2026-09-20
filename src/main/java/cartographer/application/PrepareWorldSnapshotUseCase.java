@@ -55,6 +55,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 
 /**
  * PF-2 world preparation operation. PF-2.3 prepares revision-scoped Terrain
@@ -162,6 +163,8 @@ public final class PrepareWorldSnapshotUseCase {
                                 headerProgress
                         )
                 );
+            } catch (CancellationException cancellation) {
+                throw cancellation;
             } catch (RuntimeException unavailable) {
                 player = Optional.empty();
             }
