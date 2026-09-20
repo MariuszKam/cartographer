@@ -122,6 +122,10 @@ class UpdateDownloadServiceTest {
                 .resolve(manifest.installerFile());
         Files.createDirectories(installer.getParent());
         Files.write(installer, installerBytes);
+        Path stalePartial = installer.resolveSibling(
+                installer.getFileName().toString() + ".part"
+        );
+        Files.write(stalePartial, new byte[]{1, 2, 3});
         AtomicInteger sourceCalls = new AtomicInteger();
 
         UpdateDownloadService service = new UpdateDownloadService(
@@ -139,6 +143,7 @@ class UpdateDownloadServiceTest {
         assertEquals(installer.toAbsolutePath(), result.installerPath()
                 .orElseThrow());
         assertEquals(0, sourceCalls.get());
+        assertFalse(Files.exists(stalePartial));
     }
 
     @Test
