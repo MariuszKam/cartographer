@@ -388,7 +388,14 @@ master
 CI still does not run against the user's real save, run Stage 5 Before/After
 modes, automate GUI interaction, install or uninstall the installer, or prove
 the upgrade path. Installer/update runtime validation remains reviewer-controlled
-and is required in the later Auto Update validation stage.
+and is required by Auto Update Stage 5.
+
+The complete Auto Update acceptance campaign is documented in:
+
+```text
+docs/AUTO_UPDATE_STAGE5_VALIDATION.md
+tools/validate-auto-update-stage5.ps1
+```
 
 ## Pull request CI
 
