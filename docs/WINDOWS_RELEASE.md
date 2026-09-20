@@ -43,7 +43,7 @@ gradle.properties
 using stable semantic versioning:
 
 ```properties
-version=0.3.0
+version=0.3.1
 ```
 
 `build.gradle.kts`, Windows package names, release validation, generated runtime
