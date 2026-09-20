@@ -141,6 +141,49 @@ class PrepareWorldSnapshotUseCaseTest {
                 reader.surfaceReads.get(),
                 "prepared Surface coverage must avoid source server-chunk reads"
         );
+
+        // Move the Surface request into an observed-gap column. A complete
+        // mapchunk catalog may skip the Terrain lookup, but it must not invent
+        // the absence of server chunks. The first request therefore performs
+        // the established authoritative Surface fallback and publishes the
+        // resulting complete tile.
+        PrepareMapDataRequest outsidePreparedSurface =
+                new PrepareMapDataRequest(
+                        save,
+                        31,
+                        1,
+                        RenderStyle.SIMPLE,
+                        Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
+                        Optional.of(new WorldPosition(64, 0, 16)),
+                        true
+                );
+        renderUseCase.execute(
+                outsidePreparedSurface,
+                ProgressReporter.NONE
+        );
+
+        assertEquals(
+                0,
+                reader.exactMapChunkReads.get(),
+                "complete catalog may skip known-unobserved Terrain mapchunks"
+        );
+        assertEquals(
+                2,
+                reader.surfaceReads.get(),
+                "Surface outside prepared coverage must retain authoritative fallback"
+        );
+
+        // Once that fallback tile has been published for the same revision,
+        // the identical render is snapshot-backed as well.
+        renderUseCase.execute(
+                outsidePreparedSurface,
+                ProgressReporter.NONE
+        );
+        assertEquals(
+                2,
+                reader.surfaceReads.get(),
+                "a lazily published complete Surface tile must be reusable"
+        );
     }
 
     private static MapChunk mapChunk(int x, int z) {
