@@ -32,6 +32,18 @@ Tests must satisfy all of the following unless a documented exception applies:
 The repository distinguishes tests by responsibility, not by how convenient
 they are to run.
 
+Test categories are expressed with test-source meta-annotations:
+
+- `@IntegrationTest` -> JUnit tag `integration`;
+- `@ConcurrencyTest` -> JUnit tag `concurrency`;
+- `@GuiTest` -> JUnit tag `gui`;
+- `@SerialTest` -> JUnit tag `serial`.
+
+Classification is incremental. An unclassified test must not automatically be
+assumed to be a pure unit test until the audit has reviewed it. Multiple
+categories may apply to the same test when that improves targeted diagnosis.
+Category tasks are diagnostic subsets and may overlap; they are not CI shards.
+
 ### Unit tests
 
 A unit test should exercise a small unit of behavior with cheap setup. It must
@@ -258,6 +270,9 @@ The repository provides these TEST-PERF tasks:
 testArchitectureAudit
 testParallelProbe
 testSerial
+testIntegration
+testConcurrency
+testGui
 ```
 
 `testArchitectureAudit` writes detailed findings and a per-file summary under
@@ -280,6 +295,11 @@ decide the final worker count.
 one Gradle test worker. A serial tag requires a concrete process-wide isolation
 reason; it is not a substitute for fixing test-owned filesystem, SQLite,
 threading, or cleanup defects.
+
+`testIntegration`, `testConcurrency`, and `testGui` execute the corresponding
+explicitly categorized subsets with one Gradle worker. They exist for focused
+diagnosis and later stress campaigns. Because categories may overlap, their
+combined test counts must not be treated as the size of the complete suite.
 
 The normal PR correctness gate must not switch from `test` to
 `testParallelProbe` until the parallel-safety audit and repeated validation
