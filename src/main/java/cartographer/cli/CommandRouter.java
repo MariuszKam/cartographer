@@ -300,7 +300,8 @@ public class CommandRouter {
                                             reader,
                                             metadataReader,
                                             renderDataCache
-                                    )
+                                    ),
+                                    renderDataCache
                             ),
                             subcommand(args, "prospecting")
                     );
