@@ -24,12 +24,14 @@ import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.snapshot.SnapshotMapRegionReader;
+import cartographer.snapshot.SnapshotWorldHeaderReader;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.function.Function;
 
 public final class AnalyzeProspectingAreaUseCase {
     private final VcdbsReader reader;
@@ -40,6 +42,7 @@ public final class AnalyzeProspectingAreaUseCase {
     private final ActualOreObservationProvider actualOreProvider;
     private final SaveSessionFactory sessionFactory;
     private final Optional<SnapshotMapRegionReader> snapshotMapRegionReader;
+    private final Optional<SnapshotWorldHeaderReader> snapshotHeaderReader;
 
     public AnalyzeProspectingAreaUseCase(
             VcdbsReader reader,
@@ -153,17 +156,76 @@ public final class AnalyzeProspectingAreaUseCase {
                 sessionFactory,
                 "session factory is required"
         );
-        this.snapshotMapRegionReader = Objects.requireNonNull(
-                renderDataCacheStore,
-                "render data cache option is required"
-        ).map(SnapshotMapRegionReader::new);
+        Optional<RenderDataCacheStore> cache =
+                Objects.requireNonNull(
+                        renderDataCacheStore,
+                        "render data cache option is required"
+                );
+        this.snapshotMapRegionReader =
+                cache.map(SnapshotMapRegionReader::new);
+        this.snapshotHeaderReader =
+                cache.map(SnapshotWorldHeaderReader::new);
     }
 
     public ProspectingAreaResult execute(ProspectingAreaRequest request) {
         Objects.requireNonNull(request, "prospecting request is required");
+
+        Optional<ProspectingAreaResult> snapshot =
+                executeSnapshot(request);
+        if (snapshot.isPresent()) {
+            return snapshot.orElseThrow();
+        }
+
         try (SaveSession saveSession = sessionFactory.open(request.savePath())) {
             return execute(saveSession, request);
         }
+    }
+
+    private Optional<ProspectingAreaResult> executeSnapshot(
+            ProspectingAreaRequest request
+    ) {
+        if (snapshotMapRegionReader.isEmpty()
+                || snapshotHeaderReader.isEmpty()
+                || !(actualOreProvider
+                instanceof FusedProspectingObservationProvider provider)) {
+            return Optional.empty();
+        }
+
+        var header = snapshotHeaderReader.orElseThrow()
+                .read(request.savePath());
+        var mapRegions = snapshotMapRegionReader.orElseThrow()
+                .read(request.savePath());
+        if (header.isEmpty() || mapRegions.isEmpty()) {
+            return Optional.empty();
+        }
+
+        WorldPosition center;
+        if (request.center().isPresent()) {
+            center = request.center().orElseThrow();
+        } else if (header.orElseThrow().player().isPresent()) {
+            center = header.orElseThrow().player().orElseThrow();
+        } else {
+            return Optional.empty();
+        }
+
+        List<ServerMapRegion> regions =
+                mapRegions.orElseThrow().resourceRegions();
+        List<String> resources =
+                resources(regions, request.resources());
+        FusedProspectingResult fused = provider.analyze(
+                request.savePath(),
+                center,
+                request.radius(),
+                resources
+        );
+        return Optional.of(buildResult(
+                request,
+                center,
+                regions,
+                resources,
+                fused.rockMap(),
+                fused::observation
+        ));
     }
 
     public ProspectingAreaResult execute(
@@ -214,6 +276,33 @@ public final class AnalyzeProspectingAreaUseCase {
                         ProgressReporter.NONE
                 ).map()
                 : fused.rockMap();
+        Function<String, ActualOreObservation> observation =
+                fused == null
+                        ? resource -> actualOreProvider.observation(
+                        resource,
+                        request.savePath(),
+                        center,
+                        request.radius()
+                )
+                        : fused::observation;
+        return buildResult(
+                request,
+                center,
+                regions,
+                resources,
+                rockMap,
+                observation
+        );
+    }
+
+    private ProspectingAreaResult buildResult(
+            ProspectingAreaRequest request,
+            WorldPosition center,
+            List<ServerMapRegion> regions,
+            List<String> resources,
+            RockMap rockMap,
+            Function<String, ActualOreObservation> observation
+    ) {
         RockEvidence geology = geology(rockMap);
         List<ProspectingCandidate> candidates = new ArrayList<>();
         for (String resource : resources) {
@@ -223,22 +312,18 @@ public final class AnalyzeProspectingAreaUseCase {
                     center,
                     request.radius()
             );
-            candidates.add(
-                    new ProspectingCandidate(
-                            resource,
-                            new ProspectingEvidence(
-                                    signal,
-                                    geology.state(),
-                                    geology.rocks(),
-                                    fused == null
-                                            ? actualOreProvider.observation(resource, request.savePath(), center, request.radius())
-                                            : fused.observation(resource),
-                                    geology.observedColumns(),
-                                    geology.noRockColumns(),
-                                    geology.unavailableColumns()
-                            )
+            candidates.add(new ProspectingCandidate(
+                    resource,
+                    new ProspectingEvidence(
+                            signal,
+                            geology.state(),
+                            geology.rocks(),
+                            observation.apply(resource),
+                            geology.observedColumns(),
+                            geology.noRockColumns(),
+                            geology.unavailableColumns()
                     )
-            );
+            ));
         }
         List<ProspectingAssessment> assessments = evaluator.assessAll(
                 candidates,
