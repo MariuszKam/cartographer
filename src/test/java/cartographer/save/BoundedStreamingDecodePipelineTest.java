@@ -250,7 +250,7 @@ class BoundedStreamingDecodePipelineTest {
             awaitLatch(submitReturned, "submitReturned");
             assertEquals(null, submitFailure.get());
             releaseFirst.countDown();
-            control.join();
+            joinThread(control, "control");
         } finally {
             releaseConsumer.countDown();
             allowSecondComplete.countDown();
@@ -296,7 +296,7 @@ class BoundedStreamingDecodePipelineTest {
             releaseSecond.countDown();
             awaitLatch(submitReturned, "submitReturned");
             releaseFirst.countDown();
-            control.join();
+            joinThread(control, "control");
         } finally {
             releaseFirst.countDown();
             releaseSecond.countDown();
@@ -346,7 +346,7 @@ class BoundedStreamingDecodePipelineTest {
             assertFalse(values.contains(1));
             releaseFirst.countDown();
             releaseThird.countDown();
-            control.join();
+            joinThread(control, "control");
         } finally {
             releaseFirst.countDown();
             releaseSecond.countDown();
@@ -490,7 +490,7 @@ class BoundedStreamingDecodePipelineTest {
         assertSame(cause, failure.get().getCause());
         pipeline.close();
         awaitLatch(firstStopped, "firstStopped");
-        controller.join();
+        joinThread(controller, "controller");
     }
 
     @Test
