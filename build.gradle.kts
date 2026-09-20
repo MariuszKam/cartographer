@@ -85,6 +85,7 @@ fun resolveJpackageExecutable(): File {
 val generateBuildInfo = tasks.register("generateBuildInfo") {
     group = "build"
     description = "Generates runtime build metadata from the Gradle project version"
+    inputs.property("version", releaseVersion)
     outputs.file(generatedBuildInfoFile)
 
     doLast {
@@ -542,7 +543,21 @@ tasks.register("packageWindowsInstaller") {
 tasks.register("generateUpdateManifest") {
     group = "distribution"
     description = "Generates the stable-channel update manifest for a GitHub release"
-    dependsOn("packageWindowsInstaller", "verifyReleaseTag")
+    dependsOn("verifyReleaseTag")
+    inputs.property("version", releaseVersion)
+    inputs.file(canonicalInstallerFile)
+    inputs.property(
+        "releaseTag",
+        providers.gradleProperty("releaseTag")
+            .orElse(providers.environmentVariable("GITHUB_REF_NAME"))
+            .orElse("")
+    )
+    inputs.property(
+        "releaseRepository",
+        providers.gradleProperty("releaseRepository")
+            .orElse(providers.environmentVariable("GITHUB_REPOSITORY"))
+            .orElse("")
+    )
     outputs.file(updateManifestFile)
 
     doLast {
