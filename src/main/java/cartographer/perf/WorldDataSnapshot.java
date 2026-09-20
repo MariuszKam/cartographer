@@ -23,6 +23,7 @@ public final class WorldDataSnapshot {
     private final MapRegionSnapshotStore mapRegionStore;
     private final UpperRockTileStore upperRockTileStore;
     private final ResourceIndexStore resourceIndexStore;
+    private final WorldPreparationStateStore preparationStateStore;
     private final WorldSnapshotPreparationSummaryStore preparationSummaryStore;
 
     private WorldDataSnapshot(
@@ -38,6 +39,8 @@ public final class WorldDataSnapshot {
         this.mapRegionStore = new MapRegionSnapshotStore(cacheStore, revision);
         this.upperRockTileStore = new UpperRockTileStore(cacheStore, revision);
         this.resourceIndexStore = new ResourceIndexStore(cacheStore, revision);
+        this.preparationStateStore =
+                new WorldPreparationStateStore(cacheStore, revision);
         this.preparationSummaryStore =
                 new WorldSnapshotPreparationSummaryStore(cacheStore, revision);
     }
@@ -74,6 +77,22 @@ public final class WorldDataSnapshot {
         }
         return Optional.of(new WorldDataSnapshot(cacheStore, revision));
     }
+    /**
+     * Opens an already-published compatible revision without creating cache
+     * metadata. Intended for lightweight Workstation status inspection.
+     */
+    public static Optional<WorldDataSnapshot> openExisting(
+            RenderDataCacheStore cacheStore,
+            Path savePath
+    ) {
+        Objects.requireNonNull(cacheStore, "cacheStore is required");
+        Objects.requireNonNull(savePath, "savePath is required");
+        RenderDataCacheRevision revision = cacheStore.observe(savePath);
+        return cacheStore.find(revision).isPresent()
+                ? Optional.of(new WorldDataSnapshot(cacheStore, revision))
+                : Optional.empty();
+    }
+
 
     public RenderDataCacheRevision revision() {
         return revision;
