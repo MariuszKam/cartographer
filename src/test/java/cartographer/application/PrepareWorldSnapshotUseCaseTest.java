@@ -275,6 +275,60 @@ class PrepareWorldSnapshotUseCaseTest {
     }
 
     @Test
+    void cancellationDuringHeaderPlayerReadIsNotSwallowed()
+            throws Exception {
+        Path save = root.resolve("header-cancel").resolve("world.vcdbs");
+        Files.createDirectories(save.getParent());
+        Files.write(save, new byte[]{9, 8, 7});
+
+        TestReader reader = new TestReader(List.of(mapChunk(0, 0)));
+        WorldMetadataReader metadataReader = new TestMetadataReader();
+        RenderDataCacheStore cacheStore =
+                new RenderDataCacheStore(root.resolve("header-cancel-cache"));
+        PrepareWorldSnapshotUseCase useCase =
+                new PrepareWorldSnapshotUseCase(
+                        reader,
+                        new SaveSessionFactory(
+                                new TestConnectionFactory(),
+                                reader,
+                                metadataReader
+                        ),
+                        cacheStore,
+                        new WorldIndexBatchPlanner(16)
+                );
+
+        assertThrows(
+                CancellationException.class,
+                () -> useCase.execute(
+                        new PrepareWorldSnapshotRequest(save),
+                        new ProgressReporter() {
+                            @Override
+                            public void progress(
+                                    String stage,
+                                    int current,
+                                    int total
+                            ) {
+                                if (stage.contains("Reading PLAYER")) {
+                                    throw new CancellationException(
+                                            "header cancelled"
+                                    );
+                                }
+                            }
+                        }
+                )
+        );
+
+        WorldDataSnapshot snapshot = WorldDataSnapshot.openExisting(
+                cacheStore,
+                save
+        ).orElseThrow();
+        assertTrue(
+                snapshot.headerStore().read().isEmpty(),
+                "cancelled PLAYER read must not publish a synthetic header"
+        );
+    }
+
+    @Test
     void cancelledRefreshDoesNotDowngradePreviouslyVerifiedLaterCoverage()
             throws Exception {
         Path save = root.resolve("refresh").resolve("world.vcdbs");
@@ -379,6 +433,7 @@ class PrepareWorldSnapshotUseCaseTest {
                 SaveSession session,
                 ProgressReporter progress
         ) {
+            progress.start("Reading PLAYER position");
             return new WorldPosition(16, 0, 16);
         }
 
