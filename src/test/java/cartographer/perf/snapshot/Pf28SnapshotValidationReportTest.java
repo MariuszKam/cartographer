@@ -85,6 +85,31 @@ class Pf28SnapshotValidationReportTest {
     }
 
     @Test
+    void rejectsDuplicateRadiusEvenWhenRequiredSetIsPresent() {
+        Pf28SnapshotValidationReport report =
+                new Pf28SnapshotValidationReport(
+                        SHA,
+                        "revision",
+                        true,
+                        100L,
+                        Pf18ResourceEvidence.unavailable(),
+                        new SaveSafetyResult(
+                                SaveSafetyStatus.PASS,
+                                List.of()
+                        ),
+                        true,
+                        List.of(
+                                accepted(1024),
+                                accepted(2048),
+                                accepted(4096),
+                                accepted(4096)
+                        )
+                );
+
+        assertFalse(report.accepted());
+    }
+
+    @Test
     void rejectsSourceMutationOrMissingRadius() {
         Pf28SnapshotValidationReport report =
                 new Pf28SnapshotValidationReport(
