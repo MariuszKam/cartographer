@@ -1,6 +1,11 @@
 package cartographer.perf.snapshot;
 
+import cartographer.application.ProgressReporter;
+import cartographer.application.RenderRockMapRequest;
+import cartographer.application.RenderRockMapResult;
+import cartographer.application.RenderRockMapUseCase;
 import cartographer.geology.rock.RockMap;
+import cartographer.geology.rock.RockMapMode;
 import cartographer.model.WorldPosition;
 import cartographer.perf.RenderDataCacheStore;
 import cartographer.perf.WorldSnapshotHeader;
@@ -8,6 +13,10 @@ import cartographer.perf.fingerprint.ImageFingerprinter;
 import cartographer.perf.fingerprint.ResultFingerprint;
 import cartographer.perf.metrics.Pf18ResourceEvidence;
 import cartographer.perf.metrics.Pf18ResourceSampler;
+import cartographer.parser.ChunkParser;
+import cartographer.parser.MapChunkParser;
+import cartographer.parser.PlayerDataParser;
+import cartographer.parser.RegistryParser;
 import cartographer.perf.safety.SaveSafetyGate;
 import cartographer.perf.safety.SaveSafetyResult;
 import cartographer.perf.safety.SaveSafetySnapshot;
@@ -16,14 +25,20 @@ import cartographer.render.MapViewportGeometry;
 import cartographer.render.RockLegendEntry;
 import cartographer.render.RockMapRenderResult;
 import cartographer.render.RockMapRenderer;
+import cartographer.save.SaveSessionFactory;
+import cartographer.save.SaveSessionLifecycleProbe;
+import cartographer.save.SqliteSaveConnection;
+import cartographer.save.VcdbsReader;
+import cartographer.save.WorldMetadataReader;
 import cartographer.snapshot.SnapshotUpperRockReader;
-import cartographer.snapshot.SnapshotUpperRockRenderReader;
 import cartographer.snapshot.SnapshotWorldHeaderReader;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.OptionalInt;
 
 public final class Pf3RenderSizedValidationRunner {
     private static final List<Integer> RADII =
@@ -63,24 +78,39 @@ public final class Pf3RenderSizedValidationRunner {
                 ));
 
         RockMapRenderer renderer = new RockMapRenderer();
-        SnapshotUpperRockRenderReader direct =
-                new SnapshotUpperRockRenderReader(
-                        cacheStore,
-                        renderer
-                );
         SnapshotUpperRockReader exact =
                 new SnapshotUpperRockReader(cacheStore);
+        VcdbsReader reader = createReader();
+        WorldMetadataReader metadataReader =
+                new WorldMetadataReader();
+        SaveSessionLifecycleProbe warmProbe =
+                SaveSessionLifecycleProbe.recording();
+        SaveSessionFactory warmSessionFactory =
+                new SaveSessionFactory(
+                        new SqliteSaveConnection(),
+                        reader,
+                        metadataReader,
+                        warmProbe
+                );
+        RenderRockMapUseCase warmRockUseCase =
+                new RenderRockMapUseCase(
+                        reader,
+                        metadataReader,
+                        renderer,
+                        warmSessionFactory,
+                        cacheStore
+                );
         Pf18ResourceSampler resourceSampler =
                 new Pf18ResourceSampler();
 
         List<Pf3RockWarmRenderSample> rockSamples =
                 new ArrayList<>();
         for (int radius : RADII) {
-            MeasuredRock warm = measureDirect(
-                    direct,
+            MeasuredRock warm = measureWarmRock(
+                    warmRockUseCase,
+                    warmProbe,
                     resourceSampler,
                     save,
-                    header,
                     center,
                     radius
             );
@@ -100,6 +130,9 @@ public final class Pf3RenderSizedValidationRunner {
                     warm.elapsedNanoseconds(),
                     exactResult.elapsedNanoseconds(),
                     warm.resources(),
+                    warm.sourceConnectionsOpened(),
+                    warm.sourceConnectionsClosed(),
+                    warm.retainedMapAbsent(),
                     warmSnapshot.geometry().equals(
                             exactSnapshot.geometry()
                     ),
@@ -128,31 +161,50 @@ public final class Pf3RenderSizedValidationRunner {
         );
     }
 
-    private MeasuredRock measureDirect(
-            SnapshotUpperRockRenderReader direct,
+    private MeasuredRock measureWarmRock(
+            RenderRockMapUseCase useCase,
+            SaveSessionLifecycleProbe probe,
             Pf18ResourceSampler resourceSampler,
             Path save,
-            WorldSnapshotHeader header,
             WorldPosition center,
             int radius
     ) {
+        RenderRockMapRequest request = new RenderRockMapRequest(
+                save,
+                RockMapMode.UPPER_ROCK,
+                radius,
+                Optional.of(center),
+                OptionalInt.empty(),
+                OptionalInt.empty(),
+                OptionalInt.empty()
+        );
+        SaveSessionLifecycleProbe.Snapshot probeBefore =
+                probe.snapshot();
+
         long started = System.nanoTime();
-        Pf18ResourceSampler.Measured<RockMapRenderResult> measured =
-                resourceSampler.measure(() -> direct.read(
-                        save,
-                        header.metadata(),
-                        header.blockRegistry(),
-                        center,
-                        radius
-                ).orElseThrow(() -> new IllegalStateException(
-                        "PF-3 direct UPPER_ROCK snapshot render is unavailable at R"
-                                + radius
-                )));
+        Pf18ResourceSampler.Measured<RenderRockMapResult> measured =
+                resourceSampler.measure(() -> useCase.executeRenderOnly(
+                        request,
+                        ProgressReporter.NONE
+                ));
         long elapsed = elapsedSince(started);
+        SaveSessionLifecycleProbe.Snapshot probeAfter =
+                probe.snapshot();
+
+        RenderRockMapResult result = measured.result();
         return new MeasuredRock(
                 elapsed,
                 measured.evidence(),
-                snapshot(measured.result())
+                Math.subtractExact(
+                        probeAfter.connectionsOpened(),
+                        probeBefore.connectionsOpened()
+                ),
+                Math.subtractExact(
+                        probeAfter.connectionsClosed(),
+                        probeBefore.connectionsClosed()
+                ),
+                result.retainedMap().isEmpty(),
+                snapshot(result.rendered())
         );
     }
 
@@ -194,6 +246,15 @@ public final class Pf3RenderSizedValidationRunner {
         );
     }
 
+    private VcdbsReader createReader() {
+        return new VcdbsReader(
+                new PlayerDataParser(),
+                new MapChunkParser(),
+                new ChunkParser(),
+                new RegistryParser()
+        );
+    }
+
     private long elapsedSince(long start) {
         return Math.max(0L, System.nanoTime() - start);
     }
@@ -201,6 +262,9 @@ public final class Pf3RenderSizedValidationRunner {
     private record MeasuredRock(
             long elapsedNanoseconds,
             Pf18ResourceEvidence resources,
+            int sourceConnectionsOpened,
+            int sourceConnectionsClosed,
+            boolean retainedMapAbsent,
             RockSnapshot snapshot
     ) {
     }
