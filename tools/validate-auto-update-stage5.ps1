@@ -680,7 +680,8 @@ function Invoke-TamperInstaller {
 
     Write-Pass "staged installer was changed without changing its length"
     Write-Info "backup: $backup"
-    Write-Info "Use the application's Restart & update action now; it must reject the installer."
+    Write-Info "Keep the old application open in Ready state."
+    Write-Info "Use Restart & update now; in-process verification must reject the installer."
     Write-Info "After the failure check, run RestoreInstaller."
     Write-Host "SUMMARY: PASS - tampered installer prepared"
 }
