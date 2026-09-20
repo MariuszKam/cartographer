@@ -62,6 +62,11 @@ dead code merely because a render-sized path replaces it for rendering.
 
 Do not preserve old and new hot paths side-by-side "just in case".
 
+Do not add `@Deprecated` compatibility shims for superseded PF-3 internals.
+If all real callers have migrated and no source-fallback, analysis or public
+compatibility contract still requires the old API, delete it in the same
+refactor checkpoint.
+
 ## Checkpoints
 
 ### PF-3.0 — sampling contract
@@ -111,6 +116,18 @@ sampling plan rather than constructing a full request-shaped `RockMap`.
 Selecting a save must no longer trigger expensive Surface object discovery as a
 hidden side effect. Discovery becomes an explicit/lazy consumer operation.
 
+Implementation status:
+
+- selecting/loading a save no longer starts Surface object discovery;
+- changing radius only requests discovery when the active tool is
+  `SURFACE + OBJECTS`;
+- entering Surface Objects, switching its mode, and changing its radius share
+  one lazy gate;
+- `startSurfaceDiscovery(...)` has one production caller: that lazy gate.
+
+Static implementation review is complete. Runtime validation remains part of
+PF-3.7.
+
 ### PF-3.7 — integrated validation
 
 Run the final PF-3 HEAD against one immutable real save and compare it with the
@@ -122,12 +139,40 @@ Required evidence includes:
 - R1024/R2048/R4096 warm render timing;
 - process CPU where available;
 - peak heap and GC evidence;
-- zero source connections for compatible READY warm renders;
+- zero source connections for compatible READY Map/Surface warm renders;
 - viewport geometry parity;
 - exact logical ARGB fingerprint parity;
-- real-save source-safety evidence.
+- UPPER_ROCK R1024/R2048/R4096 snapshot-direct resource evidence;
+- UPPER_ROCK geometry, legend, count and exact logical ARGB parity against the
+  exact snapshot `RockMap` oracle;
+- real-save source-safety evidence covering the complete Map/Surface/ROCK
+  campaign.
 
-No timing or heap threshold is invented before measurement.
+PF-3 reuses the PF-2.8 cold-build and Map/Surface validation implementation.
+It does not maintain a second copy of that harness. The PF-3 layer adds the
+render-sized UPPER_ROCK gate and one outer source-safety snapshot covering the
+whole campaign.
+
+The Gradle entry point is:
+
+```powershell
+.\gradlew.bat pf3RenderSizedValidation `
+  -Psave="C:\path\world.vcdbs" `
+  -PgitSha=<full-40-character-sha> `
+  -PoutputRoot="C:\path\fresh-pf3-evidence"
+```
+
+The evidence directory must be outside the source-save directory and must be
+new or empty. The final combined report is written to
+`pf3-validation-report.txt`.
+
+PASS requires the shared PF-2.8 Map/Surface gate to pass, full-campaign source
+safety to pass, and exactly one accepted ROCK sample at each of
+R1024/R2048/R4096.
+
+No timing or heap threshold is invented before measurement. Runtime execution
+on the real save remains reviewer-controlled; PF-3 is not DONE until the test
+suite, this campaign and its evidence have been reviewed.
 
 ## PF-3.0 implementation note
 
