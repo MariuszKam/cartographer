@@ -42,10 +42,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PrepareWorldSnapshotUseCaseTest {
@@ -268,6 +270,77 @@ class PrepareWorldSnapshotUseCaseTest {
                 2,
                 reader.surfaceReads.get(),
                 "a lazily published complete Surface tile must be reusable"
+        );
+    }
+
+    @Test
+    void cancelledRefreshDoesNotDowngradePreviouslyVerifiedLaterCoverage()
+            throws Exception {
+        Path save = root.resolve("refresh").resolve("world.vcdbs");
+        Files.createDirectories(save.getParent());
+        Files.write(save, new byte[]{7, 8, 9});
+
+        TestReader reader = new TestReader(List.of(
+                mapChunk(0, 0),
+                mapChunk(1, 0)
+        ));
+        WorldMetadataReader metadataReader = new TestMetadataReader();
+        SaveSessionFactory sessionFactory = new SaveSessionFactory(
+                new TestConnectionFactory(),
+                reader,
+                metadataReader
+        );
+        RenderDataCacheStore cacheStore =
+                new RenderDataCacheStore(root.resolve("refresh-cache"));
+        PrepareWorldSnapshotUseCase useCase =
+                new PrepareWorldSnapshotUseCase(
+                        reader,
+                        sessionFactory,
+                        cacheStore,
+                        new WorldIndexBatchPlanner(16)
+                );
+        PrepareWorldSnapshotRequest request =
+                new PrepareWorldSnapshotRequest(save);
+
+        assertTrue(
+                useCase.execute(request, ProgressReporter.NONE).complete()
+        );
+
+        assertThrows(
+                CancellationException.class,
+                () -> useCase.execute(
+                        request,
+                        new ProgressReporter() {
+                            @Override
+                            public void progress(
+                                    String stage,
+                                    int current,
+                                    int total
+                            ) {
+                                if (stage.startsWith(
+                                        "[3/6] Surface"
+                                )) {
+                                    throw new CancellationException(
+                                            "test cancellation"
+                                    );
+                                }
+                            }
+                        }
+                )
+        );
+
+        WorldSnapshotPreparationSummary summary =
+                WorldDataSnapshot.openExisting(
+                        cacheStore,
+                        save
+                ).orElseThrow()
+                        .preparationSummaryStore()
+                        .read()
+                        .orElseThrow();
+
+        assertTrue(
+                summary.complete(),
+                "a cancelled refresh must not discard still-valid later-phase evidence"
         );
     }
 
