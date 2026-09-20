@@ -34,6 +34,10 @@ class InspectWorldSnapshotStatusUseCaseTest {
                 WorldSnapshotStatus.State.NOT_PREPARED,
                 initial.state()
         );
+        assertTrue(
+                cache.find(cache.observe(save)).isEmpty(),
+                "status inspection must not create a cache manifest"
+        );
 
         WorldDataSnapshot snapshot = WorldDataSnapshot.openOrCreate(
                 cache,
@@ -59,6 +63,35 @@ class InspectWorldSnapshotStatusUseCaseTest {
         WorldSnapshotStatus ready = useCase.execute(save);
         assertEquals(WorldSnapshotStatus.State.READY, ready.state());
         assertTrue(ready.summary().orElseThrow().complete());
+    }
+
+    @Test
+    void existingDerivedArtifactWithoutSummaryIsResumablePartial()
+            throws Exception {
+        Path save = root.resolve("legacy").resolve("world.vcdbs");
+        Files.createDirectories(save.getParent());
+        Files.write(save, new byte[]{9, 8, 7});
+
+        RenderDataCacheStore cache =
+                new RenderDataCacheStore(root.resolve("legacy-cache"));
+        WorldDataSnapshot snapshot = WorldDataSnapshot.openOrCreate(
+                cache,
+                save
+        ).orElseThrow();
+
+        Files.createDirectories(
+                snapshot.terrainStore().databasePath().getParent()
+        );
+        Files.write(
+                snapshot.terrainStore().databasePath(),
+                new byte[]{1}
+        );
+
+        WorldSnapshotStatus status =
+                new InspectWorldSnapshotStatusUseCase(cache).execute(save);
+
+        assertEquals(WorldSnapshotStatus.State.PARTIAL, status.state());
+        assertTrue(status.summary().isEmpty());
     }
 
     @Test
