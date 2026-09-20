@@ -393,7 +393,7 @@ public final class PrepareWorldSnapshotUseCase {
                 metadata,
                 ready,
                 registry,
-                false,
+                true,
                 true
         );
         heightTiles.forEach(surface::acceptMapChunk);
