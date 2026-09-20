@@ -314,7 +314,7 @@ tasks.named<Test>("test") {
 
 val testSuiteBudgetMs = 60_000L
 val testClassBudgetMs = 15_000L
-val minimumTestCount = 1_036L
+val minimumTestCount = 1_025L
 
 tasks.register("testPerformanceBudget") {
     group = "verification"

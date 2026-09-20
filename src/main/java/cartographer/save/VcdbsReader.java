@@ -1050,28 +1050,6 @@ public class VcdbsReader {
         );
     }
 
-    /**
-     * Compatibility overload for callers that still use the CLI progress
-     * reporter. The neutral application callback is the primary contract.
-     */
-    public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
-            Path savePath,
-            Collection<ChunkPosition> positions,
-            int[] wantedBlockIds,
-            ReadDiagnostics diagnostics,
-            Consumer<SelectiveChunkVisit> consumer,
-            cartographer.cli.ProgressReporter progress
-    ) {
-        return forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                savePath,
-                positions,
-                wantedBlockIds,
-                diagnostics,
-                consumer,
-                (ProgressReporter) progress
-        );
-    }
-
     public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
             Path savePath,
             Collection<ChunkPosition> positions,
