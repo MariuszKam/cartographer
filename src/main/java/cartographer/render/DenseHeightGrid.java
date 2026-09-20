@@ -5,7 +5,6 @@ import cartographer.model.MapChunkHeightView;
 import cartographer.model.MapChunkCoordinate;
 
 import java.util.BitSet;
-import java.util.List;
 import java.util.Objects;
 
 final class DenseHeightGrid implements TerrainHeightField {
@@ -37,34 +36,6 @@ final class DenseHeightGrid implements TerrainHeightField {
         this.present = present;
         this.minHeight = minHeight;
         this.maxHeight = maxHeight;
-    }
-
-    static DenseHeightGrid fromMapChunks(
-            List<? extends MapChunkHeightView> chunks,
-            int minWorldX,
-            int minWorldZ,
-            int width,
-            int height
-    ) {
-        Objects.requireNonNull(chunks, "chunks are required");
-        if (width < 0 || height < 0) {
-            throw new IllegalArgumentException(
-                    "grid dimensions cannot be negative"
-            );
-        }
-
-        Builder builder = builder(
-                minWorldX,
-                minWorldZ,
-                width,
-                height,
-                ProgressReporter.NONE,
-                chunks.size()
-        );
-        for (MapChunkHeightView chunk : chunks) {
-            builder.accept(chunk);
-        }
-        return builder.finish();
     }
 
     static Builder builder(

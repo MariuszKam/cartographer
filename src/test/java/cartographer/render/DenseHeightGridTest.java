@@ -15,7 +15,7 @@ class DenseHeightGridTest {
 
     @Test
     void storesAndRetrievesHeightByWorldCoordinate() {
-        DenseHeightGrid grid = DenseHeightGrid.fromMapChunks(
+        DenseHeightGrid grid = grid(
                 List.of(chunk(0, 0, 45)),
                 0,
                 0,
@@ -29,7 +29,7 @@ class DenseHeightGridTest {
 
     @Test
     void missingCoordinateIsNotPresent() {
-        DenseHeightGrid grid = DenseHeightGrid.fromMapChunks(
+        DenseHeightGrid grid = grid(
                 List.of(chunk(0, 0, 45)), 0, 0, 2, 2
         );
 
@@ -39,7 +39,7 @@ class DenseHeightGridTest {
 
     @Test
     void negativeWorldCoordinatesIndexCorrectly() {
-        DenseHeightGrid grid = DenseHeightGrid.fromMapChunks(
+        DenseHeightGrid grid = grid(
                 List.of(chunk(-1, -1, 10)), -32, -32, 32, 32
         );
 
@@ -49,7 +49,7 @@ class DenseHeightGridTest {
 
     @Test
     void clipsMapChunkCellsOutsideGrid() {
-        DenseHeightGrid grid = DenseHeightGrid.fromMapChunks(
+        DenseHeightGrid grid = grid(
                 List.of(chunk(0, 0, 1)), 10, 10, 2, 2
         );
 
@@ -60,7 +60,7 @@ class DenseHeightGridTest {
     void usesMapChunkHeightAtSemantics() {
         int[] rain = filled(45);
         int[] worldGen = filled(99);
-        DenseHeightGrid grid = DenseHeightGrid.fromMapChunks(
+        DenseHeightGrid grid = grid(
                 List.of(new MapChunk(new MapChunkCoordinate(0, 0), rain, worldGen)),
                 0, 0, 1, 1
         );
@@ -70,7 +70,7 @@ class DenseHeightGridTest {
 
     @Test
     void fallsBackToWorldGenThroughMapChunkHeightAt() {
-        DenseHeightGrid grid = DenseHeightGrid.fromMapChunks(
+        DenseHeightGrid grid = grid(
                 List.of(new MapChunk(new MapChunkCoordinate(0, 0), new int[0], filled(99))),
                 0, 0, 1, 1
         );
@@ -80,7 +80,7 @@ class DenseHeightGridTest {
 
     @Test
     void duplicateOverwriteDoesNotPolluteMinMax() {
-        DenseHeightGrid grid = DenseHeightGrid.fromMapChunks(
+        DenseHeightGrid grid = grid(
                 List.of(chunk(0, 0, 1), chunk(0, 0, 100)),
                 0, 0, 1, 1
         );
@@ -101,7 +101,7 @@ class DenseHeightGridTest {
 
     @Test
     void boundaryCellsAreIncludedAndOutsideCellsAreAbsent() {
-        DenseHeightGrid grid = DenseHeightGrid.fromMapChunks(
+        DenseHeightGrid grid = grid(
                 List.of(chunk(0, 0, 1)), 0, 0, 2, 2
         );
 
@@ -110,6 +110,25 @@ class DenseHeightGridTest {
         assertFalse(grid.hasHeightAt(-1, 0));
         assertFalse(grid.hasHeightAt(-2, -1));
         assertFalse(grid.hasHeightAt(0, 2));
+    }
+
+    private static DenseHeightGrid grid(
+            List<MapChunk> chunks,
+            int minWorldX,
+            int minWorldZ,
+            int width,
+            int height
+    ) {
+        DenseHeightGrid.Builder builder = DenseHeightGrid.builder(
+                minWorldX,
+                minWorldZ,
+                width,
+                height,
+                cartographer.application.ProgressReporter.NONE,
+                chunks.size()
+        );
+        chunks.forEach(builder::accept);
+        return builder.finish();
     }
 
     private static MapChunk chunk(int x, int z, int baseHeight) {
