@@ -465,6 +465,102 @@ tasks.test {
     attachTimingReports("test")
 }
 
+val testSuiteBudgetMs = 60_000L
+val testClassBudgetMs = 15_000L
+val minimumTestCount = 1_100L
+
+tasks.register("testPerformanceBudget") {
+    group = "verification"
+    description = "Checks coarse regression budgets for the complete test suite"
+    dependsOn(tasks.test)
+
+    val reportDirectory = layout.buildDirectory.dir("reports/test-performance")
+    val suiteSummary = reportDirectory.map { it.file("test-suite-summary.csv") }
+    val classTimings = reportDirectory.map { it.file("test-class-timings.csv") }
+    inputs.files(suiteSummary, classTimings)
+
+    doLast {
+        val metrics = suiteSummary.get().asFile
+            .readLines()
+            .drop(1)
+            .mapNotNull { line ->
+                val parts = line.split(",", limit = 2)
+                if (parts.size == 2) parts[0] to parts[1] else null
+            }
+            .toMap()
+
+        fun metric(name: String): Long =
+            metrics[name]?.toLongOrNull()
+                ?: throw GradleException("Missing numeric test metric '$name'")
+
+        val durationMs = metric("durationMs")
+        val testCount = metric("testCount")
+        val successfulTestCount = metric("successfulTestCount")
+        val failedTestCount = metric("failedTestCount")
+        val skippedTestCount = metric("skippedTestCount")
+
+        val slowClasses = classTimings.get().asFile
+            .readLines()
+            .drop(1)
+            .mapNotNull { line ->
+                val split = line.lastIndexOf(',')
+                if (split <= 0) {
+                    null
+                } else {
+                    val className = line.substring(0, split)
+                        .trim()
+                        .removeSurrounding("\"")
+                        .replace("\"\"", "\"")
+                    val classDurationMs = line.substring(split + 1).toLongOrNull()
+                    classDurationMs?.let { className to it }
+                }
+            }
+            .filter { (_, classDurationMs) ->
+                classDurationMs > testClassBudgetMs
+            }
+
+        val violations = mutableListOf<String>()
+        if (durationMs > testSuiteBudgetMs) {
+            violations.add(
+                "suite duration ${durationMs}ms exceeds ${testSuiteBudgetMs}ms"
+            )
+        }
+        if (testCount < minimumTestCount) {
+            violations.add(
+                "test count $testCount is below minimum $minimumTestCount"
+            )
+        }
+        if (successfulTestCount != testCount
+            || failedTestCount != 0L
+            || skippedTestCount != 0L) {
+            violations.add(
+                "suite completeness mismatch: total=$testCount, " +
+                    "successful=$successfulTestCount, failed=$failedTestCount, " +
+                    "skipped=$skippedTestCount"
+            )
+        }
+        slowClasses.forEach { (className, classDurationMs) ->
+            violations.add(
+                "test class $className took ${classDurationMs}ms, " +
+                    "budget is ${testClassBudgetMs}ms"
+            )
+        }
+
+        if (violations.isNotEmpty()) {
+            throw GradleException(
+                "Test performance budget failed:\n" +
+                    violations.joinToString("\n")
+            )
+        }
+
+        logger.lifecycle(
+            "Test performance budget: PASS " +
+                "(suite=${durationMs}ms/${testSuiteBudgetMs}ms, " +
+                "tests=$testCount, classBudget=${testClassBudgetMs}ms)"
+        )
+    }
+}
+
 val detectedTestCpuCount = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
 val defaultParallelProbeForks = if (detectedTestCpuCount <= 2) {
     1
