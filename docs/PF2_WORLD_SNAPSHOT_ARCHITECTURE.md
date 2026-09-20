@@ -414,9 +414,10 @@ The task depends on the full unit-test suite. PF-2.7 deterministic cancellation
 tests therefore remain the automated cancellation evidence and execute before
 the expensive real-save campaign. No scheduler-time assumptions are added.
 
-The evidence directory must be outside the source save directory and its
-`snapshot-cache` child must not already exist; reusing a warm cache would
-invalidate the cold-build measurement.
+The evidence directory must be isolated from the source save directory and
+must be new or already empty. Reusing a non-empty evidence directory is
+rejected so a prior cache, report or revision probe cannot contaminate the
+cold-build campaign.
 
 The final report is written to
 `pf28-validation-report.txt`. PASS requires:
@@ -425,8 +426,10 @@ The final report is written to
 - source-safety PASS;
 - revision invalidation PASS;
 - exactly one warm sample for each of R1024/R2048/R4096;
-- snapshot-backed warm routing for every sample;
-- zero source connections opened/closed by every warm render;
+- zero source connections opened/closed by every warm render; this lifecycle
+  evidence is the hard proof of source-read elimination;
+- complete requested Surface tile HIT coverage and complete Terrain proof
+  (tile HIT plus authoritative known-absent mapchunks) for every warm render;
 - exact geometry parity;
 - exact logical image-fingerprint parity.
 
@@ -434,9 +437,10 @@ PF-2.8 does not impose invented timing or memory thresholds. Runtime/resource
 values are factual evidence for comparison; correctness and source-read
 elimination are the hard gate.
 
-Implementation is complete on the PF-2.8 branch. Real-save execution remains
-reviewer-controlled; the milestone is not DONE until the harness has been run
-and its output reviewed.
+The PF-2.8 implementation candidate is under controller review on its branch.
+Real-save execution remains reviewer-controlled; the milestone is not DONE
+until automated tests, the harness run and the resulting evidence have been
+reviewed.
 
 ## Non-goals
 
