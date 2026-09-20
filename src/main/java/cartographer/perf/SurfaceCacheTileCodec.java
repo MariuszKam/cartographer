@@ -1,8 +1,6 @@
 package cartographer.perf;
 
 import cartographer.model.MapChunkCoordinate;
-import cartographer.model.SurfaceClassCode;
-
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -31,11 +29,11 @@ public final class SurfaceCacheTileCodec {
                 .putInt(tile.diagnosticEmptyColumns())
                 .putInt(tile.diagnosticLiquidUnavailableColumns())
                 .putInt(cells);
-        byte[] state = tile.state();
-        int[] surfaceY = tile.surfaceY();
-        int[] blockIds = tile.blockIds();
-        int[] liquidIds = tile.liquidBlockIds();
-        byte[] classes = tile.surfaceClassCodes();
+        byte[] state = tile.stateView();
+        int[] surfaceY = tile.surfaceYView();
+        int[] blockIds = tile.blockIdsView();
+        int[] liquidIds = tile.liquidBlockIdsView();
+        byte[] classes = tile.surfaceClassCodesView();
         for (int index = 0; index < cells; index++) {
             buffer.put(state[index]).putInt(surfaceY[index]).putInt(blockIds[index])
                     .putInt(liquidIds[index]).put(classes[index]);
@@ -81,10 +79,21 @@ public final class SurfaceCacheTileCodec {
                 blockIds[index] = buffer.getInt();
                 liquidIds[index] = buffer.getInt();
                 classes[index] = buffer.get();
-                SurfaceClassCode.decode(classes[index]);
             }
-            return new SurfaceCacheTile(new MapChunkCoordinate(x, z), worldSizeX, worldSizeZ, state,
-                    surfaceY, blockIds, liquidIds, classes, mode, scanned, empty, unavailable);
+            return SurfaceCacheTile.owned(
+                    new MapChunkCoordinate(x, z),
+                    worldSizeX,
+                    worldSizeZ,
+                    state,
+                    surfaceY,
+                    blockIds,
+                    liquidIds,
+                    classes,
+                    mode,
+                    scanned,
+                    empty,
+                    unavailable
+            );
         } catch (BufferUnderflowException | ArithmeticException exception) {
             throw new IllegalArgumentException("Surface tile payload is invalid or truncated", exception);
         }

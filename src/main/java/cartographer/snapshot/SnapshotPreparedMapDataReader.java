@@ -295,21 +295,7 @@ public final class SnapshotPreparedMapDataReader {
         );
         session.finishPlanning();
         for (SurfaceCacheTile tile : hits) {
-            session.acceptCachedTile(
-                    tile.coordinate(),
-                    tile.width(),
-                    tile.height(),
-                    tile.state(),
-                    tile.surfaceY(),
-                    tile.blockIds(),
-                    tile.liquidBlockIds(),
-                    tile.surfaceClassCodes(),
-                    tile.sourceMode()
-                            == SurfaceCacheTile.SourceMode.FALLBACK,
-                    tile.diagnosticColumnsScanned(),
-                    tile.diagnosticEmptyColumns(),
-                    tile.diagnosticLiquidUnavailableColumns()
-            );
+            session.acceptCachedTile(tile);
         }
 
         SurfaceRainHeightScanResult result = session.finish();

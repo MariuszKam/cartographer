@@ -349,20 +349,7 @@ public final class PrepareMapDataUseCase {
     ) {
         SurfaceRainHeightPlan rainPlan = surfaceSession.finishPlanning();
         for (SurfaceCacheTile tile : surfaceHits.values()) {
-            surfaceSession.acceptCachedTile(
-                    tile.coordinate(),
-                    tile.width(),
-                    tile.height(),
-                    tile.state(),
-                    tile.surfaceY(),
-                    tile.blockIds(),
-                    tile.liquidBlockIds(),
-                    tile.surfaceClassCodes(),
-                    tile.sourceMode() == SurfaceCacheTile.SourceMode.FALLBACK,
-                    tile.diagnosticColumnsScanned(),
-                    tile.diagnosticEmptyColumns(),
-                    tile.diagnosticLiquidUnavailableColumns()
-            );
+            surfaceSession.acceptCachedTile(tile);
         }
 
         ChunkStreamStats fastChunkStats =

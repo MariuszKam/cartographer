@@ -5,13 +5,14 @@ import cartographer.model.MapChunkCoordinate;
 import cartographer.model.SurfaceClass;
 import cartographer.model.SurfaceClassCode;
 import cartographer.model.WorldMetadata;
+import cartographer.scanner.CachedSurfaceTileView;
 import cartographer.scanner.SurfaceTile;
 
 import java.util.Arrays;
 import java.util.Objects;
 
 /** Immutable full-mapchunk Surface data, independent of request geometry. */
-public final class SurfaceCacheTile {
+public final class SurfaceCacheTile implements CachedSurfaceTileView {
     public static final byte CONSIDERED = 1 << 1;
     public static final byte RESOLVED = 1 << 2;
     public static final byte LIQUID_UNAVAILABLE = 1 << 3;
@@ -69,6 +70,38 @@ public final class SurfaceCacheTile {
             int diagnosticEmptyColumns,
             int diagnosticLiquidUnavailableColumns
     ) {
+        this(
+                coordinate,
+                worldSizeX,
+                worldSizeZ,
+                state,
+                surfaceY,
+                blockIds,
+                liquidBlockIds,
+                surfaceClassCodes,
+                sourceMode,
+                diagnosticColumnsScanned,
+                diagnosticEmptyColumns,
+                diagnosticLiquidUnavailableColumns,
+                true
+        );
+    }
+
+    private SurfaceCacheTile(
+            MapChunkCoordinate coordinate,
+            int worldSizeX,
+            int worldSizeZ,
+            byte[] state,
+            int[] surfaceY,
+            int[] blockIds,
+            int[] liquidBlockIds,
+            byte[] surfaceClassCodes,
+            SourceMode sourceMode,
+            int diagnosticColumnsScanned,
+            int diagnosticEmptyColumns,
+            int diagnosticLiquidUnavailableColumns,
+            boolean copyArrays
+    ) {
         this.coordinate = Objects.requireNonNull(coordinate, "coordinate is required");
         if (worldSizeX <= 0 || worldSizeZ <= 0) {
             throw new IllegalArgumentException("world dimensions must be positive");
@@ -81,11 +114,21 @@ public final class SurfaceCacheTile {
         this.worldSizeZ = worldSizeZ;
         this.width = width;
         this.height = height;
-        this.state = copyExact(state, cells, "state");
-        this.surfaceY = copyExact(surfaceY, cells, "surface Y");
-        this.blockIds = copyExact(blockIds, cells, "block IDs");
-        this.liquidBlockIds = copyExact(liquidBlockIds, cells, "liquid block IDs");
-        this.surfaceClassCodes = copyExact(surfaceClassCodes, cells, "surface class codes");
+        this.state = prepare(state, cells, "state", copyArrays);
+        this.surfaceY = prepare(surfaceY, cells, "surface Y", copyArrays);
+        this.blockIds = prepare(blockIds, cells, "block IDs", copyArrays);
+        this.liquidBlockIds = prepare(
+                liquidBlockIds,
+                cells,
+                "liquid block IDs",
+                copyArrays
+        );
+        this.surfaceClassCodes = prepare(
+                surfaceClassCodes,
+                cells,
+                "surface class codes",
+                copyArrays
+        );
         this.sourceMode = Objects.requireNonNull(sourceMode, "source mode is required");
         if (diagnosticColumnsScanned < 0
                 || diagnosticEmptyColumns < 0
@@ -100,10 +143,13 @@ public final class SurfaceCacheTile {
         validateCells();
     }
 
+    @Override
     public MapChunkCoordinate coordinate() { return coordinate; }
     public int worldSizeX() { return worldSizeX; }
     public int worldSizeZ() { return worldSizeZ; }
+    @Override
     public int width() { return width; }
+    @Override
     public int height() { return height; }
     public int cellCount() { return state.length; }
     public byte[] state() { return state.clone(); }
@@ -112,9 +158,47 @@ public final class SurfaceCacheTile {
     public int[] liquidBlockIds() { return liquidBlockIds.clone(); }
     public byte[] surfaceClassCodes() { return surfaceClassCodes.clone(); }
     public SourceMode sourceMode() { return sourceMode; }
+    @Override
+    public boolean fallbackMode() { return sourceMode == SourceMode.FALLBACK; }
+    @Override
     public int diagnosticColumnsScanned() { return diagnosticColumnsScanned; }
+    @Override
     public int diagnosticEmptyColumns() { return diagnosticEmptyColumns; }
-    public int diagnosticLiquidUnavailableColumns() { return diagnosticLiquidUnavailableColumns; }
+    @Override
+    public int diagnosticLiquidUnavailableColumns() {
+        return diagnosticLiquidUnavailableColumns;
+    }
+
+    @Override
+    public byte stateAt(int localX, int localZ) {
+        return state[index(localX, localZ)];
+    }
+
+    @Override
+    public int surfaceYAt(int localX, int localZ) {
+        return surfaceY[index(localX, localZ)];
+    }
+
+    @Override
+    public int blockIdAt(int localX, int localZ) {
+        return blockIds[index(localX, localZ)];
+    }
+
+    @Override
+    public int liquidBlockIdAt(int localX, int localZ) {
+        return liquidBlockIds[index(localX, localZ)];
+    }
+
+    @Override
+    public byte surfaceClassCodeAt(int localX, int localZ) {
+        return surfaceClassCodes[index(localX, localZ)];
+    }
+
+    byte[] stateView() { return state; }
+    int[] surfaceYView() { return surfaceY; }
+    int[] blockIdsView() { return blockIds; }
+    int[] liquidBlockIdsView() { return liquidBlockIds; }
+    byte[] surfaceClassCodesView() { return surfaceClassCodes; }
 
     public boolean matchesWorld(WorldMetadata metadata) {
         Objects.requireNonNull(metadata, "metadata is required");
@@ -171,9 +255,51 @@ public final class SurfaceCacheTile {
                 state[index] = cellState;
             }
         }
-        return new SurfaceCacheTile(coordinate, metadata.mapSizeX(), metadata.mapSizeZ(),
-                state, surfaceY, blockIds, liquidIds, classes, sourceMode,
-                diagnosticColumnsScanned, diagnosticEmptyColumns, diagnosticLiquidUnavailableColumns);
+        return owned(
+                coordinate,
+                metadata.mapSizeX(),
+                metadata.mapSizeZ(),
+                state,
+                surfaceY,
+                blockIds,
+                liquidIds,
+                classes,
+                sourceMode,
+                diagnosticColumnsScanned,
+                diagnosticEmptyColumns,
+                diagnosticLiquidUnavailableColumns
+        );
+    }
+
+    static SurfaceCacheTile owned(
+            MapChunkCoordinate coordinate,
+            int worldSizeX,
+            int worldSizeZ,
+            byte[] state,
+            int[] surfaceY,
+            int[] blockIds,
+            int[] liquidBlockIds,
+            byte[] surfaceClassCodes,
+            SourceMode sourceMode,
+            int diagnosticColumnsScanned,
+            int diagnosticEmptyColumns,
+            int diagnosticLiquidUnavailableColumns
+    ) {
+        return new SurfaceCacheTile(
+                coordinate,
+                worldSizeX,
+                worldSizeZ,
+                state,
+                surfaceY,
+                blockIds,
+                liquidBlockIds,
+                surfaceClassCodes,
+                sourceMode,
+                diagnosticColumnsScanned,
+                diagnosticEmptyColumns,
+                diagnosticLiquidUnavailableColumns,
+                false
+        );
     }
 
     private void validateCells() {
@@ -206,16 +332,30 @@ public final class SurfaceCacheTile {
         return localZ * width + localX;
     }
 
-    private static byte[] copyExact(byte[] values, int expected, String name) {
+    private static byte[] prepare(
+            byte[] values,
+            int expected,
+            String name,
+            boolean copy
+    ) {
         Objects.requireNonNull(values, name + " is required");
-        if (values.length != expected) throw new IllegalArgumentException(name + " length is invalid");
-        return Arrays.copyOf(values, values.length);
+        if (values.length != expected) {
+            throw new IllegalArgumentException(name + " length is invalid");
+        }
+        return copy ? Arrays.copyOf(values, values.length) : values;
     }
 
-    private static int[] copyExact(int[] values, int expected, String name) {
+    private static int[] prepare(
+            int[] values,
+            int expected,
+            String name,
+            boolean copy
+    ) {
         Objects.requireNonNull(values, name + " is required");
-        if (values.length != expected) throw new IllegalArgumentException(name + " length is invalid");
-        return Arrays.copyOf(values, values.length);
+        if (values.length != expected) {
+            throw new IllegalArgumentException(name + " length is invalid");
+        }
+        return copy ? Arrays.copyOf(values, values.length) : values;
     }
 
     static Geometry deriveGeometry(MapChunkCoordinate coordinate, int worldSizeX, int worldSizeZ) {
