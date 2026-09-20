@@ -22,6 +22,17 @@ public final class UpperRockTileStore {
     private static final String DATABASE_FILE = "upper-rock-cache.sqlite";
     private static final int SELECT_BATCH_SIZE = 400;
 
+    @FunctionalInterface
+    public interface LookupVisitor {
+        /**
+         * @return true to continue visiting, false to stop after this lookup
+         */
+        boolean visit(
+                MapChunkCoordinate coordinate,
+                UpperRockTileLookup lookup
+        );
+    }
+
     private final RenderDataCacheStore cacheStore;
     private final RenderDataCacheRevision revision;
     private final Path databasePath;
@@ -92,6 +103,93 @@ public final class UpperRockTileStore {
             );
             return result;
         }
+    }
+
+    /**
+     * Visits requested UPPER_ROCK lookups in first-occurrence request order
+     * while retaining at most one decoded SELECT batch.
+     *
+     * @return true when every unique requested coordinate was visited; false
+     * when the visitor stopped iteration early
+     */
+    public boolean forEachLookup(
+            Collection<MapChunkCoordinate> coordinates,
+            LookupVisitor visitor
+    ) {
+        List<MapChunkCoordinate> requested = uniqueCoordinates(coordinates);
+        Objects.requireNonNull(visitor, "lookup visitor is required");
+        if (requested.isEmpty()) {
+            return true;
+        }
+        if (cacheStore.find(revision).isEmpty()
+                || !Files.isRegularFile(databasePath)) {
+            return emit(
+                    requested,
+                    0,
+                    UpperRockTileLookup.miss(),
+                    visitor
+            );
+        }
+
+        int nextUnvisited = 0;
+        int failureStart = -1;
+        boolean stopped = false;
+        try (Connection connection = openDatabase(false)) {
+            ensureSchema(connection);
+            batchLoop:
+            for (int start = 0;
+                 start < requested.size();
+                 start += SELECT_BATCH_SIZE) {
+                int end = Math.min(
+                        start + SELECT_BATCH_SIZE,
+                        requested.size()
+                );
+                List<MapChunkCoordinate> batch =
+                        requested.subList(start, end);
+                Map<MapChunkCoordinate, UpperRockTileLookup> results =
+                        new LinkedHashMap<>();
+                batch.forEach(
+                        coordinate -> results.put(
+                                coordinate,
+                                UpperRockTileLookup.miss()
+                        )
+                );
+                try {
+                    readBatch(connection, batch, results);
+                } catch (SQLException exception) {
+                    failureStart = start;
+                    break;
+                }
+
+                for (MapChunkCoordinate coordinate : batch) {
+                    if (!visitor.visit(
+                            coordinate,
+                            results.get(coordinate)
+                    )) {
+                        stopped = true;
+                        break batchLoop;
+                    }
+                    nextUnvisited++;
+                }
+            }
+        } catch (SQLException exception) {
+            if (failureStart < 0) {
+                failureStart = nextUnvisited;
+            }
+        }
+
+        if (stopped) {
+            return false;
+        }
+        if (failureStart >= 0) {
+            return emit(
+                    requested,
+                    failureStart,
+                    UpperRockTileLookup.corrupt(),
+                    visitor
+            );
+        }
+        return true;
     }
 
     public void publish(Collection<UpperRockTile> tiles) {
@@ -190,11 +288,6 @@ public final class UpperRockTileStore {
         }
     }
 
-    private boolean compatibleStoreAvailable() {
-        return cacheStore.find(revision).isPresent()
-                && Files.isRegularFile(databasePath);
-    }
-
     private void requirePublishedRevision() {
         if (cacheStore.find(revision).isEmpty()) {
             throw new IllegalStateException(
@@ -224,6 +317,20 @@ public final class UpperRockTileStore {
                             + ")"
             );
         }
+    }
+
+    private static boolean emit(
+            List<MapChunkCoordinate> requested,
+            int start,
+            UpperRockTileLookup lookup,
+            LookupVisitor visitor
+    ) {
+        for (int index = start; index < requested.size(); index++) {
+            if (!visitor.visit(requested.get(index), lookup)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static List<MapChunkCoordinate> uniqueCoordinates(
