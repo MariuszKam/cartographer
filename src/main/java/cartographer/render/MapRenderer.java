@@ -312,7 +312,7 @@ public class MapRenderer {
                         );
 
         TerrainHeightField terrainSamples = terrain.heights();
-        DenseHeightGrid surfaceSamples = terrain.surfaceHeights();
+        TerrainHeightField surfaceSamples = terrain.surfaceHeights();
 
         int tilesDrawn =
                 0;
@@ -514,7 +514,7 @@ public class MapRenderer {
     private void drawSurfaceBlocks(
             ArgbRaster raster,
             List<SurfaceBlock> surfaceBlocks,
-            DenseHeightGrid samples,
+            TerrainHeightField samples,
             int minX,
             int minZ,
             double scale,
