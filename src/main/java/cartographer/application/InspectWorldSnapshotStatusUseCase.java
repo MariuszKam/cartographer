@@ -5,6 +5,7 @@ import cartographer.perf.RenderDataCacheStore;
 import cartographer.perf.WorldDataSnapshot;
 import cartographer.perf.WorldSnapshotPreparationSummary;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
@@ -50,7 +51,25 @@ public final class InspectWorldSnapshotStatusUseCase {
                 || existing.headerStore().read().isPresent()
                 || existing.indexCatalogStore().mapChunkScanComplete()
                 || existing.mapRegionStore().scanComplete()
-                || existing.resourceIndexStore().scanComplete();
+                || existing.resourceIndexStore().scanComplete()
+                || Files.isRegularFile(
+                        existing.indexCatalogStore().databasePath()
+                )
+                || Files.isRegularFile(
+                        existing.terrainStore().databasePath()
+                )
+                || Files.isRegularFile(
+                        existing.surfaceStore().databasePath()
+                )
+                || Files.isRegularFile(
+                        existing.mapRegionStore().databasePath()
+                )
+                || Files.isRegularFile(
+                        existing.upperRockTileStore().databasePath()
+                )
+                || Files.isRegularFile(
+                        existing.resourceIndexStore().databasePath()
+                );
 
         WorldSnapshotStatus.State state;
         if (!pf2ArtifactsPresent) {
