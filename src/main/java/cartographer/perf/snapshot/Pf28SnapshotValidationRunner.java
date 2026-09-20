@@ -14,7 +14,6 @@ import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
-import cartographer.perf.RenderDataCacheRevision;
 import cartographer.perf.RenderDataCacheStore;
 import cartographer.perf.fingerprint.ImageFingerprinter;
 import cartographer.perf.metrics.Pf18ResourceSampler;
@@ -36,9 +35,6 @@ import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockYFilter;
 import cartographer.scanner.MultiActualBlockMapScanner;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -187,7 +183,9 @@ public final class Pf28SnapshotValidationRunner {
         }
 
         boolean revisionInvalidationPassed =
-                verifyRevisionInvalidation(paths.revisionProbeRoot());
+                new Pf28RevisionInvalidationProbe().verify(
+                        paths.revisionProbeRoot()
+                );
 
         SaveSafetySnapshot after = safetySnapshotter.capture(save);
         SaveSafetyResult safety =
@@ -222,40 +220,6 @@ public final class Pf28SnapshotValidationRunner {
                 ActualBlockYFilter.unbounded(),
                 Optional.empty()
         );
-    }
-
-    private boolean verifyRevisionInvalidation(Path root) {
-        try {
-            Files.createDirectories(root);
-            Path source = root.resolve("revision-source.bin");
-            Path cache = root.resolve("cache");
-            Files.writeString(
-                    source,
-                    "revision-a",
-                    StandardCharsets.UTF_8
-            );
-
-            RenderDataCacheStore store =
-                    new RenderDataCacheStore(cache);
-            RenderDataCacheRevision first = store.observe(source);
-            store.publish(first);
-            if (store.find(first).isEmpty()) {
-                return false;
-            }
-
-            Files.writeString(
-                    source,
-                    "revision-b-with-different-size",
-                    StandardCharsets.UTF_8
-            );
-            RenderDataCacheRevision second = store.observe(source);
-
-            return !first.revisionHash().equals(second.revisionHash())
-                    && store.find(second).isEmpty()
-                    && store.find(first).isPresent();
-        } catch (IOException | RuntimeException failure) {
-            return false;
-        }
     }
 
     private VcdbsReader createReader() {
