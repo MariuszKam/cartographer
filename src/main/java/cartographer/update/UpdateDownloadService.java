@@ -57,6 +57,7 @@ public final class UpdateDownloadService {
             Files.createDirectories(versionDirectory);
 
             if (isVerified(installer, manifest)) {
+                deleteQuietly(partial);
                 progressListener.accept(new UpdateDownloadProgress(
                         manifest.installerSize(),
                         manifest.installerSize()
