@@ -247,6 +247,44 @@ be enabled repository-wide before those contracts are satisfied.
 
 Serial-only tests must remain a small, explicit set.
 
+### Current Gradle verification tasks
+
+The default `test` task is intentionally kept at one Gradle test worker while
+the serial baseline and audit are established.
+
+The repository provides these TEST-PERF tasks:
+
+```text
+testArchitectureAudit
+testParallelProbe
+testSerial
+```
+
+`testArchitectureAudit` writes detailed findings and a per-file summary under
+`build/reports/test-performance/`.
+
+`testParallelProbe` is an opt-in validation task. It excludes tests tagged
+`serial` and uses bounded Gradle worker-process parallelism. The default probe
+worker count is CPU-aware and capped conservatively; it may be overridden for a
+controlled experiment with:
+
+```powershell
+.\gradlew.bat testParallelProbe -PtestParallelForks=2
+```
+
+The override must remain between 1 and 16. A higher number is not evidence of a
+better configuration; representative timing and repeated deterministic runs
+decide the final worker count.
+
+`testSerial` executes only tests explicitly tagged `serial` and always uses
+one Gradle test worker. A serial tag requires a concrete process-wide isolation
+reason; it is not a substitute for fixing test-owned filesystem, SQLite,
+threading, or cleanup defects.
+
+The normal PR correctness gate must not switch from `test` to
+`testParallelProbe` until the parallel-safety audit and repeated validation
+support that change.
+
 ## CI contract
 
 Pull-request CI must preserve the complete correctness gate.
