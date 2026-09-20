@@ -329,6 +329,59 @@ class PrepareWorldSnapshotUseCaseTest {
     }
 
     @Test
+    void cancellationDuringHeaderReadIsNotDowngradedToMissingPlayer()
+            throws Exception {
+        Path save = root.resolve("header-cancel").resolve("world.vcdbs");
+        Files.createDirectories(save.getParent());
+        Files.write(save, new byte[]{3, 1, 4});
+
+        TestReader reader = new TestReader(List.of(mapChunk(0, 0))) {
+            @Override
+            public WorldPosition readPlayerPosition(
+                    SaveSession session,
+                    ProgressReporter progress
+            ) {
+                throw new CancellationException("header cancelled");
+            }
+        };
+        WorldMetadataReader metadataReader = new TestMetadataReader();
+        RenderDataCacheStore cacheStore =
+                new RenderDataCacheStore(root.resolve("header-cancel-cache"));
+        PrepareWorldSnapshotUseCase useCase =
+                new PrepareWorldSnapshotUseCase(
+                        reader,
+                        new SaveSessionFactory(
+                                new TestConnectionFactory(),
+                                reader,
+                                metadataReader
+                        ),
+                        cacheStore,
+                        new WorldIndexBatchPlanner(16)
+                );
+
+        assertThrows(
+                CancellationException.class,
+                () -> useCase.execute(
+                        new PrepareWorldSnapshotRequest(save),
+                        ProgressReporter.NONE
+                )
+        );
+
+        WorldDataSnapshot snapshot = WorldDataSnapshot.openExisting(
+                cacheStore,
+                save
+        ).orElseThrow();
+        assertTrue(
+                snapshot.headerStore().read().isEmpty(),
+                "cancelled Header phase must not publish a fabricated header"
+        );
+        assertTrue(
+                snapshot.preparationSummaryStore().read().isEmpty(),
+                "cancelled Header phase must not publish later coverage"
+        );
+    }
+
+    @Test
     void cancelledRefreshDoesNotDowngradePreviouslyVerifiedLaterCoverage()
             throws Exception {
         Path save = root.resolve("refresh").resolve("world.vcdbs");
@@ -409,7 +462,7 @@ class PrepareWorldSnapshotUseCaseTest {
         );
     }
 
-    private static final class TestReader extends VcdbsReader {
+    private static class TestReader extends VcdbsReader {
         private final List<MapChunk> mapChunks;
         private final AtomicInteger observedScans = new AtomicInteger();
         private final AtomicInteger exactMapChunkReads = new AtomicInteger();
