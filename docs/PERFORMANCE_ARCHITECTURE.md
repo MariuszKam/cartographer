@@ -652,6 +652,40 @@ render. After a compatible region has been prepared, the warm render path
 avoids source SQLite/BLOB/protobuf/Zstd traversal and reuses the existing
 analysis/rendering code over compact derived state.
 
+
+### PF-2.7 Prepare World Workstation UX
+
+PF-2.7 exposes the already-implemented snapshot builder as an explicit
+Workstation operation. The World Bar shows revision-scoped preparation state
+and coverage, while the existing operation bar supplies progress and Cancel.
+
+The action boundary is deliberate:
+
+```text
+Prepare world
+    -> source ingest / derived indexing / repair
+
+Render
+    -> query compatible prepared data when available
+    -> otherwise preserve PF-2.6 source fallback
+```
+
+Render never performs a hidden full-world prepare.
+
+Preparation progress is normalized into five monotonic phases so nested source
+reader progress cannot make the user-facing bar move backwards between
+Terrain, Surface, Map regions, Geology and Resources.
+
+A small revision-local preparation summary is written only after a normal
+prepare completion. Cancellation may leave safe partial derived artifacts that
+can be resumed, but cannot publish a false completed summary. Snapshot status
+inspection reads only derived-cache metadata and does not open the source game
+database.
+
+The badge states are `NOT_PREPARED`, `PARTIAL` and `READY`. They are
+revision-specific UX evidence only. Individual snapshot consumers still prove
+their own compatible coverage before avoiding source IO.
+
 ## 14. Explicit non-goals and current boundaries
 
 - There is no global decoded-world cache.
