@@ -564,6 +564,32 @@ class MapCommandTest {
         }
 
         @Override
+        public ChunkStreamStats forEachSurfaceChunkByPositionAdaptive(
+                Path savePath,
+                java.util.Collection<ChunkPosition> positions,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer,
+                cartographer.application.ProgressReporter progress
+        ) {
+            return forEachChunkByPositionAdaptive(
+                    savePath, positions, diagnostics, consumer, progress
+            );
+        }
+
+        @Override
+        public ChunkStreamStats forEachSurfaceChunkByPositionAdaptive(
+                SaveSession session,
+                java.util.Collection<ChunkPosition> positions,
+                ReadDiagnostics diagnostics,
+                java.util.function.Consumer<ParsedChunk> consumer,
+                cartographer.application.ProgressReporter progress
+        ) {
+            return forEachChunkByPositionAdaptive(
+                    (Path) null, positions, diagnostics, consumer, progress
+            );
+        }
+
+        @Override
         public ChunkStreamStats forEachChunkByPosition(
                 Path savePath,
                 java.util.Collection<ChunkPosition> positions,
