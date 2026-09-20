@@ -234,7 +234,7 @@ public final class WindowsUpdateBootstrapper implements UpdateBootstrapper {
                 try {
                     $target = Get-Process -Id $TargetPid -ErrorAction SilentlyContinue
                     if ($null -ne $target) {
-                        Wait-Process -Id $TargetPid -ErrorAction Stop
+                        $target | Wait-Process -ErrorAction Stop
                     }
 
                     $installer = Get-Item -LiteralPath $InstallerPath -ErrorAction Stop

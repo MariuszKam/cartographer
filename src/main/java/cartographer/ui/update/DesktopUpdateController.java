@@ -374,6 +374,13 @@ public final class DesktopUpdateController {
                     );
                 }
             }
+        } catch (RuntimeException exception) {
+            uiDispatcher.accept(() ->
+                    view.showUpdateInstallFailed(
+                            version,
+                            conciseMessage(exception)
+                    )
+            );
         } finally {
             operationInProgress.set(false);
         }

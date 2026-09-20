@@ -62,7 +62,7 @@ class WindowsUpdateBootstrapperTest {
         int fileArgument = launched.indexOf("-File");
         Path script = Path.of(launched.get(fileArgument + 1));
         String scriptText = Files.readString(script);
-        assertTrue(scriptText.contains("Wait-Process -Id $TargetPid"));
+        assertTrue(scriptText.contains("$target | Wait-Process"));
         assertTrue(scriptText.contains("Get-FileHash"));
         assertTrue(scriptText.contains("-PassThru -Wait"));
         assertTrue(scriptText.contains("Restart-Cartographer"));

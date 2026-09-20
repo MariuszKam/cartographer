@@ -345,8 +345,8 @@ promotion and Stage 4 install launch. A missing or changed installer fails
 closed and returns the UI to a download-retry state.
 
 The external bootstrap independently repeats the size and SHA-256 verification
-after the current Cartographer process has exited. This closes the integrity
-window between the in-process verification and actual installer execution.
+after the current Cartographer process has exited. This materially narrows the integrity window between the in-process verification
+and actual installer execution.
 
 ### S4.2 External Windows bootstrap
 
