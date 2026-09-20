@@ -1,6 +1,7 @@
 package cartographer.scanner;
 
 import cartographer.model.MapChunk;
+import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;
 import org.junit.jupiter.api.Test;
 
@@ -71,6 +72,39 @@ class SurfaceTileLayoutTest {
         assertEquals(List.of("0:0", "1:0", "2:0", "0:1", "1:1", "2:1", "0:2", "1:2", "2:2"), order);
         assertEquals(1, layout.cellIndex(1, 1, 1, 0));
         assertEquals(MapChunk.SIZE + 1, layout.cellIndex(1, 1, 1, 1));
+    }
+
+    @Test
+    void explicitMapChunkLayoutActivatesCompleteTilesAndLeavesHolesInactive() {
+        SurfaceTileLayout layout = SurfaceTileLayout.forMapChunks(
+                List.of(
+                        new MapChunkCoordinate(0, 0),
+                        new MapChunkCoordinate(2, 0)
+                ),
+                new WorldMetadata(96, 256, 64)
+        );
+
+        assertEquals(3, layout.tileWidthCount());
+        assertEquals(1, layout.tileHeightCount());
+        assertTrue(layout.isActive(0, 0));
+        assertTrue(layout.isActive(31, 31));
+        assertFalse(layout.isActive(32, 0));
+        assertFalse(layout.isActive(63, 31));
+        assertTrue(layout.isActive(64, 0));
+        assertTrue(layout.isActive(95, 31));
+    }
+
+    @Test
+    void explicitMapChunkLayoutRetainsPartialWorldEdgeTile() {
+        SurfaceTileLayout layout = SurfaceTileLayout.forMapChunks(
+                List.of(new MapChunkCoordinate(1, 1)),
+                new WorldMetadata(35, 256, 35)
+        );
+
+        assertEquals(3, layout.tileWidth(1));
+        assertEquals(3, layout.tileHeight(1));
+        assertTrue(layout.isActive(34, 34));
+        assertFalse(layout.contains(35, 34));
     }
 
     @Test

@@ -437,7 +437,10 @@ class RenderActualOreMapUseCaseTest {
                 Optional.of(new WorldPosition(16, 64, 16))
         ));
         assertTrue(second.renderDataCacheReport().terrain().hits() >= 1);
-        assertTrue(hitReader.directMapChunkRequests.getLast().isEmpty());
+        assertTrue(
+                hitReader.directMapChunkRequests.isEmpty(),
+                "snapshot-backed Terrain HIT must eliminate the source mapchunk traversal"
+        );
 
         Files.setLastModifiedTime(savePath, FileTime.fromMillis(2_000L));
         FakeReader missReader = surfaceReader(true);
@@ -514,7 +517,10 @@ class RenderActualOreMapUseCaseTest {
                 hitReader, metadata, home, markers, cacheStore
         ).execute(request);
         assertEquals(1, hit.renderDataCacheReport().terrain().hits());
-        assertTrue(hitReader.directMapChunkRequests.getLast().isEmpty());
+        assertTrue(
+                hitReader.directMapChunkRequests.isEmpty(),
+                "snapshot-backed Terrain HIT must eliminate the source mapchunk traversal"
+        );
         assertParity(first, recovered);
         assertParity(first, hit);
     }
@@ -666,7 +672,10 @@ class RenderActualOreMapUseCaseTest {
 
         assertTrue(first.renderDataCacheReport().terrain().hits() >= 1);
         assertEquals(0, first.renderDataCacheReport().terrain().sourceLoaded());
-        assertEquals(0, firstReader.directMapChunkRequests.getLast().size());
+        assertTrue(
+                firstReader.directMapChunkRequests.isEmpty(),
+                "Terrain cache HIT must not issue an empty source mapchunk traversal"
+        );
         assertEquals(1, firstReader.adaptiveExactChunkCalls);
         assertEquals(1, first.renderDataCacheReport().surface().published());
         assertEquals(1, first.renderDataCacheReport().surface().sourceLoaded());
@@ -693,7 +702,10 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(1, second.renderDataCacheReport().surface().corruptOrIncompatible());
         assertEquals(1, second.renderDataCacheReport().surface().published());
         assertEquals(1, secondReader.adaptiveExactChunkCalls);
-        assertEquals(0, secondReader.directMapChunkRequests.getLast().size());
+        assertTrue(
+                secondReader.directMapChunkRequests.isEmpty(),
+                "Terrain cache HIT must remain source-free while Surface heals"
+        );
         assertArrayEquals(expectedSurfacePayload, surfacePayload(cacheStore, revision,
                 new MapChunkCoordinate(0, 0)));
         assertParity(first, second);

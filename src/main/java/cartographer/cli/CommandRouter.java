@@ -1,6 +1,7 @@
 package cartographer.cli;
 
 import cartographer.analysis.BlockScanner;
+import cartographer.application.PrepareWorldSnapshotUseCase;
 import cartographer.atlas.AtlasRenderer;
 import cartographer.atlas.TilePyramid;
 import cartographer.coverage.RegionCoverageAnalyzer;
@@ -321,6 +322,20 @@ public class CommandRouter {
                             )
                     );
 
+            case "snapshot" ->
+                    new SnapshotCommand(
+                            out,
+                            new PrepareWorldSnapshotUseCase(
+                                    reader,
+                                    metadataReader,
+                                    renderDataCache
+                            ),
+                            subcommand(
+                                    args,
+                                    "snapshot"
+                            )
+                    );
+
             case "incremental" ->
                     new IncrementalCommand(
                             out,
@@ -405,6 +420,7 @@ public class CommandRouter {
                  "geology",
                  "markers",
                  "cache",
+                 "snapshot",
                  "incremental",
                  "atlas",
                  "mapregion",
@@ -651,6 +667,12 @@ public class CommandRouter {
         out.println(
                 "Cache and atlas:"
         );
+
+        out.println(
+                "  vs-cartographer snapshot prepare <save.vcdbs>"
+        );
+
+        out.println();
 
         out.println(
                 "  vs-cartographer cache warm <save.vcdbs>"

@@ -7,6 +7,7 @@ import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.perf.RenderDataCacheStore;
 import cartographer.perf.WorldDataSnapshot;
+import cartographer.perf.WorldIndexCatalogStore;
 import cartographer.perf.SurfaceCacheTile;
 import cartographer.perf.SurfaceTileLookup;
 import cartographer.perf.SurfaceTileStore;
@@ -179,6 +180,9 @@ public final class PrepareMapDataUseCase {
             if (entry.getValue().status() == SurfaceTileLookup.Status.HIT) {
                 surfaceHits.put(entry.getKey(), entry.getValue().tile());
             } else {
+                // A missing mapchunk does not prove the absence of server
+                // chunks. Surface therefore retains its authoritative source
+                // fallback unless a complete Surface tile is already cached.
                 surfaceMissSet.add(entry.getKey());
             }
         }
@@ -192,6 +196,8 @@ public final class PrepareMapDataUseCase {
                         .thenComparingInt(MapChunkCoordinate::x))
                 .toList();
 
+        Set<MapChunkCoordinate> knownAbsentTerrain =
+                cache.knownAbsent(terrainRequiredCoordinates);
         Map<MapChunkCoordinate, TerrainTileLookup> terrainLookups =
                 lookupTerrain(cache, terrainRequiredCoordinates);
         Set<MapChunkCoordinate> terrainMissSet = new LinkedHashSet<>();
@@ -199,7 +205,7 @@ public final class PrepareMapDataUseCase {
         for (Map.Entry<MapChunkCoordinate, TerrainTileLookup> entry : terrainLookups.entrySet()) {
             if (entry.getValue().status() == TerrainTileLookup.Status.HIT) {
                 terrainHits.put(entry.getKey(), entry.getValue().tile());
-            } else {
+            } else if (!knownAbsentTerrain.contains(entry.getKey())) {
                 terrainMissSet.add(entry.getKey());
             }
         }
@@ -248,29 +254,31 @@ public final class PrepareMapDataUseCase {
             }
         }
 
-        reader.forEachMapChunkByCoordinate(
-                session,
-                sourceMapChunkCoordinates,
-                mapChunkDiagnostics,
-                mapChunk -> {
-                    MapChunkCoordinate coordinate = mapChunk.coordinate();
-                    if (terrainMissSet.contains(coordinate)) {
-                        cache.terrain.sourceLoaded++;
-                        terrainWriteBuffer.add(TerrainHeightTile.from(mapChunk));
-                        if (terrainWriteBuffer.size() >= CACHE_WRITE_BATCH_SIZE) {
-                            publishTerrain(cache, terrainWriteBuffer);
+        if (!sourceMapChunkCoordinates.isEmpty()) {
+            reader.forEachMapChunkByCoordinate(
+                    session,
+                    sourceMapChunkCoordinates,
+                    mapChunkDiagnostics,
+                    mapChunk -> {
+                        MapChunkCoordinate coordinate = mapChunk.coordinate();
+                        if (terrainMissSet.contains(coordinate)) {
+                            cache.terrain.sourceLoaded++;
+                            terrainWriteBuffer.add(TerrainHeightTile.from(mapChunk));
+                            if (terrainWriteBuffer.size() >= CACHE_WRITE_BATCH_SIZE) {
+                                publishTerrain(cache, terrainWriteBuffer);
+                            }
                         }
-                    }
-                    if (renderMapChunkSet.contains(coordinate)) {
-                        terrainBuilder.accept(mapChunk);
-                    }
-                    if (surfaceDataRequired && surfaceMissSet.contains(coordinate)) {
-                        surfaceSession.acceptMapChunk(mapChunk);
-                        surfacePlanningInputsAvailable.add(coordinate);
-                    }
-                },
-                progress
-        );
+                        if (renderMapChunkSet.contains(coordinate)) {
+                            terrainBuilder.accept(mapChunk);
+                        }
+                        if (surfaceDataRequired && surfaceMissSet.contains(coordinate)) {
+                            surfaceSession.acceptMapChunk(mapChunk);
+                            surfacePlanningInputsAvailable.add(coordinate);
+                        }
+                    },
+                    progress
+            );
+        }
         publishTerrain(cache, terrainWriteBuffer);
 
         MapTerrainPreparation terrain = terrainBuilder.finish();
@@ -537,7 +545,22 @@ public final class PrepareMapDataUseCase {
                 new ArrayList<>(CACHE_WRITE_BATCH_SIZE);
 
         for (MapChunkCoordinate coordinate : surfaceMisses) {
-            if (!surfacePlanningInputsAvailable.contains(coordinate)) {
+            boolean fallbackMode = fallback.contains(coordinate);
+            SurfaceTileDiagnosticSummary fallbackSummary = fallbackMode
+                    ? result.fallbackDiagnosticsByMapChunk().get(coordinate)
+                    : null;
+
+            // RainHeight-fast tiles require authoritative mapchunk planning
+            // input. A fallback tile is different: the established full
+            // fallback scan is itself the authoritative source for that
+            // mapchunk coordinate, even when the complete world-index catalog
+            // proves the mapchunk row is absent. In that case the terminal
+            // fallback summary is the completeness proof needed for cache
+            // publication.
+            boolean publishableWithoutPlanningInput =
+                    fallbackMode && fallbackSummary != null;
+            if (!surfacePlanningInputsAvailable.contains(coordinate)
+                    && !publishableWithoutPlanningInput) {
                 cache.surface.skippedIncompleteForPublish++;
                 continue;
             }
@@ -545,10 +568,6 @@ public final class PrepareMapDataUseCase {
                 SurfaceTile tile = map.tileAt(
                         map.layout().tileIndex(coordinate.x(), coordinate.z())
                 );
-                boolean fallbackMode = fallback.contains(coordinate);
-                SurfaceTileDiagnosticSummary fallbackSummary = fallbackMode
-                        ? result.fallbackDiagnosticsByMapChunk().get(coordinate)
-                        : null;
                 if (fallbackMode && fallbackSummary == null) {
                     cache.surface.skippedIncompleteForPublish++;
                     continue;
@@ -676,7 +695,8 @@ public final class PrepareMapDataUseCase {
             WorldDataSnapshot world = snapshot.orElseThrow();
             return CacheContext.enabled(
                     world.terrainStore(),
-                    world.surfaceStore()
+                    world.surfaceStore(),
+                    world.indexCatalogStore()
             );
         } catch (RuntimeException exception) {
             return CacheContext.disabled(
@@ -689,6 +709,7 @@ public final class PrepareMapDataUseCase {
         private final boolean enabled;
         private final Optional<TerrainTileStore> terrainStore;
         private final Optional<SurfaceTileStore> surfaceStore;
+        private final Optional<WorldIndexCatalogStore> indexCatalogStore;
         private final CacheCounters terrain = new CacheCounters();
         private final CacheCounters surface = new CacheCounters();
         private final List<String> notes = new ArrayList<>();
@@ -698,11 +719,13 @@ public final class PrepareMapDataUseCase {
                 boolean enabled,
                 Optional<TerrainTileStore> terrainStore,
                 Optional<SurfaceTileStore> surfaceStore,
+                Optional<WorldIndexCatalogStore> indexCatalogStore,
                 String note
         ) {
             this.enabled = enabled;
             this.terrainStore = terrainStore;
             this.surfaceStore = surfaceStore;
+            this.indexCatalogStore = indexCatalogStore;
             this.writesEnabled = enabled;
             if (note != null && !note.isBlank()) {
                 notes.add(note);
@@ -711,12 +734,14 @@ public final class PrepareMapDataUseCase {
 
         private static CacheContext enabled(
                 TerrainTileStore terrainStore,
-                SurfaceTileStore surfaceStore
+                SurfaceTileStore surfaceStore,
+                WorldIndexCatalogStore indexCatalogStore
         ) {
             return new CacheContext(
                     true,
                     Optional.of(terrainStore),
                     Optional.of(surfaceStore),
+                    Optional.of(indexCatalogStore),
                     null
             );
         }
@@ -726,8 +751,41 @@ public final class PrepareMapDataUseCase {
                     false,
                     Optional.empty(),
                     Optional.empty(),
+                    Optional.empty(),
                     note
             );
+        }
+
+        private Set<MapChunkCoordinate> knownAbsent(
+                java.util.Collection<MapChunkCoordinate> coordinates
+        ) {
+            if (!enabled || indexCatalogStore.isEmpty() || coordinates.isEmpty()) {
+                return Set.of();
+            }
+            try {
+                WorldIndexCatalogStore catalog = indexCatalogStore.orElseThrow();
+                if (!catalog.mapChunkScanComplete()) {
+                    return Set.of();
+                }
+                Set<MapChunkCoordinate> observed = catalog.observedAmong(coordinates);
+                LinkedHashSet<MapChunkCoordinate> absent =
+                        new LinkedHashSet<>(coordinates);
+                absent.removeAll(observed);
+                if (!absent.isEmpty()) {
+                    notes.add(
+                            "world snapshot catalog skipped "
+                                    + absent.size()
+                                    + " known-unobserved mapchunk source lookups"
+                    );
+                }
+                return Set.copyOf(absent);
+            } catch (RuntimeException exception) {
+                notes.add(
+                        "world snapshot catalog optimization unavailable: "
+                                + exception.getMessage()
+                );
+                return Set.of();
+            }
         }
 
         private void disableWrites(String note) {

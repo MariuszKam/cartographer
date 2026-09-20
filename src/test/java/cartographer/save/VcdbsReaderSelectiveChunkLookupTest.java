@@ -10,6 +10,7 @@ import cartographer.parser.ChunkDecodeProfile;
 import cartographer.parser.ChunkDecodeWorkspace;
 import cartographer.parser.ChunkPaletteProbe;
 import cartographer.parser.ChunkParser;
+import cartographer.parser.SelectiveChunkParseResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -673,6 +674,56 @@ class VcdbsReaderSelectiveChunkLookupTest {
                 Collections.synchronizedList(new ArrayList<>());
 
         @Override
+        public SelectiveChunkParseResult parseBlocksIfPaletteContains(
+                ChunkCoordinate coordinate,
+                byte[] payload,
+                int[] wantedBlockIds,
+                ChunkDecodeWorkspace workspace
+        ) {
+            ParseResult<ServerChunkPayload> parsed = parsePayload(payload);
+            if (!parsed.isSuccess()) {
+                return SelectiveChunkParseResult.payloadFailure(
+                        parsed.error().orElse("payload parse failed")
+                );
+            }
+
+            ServerChunkPayload serverChunk = parsed.value().orElseThrow();
+            ParseResult<ChunkPaletteProbe> probe =
+                    probeBlockPalette(serverChunk, workspace);
+            if (!probe.isSuccess()) {
+                return SelectiveChunkParseResult.decodeFailure(
+                        probe.error().orElse("palette probe failed")
+                );
+            }
+
+            boolean wanted = false;
+            for (int wantedBlockId : wantedBlockIds) {
+                if (probe.value().orElseThrow().contains(wantedBlockId)) {
+                    wanted = true;
+                    break;
+                }
+            }
+            if (!wanted) {
+                return SelectiveChunkParseResult.rejected();
+            }
+
+            ParseResult<ParsedChunk> decoded = parse(
+                    coordinate,
+                    serverChunk,
+                    ChunkDecodeProfile.BLOCKS_ONLY,
+                    workspace
+            );
+            if (!decoded.isSuccess()) {
+                return SelectiveChunkParseResult.decodeFailure(
+                        decoded.error().orElse("full decode failed")
+                );
+            }
+            return SelectiveChunkParseResult.decoded(
+                    decoded.value().orElseThrow()
+            );
+        }
+
+        @Override
         public ParseResult<ServerChunkPayload> parsePayload(byte[] payload) {
             parsePayloadCalls.incrementAndGet();
             return payloadResult;
@@ -731,6 +782,56 @@ class VcdbsReaderSelectiveChunkLookupTest {
         private final CountDownLatch release = new CountDownLatch(1);
         private final List<Thread> workerThreads =
                 Collections.synchronizedList(new ArrayList<>());
+
+        @Override
+        public SelectiveChunkParseResult parseBlocksIfPaletteContains(
+                ChunkCoordinate coordinate,
+                byte[] payload,
+                int[] wantedBlockIds,
+                ChunkDecodeWorkspace workspace
+        ) {
+            ParseResult<ServerChunkPayload> parsed = parsePayload(payload);
+            if (!parsed.isSuccess()) {
+                return SelectiveChunkParseResult.payloadFailure(
+                        parsed.error().orElse("payload parse failed")
+                );
+            }
+            ServerChunkPayload serverChunk = parsed.value().orElseThrow();
+
+            ParseResult<ChunkPaletteProbe> probe =
+                    probeBlockPalette(serverChunk, workspace);
+            if (!probe.isSuccess()) {
+                return SelectiveChunkParseResult.decodeFailure(
+                        probe.error().orElse("palette probe failed")
+                );
+            }
+
+            boolean wanted = false;
+            for (int wantedBlockId : wantedBlockIds) {
+                if (probe.value().orElseThrow().contains(wantedBlockId)) {
+                    wanted = true;
+                    break;
+                }
+            }
+            if (!wanted) {
+                return SelectiveChunkParseResult.rejected();
+            }
+
+            ParseResult<ParsedChunk> decoded = parse(
+                    coordinate,
+                    serverChunk,
+                    ChunkDecodeProfile.BLOCKS_ONLY,
+                    workspace
+            );
+            if (!decoded.isSuccess()) {
+                return SelectiveChunkParseResult.decodeFailure(
+                        decoded.error().orElse("full decode failed")
+                );
+            }
+            return SelectiveChunkParseResult.decoded(
+                    decoded.value().orElseThrow()
+            );
+        }
 
         @Override
         public ParseResult<ServerChunkPayload> parsePayload(byte[] payload) {

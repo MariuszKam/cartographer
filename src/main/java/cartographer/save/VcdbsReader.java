@@ -12,6 +12,7 @@ import cartographer.model.MapRegionCoordinate;
 import cartographer.model.ParseResult;
 import cartographer.model.ParsedChunk;
 import cartographer.model.ServerMapRegion;
+import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.ChunkDecodeWorkspace;
@@ -698,6 +699,184 @@ public class VcdbsReader {
                     exception
             );
         }
+    }
+
+    /**
+     * Streams every observed main-world mapchunk from the authoritative save.
+     *
+     * <p>This is the PF-2.3 discovery path. It uses the session-owned read-only
+     * connection and never retains source payloads after the consumer
+     * callback returns.</p>
+     */
+    public MapChunkStreamStats forEachObservedMapChunk(
+            SaveSession session,
+            ReadDiagnostics diagnostics,
+            Consumer<MapChunkCoordinate> observedCoordinateConsumer,
+            Consumer<MapChunk> consumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(session, "session is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(
+                observedCoordinateConsumer,
+                "observedCoordinateConsumer is required"
+        );
+        Objects.requireNonNull(consumer, "consumer is required");
+        Objects.requireNonNull(progress, "progress is required");
+
+        Connection connection = session.connection();
+        progress.start("Discovering observed mapchunks");
+        try {
+            if (tableMissing(connection, SaveTable.MAPCHUNK.tableName())) {
+                diagnostics.missingTable(SaveTable.MAPCHUNK.tableName());
+                throw new CommandException(
+                        "Save contains no mapchunk table; "
+                                + "world snapshot discovery cannot be completed"
+                );
+            }
+
+            int expectedRows = countRows(
+                    connection,
+                    SaveTable.MAPCHUNK.tableName()
+            );
+            String sql = "SELECT position, data FROM \""
+                    + SaveTable.MAPCHUNK.tableName()
+                    + "\" ORDER BY position";
+            int rowsFound = 0;
+            int parsed = 0;
+            int failed = 0;
+            long payloadBytes = 0L;
+
+            try (PreparedStatement statement =
+                         connection.prepareStatement(sql);
+                 ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    rowsFound++;
+                    progress.progress(
+                            "Discovering observed mapchunks",
+                            rowsFound,
+                            expectedRows
+                    );
+
+                    Optional<MapChunkCoordinate> coordinate =
+                            mainWorldMapChunkCoordinateFromPackedPosition(
+                                    resultSet.getObject("position")
+                            );
+                    if (coordinate.isEmpty()) {
+                        diagnostics.recordSkipped(
+                                "mapchunk row is not a readable main-world mapchunk"
+                        );
+                        continue;
+                    }
+
+                    MapChunkCoordinate observed = coordinate.orElseThrow();
+                    if (!mapChunkWithinWorld(
+                            observed,
+                            session.snapshot().metadata()
+                    )) {
+                        diagnostics.recordSkipped(
+                                "main-world mapchunk is outside world metadata bounds"
+                        );
+                        continue;
+                    }
+                    // Catalog membership describes source existence, not
+                    // parser success. Publish the coordinate before reading
+                    // or parsing the row payload so failed derived decoding
+                    // can never be misclassified as source absence.
+                    observedCoordinateConsumer.accept(observed);
+
+                    byte[] payload = resultSet.getBytes("data");
+                    if (payload == null) {
+                        diagnostics.recordSkipped(
+                                "mapchunk row has no payload"
+                        );
+                        continue;
+                    }
+                    payloadBytes = Math.addExact(
+                            payloadBytes,
+                            payload.length
+                    );
+
+                    ParseResult<MapChunk> parsedMapChunk =
+                            mapChunkParser.parse(
+                                    observed,
+                                    payload
+                            );
+                    if (parsedMapChunk.isSuccess()) {
+                        parsed++;
+                        diagnostics.recordParsed();
+                        consumer.accept(parsedMapChunk.value().orElseThrow());
+                    } else {
+                        failed++;
+                        diagnostics.recordFailed(
+                                parsedMapChunk.error().orElse(
+                                        "unknown mapchunk parse error"
+                                )
+                        );
+                    }
+                }
+            }
+
+            progress.done("Observed mapchunk discovery complete");
+            return new MapChunkStreamStats(
+                    expectedRows,
+                    expectedRows == 0 ? 0 : 1,
+                    rowsFound,
+                    parsed,
+                    failed,
+                    payloadBytes
+            );
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot stream observed mapchunks: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
+    public MapChunkStreamStats forEachObservedMapChunk(
+            SaveSession session,
+            ReadDiagnostics diagnostics,
+            Consumer<MapChunk> consumer,
+            ProgressReporter progress
+    ) {
+        return forEachObservedMapChunk(
+                session,
+                diagnostics,
+                ignored -> { },
+                consumer,
+                progress
+        );
+    }
+
+    public MapChunkStreamStats forEachObservedMapChunk(
+            SaveSession session,
+            ReadDiagnostics diagnostics,
+            Consumer<MapChunkCoordinate> observedCoordinateConsumer,
+            Consumer<MapChunk> consumer
+    ) {
+        return forEachObservedMapChunk(
+                session,
+                diagnostics,
+                observedCoordinateConsumer,
+                consumer,
+                ProgressReporter.NONE
+        );
+    }
+
+    public MapChunkStreamStats forEachObservedMapChunk(
+            SaveSession session,
+            ReadDiagnostics diagnostics,
+            Consumer<MapChunk> consumer
+    ) {
+        return forEachObservedMapChunk(
+                session,
+                diagnostics,
+                ignored -> { },
+                consumer,
+                ProgressReporter.NONE
+        );
     }
 
     public MapChunkStreamStats forEachMapChunkByCoordinate(
@@ -3394,6 +3573,30 @@ public class VcdbsReader {
         }
 
         return chunks;
+    }
+
+    private boolean mapChunkWithinWorld(
+            MapChunkCoordinate coordinate,
+            WorldMetadata metadata
+    ) {
+        long worldX = (long) coordinate.x() * MapChunk.SIZE;
+        long worldZ = (long) coordinate.z() * MapChunk.SIZE;
+        return worldX >= 0L
+                && worldX < metadata.mapSizeX()
+                && worldZ >= 0L
+                && worldZ < metadata.mapSizeZ();
+    }
+
+    private Optional<MapChunkCoordinate>
+    mainWorldMapChunkCoordinateFromPackedPosition(Object rawValue) {
+        return decodePackedPosition(rawValue)
+                .filter(position ->
+                        position.dimension() == 0 && position.y() == 0
+                )
+                .map(position -> new MapChunkCoordinate(
+                        position.x(),
+                        position.z()
+                ));
     }
 
     private Optional<MapChunkCoordinate> mapChunkCoordinateFromPackedPosition(

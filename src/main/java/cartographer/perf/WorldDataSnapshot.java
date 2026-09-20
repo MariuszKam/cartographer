@@ -18,6 +18,7 @@ public final class WorldDataSnapshot {
     private final RenderDataCacheRevision revision;
     private final TerrainTileStore terrainStore;
     private final SurfaceTileStore surfaceStore;
+    private final WorldIndexCatalogStore indexCatalogStore;
 
     private WorldDataSnapshot(
             RenderDataCacheStore cacheStore,
@@ -27,6 +28,7 @@ public final class WorldDataSnapshot {
         this.revision = Objects.requireNonNull(revision, "revision is required");
         this.terrainStore = new TerrainTileStore(cacheStore, revision);
         this.surfaceStore = new SurfaceTileStore(cacheStore, revision);
+        this.indexCatalogStore = new WorldIndexCatalogStore(cacheStore, revision);
     }
 
     /**
@@ -65,6 +67,10 @@ public final class WorldDataSnapshot {
 
     public SurfaceTileStore surfaceStore() {
         return surfaceStore;
+    }
+
+    public WorldIndexCatalogStore indexCatalogStore() {
+        return indexCatalogStore;
     }
 
     public RenderDataCacheStore cacheStore() {

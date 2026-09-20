@@ -2,9 +2,13 @@ package cartographer.scanner;
 
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.MapChunk;
+import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Checked geometry for the compact Surface tile model.
@@ -28,6 +32,7 @@ public final class SurfaceTileLayout {
     private final int tileHeightCount;
     private final int tileCount;
     private final long cellCount;
+    private final Set<Long> explicitActiveTiles;
 
     private SurfaceTileLayout(
             int centerWorldX,
@@ -49,6 +54,7 @@ public final class SurfaceTileLayout {
         this.radiusSquared = checkedMultiply(radius, radius, "radius squared");
         this.worldSizeX = worldSizeX;
         this.worldSizeZ = worldSizeZ;
+        this.explicitActiveTiles = null;
 
         long minWorldX = Math.max(0L, checkedSubtract(centerWorldX, radius, "minimum world X"));
         long maxWorldX = Math.min(
@@ -93,6 +99,125 @@ public final class SurfaceTileLayout {
             );
         }
         cellCount = totalCells;
+    }
+
+    private SurfaceTileLayout(
+            Collection<MapChunkCoordinate> activeMapChunks,
+            WorldMetadata metadata
+    ) {
+        Objects.requireNonNull(activeMapChunks, "activeMapChunks are required");
+        Objects.requireNonNull(metadata, "metadata is required");
+        if (activeMapChunks.isEmpty()) {
+            throw new IllegalArgumentException("activeMapChunks cannot be empty");
+        }
+        this.worldSizeX = metadata.mapSizeX();
+        this.worldSizeZ = metadata.mapSizeZ();
+        if (worldSizeX <= 0 || worldSizeZ <= 0) {
+            throw new IllegalArgumentException("world dimensions must be positive");
+        }
+
+        Set<Long> active = new HashSet<>();
+        int firstX = Integer.MAX_VALUE;
+        int lastX = Integer.MIN_VALUE;
+        int firstZ = Integer.MAX_VALUE;
+        int lastZ = Integer.MIN_VALUE;
+        for (MapChunkCoordinate coordinate : activeMapChunks) {
+            Objects.requireNonNull(coordinate, "activeMapChunks cannot contain null");
+            long startX = checkedMultiply(
+                    coordinate.x(),
+                    MapChunk.SIZE,
+                    "active tile X world product"
+            );
+            long startZ = checkedMultiply(
+                    coordinate.z(),
+                    MapChunk.SIZE,
+                    "active tile Z world product"
+            );
+            if (startX < 0 || startX >= worldSizeX
+                    || startZ < 0 || startZ >= worldSizeZ) {
+                throw new IllegalArgumentException(
+                        "active mapchunk is outside world bounds: " + coordinate
+                );
+            }
+            active.add(tileKey(coordinate.x(), coordinate.z()));
+            firstX = Math.min(firstX, coordinate.x());
+            lastX = Math.max(lastX, coordinate.x());
+            firstZ = Math.min(firstZ, coordinate.z());
+            lastZ = Math.max(lastZ, coordinate.z());
+        }
+
+        this.firstTileX = firstX;
+        this.lastTileX = lastX;
+        this.firstTileZ = firstZ;
+        this.lastTileZ = lastZ;
+        this.tileWidthCount = checkedRangeSize(firstTileX, lastTileX, "tile width");
+        this.tileHeightCount = checkedRangeSize(firstTileZ, lastTileZ, "tile height");
+        this.tileCount = checkedInt(
+                checkedMultiply(tileWidthCount, tileHeightCount, "tile count"),
+                "tile count"
+        );
+
+        long minWorldX = checkedMultiply(firstTileX, MapChunk.SIZE, "minimum world X");
+        long minWorldZ = checkedMultiply(firstTileZ, MapChunk.SIZE, "minimum world Z");
+        long maxWorldX = Math.min(
+                (long) worldSizeX - 1L,
+                checkedAdd(
+                        checkedMultiply((long) lastTileX + 1L, MapChunk.SIZE, "maximum tile X"),
+                        -1L,
+                        "maximum world X"
+                )
+        );
+        long maxWorldZ = Math.min(
+                (long) worldSizeZ - 1L,
+                checkedAdd(
+                        checkedMultiply((long) lastTileZ + 1L, MapChunk.SIZE, "maximum tile Z"),
+                        -1L,
+                        "maximum world Z"
+                )
+        );
+        this.centerWorldX = checkedInt((minWorldX + maxWorldX) / 2L, "batch center X");
+        this.centerWorldZ = checkedInt((minWorldZ + maxWorldZ) / 2L, "batch center Z");
+        long dx = Math.max(
+                Math.abs(minWorldX - centerWorldX),
+                Math.abs(maxWorldX - centerWorldX)
+        );
+        long dz = Math.max(
+                Math.abs(minWorldZ - centerWorldZ),
+                Math.abs(maxWorldZ - centerWorldZ)
+        );
+        long squared = checkedAdd(
+                checkedMultiply(dx, dx, "batch radius X squared"),
+                checkedMultiply(dz, dz, "batch radius Z squared"),
+                "batch radius squared"
+        );
+        this.radius = Math.max(1, checkedInt(
+                (long) Math.ceil(Math.sqrt(squared)),
+                "batch radius"
+        ));
+        this.radiusSquared = checkedMultiply(radius, radius, "radius squared");
+        this.explicitActiveTiles = Set.copyOf(active);
+
+        long totalCells = 0L;
+        for (int tileIndex = 0; tileIndex < tileCount; tileIndex++) {
+            totalCells = checkedAdd(
+                    totalCells,
+                    tileCellCount(tileXAt(tileIndex), tileZAt(tileIndex)),
+                    "cell count"
+            );
+        }
+        this.cellCount = totalCells;
+    }
+
+    /**
+     * Creates a bounded rectangular layout whose active domain is exactly the
+     * supplied complete mapchunk tiles. Holes inside the bounding rectangle
+     * remain inactive.
+     */
+    public static SurfaceTileLayout forMapChunks(
+            Collection<MapChunkCoordinate> activeMapChunks,
+            WorldMetadata metadata
+    ) {
+        return new SurfaceTileLayout(activeMapChunks, metadata);
     }
 
     public static SurfaceTileLayout forSurface(
@@ -187,9 +312,18 @@ public final class SurfaceTileLayout {
         return lastTileZ;
     }
 
-    /** Returns true when the coordinate is in world bounds and the circle. */
+    /** Returns true when the coordinate is in world bounds and the active domain. */
     public boolean isActive(int worldX, int worldZ) {
-        return contains(worldX, worldZ) && withinCircle(worldX, worldZ);
+        if (!contains(worldX, worldZ)) {
+            return false;
+        }
+        if (explicitActiveTiles != null) {
+            return explicitActiveTiles.contains(tileKey(
+                    tileXForWorld(worldX),
+                    tileZForWorld(worldZ)
+            ));
+        }
+        return withinCircle(worldX, worldZ);
     }
 
     /** Returns true when the coordinate is in the world bounds. */
@@ -201,6 +335,13 @@ public final class SurfaceTileLayout {
     }
 
     public boolean withinCircle(int worldX, int worldZ) {
+        if (explicitActiveTiles != null) {
+            return contains(worldX, worldZ)
+                    && explicitActiveTiles.contains(tileKey(
+                    tileXForWorld(worldX),
+                    tileZForWorld(worldZ)
+            ));
+        }
         long dx = (long) worldX - centerWorldX;
         long dz = (long) worldZ - centerWorldZ;
         return checkedAdd(
@@ -353,6 +494,10 @@ public final class SurfaceTileLayout {
         if (local < 0 || local >= MapChunk.SIZE) {
             throw new IndexOutOfBoundsException(name + " is outside mapchunk tile");
         }
+    }
+
+    private static long tileKey(int tileX, int tileZ) {
+        return ((long) tileX << 32) ^ (tileZ & 0xFFFFFFFFL);
     }
 
     private static int checkedRangeSize(int first, int last, String name) {

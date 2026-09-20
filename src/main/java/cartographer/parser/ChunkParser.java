@@ -180,7 +180,7 @@ public class ChunkParser {
         Objects.requireNonNull(workspace, "workspace is required");
         try {
             PayloadSlice blocks =
-                    serverChunk.blocksCompressed();
+                    PayloadSlice.whole(serverChunk.blocksCompressed());
             return ParseResult.success(
                     layerDecoder.probePalette(
                             blocks.source(),

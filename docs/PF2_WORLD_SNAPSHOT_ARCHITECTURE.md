@@ -129,12 +129,42 @@ before considering worker-count or in-flight-limit tuning.
 
 ### PF-2.3 — Terrain + Surface world indexing
 
-- support an explicit Prepare World operation;
-- populate revision-scoped complete Terrain/Surface tiles;
-- resume safely from already-published tiles;
-- keep source reads bounded and operation-scoped;
-- after coverage exists, compatible renders use snapshot tiles and do not
-  reopen source chunks.
+Implemented on the PF-2.3 branch:
+
+- `snapshot prepare <save.vcdbs>` is the explicit reviewer-facing Prepare
+  World operation; Workstation UX remains deferred to PF-2.7;
+- one operation-scoped read-only `SaveSession` streams the authoritative
+  main-world `mapchunk` table and publishes a revision-scoped catalog of
+  observed `(x,z)` mapchunks;
+- catalog membership records source existence before derived mapchunk parsing,
+  so parser failures can never be misclassified as source absence;
+- Terrain artifacts are published incrementally from that discovery stream.
+  A completed revision reuses valid Terrain tiles and exact-reads only
+  missing/corrupt observed coordinates;
+- Surface indexing reuses Terrain tiles and processes missing Surface coverage
+  in deterministic bounded spatial batches. It uses the same render profile
+  (foliage ignored, liquid required), RainHeight fast path, fallback planner,
+  fallback Y ordering and scanner semantics as the established Map path;
+- complete Surface tiles are revision-scoped and reused by compatible renders,
+  so a render fully inside prepared coverage performs no source mapchunk or
+  server-chunk traversal;
+- a complete mapchunk catalog may prove that a Terrain mapchunk is absent and
+  suppress that point lookup. It does **not** prove that server chunks are
+  absent, so Surface requests outside prepared Surface coverage retain the
+  authoritative fallback and may publish additional complete tiles lazily;
+- partial catalog rows and already-published Terrain/Surface tiles are safe to
+  reuse after interruption. The catalog completion marker is written only
+  after the authoritative discovery scan returns successfully;
+- catalog and tile databases remain below the external revision cache root;
+  no source JDBC connection, decoded source chunk or source payload is retained
+  after the operation.
+
+PF-2.3 completeness therefore means complete Terrain/Surface derived coverage
+for the catalogued observed main-world mapchunks of one save revision. It does
+not claim that every theoretical mapchunk in the world exists or that mapchunk
+absence proves server-chunk absence.
+
+Runtime tests and real-save validation remain reviewer-controlled.
 
 ### PF-2.4 — mapregion + ROCK indexing
 

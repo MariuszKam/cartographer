@@ -591,6 +591,14 @@ times from that snapshot. PF-2.0 reuses the existing PF-1.7 Terrain/Surface
 stores through a `WorldDataSnapshot` facade and adds exact-position traversal
 cost instrumentation.
 
+PF-2.3 adds explicit Terrain/Surface world preparation for the observed
+main-world mapchunk coverage of a revision. A revision-scoped catalog records
+authoritative mapchunk existence, Terrain and complete Surface tiles are
+published incrementally in bounded batches, and compatible warm renders reuse
+those artifacts without reopening source mapchunk/server-chunk traversal.
+Surface outside prepared coverage keeps the existing authoritative fallback;
+mapchunk absence is never treated as proof that server chunks are absent.
+
 This remains derived-cache architecture: source authority, read-only safety,
 operation-scoped source sessions and fallback-to-source correctness are
 unchanged. No global collection of decoded source chunks is retained.
