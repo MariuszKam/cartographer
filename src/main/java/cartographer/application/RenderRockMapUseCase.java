@@ -295,6 +295,20 @@ public final class RenderRockMapUseCase {
             RenderRockMapRequest request,
             ProgressReporter progress
     ) {
+        return executeSource(
+                saveSession,
+                request,
+                progress,
+                true
+        );
+    }
+
+    private RenderRockMapResult executeSource(
+            SaveSession saveSession,
+            RenderRockMapRequest request,
+            ProgressReporter progress,
+            boolean retainRockMap
+    ) {
         Objects.requireNonNull(saveSession, "session is required");
         Objects.requireNonNull(request, "rock map request is required");
         Objects.requireNonNull(progress, "progress is required");
