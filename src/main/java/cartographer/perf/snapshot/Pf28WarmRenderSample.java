@@ -12,7 +12,6 @@ public record Pf28WarmRenderSample(
         Pf18ResourceEvidence warmResources,
         int sourceConnectionsOpened,
         int sourceConnectionsClosed,
-        boolean snapshotBacked,
         int terrainRequested,
         int terrainHits,
         int terrainKnownAbsent,
@@ -69,6 +68,10 @@ public record Pf28WarmRenderSample(
                 && sourceConnectionsClosed == 0;
     }
 
+    public boolean snapshotBacked() {
+        return sourceReadEliminated();
+    }
+
     public boolean terrainCoverageProven() {
         return terrainRequested > 0
                 && terrainHits + terrainKnownAbsent == terrainRequested;
@@ -84,8 +87,7 @@ public record Pf28WarmRenderSample(
     }
 
     public boolean accepted() {
-        return snapshotBacked
-                && sourceReadEliminated()
+        return sourceReadEliminated()
                 && terrainCoverageProven()
                 && surfaceCoverageComplete()
                 && geometryParity
