@@ -222,11 +222,16 @@ implementation.
 
 Test performance is observable engineering data.
 
-The Gradle `test` task emits a machine-readable per-class timing report at:
+The Gradle `test` task emits machine-readable timing reports at:
 
 `build/reports/test-performance/test-class-timings.csv`
 
-and logs the slowest classes at the end of the run.
+`build/reports/test-performance/test-method-timings.csv`
+
+and logs the slowest classes and individual tests at the end of the run. The
+parallel probe writes equivalent reports with the
+`test-parallel-probe-` prefix so serial and parallel evidence are never
+silently mixed.
 
 Performance work follows this order:
 
