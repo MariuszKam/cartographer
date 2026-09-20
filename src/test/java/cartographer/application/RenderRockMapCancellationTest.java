@@ -41,6 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ConcurrencyTest
 class RenderRockMapCancellationTest {
+    private static final long TEST_DEADLOCK_TIMEOUT_SECONDS = 5;
 
     @Test
     void interruptionClosesSessionBeforeOperationReturns() throws Exception {
@@ -90,17 +91,39 @@ class RenderRockMapCancellationTest {
             }
         });
 
-        assertTrue(scanStarted.await(5, TimeUnit.SECONDS));
-        operation.interrupt();
-        assertTrue(scanInterrupted.await(5, TimeUnit.SECONDS));
-        operation.join(TimeUnit.SECONDS.toMillis(5));
+        try {
+            awaitLatch(scanStarted, "rock scan started");
+            operation.interrupt();
+            awaitLatch(scanInterrupted, "rock scan interrupted");
+            joinThread(operation, "rock render operation");
 
-        assertFalse(operation.isAlive());
-        assertTrue(failure.get() instanceof CancellationException);
-        assertEquals(
-                new SaveSessionLifecycleProbe.Snapshot(1, 1),
-                probe.snapshot()
+            assertTrue(failure.get() instanceof CancellationException);
+            assertEquals(
+                    new SaveSessionLifecycleProbe.Snapshot(1, 1),
+                    probe.snapshot()
+            );
+        } finally {
+            operation.interrupt();
+            joinThread(operation, "rock render operation");
+        }
+    }
+
+    private static void awaitLatch(
+            CountDownLatch latch,
+            String description
+    ) throws InterruptedException {
+        assertTrue(
+                latch.await(TEST_DEADLOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                description + " was not signalled"
         );
+    }
+
+    private static void joinThread(
+            Thread thread,
+            String description
+    ) throws InterruptedException {
+        thread.join(TimeUnit.SECONDS.toMillis(TEST_DEADLOCK_TIMEOUT_SECONDS));
+        assertFalse(thread.isAlive(), description + " did not terminate");
     }
 
     private static final class BlockingRockReader extends VcdbsReader {
