@@ -61,29 +61,38 @@ public final class UpdatePreferencesStore {
                 )
         );
 
-        Path temporary = path.resolveSibling(
-                path.getFileName() + ".tmp"
+        Path temporary = Files.createTempFile(
+                parent,
+                path.getFileName().toString() + "-",
+                ".tmp"
         );
-        try (Writer writer = Files.newBufferedWriter(
-                temporary,
-                StandardCharsets.UTF_8
-        )) {
-            properties.store(writer, "VS Cartographer update preferences");
-        }
-
         try {
-            Files.move(
+            try (Writer writer = Files.newBufferedWriter(
                     temporary,
-                    path,
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE
-            );
-        } catch (IOException atomicMoveFailure) {
-            Files.move(
-                    temporary,
-                    path,
-                    StandardCopyOption.REPLACE_EXISTING
-            );
+                    StandardCharsets.UTF_8
+            )) {
+                properties.store(
+                        writer,
+                        "VS Cartographer update preferences"
+                );
+            }
+
+            try {
+                Files.move(
+                        temporary,
+                        path,
+                        StandardCopyOption.REPLACE_EXISTING,
+                        StandardCopyOption.ATOMIC_MOVE
+                );
+            } catch (IOException atomicMoveFailure) {
+                Files.move(
+                        temporary,
+                        path,
+                        StandardCopyOption.REPLACE_EXISTING
+                );
+            }
+        } finally {
+            Files.deleteIfExists(temporary);
         }
     }
 
