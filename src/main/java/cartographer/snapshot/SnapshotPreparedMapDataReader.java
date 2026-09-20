@@ -4,12 +4,17 @@ import cartographer.application.MapChunkPositionPlanner;
 import cartographer.application.MapChunkRenderWindowPlanner;
 import cartographer.application.PrepareMapDataRequest;
 import cartographer.application.PreparedMapData;
+import cartographer.application.PreparedSurfaceData;
 import cartographer.application.ProgressReporter;
 import cartographer.application.RenderDataCacheReport;
+import cartographer.application.SurfaceDataRequirement;
 import cartographer.model.MapChunkCoordinate;
+import cartographer.model.SurfaceClass;
+import cartographer.model.SurfaceClassCode;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.perf.RenderDataCacheStore;
+import cartographer.perf.SurfaceCacheTile;
 import cartographer.perf.SurfaceTileLookup;
 import cartographer.perf.TerrainTileLookup;
 import cartographer.perf.WorldDataSnapshot;
@@ -17,16 +22,18 @@ import cartographer.perf.WorldIndexCatalogStore;
 import cartographer.perf.WorldSnapshotHeader;
 import cartographer.render.MapTerrainPreparation;
 import cartographer.render.RenderOptions;
+import cartographer.render.RenderSamplingPlan;
+import cartographer.render.SurfaceRenderData;
 import cartographer.save.ReadDiagnostics;
+import cartographer.scanner.SurfaceDiagnosticsSummary;
 import cartographer.scanner.SurfaceMapScanResult;
 import cartographer.scanner.SurfaceRainHeightDiagnosticCounters;
 import cartographer.scanner.SurfaceRainHeightScanResult;
+import cartographer.scanner.SurfaceRegistryLookup;
 import cartographer.scanner.SurfaceStreamingSession;
-import cartographer.scanner.SurfaceTileAccumulator;
 import cartographer.scanner.SurfaceTileLayout;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -114,21 +121,32 @@ public final class SnapshotPreparedMapDataReader {
             MapTerrainPreparation terrain =
                     terrainRead.orElseThrow().terrain();
 
-            Optional<SurfaceRead> surfaceRead = request.surfaceDataRequirement().requiresSurface()
-                    ? surface(
-                    snapshot,
-                    metadata,
-                    header,
-                    center,
-                    request.radius()
-            )
-                    : Optional.of(SurfaceRead.empty(
-                    emptySurface(
-                            metadata,
-                            center,
-                            request.radius()
-                    )
-            ));
+            Optional<SurfaceRead> surfaceRead;
+            if (request.surfaceDataRequirement()
+                    == SurfaceDataRequirement.NONE) {
+                surfaceRead = Optional.of(SurfaceRead.empty(
+                        PreparedSurfaceData.none(center, options)
+                ));
+            } else if (request.surfaceDataRequirement()
+                    == SurfaceDataRequirement.RENDER) {
+                surfaceRead = renderSurface(
+                        snapshot,
+                        metadata,
+                        header,
+                        center,
+                        request.radius(),
+                        options
+                );
+            } else {
+                surfaceRead = analysisSurface(
+                        snapshot,
+                        metadata,
+                        header,
+                        center,
+                        request.radius(),
+                        options
+                );
+            }
             if (surfaceRead.isEmpty()) {
                 return Optional.empty();
             }
@@ -168,7 +186,7 @@ public final class SnapshotPreparedMapDataReader {
                     center,
                     options,
                     terrain,
-                    surfaceRead.orElseThrow().result(),
+                    surfaceRead.orElseThrow().data(),
                     header.blockRegistry(),
                     new ReadDiagnostics(),
                     new ReadDiagnostics(),
@@ -250,12 +268,13 @@ public final class SnapshotPreparedMapDataReader {
         ));
     }
 
-    private Optional<SurfaceRead> surface(
+    private Optional<SurfaceRead> analysisSurface(
             WorldDataSnapshot snapshot,
             WorldMetadata metadata,
             WorldSnapshotHeader header,
             WorldPosition center,
-            int radius
+            int radius,
+            RenderOptions options
     ) {
         int centerX = checkedRound(center.x());
         int centerZ = checkedRound(center.z());
@@ -302,41 +321,156 @@ public final class SnapshotPreparedMapDataReader {
         SurfaceRainHeightScanResult result = session.finish();
         SurfaceRainHeightDiagnosticCounters diagnostics =
                 result.diagnostics();
+        SurfaceMapScanResult exact = new SurfaceMapScanResult(
+                result.surface(),
+                header.blockRegistry(),
+                0,
+                diagnostics.columnsScanned(),
+                diagnostics.emptyColumns(),
+                diagnostics.liquidUnavailableColumns()
+        );
         return Optional.of(new SurfaceRead(
-                new SurfaceMapScanResult(
-                        result.surface(),
-                        header.blockRegistry(),
-                        0,
-                        diagnostics.columnsScanned(),
-                        diagnostics.emptyColumns(),
-                        diagnostics.liquidUnavailableColumns()
+                PreparedSurfaceData.fromExact(
+                        exact,
+                        center,
+                        options,
+                        SurfaceDataRequirement.ANALYSIS
                 ),
                 coordinates.size(),
                 hits[0]
         ));
     }
 
-    private SurfaceMapScanResult emptySurface(
+    private Optional<SurfaceRead> renderSurface(
+            WorldDataSnapshot snapshot,
             WorldMetadata metadata,
+            WorldSnapshotHeader header,
             WorldPosition center,
-            int radius
+            int radius,
+            RenderOptions options
     ) {
+        int centerX = checkedRound(center.x());
+        int centerZ = checkedRound(center.z());
+        List<MapChunkCoordinate> coordinates = surfacePlanner.plan(
+                metadata,
+                centerX,
+                centerZ,
+                radius
+        );
         SurfaceTileLayout layout = SurfaceTileLayout.forSurface(
-                center.x(),
-                center.z(),
+                centerX,
+                centerZ,
                 radius,
                 metadata
         );
-        SurfaceTileAccumulator accumulator =
-                new SurfaceTileAccumulator(layout);
-        return new SurfaceMapScanResult(
-                accumulator.finish(),
-                Map.of(),
-                0,
-                0,
-                0,
-                0
+        SurfaceRegistryLookup registry =
+                new SurfaceRegistryLookup(header.blockRegistry());
+        SurfaceRenderData.Builder renderBuilder =
+                SurfaceRenderData.builder(
+                        RenderSamplingPlan.from(center, options),
+                        layout,
+                        registry
+                );
+        SurfaceDiagnosticsSummary.Builder diagnostics =
+                SurfaceDiagnosticsSummary.builder(
+                        header.blockRegistry()
+                );
+        int[] hits = {0};
+        boolean[] complete = {true};
+
+        snapshot.surfaceStore().forEachLookup(
+                coordinates,
+                (coordinate, lookup) -> {
+                    if (lookup.status() != SurfaceTileLookup.Status.HIT
+                            || !lookup.tile().matchesWorld(metadata)) {
+                        // Surface snapshot coverage must be complete. Missing
+                        // derived data never proves source absence.
+                        complete[0] = false;
+                        return false;
+                    }
+
+                    SurfaceCacheTile tile = lookup.tile();
+                    int tileX = tile.coordinate().x();
+                    int tileZ = tile.coordinate().z();
+                    for (int localZ = 0;
+                         localZ < tile.height();
+                         localZ++) {
+                        int worldZ = layout.worldZForTileLocal(
+                                tileZ,
+                                localZ
+                        );
+                        for (int localX = 0;
+                             localX < tile.width();
+                             localX++) {
+                            int worldX = layout.worldXForTileLocal(
+                                    tileX,
+                                    localX
+                            );
+                            if (!layout.isActive(worldX, worldZ)) {
+                                continue;
+                            }
+
+                            int cellIndex =
+                                    localZ * tile.width() + localX;
+                            byte state = tile.stateAtIndex(cellIndex);
+                            if (!tile.fallbackMode()
+                                    && (state
+                                    & SurfaceCacheTile.CONSIDERED) != 0) {
+                                diagnostics.addColumnsScanned(1);
+                            }
+                            if ((state & SurfaceCacheTile.RESOLVED) == 0) {
+                                continue;
+                            }
+
+                            SurfaceClass surfaceClass =
+                                    SurfaceClassCode.decode(
+                                            tile.surfaceClassCodeAtIndex(
+                                                    cellIndex
+                                            )
+                                    );
+                            int blockId =
+                                    tile.blockIdAtIndex(cellIndex);
+                            diagnostics.acceptResolved(
+                                    blockId,
+                                    surfaceClass
+                            );
+                            renderBuilder.acceptResolved(
+                                    worldX,
+                                    worldZ,
+                                    blockId,
+                                    surfaceClass
+                            );
+                        }
+                    }
+
+                    if (tile.fallbackMode()) {
+                        diagnostics.addColumnsScanned(
+                                tile.diagnosticColumnsScanned()
+                        );
+                        diagnostics.addEmptyColumns(
+                                tile.diagnosticEmptyColumns()
+                        );
+                        diagnostics.addLiquidUnavailableColumns(
+                                tile.diagnosticLiquidUnavailableColumns()
+                        );
+                    }
+                    hits[0]++;
+                    return true;
+                }
         );
+
+        if (!complete[0]) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new SurfaceRead(
+                PreparedSurfaceData.renderOnly(
+                        renderBuilder.finish(),
+                        diagnostics.build()
+                ),
+                coordinates.size(),
+                hits[0]
+        ));
     }
 
     private int checkedRound(double value) {
@@ -373,12 +507,12 @@ public final class SnapshotPreparedMapDataReader {
     }
 
     private record SurfaceRead(
-            SurfaceMapScanResult result,
+            PreparedSurfaceData data,
             int requested,
             int hits
     ) {
         private SurfaceRead {
-            Objects.requireNonNull(result, "surface result is required");
+            Objects.requireNonNull(data, "prepared Surface data is required");
             if (requested < 0 || hits < 0 || hits > requested) {
                 throw new IllegalArgumentException(
                         "invalid Surface snapshot counters"
@@ -386,8 +520,8 @@ public final class SnapshotPreparedMapDataReader {
             }
         }
 
-        static SurfaceRead empty(SurfaceMapScanResult result) {
-            return new SurfaceRead(result, 0, 0);
+        static SurfaceRead empty(PreparedSurfaceData data) {
+            return new SurfaceRead(data, 0, 0);
         }
     }
 }
