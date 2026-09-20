@@ -762,7 +762,9 @@ public final class PrepareWorldSnapshotUseCase {
         store.publishBlockCatalog(catalog.blocks());
 
         if (catalog.isEmpty()) {
-            store.markScanComplete();
+            if (!store.scanComplete()) {
+                store.markScanComplete();
+            }
             return true;
         }
 
@@ -842,8 +844,10 @@ public final class PrepareWorldSnapshotUseCase {
                 observed
         );
         if (complete) {
-            store.markScanComplete();
-        } else {
+            if (markerInvalidated) {
+                store.markScanComplete();
+            }
+        } else if (!markerInvalidated) {
             store.markScanIncomplete();
         }
         progress.done("Resource snapshot indexing complete");
