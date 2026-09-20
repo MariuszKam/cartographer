@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 
 /**
  * PF-2.6 source-free consumer for prepared Terrain/Surface snapshot data.
@@ -190,7 +191,12 @@ public final class SnapshotPreparedMapDataReader {
                     new ReadDiagnostics(),
                     report
             ));
+        } catch (CancellationException cancellation) {
+            throw cancellation;
         } catch (RuntimeException failure) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw failure;
+            }
             // Derived data is never authoritative. Any unexpected derived
             // state is treated as a snapshot miss and delegated to source.
             return Optional.empty();
