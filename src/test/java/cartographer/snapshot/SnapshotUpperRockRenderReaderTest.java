@@ -68,7 +68,7 @@ class SnapshotUpperRockRenderReaderTest {
                 Map.of(7, new BlockInfo(7, "game:rock-granite"));
         WorldPosition center = new WorldPosition(16, 0, 16);
 
-        var direct = new SnapshotUpperRockRenderReader(cache).read(
+        var direct = new SnapshotUpperRockRenderReader(cache, new RockMapRenderer()).read(
                 save,
                 metadata,
                 registry,
@@ -147,7 +147,7 @@ class SnapshotUpperRockRenderReaderTest {
                 )
         ));
 
-        var result = new SnapshotUpperRockRenderReader(cache).read(
+        var result = new SnapshotUpperRockRenderReader(cache, new RockMapRenderer()).read(
                 save,
                 new WorldMetadata(32, 64, 32),
                 Map.of(7, new BlockInfo(7, "game:rock-granite")),
