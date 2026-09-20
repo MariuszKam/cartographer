@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.testing.ConcurrencyTest;
 import cartographer.geology.rock.RockMapMode;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkPosition;
@@ -38,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@ConcurrencyTest
 class RenderRockMapCancellationTest {
 
     @Test

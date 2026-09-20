@@ -1,5 +1,6 @@
 package cartographer.save;
 
+import cartographer.testing.ConcurrencyTest;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -18,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@ConcurrencyTest
 class BoundedStreamingDecodePipelineTest {
     private static final long TEST_DEADLOCK_TIMEOUT_SECONDS = 10;
 

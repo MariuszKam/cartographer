@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.testing.IntegrationTest;
 import cartographer.marker.MarkerStore;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
@@ -65,6 +66,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@IntegrationTest
 class RenderActualOreMapUseCaseTest {
 
     @TempDir

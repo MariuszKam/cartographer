@@ -1,5 +1,6 @@
 package cartographer.save;
 
+import cartographer.testing.IntegrationTest;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
 import cartographer.model.ParseResult;
@@ -31,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@IntegrationTest
 class VcdbsReaderDirectChunkLookupTest {
     private static final long TEST_DEADLOCK_TIMEOUT_SECONDS = 10;
 
