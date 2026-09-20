@@ -16,6 +16,7 @@ import java.util.Optional;
 public final class WorldDataSnapshot {
     private final RenderDataCacheStore cacheStore;
     private final RenderDataCacheRevision revision;
+    private final WorldSnapshotHeaderStore headerStore;
     private final TerrainTileStore terrainStore;
     private final SurfaceTileStore surfaceStore;
     private final WorldIndexCatalogStore indexCatalogStore;
@@ -29,6 +30,7 @@ public final class WorldDataSnapshot {
     ) {
         this.cacheStore = Objects.requireNonNull(cacheStore, "cacheStore is required");
         this.revision = Objects.requireNonNull(revision, "revision is required");
+        this.headerStore = new WorldSnapshotHeaderStore(cacheStore, revision);
         this.terrainStore = new TerrainTileStore(cacheStore, revision);
         this.surfaceStore = new SurfaceTileStore(cacheStore, revision);
         this.indexCatalogStore = new WorldIndexCatalogStore(cacheStore, revision);
@@ -65,6 +67,10 @@ public final class WorldDataSnapshot {
 
     public Path savePath() {
         return revision.identity().normalizedSavePath();
+    }
+
+    public WorldSnapshotHeaderStore headerStore() {
+        return headerStore;
     }
 
     public TerrainTileStore terrainStore() {
