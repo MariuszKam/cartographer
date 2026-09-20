@@ -99,6 +99,15 @@ public final class ResourceIndexStore {
                 )
                 .toList();
         requirePublishedRevision();
+
+        LinkedHashMap<Integer, String> desired =
+                new LinkedHashMap<>();
+        for (BlockInfo block : safe) {
+            desired.put(block.id(), block.code());
+        }
+        if (blockCatalog().equals(desired)) {
+            return;
+        }
         try {
             Files.createDirectories(databasePath.getParent());
             try (Connection connection = openDatabase(true)) {
