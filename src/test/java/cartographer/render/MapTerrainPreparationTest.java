@@ -12,6 +12,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MapTerrainPreparationTest {
 
@@ -37,6 +38,43 @@ class MapTerrainPreparationTest {
                 new TerrainPalette().background(RenderStyle.SIMPLE),
                 rendered.image().getRGB(16, 16)
         );
+    }
+
+    @Test
+    void terrainOnlyUsesRenderSizedHeightState() {
+        RenderOptions options = options(RenderLayer.TERRAIN);
+        MapTerrainPreparation.Builder builder = MapTerrainPreparation.builder(
+                new WorldPosition(16, 0, 16),
+                options,
+                1
+        );
+        builder.accept(chunk(0, 0, 55));
+        MapTerrainPreparation terrain = builder.finish();
+
+        assertTrue(terrain.heights() instanceof SampledTerrainHeightField);
+        assertEquals(0, terrain.surfaceHeights().sampleCount());
+        assertEquals(55, terrain.heights().minHeight());
+        assertEquals(55, terrain.heights().maxHeight());
+    }
+
+    @Test
+    void surfaceRequestsKeepExactHeightStateUntilSurfaceIsRenderSized() {
+        RenderOptions options = new RenderOptions(
+                16,
+                1,
+                RenderStyle.SIMPLE,
+                Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE)
+        );
+        MapTerrainPreparation.Builder builder = MapTerrainPreparation.builder(
+                new WorldPosition(16, 0, 16),
+                options,
+                1
+        );
+        builder.accept(chunk(0, 0, 55));
+        MapTerrainPreparation terrain = builder.finish();
+
+        assertTrue(terrain.heights() instanceof DenseHeightGrid);
+        assertEquals(1024, terrain.surfaceHeights().sampleCount());
     }
 
     @Test

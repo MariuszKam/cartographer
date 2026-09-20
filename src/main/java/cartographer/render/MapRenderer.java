@@ -87,7 +87,7 @@ public class MapRenderer {
                 ? drawTerrain(raster, terrain.heights(), sampling, options, progress)
                 : 0;
         if (surfaceMap != null && options.layers().contains(RenderLayer.SURFACE)) {
-            drawSurfaceMap(raster, surfaceMap, terrain.heights(), minX, minZ, scale, diameter, progress);
+            drawSurfaceMap(raster, surfaceMap, terrain.surfaceHeights(), minX, minZ, scale, diameter, progress);
         }
         if (surfaceMap != null && options.layers().contains(RenderLayer.SOIL_FERTILITY)) {
             soilFertilityRenderer.draw(image, surfaceMap, registry, minX, minZ, scale, progress);
@@ -236,7 +236,8 @@ public class MapRenderer {
                                 RenderLayer.SURFACE
                         );
 
-        DenseHeightGrid samples = terrain.heights();
+        TerrainHeightField terrainSamples = terrain.heights();
+        DenseHeightGrid surfaceSamples = terrain.surfaceHeights();
 
         int tilesDrawn =
                 0;
@@ -245,7 +246,7 @@ public class MapRenderer {
             tilesDrawn =
                     drawTerrain(
                             raster,
-                            samples,
+                            terrainSamples,
                             sampling,
                             options,
                             progress
@@ -256,7 +257,7 @@ public class MapRenderer {
             drawSurfaceBlocks(
                     raster,
                     surfaceBlocks,
-                    samples,
+                    surfaceSamples,
                     minX,
                     minZ,
                     scale,
@@ -371,7 +372,7 @@ public class MapRenderer {
 
     private int drawTerrain(
             ArgbRaster raster,
-            DenseHeightGrid samples,
+            TerrainHeightField samples,
             RenderSamplingPlan sampling,
             RenderOptions options,
             ProgressReporter progress
@@ -841,7 +842,7 @@ public class MapRenderer {
     }
 
     private double hillshade(
-            DenseHeightGrid samples,
+            TerrainHeightField samples,
             int worldX,
             int worldZ
     ) {

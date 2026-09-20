@@ -7,11 +7,17 @@ import cartographer.model.WorldPosition;
 import java.util.Objects;
 
 public final class MapTerrainPreparation {
-    private final DenseHeightGrid heights;
+    private final TerrainHeightField heights;
+    private final DenseHeightGrid surfaceHeights;
     private final int mapChunkCount;
 
-    private MapTerrainPreparation(DenseHeightGrid heights, int mapChunkCount) {
+    private MapTerrainPreparation(
+            TerrainHeightField heights,
+            DenseHeightGrid surfaceHeights,
+            int mapChunkCount
+    ) {
         this.heights = heights;
+        this.surfaceHeights = surfaceHeights;
         this.mapChunkCount = mapChunkCount;
     }
 
@@ -19,8 +25,12 @@ public final class MapTerrainPreparation {
         return mapChunkCount;
     }
 
-    DenseHeightGrid heights() {
+    TerrainHeightField heights() {
         return heights;
+    }
+
+    DenseHeightGrid surfaceHeights() {
+        return surfaceHeights;
     }
 
     public static Builder builder(
@@ -41,7 +51,8 @@ public final class MapTerrainPreparation {
     }
 
     public static final class Builder {
-        private final DenseHeightGrid.Builder heights;
+        private final DenseHeightGrid.Builder exactHeights;
+        private final SampledTerrainHeightField.Builder sampledHeights;
         private int mapChunkCount;
 
         private Builder(
@@ -59,37 +70,64 @@ public final class MapTerrainPreparation {
                 );
             }
 
-            boolean collectHeights = options.layers().contains(RenderLayer.TERRAIN)
-                    || options.layers().contains(RenderLayer.SURFACE);
-            if (!collectHeights) {
-                heights = null;
-                return;
+            boolean collectExactHeights =
+                    options.layers().contains(RenderLayer.SURFACE);
+            boolean collectTerrain =
+                    options.layers().contains(RenderLayer.TERRAIN);
+
+            if (collectExactHeights) {
+                int width = Math.multiplyExact(
+                        options.radiusBlocks(),
+                        2
+                );
+                int minX = (int) Math.floor(center.x())
+                        - options.radiusBlocks();
+                int minZ = (int) Math.floor(center.z())
+                        - options.radiusBlocks();
+                exactHeights = DenseHeightGrid.builder(
+                        minX,
+                        minZ,
+                        width,
+                        width,
+                        progress,
+                        expectedMapChunks
+                );
+            } else {
+                exactHeights = null;
             }
 
-            int width = Math.multiplyExact(options.radiusBlocks(), 2);
-            int minX = (int) Math.floor(center.x()) - options.radiusBlocks();
-            int minZ = (int) Math.floor(center.z()) - options.radiusBlocks();
-            heights = DenseHeightGrid.builder(
-                    minX,
-                    minZ,
-                    width,
-                    width,
-                    progress,
-                    expectedMapChunks
-            );
+            if (collectTerrain && !collectExactHeights) {
+                sampledHeights = SampledTerrainHeightField.builder(
+                        RenderSamplingPlan.from(center, options),
+                        progress,
+                        expectedMapChunks
+                );
+            } else {
+                sampledHeights = null;
+            }
         }
 
         public void accept(MapChunkHeightView mapChunk) {
             Objects.requireNonNull(mapChunk, "map chunk height view is required");
             mapChunkCount++;
-            if (heights != null) {
-                heights.accept(mapChunk);
+            if (exactHeights != null) {
+                exactHeights.accept(mapChunk);
+            }
+            if (sampledHeights != null) {
+                sampledHeights.accept(mapChunk);
             }
         }
 
         public MapTerrainPreparation finish() {
+            DenseHeightGrid exact = exactHeights == null
+                    ? DenseHeightGrid.empty()
+                    : exactHeights.finish();
+            TerrainHeightField terrain = sampledHeights == null
+                    ? exact
+                    : sampledHeights.finish();
             return new MapTerrainPreparation(
-                    heights == null ? DenseHeightGrid.empty() : heights.finish(),
+                    terrain,
+                    exact,
                     mapChunkCount
             );
         }
