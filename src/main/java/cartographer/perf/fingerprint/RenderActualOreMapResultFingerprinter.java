@@ -47,8 +47,7 @@ public final class RenderActualOreMapResultFingerprinter {
             CanonicalWriter writer,
             SurfaceDiagnosticsSummary result
     ) {
-        writer.writeInt(result.chunksScanned())
-                .writeInt(result.columnsScanned())
+        writer.writeInt(result.columnsScanned())
                 .writeInt(result.emptyColumns())
                 .writeInt(result.liquidUnavailableColumns())
                 .writeLong(result.waterColumns())
