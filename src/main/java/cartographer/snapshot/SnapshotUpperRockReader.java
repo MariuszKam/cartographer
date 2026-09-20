@@ -65,6 +65,9 @@ public final class SnapshotUpperRockReader {
         try {
             snapshot = WorldDataSnapshot.openOrCreate(cacheStore, savePath);
         } catch (RuntimeException failure) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw failure;
+            }
             return Optional.empty();
         }
         if (snapshot.isEmpty()) {
@@ -83,6 +86,9 @@ public final class SnapshotUpperRockReader {
                     .upperRockTileStore()
                     .read(coordinates);
         } catch (RuntimeException failure) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw failure;
+            }
             return Optional.empty();
         }
 
