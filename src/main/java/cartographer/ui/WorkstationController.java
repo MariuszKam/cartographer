@@ -292,7 +292,6 @@ public final class WorkstationController {
                                     : "Loaded " + discovered.size() + " resources."
                     );
                     setBusy(false);
-                    startSurfaceDiscovery(savePath);
                 },
                 failure -> {
                     searchPanel.setDiscoveryFailure();
@@ -768,26 +767,11 @@ public final class WorkstationController {
                             .orElseGet(List::of);
             searchPanel.setRockLegend(rocks);
         }
-        if (mode == WorkstationTool.SURFACE
-                && searchPanel.selectedSurfaceMode() == SurfaceToolMode.OBJECTS
-                && !worldPanel.savePathText().isBlank()) {
-            SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey currentKey = currentSurfaceDiscoveryKey();
-            if (!surfaceObjectDiscoveryState.isCurrentFor(
-                    surfaceDiscoveryTaskKey != null && surfaceDiscoveryTaskKey.equals(currentKey))) {
-                startSurfaceDiscovery(currentKey.savePath());
-            }
-        }
+        maybeStartSurfaceObjectDiscovery();
     }
 
     private void handleSurfaceModeChanged(SurfaceToolMode mode) {
-        if (mode == SurfaceToolMode.OBJECTS
-                && searchPanel.selectedMode() == WorkstationTool.SURFACE
-                && !worldPanel.savePathText().isBlank()
-                && !surfaceObjectDiscoveryState.isCurrentFor(
-                        surfaceDiscoveryTaskKey != null
-                                && surfaceDiscoveryTaskKey.equals(currentSurfaceDiscoveryKey()))) {
-            startSurfaceDiscovery(Path.of(worldPanel.savePathText()));
-        }
+        maybeStartSurfaceObjectDiscovery();
     }
 
     private void handleRenderLayersChanged(Set<cartographer.render.RenderLayer> layers) {
@@ -867,9 +851,26 @@ public final class WorkstationController {
     }
 
     private void handleRadiusChanged(int radius) {
-        if (!worldPanel.savePathText().isBlank()) {
-            startSurfaceDiscovery(Path.of(worldPanel.savePathText()));
+        maybeStartSurfaceObjectDiscovery();
+    }
+
+    private void maybeStartSurfaceObjectDiscovery() {
+        if (searchPanel.selectedMode() != WorkstationTool.SURFACE
+                || searchPanel.selectedSurfaceMode()
+                != SurfaceToolMode.OBJECTS
+                || worldPanel.savePathText().isBlank()) {
+            return;
         }
+
+        SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey currentKey =
+                currentSurfaceDiscoveryKey();
+        boolean currentTaskMatches = surfaceDiscoveryTaskKey != null
+                && surfaceDiscoveryTaskKey.equals(currentKey);
+        if (surfaceObjectDiscoveryState.isCurrentFor(currentTaskMatches)) {
+            return;
+        }
+
+        startSurfaceDiscovery(currentKey.savePath());
     }
 
     private SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey currentSurfaceDiscoveryKey() {
