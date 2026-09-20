@@ -49,14 +49,14 @@ function Resolve-ArtifactVersion {
         throw "Cannot resolve release version because gradle.properties is missing: $propertiesPath"
     }
 
-    $matches = @(Get-Content -LiteralPath $propertiesPath | Where-Object {
+    $versionLines = @(Get-Content -LiteralPath $propertiesPath | Where-Object {
         $_ -match "^version=(.+)$"
     })
-    if ($matches.Count -ne 1) {
+    if ($versionLines.Count -ne 1) {
         throw "gradle.properties must contain exactly one version=<MAJOR.MINOR.PATCH> entry"
     }
 
-    $resolved = ($matches[0] -replace "^version=", "").Trim()
+    $resolved = ($versionLines[0] -replace "^version=", "").Trim()
     if ($resolved -notmatch "^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$") {
         throw "Project version must use stable MAJOR.MINOR.PATCH form: $resolved"
     }
