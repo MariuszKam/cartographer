@@ -1022,11 +1022,29 @@ public final class PrepareWorldSnapshotUseCase {
             String label
     ) {
         Objects.requireNonNull(delegate, "delegate is required");
+        if (phase <= 0 || phase > totalPhases) {
+            throw new IllegalArgumentException(
+                    "phase must be inside totalPhases"
+            );
+        }
         String prefix = "[" + phase + "/" + totalPhases + "] " + label;
+        final int unitsPerPhase = 1_000;
+        final int totalUnits = Math.multiplyExact(
+                totalPhases,
+                unitsPerPhase
+        );
+        final int baseUnits = Math.multiplyExact(
+                phase - 1,
+                unitsPerPhase
+        );
         return new ProgressReporter() {
             @Override
             public void start(String stage) {
-                delegate.start(prefix + " — " + stage);
+                delegate.progress(
+                        prefix + " — " + stage,
+                        baseUnits,
+                        totalUnits
+                );
             }
 
             @Override
@@ -1035,16 +1053,32 @@ public final class PrepareWorldSnapshotUseCase {
                     int current,
                     int total
             ) {
+                if (total <= 0) {
+                    start(stage);
+                    return;
+                }
+                double fraction = Math.clamp(
+                        current / (double) total,
+                        0.0,
+                        1.0
+                );
+                int withinPhase = (int) Math.round(
+                        fraction * unitsPerPhase
+                );
                 delegate.progress(
                         prefix + " — " + stage,
-                        current,
-                        total
+                        baseUnits + withinPhase,
+                        totalUnits
                 );
             }
 
             @Override
             public void done(String stage) {
-                delegate.done(prefix + " — " + stage);
+                delegate.progress(
+                        prefix + " — " + stage,
+                        baseUnits + unitsPerPhase,
+                        totalUnits
+                );
             }
         };
     }
