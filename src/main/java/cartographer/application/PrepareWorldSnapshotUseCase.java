@@ -804,6 +804,7 @@ public final class PrepareWorldSnapshotUseCase {
                 }
                 ResourceChunkBatchIndexer indexer =
                         new ResourceChunkBatchIndexer(
+                                metadata,
                                 missing,
                                 catalog
                         );
