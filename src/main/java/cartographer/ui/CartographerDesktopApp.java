@@ -83,7 +83,8 @@ public class CartographerDesktopApp extends Application {
                                 reader,
                                 metadataReader,
                                 renderDataCacheStore
-                        )
+                        ),
+                        renderDataCacheStore
                 );
 
         WorkstationController controller = new WorkstationController(
