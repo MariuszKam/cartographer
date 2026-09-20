@@ -48,13 +48,14 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * PF-2.3 operation that prepares revision-scoped Terrain and Surface coverage
- * for every observed main-world mapchunk.
+ * PF-2 world preparation operation. PF-2.3 prepares revision-scoped Terrain
+ * and Surface coverage; PF-2.4 extends the same snapshot with interpreted
+ * mapregion state and UPPER_ROCK tiles.
  *
  * <p>The source save remains read-only and is owned by one operation-scoped
- * {@link SaveSession}. Source payloads are never retained. Existing valid
- * derived tiles are reused, missing/corrupt tiles are rebuilt, and Surface
- * indexing runs in bounded spatial batches.</p>
+ * {@link SaveSession}. Source payloads and decoded chunks are never retained.
+ * Existing valid derived artifacts are reused and missing/corrupt coverage is
+ * rebuilt in bounded batches.</p>
  */
 public final class PrepareWorldSnapshotUseCase {
     private static final int TERRAIN_BATCH_SIZE = 128;
