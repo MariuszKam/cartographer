@@ -133,25 +133,25 @@ public final class HttpUpdateInstallerSource implements UpdateInstallerSource {
     }
 
     private void requireTrustedFinalUri(URI uri) throws IOException {
-        if (!"https".equalsIgnoreCase(uri.getScheme())) {
+        if (!isTrustedDownloadUri(uri)) {
             throw new IOException(
-                    "Installer redirect did not remain on HTTPS"
+                    "Installer redirect left trusted GitHub HTTPS hosts"
             );
+        }
+    }
+
+    static boolean isTrustedDownloadUri(URI uri) {
+        if (uri == null || !"https".equalsIgnoreCase(uri.getScheme())) {
+            return false;
         }
 
         String host = uri.getHost();
         if (host == null) {
-            throw new IOException(
-                    "Installer redirect does not contain a trusted host"
-            );
+            return false;
         }
 
         String normalizedHost = host.toLowerCase(Locale.ROOT);
-        if (!"github.com".equals(normalizedHost)
-                && !normalizedHost.endsWith(".githubusercontent.com")) {
-            throw new IOException(
-                    "Installer redirect left GitHub-owned hosts"
-            );
-        }
+        return "github.com".equals(normalizedHost)
+                || normalizedHost.endsWith(".githubusercontent.com");
     }
 }
