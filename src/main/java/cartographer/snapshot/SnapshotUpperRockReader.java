@@ -80,26 +80,6 @@ public final class SnapshotUpperRockReader {
                 geometry.centerZ(),
                 radius
         );
-        Map<MapChunkCoordinate, UpperRockTileLookup> lookups;
-        try {
-            lookups = snapshot.orElseThrow()
-                    .upperRockTileStore()
-                    .read(coordinates);
-        } catch (RuntimeException failure) {
-            if (Thread.currentThread().isInterrupted()) {
-                throw failure;
-            }
-            return Optional.empty();
-        }
-
-        for (MapChunkCoordinate coordinate : coordinates) {
-            UpperRockTileLookup lookup = lookups.get(coordinate);
-            if (lookup == null
-                    || lookup.status() != UpperRockTileLookup.Status.HIT
-                    || !lookup.tile().matchesWorld(metadata)) {
-                return Optional.empty();
-            }
-        }
 
         RockCatalog catalog = RockCatalog.from(registry);
         if (catalog.rocks().isEmpty()) {
@@ -114,44 +94,76 @@ public final class SnapshotUpperRockReader {
                 RockMapMode.UPPER_ROCK,
                 catalog
         );
+        boolean[] complete = {true};
 
-        for (int row = 0; row < geometry.rowCount(); row++) {
-            int worldZ = geometry.worldZForRow(row);
-            int startX = geometry.rowStartX(row);
-            int length = geometry.rowLength(row);
-            for (int offset = 0; offset < length; offset++) {
-                int worldX = Math.addExact(startX, offset);
-                MapChunkCoordinate coordinate = new MapChunkCoordinate(
-                        Math.floorDiv(
-                                worldX,
-                                MapChunkCoordinate.SIZE_BLOCKS
-                        ),
-                        Math.floorDiv(
-                                worldZ,
-                                MapChunkCoordinate.SIZE_BLOCKS
-                        )
-                );
-                UpperRockTileLookup lookup = lookups.get(coordinate);
-                if (lookup == null
-                        || lookup.status() != UpperRockTileLookup.Status.HIT) {
-                    return Optional.empty();
+        try {
+            snapshot.orElseThrow()
+                    .upperRockTileStore()
+                    .forEachLookup(
+                            coordinates,
+                            (coordinate, lookup) -> {
+                                if (lookup.status()
+                                        != UpperRockTileLookup.Status.HIT
+                                        || !lookup.tile()
+                                        .matchesWorld(metadata)) {
+                                    complete[0] = false;
+                                    return false;
+                                }
+                                if (!acceptTile(
+                                        lookup.tile(),
+                                        geometry,
+                                        catalog,
+                                        assembler
+                                )) {
+                                    complete[0] = false;
+                                    return false;
+                                }
+                                return true;
+                            }
+                    );
+        } catch (RuntimeException failure) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw failure;
+            }
+            return Optional.empty();
+        }
+
+        if (!complete[0]) {
+            return Optional.empty();
+        }
+        return Optional.of(assembler.finish());
+    }
+
+    private boolean acceptTile(
+            UpperRockTile tile,
+            RockCircleGeometry geometry,
+            RockCatalog catalog,
+            RockMapAssembler assembler
+    ) {
+        int tileWorldX = Math.multiplyExact(
+                tile.coordinate().x(),
+                MapChunkCoordinate.SIZE_BLOCKS
+        );
+        int tileWorldZ = Math.multiplyExact(
+                tile.coordinate().z(),
+                MapChunkCoordinate.SIZE_BLOCKS
+        );
+
+        for (int localZ = 0; localZ < tile.height(); localZ++) {
+            int worldZ = Math.addExact(tileWorldZ, localZ);
+            for (int localX = 0; localX < tile.width(); localX++) {
+                int worldX = Math.addExact(tileWorldX, localX);
+                if (!geometry.contains(worldX, worldZ)) {
+                    continue;
                 }
-                UpperRockTile tile = lookup.tile();
-                int localX = Math.floorMod(
-                        worldX,
-                        MapChunkCoordinate.SIZE_BLOCKS
-                );
-                int localZ = Math.floorMod(
-                        worldZ,
-                        MapChunkCoordinate.SIZE_BLOCKS
-                );
+
                 RockColumnState state = tile.stateAt(localX, localZ);
                 if (state == RockColumnState.OBSERVED) {
                     var identity = catalog.findByBlockId(
                             tile.blockIdAt(localX, localZ)
                     );
                     if (identity.isEmpty()) {
-                        return Optional.empty();
+                        return false;
                     }
                     assembler.accept(RockColumnSample.observed(
                             worldX,
@@ -160,7 +172,9 @@ public final class SnapshotUpperRockReader {
                             tile.rockYAt(localX, localZ)
                     ));
                 } else if (state == RockColumnState.NO_ROCK) {
-                    assembler.accept(RockColumnSample.noRock(worldX, worldZ));
+                    assembler.accept(
+                            RockColumnSample.noRock(worldX, worldZ)
+                    );
                 } else {
                     assembler.accept(
                             RockColumnSample.unavailable(worldX, worldZ)
@@ -168,7 +182,7 @@ public final class SnapshotUpperRockReader {
                 }
             }
         }
-        return Optional.of(assembler.finish());
+        return true;
     }
 
     private boolean insideWorld(
