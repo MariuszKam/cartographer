@@ -77,6 +77,14 @@ public record Pf3RenderSizedValidationReport(
             out.append("Exact snapshot parity elapsed ns: ")
                     .append(sample.exactParityElapsedNanoseconds())
                     .append('\n');
+            out.append("Warm source connections: ")
+                    .append(sample.sourceConnectionsOpened())
+                    .append(" opened / ")
+                    .append(sample.sourceConnectionsClosed())
+                    .append(" closed\n");
+            out.append("Retained RockMap absent: ")
+                    .append(sample.retainedMapAbsent())
+                    .append('\n');
             out.append("Geometry parity: ")
                     .append(sample.geometryParity())
                     .append('\n');
