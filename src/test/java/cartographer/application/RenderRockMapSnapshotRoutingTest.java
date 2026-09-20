@@ -15,6 +15,7 @@ import cartographer.parser.RegistryParser;
 import cartographer.perf.RenderDataCacheStore;
 import cartographer.perf.UpperRockTile;
 import cartographer.perf.WorldDataSnapshot;
+import cartographer.perf.WorldSnapshotHeader;
 import cartographer.render.RockMapRenderer;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
@@ -54,12 +55,14 @@ class RenderRockMapSnapshotRoutingTest {
 
         CountingReader reader = new CountingReader();
         MetadataReader metadataReader = new MetadataReader();
+        TestConnectionFactory connectionFactory =
+                new TestConnectionFactory();
         RenderRockMapUseCase useCase = new RenderRockMapUseCase(
                 reader,
                 metadataReader,
                 new RockMapRenderer(),
                 new SaveSessionFactory(
-                        new TestConnectionFactory(),
+                        connectionFactory,
                         reader,
                         metadataReader
                 ),
@@ -68,6 +71,7 @@ class RenderRockMapSnapshotRoutingTest {
 
         RenderRockMapResult result = useCase.execute(request(save));
 
+        assertEquals(0, connectionFactory.opens.get());
         assertEquals(0, reader.sourceCalls.get());
         assertEquals(0, result.chunkStats().uniquePositionsRequested());
         assertEquals(1, result.map().observedCount());
@@ -84,12 +88,14 @@ class RenderRockMapSnapshotRoutingTest {
 
         CountingReader reader = new CountingReader();
         MetadataReader metadataReader = new MetadataReader();
+        TestConnectionFactory connectionFactory =
+                new TestConnectionFactory();
         RenderRockMapUseCase useCase = new RenderRockMapUseCase(
                 reader,
                 metadataReader,
                 new RockMapRenderer(),
                 new SaveSessionFactory(
-                        new TestConnectionFactory(),
+                        connectionFactory,
                         reader,
                         metadataReader
                 ),
@@ -98,6 +104,7 @@ class RenderRockMapSnapshotRoutingTest {
 
         RenderRockMapResult result = useCase.execute(request(save));
 
+        assertEquals(1, connectionFactory.opens.get());
         assertEquals(1, reader.sourceCalls.get());
         assertEquals(5, result.map().observedCount());
     }
@@ -112,12 +119,14 @@ class RenderRockMapSnapshotRoutingTest {
 
         CountingReader reader = new CountingReader();
         MetadataReader metadataReader = new MetadataReader();
+        TestConnectionFactory connectionFactory =
+                new TestConnectionFactory();
         RenderRockMapUseCase useCase = new RenderRockMapUseCase(
                 reader,
                 metadataReader,
                 new RockMapRenderer(),
                 new SaveSessionFactory(
-                        new TestConnectionFactory(),
+                        connectionFactory,
                         reader,
                         metadataReader
                 ),
@@ -134,6 +143,7 @@ class RenderRockMapSnapshotRoutingTest {
                 java.util.OptionalInt.empty()
         ));
 
+        assertEquals(1, connectionFactory.opens.get());
         assertEquals(1, reader.sourceCalls.get());
     }
 
@@ -155,6 +165,11 @@ class RenderRockMapSnapshotRoutingTest {
     ) {
         WorldDataSnapshot snapshot =
                 WorldDataSnapshot.openOrCreate(cache, save).orElseThrow();
+        snapshot.headerStore().publish(new WorldSnapshotHeader(
+                new WorldMetadata(32, 64, 32),
+                Map.of(7, new BlockInfo(7, "game:rock-granite")),
+                Optional.empty()
+        ));
         int cells = 32 * 32;
         byte[] states = new byte[cells];
         int[] blockIds = new int[cells];
@@ -266,8 +281,11 @@ class RenderRockMapSnapshotRoutingTest {
 
     private static final class TestConnectionFactory
             extends SqliteSaveConnection {
+        private final AtomicInteger opens = new AtomicInteger();
+
         @Override
         public Connection openReadOnly(Path savePath) {
+            opens.incrementAndGet();
             return (Connection) Proxy.newProxyInstance(
                     Connection.class.getClassLoader(),
                     new Class<?>[]{Connection.class},
