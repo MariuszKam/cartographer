@@ -67,7 +67,14 @@ public final class RockColumnScanner {
         int centerWorldX = floorBlockCoordinate(center.x());
         int centerWorldZ = floorBlockCoordinate(center.z());
         long radiusSquared = (long) radius * radius;
-        List<RockColumnSample> columns = new ArrayList<>();
+        RockMapAssembler assembler = new RockMapAssembler(
+                center,
+                radius,
+                minWorldY,
+                maxWorldYExclusive,
+                RockMapMode.UPPER_ROCK,
+                catalog
+        );
 
         for (long worldZ = (long) centerWorldZ - radius;
              worldZ <= (long) centerWorldZ + radius;
@@ -87,7 +94,7 @@ public final class RockColumnScanner {
 
                 int x = (int) worldX;
                 int z = (int) worldZ;
-                columns.add(
+                assembler.accept(
                         scanColumn(
                                 x,
                                 z,
@@ -111,10 +118,7 @@ public final class RockColumnScanner {
             }
         }
 
-        return RockMap.fromLegacySamples(
-                center, radius, minWorldY, maxWorldYExclusive,
-                RockMapMode.UPPER_ROCK, catalog, columns
-        );
+        return assembler.finish();
     }
 
     private int floorBlockCoordinate(double coordinate) {
