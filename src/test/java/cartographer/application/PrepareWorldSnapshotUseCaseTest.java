@@ -35,6 +35,7 @@ import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -81,10 +82,20 @@ class PrepareWorldSnapshotUseCaseTest {
         PrepareWorldSnapshotRequest request =
                 new PrepareWorldSnapshotRequest(save);
 
+        RecordingProgressReporter progress =
+                new RecordingProgressReporter();
         PrepareWorldSnapshotResult first =
-                useCase.execute(request, ProgressReporter.NONE);
+                useCase.execute(request, progress);
 
         assertTrue(first.complete());
+        assertTrue(
+                progress.monotonic(),
+                "PF-2.7 Workstation progress must never move backwards"
+        );
+        assertEquals(1.0, progress.lastFraction());
+        assertTrue(
+                progress.doneStages.contains("World snapshot prepared")
+        );
         assertEquals(2, first.observedMapChunks());
         assertEquals(2, first.terrainPublished());
         assertEquals(2, first.surfacePublished());
@@ -496,4 +507,50 @@ class PrepareWorldSnapshotUseCaseTest {
             );
         }
     }
+    private static final class RecordingProgressReporter
+            extends ProgressReporter {
+        private final List<Double> fractions = new ArrayList<>();
+        private final List<String> doneStages = new ArrayList<>();
+
+        @Override
+        public void progress(
+                String stage,
+                int current,
+                int total
+        ) {
+            if (total > 0) {
+                fractions.add(
+                        Math.clamp(
+                                current / (double) total,
+                                0.0,
+                                1.0
+                        )
+                );
+            }
+        }
+
+        @Override
+        public void done(String stage) {
+            doneStages.add(stage);
+        }
+
+        private boolean monotonic() {
+            double previous = -1.0;
+            for (double fraction : fractions) {
+                if (fraction < previous) {
+                    return false;
+                }
+                previous = fraction;
+            }
+            return true;
+        }
+
+        private double lastFraction() {
+            if (fractions.isEmpty()) {
+                throw new AssertionError("no numeric progress was reported");
+            }
+            return fractions.get(fractions.size() - 1);
+        }
+    }
+
 }
