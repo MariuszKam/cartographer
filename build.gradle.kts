@@ -5,6 +5,7 @@ import java.util.concurrent.ConcurrentHashMap
 import org.gradle.api.tasks.testing.TestDescriptor
 import org.gradle.api.tasks.testing.TestListener
 import org.gradle.api.tasks.testing.TestResult
+import org.gradle.api.tasks.testing.Test
 import org.gradle.api.GradleException
 import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.compile.JavaCompile
@@ -185,31 +186,44 @@ tasks.register("testArchitectureAudit") {
     }
     inputs.files(sources)
 
-    val report = layout.buildDirectory.file(
+    val findingsReport = layout.buildDirectory.file(
         "reports/test-performance/test-architecture-audit.tsv"
     )
-    outputs.file(report)
+    val summaryReport = layout.buildDirectory.file(
+        "reports/test-performance/test-architecture-summary.csv"
+    )
+    outputs.files(findingsReport, summaryReport)
 
     doLast {
-        val output = report.get().asFile
-        output.parentFile.mkdirs()
+        val findingsOutput = findingsReport.get().asFile
+        val summaryOutput = summaryReport.get().asFile
+        findingsOutput.parentFile.mkdirs()
+        summaryOutput.parentFile.mkdirs()
 
         var findingCount = 0
-        output.bufferedWriter().use { writer ->
+        val categoriesByFile = sortedMapOf<String, MutableSet<String>>()
+        val countByCategory = linkedMapOf<String, Int>()
+
+        findingsOutput.bufferedWriter().use { writer ->
             writer.appendLine("category\tpath\tline\ttext")
             sources.files
                 .sortedBy { it.relativeTo(project.projectDir).invariantSeparatorsPath }
                 .forEach { source ->
+                    val relative = source
+                        .relativeTo(project.projectDir)
+                        .invariantSeparatorsPath
                     source.readLines().forEachIndexed { index, line ->
                         testArchitecturePatterns.forEach { (category, pattern) ->
                             if (pattern.containsMatchIn(line)) {
-                                val relative = source
-                                    .relativeTo(project.projectDir)
-                                    .invariantSeparatorsPath
                                 val normalized = line.trim().replace("\t", " ")
                                 writer.appendLine(
                                     "$category\t$relative\t${index + 1}\t$normalized"
                                 )
+                                categoriesByFile
+                                    .getOrPut(relative) { linkedSetOf() }
+                                    .add(category)
+                                countByCategory[category] =
+                                    (countByCategory[category] ?: 0) + 1
                                 findingCount++
                             }
                         }
@@ -217,18 +231,34 @@ tasks.register("testArchitectureAudit") {
                 }
         }
 
+        summaryOutput.bufferedWriter().use { writer ->
+            writer.appendLine("path,categories,reviewSignalCount")
+            categoriesByFile.forEach { (path, categories) ->
+                val reviewSignals = categories.count { category ->
+                    category != "TEMP_DIR"
+                }
+                writer.appendLine(
+                    "$path,${categories.sorted().joinToString("|")},$reviewSignals"
+                )
+            }
+        }
+
         logger.lifecycle(
-            "Test architecture audit: ${output.absolutePath} ($findingCount findings)"
+            "Test architecture audit: ${findingsOutput.absolutePath} ($findingCount findings)"
+        )
+        countByCategory.entries
+            .sortedByDescending { it.value }
+            .forEach { (category, count) ->
+                logger.lifecycle("TEST-AUDIT $category=$count")
+            }
+        logger.lifecycle(
+            "Test architecture summary: ${summaryOutput.absolutePath}"
         )
     }
 }
 
-val testClassDurationsMs = ConcurrentHashMap<String, Long>()
-
-tasks.test {
-    useJUnitPlatform()
-    reports.junitXml.required.set(true)
-    reports.html.required.set(true)
+fun Test.attachClassTimingReport(reportFileName: String) {
+    val durations = ConcurrentHashMap<String, Long>()
 
     addTestListener(object : TestListener {
         override fun beforeSuite(suite: TestDescriptor) = Unit
@@ -236,18 +266,18 @@ tasks.test {
         override fun afterSuite(suite: TestDescriptor, result: TestResult) {
             val className = suite.className
             if (className != null && suite.parent?.className == null) {
-                testClassDurationsMs[className] = result.endTime - result.startTime
+                durations[className] = result.endTime - result.startTime
             }
 
             if (suite.parent == null) {
                 val output = layout.buildDirectory
-                    .file("reports/test-performance/test-class-timings.csv")
+                    .file("reports/test-performance/$reportFileName")
                     .get()
                     .asFile
                 output.parentFile.mkdirs()
                 output.bufferedWriter().use { writer ->
                     writer.appendLine("class,durationMs")
-                    testClassDurationsMs.entries
+                    durations.entries
                         .sortedByDescending { it.value }
                         .forEach { (testClass, durationMs) ->
                             writer.appendLine("$testClass,$durationMs")
@@ -255,7 +285,7 @@ tasks.test {
                 }
 
                 logger.lifecycle("Test timing report: ${output.absolutePath}")
-                testClassDurationsMs.entries
+                durations.entries
                     .sortedByDescending { it.value }
                     .take(20)
                     .forEachIndexed { index, entry ->
@@ -271,6 +301,65 @@ tasks.test {
         override fun afterTest(testDescriptor: TestDescriptor, result: TestResult) = Unit
     })
 }
+
+tasks.test {
+    useJUnitPlatform()
+    reports.junitXml.required.set(true)
+    reports.html.required.set(true)
+    maxParallelForks = 1
+    attachClassTimingReport("test-class-timings.csv")
+}
+
+val detectedTestCpuCount = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
+val defaultParallelProbeForks = if (detectedTestCpuCount <= 2) {
+    1
+} else {
+    (detectedTestCpuCount / 2).coerceAtMost(4)
+}
+val configuredParallelProbeForks = providers.gradleProperty("testParallelForks")
+    .map { raw ->
+        raw.toIntOrNull()
+            ?.takeIf { it in 1..16 }
+            ?: throw GradleException(
+                "testParallelForks must be an integer between 1 and 16, got '$raw'"
+            )
+    }
+    .orElse(defaultParallelProbeForks)
+
+tasks.register<Test>("testParallelProbe") {
+    group = "verification"
+    description = "Runs the non-serial JUnit suite with bounded Gradle worker-process parallelism"
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform {
+        excludeTags("serial")
+    }
+    maxParallelForks = configuredParallelProbeForks.get()
+    reports.junitXml.required.set(true)
+    reports.html.required.set(true)
+    attachClassTimingReport("test-parallel-probe-class-timings.csv")
+
+    doFirst {
+        logger.lifecycle(
+            "Parallel probe: maxParallelForks=$maxParallelForks, " +
+                "detectedProcessors=$detectedTestCpuCount"
+        )
+    }
+}
+
+tasks.register<Test>("testSerial") {
+    group = "verification"
+    description = "Runs tests explicitly tagged serial in a single Gradle test worker"
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform {
+        includeTags("serial")
+    }
+    maxParallelForks = 1
+    reports.junitXml.required.set(true)
+    reports.html.required.set(true)
+}
+
 
 java {
     toolchain {
