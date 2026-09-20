@@ -807,10 +807,18 @@ class VcdbsReaderDirectChunkLookupTest {
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database);
              PreparedStatement statement = connection.prepareStatement(
                      "INSERT INTO chunk(position, data) VALUES (?, ?)")) {
-            for (ChunkPosition position : positions) {
-                statement.setLong(1, ChunkPosEncoder.encode(position));
-                statement.setBytes(2, new byte[]{1});
-                statement.executeUpdate();
+            connection.setAutoCommit(false);
+            try {
+                for (ChunkPosition position : positions) {
+                    statement.setLong(1, ChunkPosEncoder.encode(position));
+                    statement.setBytes(2, new byte[]{1});
+                    statement.addBatch();
+                }
+                statement.executeBatch();
+                connection.commit();
+            } catch (Exception exception) {
+                connection.rollback();
+                throw exception;
             }
         }
         return database;
