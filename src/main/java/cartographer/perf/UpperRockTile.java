@@ -30,6 +30,32 @@ public final class UpperRockTile {
             int[] blockIds,
             int[] rockY
     ) {
+        this(
+                coordinate,
+                worldSizeX,
+                worldSizeY,
+                worldSizeZ,
+                width,
+                height,
+                states,
+                blockIds,
+                rockY,
+                true
+        );
+    }
+
+    private UpperRockTile(
+            MapChunkCoordinate coordinate,
+            int worldSizeX,
+            int worldSizeY,
+            int worldSizeZ,
+            int width,
+            int height,
+            byte[] states,
+            int[] blockIds,
+            int[] rockY,
+            boolean copyArrays
+    ) {
         this.coordinate = Objects.requireNonNull(
                 coordinate,
                 "coordinate is required"
@@ -53,17 +79,20 @@ public final class UpperRockTile {
                     "ROCK tile arrays do not match geometry"
             );
         }
+        this.states = copyArrays ? states.clone() : states;
+        this.blockIds = copyArrays ? blockIds.clone() : blockIds;
+        this.rockY = copyArrays ? rockY.clone() : rockY;
         for (int index = 0; index < expected; index++) {
-            RockColumnState state = decodeState(states[index]);
+            RockColumnState state = decodeState(this.states[index]);
             if (state == RockColumnState.OBSERVED) {
-                if (blockIds[index] < 0
-                        || rockY[index] < 0
-                        || rockY[index] >= worldSizeY) {
+                if (this.blockIds[index] < 0
+                        || this.rockY[index] < 0
+                        || this.rockY[index] >= worldSizeY) {
                     throw new IllegalArgumentException(
                             "observed ROCK cell requires valid blockId and Y"
                     );
                 }
-            } else if (blockIds[index] != -1 || rockY[index] != -1) {
+            } else if (this.blockIds[index] != -1 || this.rockY[index] != -1) {
                 throw new IllegalArgumentException(
                         "non-observed ROCK cells cannot contain rock data"
                 );
@@ -74,9 +103,31 @@ public final class UpperRockTile {
         this.worldSizeZ = worldSizeZ;
         this.width = width;
         this.height = height;
-        this.states = states.clone();
-        this.blockIds = blockIds.clone();
-        this.rockY = rockY.clone();
+    }
+
+    static UpperRockTile owned(
+            MapChunkCoordinate coordinate,
+            int worldSizeX,
+            int worldSizeY,
+            int worldSizeZ,
+            int width,
+            int height,
+            byte[] states,
+            int[] blockIds,
+            int[] rockY
+    ) {
+        return new UpperRockTile(
+                coordinate,
+                worldSizeX,
+                worldSizeY,
+                worldSizeZ,
+                width,
+                height,
+                states,
+                blockIds,
+                rockY,
+                false
+        );
     }
 
     public MapChunkCoordinate coordinate() {
@@ -128,16 +179,16 @@ public final class UpperRockTile {
                 && geometry(coordinate, metadata).height() == height;
     }
 
-    byte[] stateCodes() {
-        return states.clone();
+    byte[] stateCodesView() {
+        return states;
     }
 
-    int[] blockIds() {
-        return blockIds.clone();
+    int[] blockIdsView() {
+        return blockIds;
     }
 
-    int[] rockY() {
-        return rockY.clone();
+    int[] rockYView() {
+        return rockY;
     }
 
     public static Geometry geometry(

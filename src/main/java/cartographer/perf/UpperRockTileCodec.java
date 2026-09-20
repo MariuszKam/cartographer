@@ -39,9 +39,9 @@ final class UpperRockTileCodec {
         buffer.putInt(tile.height());
         buffer.putInt(cells);
 
-        byte[] states = tile.stateCodes();
-        int[] blockIds = tile.blockIds();
-        int[] rockY = tile.rockY();
+        byte[] states = tile.stateCodesView();
+        int[] blockIds = tile.blockIdsView();
+        int[] rockY = tile.rockYView();
         for (int index = 0; index < cells; index++) {
             buffer.put(states[index]);
             buffer.putInt(blockIds[index]);
@@ -94,7 +94,7 @@ final class UpperRockTileCodec {
                 blockIds[index] = buffer.getInt();
                 rockY[index] = buffer.getInt();
             }
-            return new UpperRockTile(
+            return UpperRockTile.owned(
                     coordinate,
                     worldSizeX,
                     worldSizeY,

@@ -22,6 +22,22 @@ public final class TerrainHeightTile implements MapChunkHeightView {
             boolean effectiveHeightAvailable,
             int[] effectiveHeights
     ) {
+        this(
+                coordinate,
+                rainHeightAvailable,
+                effectiveHeightAvailable,
+                effectiveHeights,
+                true
+        );
+    }
+
+    private TerrainHeightTile(
+            MapChunkCoordinate coordinate,
+            boolean rainHeightAvailable,
+            boolean effectiveHeightAvailable,
+            int[] effectiveHeights,
+            boolean copyHeights
+    ) {
         this.coordinate = Objects.requireNonNull(coordinate, "coordinate is required");
         if (rainHeightAvailable && !effectiveHeightAvailable) {
             throw new IllegalArgumentException(
@@ -41,7 +57,24 @@ public final class TerrainHeightTile implements MapChunkHeightView {
         }
         this.rainHeightAvailable = rainHeightAvailable;
         this.effectiveHeightAvailable = effectiveHeightAvailable;
-        this.effectiveHeights = Arrays.copyOf(values, values.length);
+        this.effectiveHeights = copyHeights
+                ? Arrays.copyOf(values, values.length)
+                : values;
+    }
+
+    static TerrainHeightTile owned(
+            MapChunkCoordinate coordinate,
+            boolean rainHeightAvailable,
+            boolean effectiveHeightAvailable,
+            int[] effectiveHeights
+    ) {
+        return new TerrainHeightTile(
+                coordinate,
+                rainHeightAvailable,
+                effectiveHeightAvailable,
+                effectiveHeights,
+                false
+        );
     }
 
     public static TerrainHeightTile from(MapChunk mapChunk) {
@@ -86,6 +119,10 @@ public final class TerrainHeightTile implements MapChunkHeightView {
 
     public int[] effectiveHeights() {
         return Arrays.copyOf(effectiveHeights, effectiveHeights.length);
+    }
+
+    int[] effectiveHeightsView() {
+        return effectiveHeights;
     }
 
     public int effectiveHeightAt(int localX, int localZ) {
