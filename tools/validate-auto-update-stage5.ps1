@@ -23,7 +23,7 @@ param(
     [string]$StateRoot = (
         Join-Path (
             [Environment]::GetFolderPath(
-                [Environment+SpecialFolder]::UserProfile
+                [System.Environment+SpecialFolder]::UserProfile
             )
         ) ".vs-cartographer"
     )
@@ -388,10 +388,10 @@ function Assert-InstalledVersion([string]$ExpectedVersion) {
 
 function Get-ShortcutPaths {
     $desktop = [Environment]::GetFolderPath(
-        [Environment+SpecialFolder]::Desktop
+        [System.Environment+SpecialFolder]::Desktop
     )
     $programs = [Environment]::GetFolderPath(
-        [Environment+SpecialFolder]::Programs
+        [System.Environment+SpecialFolder]::Programs
     )
 
     return [ordered]@{
