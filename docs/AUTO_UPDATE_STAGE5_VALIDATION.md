@@ -111,22 +111,41 @@ The protected-state baseline deliberately excludes:
 If there is no persistent protected Cartographer state, the baseline fails.
 Create a HOME or user marker first so persistence is actually being tested.
 
-### Perform the real update
+### Campaign order
 
-With the baseline recorded:
+Keep the old version installed while exercising S5.5 failure scenarios. The
+recommended order is:
 
-1. publish or expose the target stable release through the normal Stage 1
+1. record the `BeforeUpgrade` baseline;
+2. publish or expose the target stable release through the normal Stage 1
    GitHub Release pipeline;
-2. start the installed old version;
-3. confirm it detects the target release;
-4. download the update;
-5. confirm the UI reaches `Ready <target>`;
-6. click `Restart & update`;
-7. confirm the old process exits before the installer runs;
-8. complete the installer;
-9. confirm VS Cartographer relaunches;
-10. confirm the World Bar reports the target runtime version;
-11. confirm the previous-install result does not falsely report failure.
+3. exercise unavailable-network behavior;
+4. reach `Ready <target>` and exercise the tampered-installer rejection;
+5. restore or re-download the verified installer;
+6. exercise installer cancellation/failure and confirm the old version remains
+   usable;
+7. only then perform the final successful old-to-new upgrade;
+8. run `AfterUpgrade`;
+9. complete normal GUI checks;
+10. uninstall and run `AfterUninstall`.
+
+This ordering lets the failure paths use the real old-version update flow
+without requiring an unsupported downgrade after the successful upgrade.
+
+### Perform the final successful update
+
+After the failure scenarios have been recovered:
+
+1. start the installed old version;
+2. confirm it detects the target release;
+3. download or reuse the verified update;
+4. confirm the UI reaches `Ready <target>`;
+5. click `Restart & update`;
+6. confirm the old process exits before the installer runs;
+7. complete the installer;
+8. confirm VS Cartographer relaunches;
+9. confirm the World Bar reports the target runtime version;
+10. confirm the previous-install result does not falsely report failure.
 
 The runtime version shown by the application is the authoritative application
 check. Windows `DisplayVersion` is an additional packaging check.
@@ -207,8 +226,8 @@ User-owned Cartographer state is expected to survive uninstall.
 
 ### Tampered staged installer
 
-After a valid target installer reaches `Ready <target>`, close VS Cartographer
-without installing it and run:
+With the old application **still open** and a valid target installer already at
+`Ready <target>`, open a second PowerShell window and run:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools\validate-auto-update-stage5.ps1 `
@@ -223,16 +242,21 @@ The helper:
 - preserves file length;
 - verifies that SHA-256 changed.
 
-Launch the old application and use `Restart & update`.
+Return to the still-running old application and click `Restart & update`.
 
 Expected behavior:
 
 ```text
-installer is rejected
+in-process re-verification rejects the installer
+bootstrap is not started
+application does not exit
 application does not claim update success
-old version remains usable
-download/update can be retried
+download/update remains retryable
 ```
+
+Do not restart the application before clicking `Restart & update` for this
+scenario. A fresh Stage 3 download attempt is allowed to detect the invalid
+cached installer and replace it, which would test a different contract.
 
 Restore the original staged file afterwards:
 
@@ -244,8 +268,9 @@ powershell -ExecutionPolicy Bypass -File tools\validate-auto-update-stage5.ps1 `
 
 ### Installer cancellation / failure
 
-Repeat the update from the old version and cancel the installer when Windows
-presents it.
+While the old version is still installed, restore/re-download a valid target
+installer, reach `Ready <target>` again, click `Restart & update`, and cancel
+the installer when Windows presents it.
 
 Expected behavior:
 
