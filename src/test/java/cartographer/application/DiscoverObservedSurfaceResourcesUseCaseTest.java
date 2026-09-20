@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.testing.ConcurrencyTest;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
@@ -76,6 +77,7 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
     }
 
     @Test
+    @ConcurrencyTest
     void interruptionClosesOperationScopedSession() throws Exception {
         CountDownLatch selectiveStarted = new CountDownLatch(1);
         CountDownLatch selectiveInterrupted = new CountDownLatch(1);
