@@ -35,9 +35,9 @@ jobs:
         shell: pwsh
         run: .\gradlew.bat testArchitectureGuard
 
-      - name: Run tests
+      - name: Run tests and performance budget
         shell: pwsh
-        run: .\gradlew.bat test
+        run: .\gradlew.bat testPerformanceBudget
 
       - name: Upload test evidence
         if: always()
