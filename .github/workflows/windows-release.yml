@@ -2,6 +2,9 @@ name: Windows Release Build
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - 'v*.*.*'
 
 permissions:
   contents: read
@@ -9,10 +12,24 @@ permissions:
 jobs:
   windows-release:
     runs-on: windows-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Verify release commit belongs to master history
+        if: github.event_name == 'push'
+        shell: pwsh
+        run: |
+          git fetch origin master:refs/remotes/origin/master
+          git merge-base --is-ancestor HEAD origin/master
+          if ($LASTEXITCODE -ne 0) {
+              throw "Release tag commit is not contained in master history"
+          }
 
       - name: Set up Java 25
         uses: actions/setup-java@v6
@@ -41,6 +58,11 @@ jobs:
           wix --version
           wix extension list --global
 
+      - name: Verify release tag matches project version
+        if: github.event_name == 'push'
+        shell: pwsh
+        run: .\gradlew.bat verifyReleaseTag -PreleaseTag="$env:GITHUB_REF_NAME"
+
       - name: Run tests
         shell: pwsh
         run: .\gradlew.bat test
@@ -57,13 +79,74 @@ jobs:
         shell: pwsh
         run: powershell -ExecutionPolicy Bypass -File .\tools\validate-windows-release.ps1 -Mode Artifacts
 
+      - name: Generate stable update manifest
+        shell: pwsh
+        run: |
+          $versionLine = Get-Content -LiteralPath "gradle.properties" |
+            Where-Object { $_ -match "^version=(.+)$" }
+          if (@($versionLine).Count -ne 1) {
+              throw "gradle.properties must contain exactly one version entry"
+          }
+          $version = ($versionLine -replace "^version=", "").Trim()
+          $releaseTag = if ($env:GITHUB_EVENT_NAME -eq "push") {
+              $env:GITHUB_REF_NAME
+          } else {
+              "v$version"
+          }
+
+          .\gradlew.bat generateUpdateManifest `
+            -PreleaseTag="$releaseTag" `
+            -PreleaseRepository="$env:GITHUB_REPOSITORY"
+
       - name: Upload Windows release artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: VS-Cartographer-1.0.0-Windows
+          name: VS-Cartographer-${{ github.ref_name }}-Windows
           retention-days: 14
           if-no-files-found: error
           path: |
-            build/distributions/VS-Cartographer-1.0.0-win-x64.zip
-            build/distributions/VS-Cartographer-Setup-1.0.0.exe
+            build/distributions/VS-Cartographer-*-win-x64.zip
+            build/distributions/VS-Cartographer-Setup-*.exe
             build/release-validation/SHA256SUMS.txt
+            build/release-validation/update.properties
+
+      - name: Publish GitHub Release
+        if: github.event_name == 'push'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $portable = @(Get-ChildItem -LiteralPath "build/distributions" -Filter "VS-Cartographer-*-win-x64.zip")
+          $installer = @(Get-ChildItem -LiteralPath "build/distributions" -Filter "VS-Cartographer-Setup-*.exe")
+          if ($portable.Count -ne 1) {
+              throw "Expected exactly one portable ZIP, found $($portable.Count)"
+          }
+          if ($installer.Count -ne 1) {
+              throw "Expected exactly one installer EXE, found $($installer.Count)"
+          }
+
+          $checksums = Resolve-Path "build/release-validation/SHA256SUMS.txt"
+          $manifest = Resolve-Path "build/release-validation/update.properties"
+          $assets = @(
+              $portable[0].FullName,
+              $installer[0].FullName,
+              $checksums.Path,
+              $manifest.Path
+          )
+
+          gh release create "$env:GITHUB_REF_NAME" @assets `
+            --repo "$env:GITHUB_REPOSITORY" `
+            --verify-tag `
+            --draft `
+            --generate-notes `
+            --title "VS Cartographer $env:GITHUB_REF_NAME"
+          if ($LASTEXITCODE -ne 0) {
+              throw "GitHub draft release creation failed"
+          }
+
+          gh release edit "$env:GITHUB_REF_NAME" `
+            --repo "$env:GITHUB_REPOSITORY" `
+            --draft=false
+          if ($LASTEXITCODE -ne 0) {
+              throw "GitHub release publication failed; the draft was left unpublished"
+          }

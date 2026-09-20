@@ -29,16 +29,37 @@ This is the non-modular classpath input for the future Windows packaging step.
 
 ## Release version and metadata
 
-The release version is `1.0.0`, sourced from the Gradle project version. The
-Windows app-image passes the following metadata to `jpackage`:
+The canonical release version is stored once in:
+
+```text
+gradle.properties
+```
+
+using stable semantic versioning:
+
+```properties
+version=1.0.0
+```
+
+`build.gradle.kts`, Windows package names, release validation, generated runtime
+metadata, release tags, and the update manifest all consume that canonical
+version. Auto Update v1 intentionally accepts only `MAJOR.MINOR.PATCH`; prerelease
+versions such as `1.1.0-beta.1` are outside the first update-channel contract.
+
+The Windows app-image passes the following metadata to `jpackage`:
 
 ```text
 Name: VS Cartographer
-Version: 1.0.0
+Version: <project version>
 Vendor: MariuszKam
 Description: Offline Vintage Story save cartographer and world analysis tool
 Copyright: Copyright © 2026 MariuszKam
 ```
+
+The build also generates `cartographer-build.properties` into the runtime
+resources. `cartographer.update.ApplicationVersion.current()` reads that
+generated metadata, so the running application does not maintain a second
+hard-coded version constant.
 
 ## Stage 2: portable Windows app image
 
@@ -278,36 +299,91 @@ uninstall cleanup is added by Stage 5.
 
 ## Stage 6: GitHub Actions Windows release automation
 
-Stage 6 provides the manually triggered workflow:
+Stage 6 uses:
 
 ```text
 .github/workflows/windows-release.yml
 ```
 
-It runs only through `workflow_dispatch` on `windows-latest` and builds the ref
-selected when the workflow is manually started. It uses Temurin Java 25 and
-installs WiX 5.0.2 through the official .NET global tool:
+for both manual package validation and tag-driven stable releases.
+
+A manual `workflow_dispatch` builds and validates the selected ref, generates
+the same stable `update.properties` contract using the canonical version, and
+uploads the Windows deliverables as a short-lived Actions artifact. It does not
+publish a GitHub Release. This provides a safe release-pipeline dry run without
+creating a tag.
+
+A pushed stable tag matching:
+
+```text
+v<project version>
+```
+
+for example `v1.1.0`, runs the same test/package/validation gates and additionally
+publishes the release. The Gradle `verifyReleaseTag` task fails closed when the
+tag does not exactly match the canonical version from `gradle.properties`.
+
+The release workflow uses Temurin Java 25 and installs WiX 5.0.2 through the
+official .NET global tool:
 
 ```text
 WixToolset.Util.wixext 5.0.2
 WixToolset.UI.wixext 5.0.2
 ```
 
-The workflow gates are Gradle tests, the existing portable package task, the
-existing Windows installer task, and Stage 5 Artifacts validation. It uploads
-only these release deliverables as the `VS-Cartographer-1.0.0-Windows` Actions
-artifact:
+The Windows release deliverables are version-derived rather than hard-coded:
 
 ```text
-VS-Cartographer-1.0.0-win-x64.zip
-VS-Cartographer-Setup-1.0.0.exe
+VS-Cartographer-<version>-win-x64.zip
+VS-Cartographer-Setup-<version>.exe
 SHA256SUMS.txt
+update.properties
 ```
 
-CI does not run against the user's real save, run Stage 5 Before/After modes,
-perform GUI automation, install or uninstall the installer, or publish a
-GitHub Release. Installer runtime validation remains pending and manual, and
-real-save integrity validation remains a local Before/After procedure.
+For a tag build, `generateUpdateManifest` creates:
+
+```text
+build/release-validation/update.properties
+```
+
+with the stable update contract:
+
+```properties
+schemaVersion=1
+channel=stable
+version=<version>
+installerFile=VS-Cartographer-Setup-<version>.exe
+installerUrl=https://github.com/MariuszKam/cartographer/releases/download/v<version>/VS-Cartographer-Setup-<version>.exe
+installerSha256=<sha256>
+installerSize=<bytes>
+releaseUrl=https://github.com/MariuszKam/cartographer/releases/tag/v<version>
+```
+
+The workflow creates the GitHub Release as a draft first, uploads all four
+release assets, and only then publishes the draft. A failed publication therefore
+does not intentionally expose an incomplete release through the stable channel.
+
+Creating a tag is the publication boundary:
+
+```text
+master
+  -> set canonical version
+  -> validation/review
+  -> tag vX.Y.Z
+  -> Windows Release Build
+  -> tests
+  -> portable ZIP
+  -> installer EXE
+  -> structural/checksum validation
+  -> update manifest
+  -> draft GitHub Release
+  -> published GitHub Release
+```
+
+CI still does not run against the user's real save, run Stage 5 Before/After
+modes, automate GUI interaction, install or uninstall the installer, or prove
+the upgrade path. Installer/update runtime validation remains reviewer-controlled
+and is required in the later Auto Update validation stage.
 
 ## Pull request CI
 
@@ -339,15 +415,17 @@ The heavier release pipeline remains:
 .github/workflows/windows-release.yml
 ```
 
-It is intentionally triggered manually through `workflow_dispatch`. Keeping
-the workflows separate provides fast feedback for normal pull requests,
-avoids unnecessary Windows packaging work for every code change, preserves an
-explicit release gate, and separates code validation from release production.
+Normal pull requests continue to use lightweight test-only CI. Windows packaging
+runs only when explicitly dispatched or when a release tag is pushed, so normal
+code changes do not pay the WiX/jpackage cost.
 
 ```text
 Pull request -> PR CI -> Java 25 -> Gradle tests -> merge eligibility
 
-master -> manual Windows Release Build -> tests -> portable ZIP -> installer EXE -> artifact validation -> uploaded release artifacts
+manual dispatch -> tests -> Windows packages -> artifact validation -> Actions artifact
+
+tag vX.Y.Z -> tag/version gate -> tests -> Windows packages -> artifact validation
+            -> update manifest -> published GitHub Release
 ```
 
 This documentation does not claim that PR CI has executed successfully or that

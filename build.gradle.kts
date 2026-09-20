@@ -1,5 +1,6 @@
 import java.util.Locale
 import java.io.File
+import java.security.MessageDigest
 import org.gradle.api.GradleException
 import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.compile.JavaCompile
@@ -14,7 +15,14 @@ plugins {
 }
 
 group = "cartographer"
-version = "1.0.0"
+
+val stableVersionPattern = Regex("""(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)""")
+val releaseVersion = project.version.toString()
+if (!stableVersionPattern.matches(releaseVersion)) {
+    throw GradleException(
+        "Project version must be stable SemVer MAJOR.MINOR.PATCH, got '$releaseVersion'"
+    )
+}
 
 val packagingApplicationName = "VS Cartographer"
 val packagingDesktopMainClass = "cartographer.ui.CartographerDesktopLauncher"
@@ -30,11 +38,33 @@ val jpackageAppImage = jpackageAppImageDirectory.map { it.dir(packagingApplicati
 val jpackageInstallerDirectory = layout.buildDirectory.dir("jpackage/installer")
 val canonicalInstallerFileName = "VS-Cartographer-Setup-${project.version}.exe"
 val canonicalInstallerFile = layout.buildDirectory.file("distributions/$canonicalInstallerFileName")
+val generatedBuildInfoDirectory = layout.buildDirectory.dir("generated/resources/build-info")
+val generatedBuildInfoFile = generatedBuildInfoDirectory.map {
+    it.file("cartographer-build.properties")
+}
+val updateManifestFile = layout.buildDirectory.file("release-validation/update.properties")
 val jpackageJavaLauncher = extensions.getByType<JavaToolchainService>().launcherFor {
     languageVersion.set(JavaLanguageVersion.of(25))
 }
 val jmhJavaLauncher = extensions.getByType<JavaToolchainService>().launcherFor {
     languageVersion.set(JavaLanguageVersion.of(25))
+}
+
+fun sha256(file: File): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    file.inputStream().buffered().use { input ->
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        while (true) {
+            val read = input.read(buffer)
+            if (read < 0) {
+                break
+            }
+            digest.update(buffer, 0, read)
+        }
+    }
+    return digest.digest().joinToString("") { byte ->
+        "%02x".format(byte.toInt() and 0xff)
+    }
 }
 
 fun resolveJpackageExecutable(): File {
@@ -50,6 +80,54 @@ fun resolveJpackageExecutable(): File {
         throw GradleException("Java 25 toolchain does not contain jpackage.exe: $jpackage")
     }
     return jpackage
+}
+
+val generateBuildInfo = tasks.register("generateBuildInfo") {
+    group = "build"
+    description = "Generates runtime build metadata from the Gradle project version"
+    inputs.property("version", releaseVersion)
+    outputs.file(generatedBuildInfoFile)
+
+    doLast {
+        val output = generatedBuildInfoFile.get().asFile
+        output.parentFile.mkdirs()
+        output.writeText("version=$releaseVersion\n", Charsets.UTF_8)
+    }
+}
+
+sourceSets.named("main") {
+    resources.srcDir(generatedBuildInfoDirectory)
+}
+
+tasks.named("processResources") {
+    dependsOn(generateBuildInfo)
+}
+
+tasks.register("printVersion") {
+    group = "help"
+    description = "Prints the canonical VS Cartographer project version"
+    doLast {
+        println(releaseVersion)
+    }
+}
+
+tasks.register("verifyReleaseTag") {
+    group = "verification"
+    description = "Verifies that a release tag exactly matches the canonical project version"
+
+    doLast {
+        val tag = providers.gradleProperty("releaseTag").orNull
+            ?: providers.environmentVariable("GITHUB_REF_NAME").orNull
+            ?: throw GradleException(
+                "Missing release tag. Pass -PreleaseTag=v$releaseVersion or set GITHUB_REF_NAME."
+            )
+        val expected = "v$releaseVersion"
+        if (tag != expected) {
+            throw GradleException(
+                "Release tag '$tag' does not match project version '$releaseVersion'. Expected '$expected'."
+            )
+        }
+    }
 }
 
 repositories {
@@ -459,5 +537,74 @@ tasks.register("packageWindowsInstaller") {
         val destination = canonicalInstallerFile.get().asFile
         destination.parentFile.mkdirs()
         candidates.single().copyTo(destination, overwrite = true)
+    }
+}
+
+tasks.register("generateUpdateManifest") {
+    group = "distribution"
+    description = "Generates the stable-channel update manifest for a GitHub release"
+    dependsOn("verifyReleaseTag")
+    inputs.property("version", releaseVersion)
+    inputs.file(canonicalInstallerFile)
+    inputs.property(
+        "releaseTag",
+        providers.gradleProperty("releaseTag")
+            .orElse(providers.environmentVariable("GITHUB_REF_NAME"))
+            .orElse("")
+    )
+    inputs.property(
+        "releaseRepository",
+        providers.gradleProperty("releaseRepository")
+            .orElse(providers.environmentVariable("GITHUB_REPOSITORY"))
+            .orElse("")
+    )
+    outputs.file(updateManifestFile)
+
+    doLast {
+        val repository = providers.gradleProperty("releaseRepository").orNull
+            ?: providers.environmentVariable("GITHUB_REPOSITORY").orNull
+            ?: throw GradleException(
+                "Missing release repository. Pass -PreleaseRepository=owner/repository or set GITHUB_REPOSITORY."
+            )
+        if (!repository.matches(Regex("""[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"""))) {
+            throw GradleException(
+                "Release repository must use owner/repository form, got '$repository'"
+            )
+        }
+
+        val tag = providers.gradleProperty("releaseTag").orNull
+            ?: providers.environmentVariable("GITHUB_REF_NAME").orNull
+            ?: throw GradleException(
+                "Missing release tag. Pass -PreleaseTag=v$releaseVersion or set GITHUB_REF_NAME."
+            )
+        val expectedTag = "v$releaseVersion"
+        if (tag != expectedTag) {
+            throw GradleException(
+                "Release tag '$tag' does not match project version '$releaseVersion'. Expected '$expectedTag'."
+            )
+        }
+
+        val installer = canonicalInstallerFile.get().asFile
+        if (!installer.isFile || installer.length() <= 0L) {
+            throw GradleException(
+                "Canonical Windows installer is missing or empty: ${installer.absolutePath}"
+            )
+        }
+
+        val releaseBase = "https://github.com/$repository/releases"
+        val manifest = buildString {
+            appendLine("schemaVersion=1")
+            appendLine("channel=stable")
+            appendLine("version=$releaseVersion")
+            appendLine("installerFile=${installer.name}")
+            appendLine("installerUrl=$releaseBase/download/$tag/${installer.name}")
+            appendLine("installerSha256=${sha256(installer)}")
+            appendLine("installerSize=${installer.length()}")
+            appendLine("releaseUrl=$releaseBase/tag/$tag")
+        }
+
+        val output = updateManifestFile.get().asFile
+        output.parentFile.mkdirs()
+        output.writeText(manifest, Charsets.UTF_8)
     }
 }
