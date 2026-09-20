@@ -546,9 +546,11 @@ public class RenderActualOreMapUseCase {
         Objects.requireNonNull(progress, "progress is required");
         saveSession.requireSameSave(request.savePath());
 
-        boolean surfaceDataRequired =
+        SurfaceDataRequirement surfaceDataRequirement =
                 request.layers().contains(RenderLayer.SURFACE)
-                        || request.layers().contains(RenderLayer.SOIL_FERTILITY);
+                        || request.layers().contains(RenderLayer.SOIL_FERTILITY)
+                        ? SurfaceDataRequirement.RENDER
+                        : SurfaceDataRequirement.NONE;
         PreparedMapData prepared = mapDataUseCase.execute(
                 saveSession,
                 new PrepareMapDataRequest(
@@ -558,7 +560,7 @@ public class RenderActualOreMapUseCase {
                         request.style(),
                         request.layers(),
                         request.center(),
-                        surfaceDataRequired
+                        surfaceDataRequirement
                 ),
                 progress
         );
