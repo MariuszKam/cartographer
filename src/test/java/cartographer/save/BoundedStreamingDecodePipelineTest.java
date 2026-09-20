@@ -4,6 +4,7 @@ import cartographer.testing.ConcurrencyTest;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -29,36 +30,50 @@ class BoundedStreamingDecodePipelineTest {
         CountDownLatch releaseFirst = new CountDownLatch(1);
         CountDownLatch secondDone = new CountDownLatch(1);
         CountDownLatch secondConsumed = new CountDownLatch(1);
-        List<Integer> values = new ArrayList<>();
+        List<Integer> values =
+                Collections.synchronizedList(new ArrayList<>());
+        AtomicReference<Throwable> failure = new AtomicReference<>();
 
-        try (BoundedStreamingDecodePipeline<Integer> pipeline =
-                     new BoundedStreamingDecodePipeline<>(2, 3, value -> {
-                         values.add(value);
-                         if (value == 2) {
-                             secondConsumed.countDown();
-                         }
-                     })) {
-            pipeline.submit(() -> {
-                firstStarted.countDown();
-                releaseFirst.await();
-                return 1;
-            });
-            pipeline.submit(() -> {
-                secondDone.countDown();
-                return 2;
-            });
+        Thread controller = Thread.ofPlatform().start(() -> {
+            try (BoundedStreamingDecodePipeline<Integer> pipeline =
+                         new BoundedStreamingDecodePipeline<>(2, 3, value -> {
+                             values.add(value);
+                             if (value == 2) {
+                                 secondConsumed.countDown();
+                             }
+                         })) {
+                pipeline.submit(() -> {
+                    firstStarted.countDown();
+                    releaseFirst.await();
+                    return 1;
+                });
+                pipeline.submit(() -> {
+                    secondDone.countDown();
+                    return 2;
+                });
+                pipeline.finish();
+            } catch (Throwable thrown) {
+                failure.set(thrown);
+            }
+        });
+
+        try {
             awaitLatch(firstStarted, "firstStarted");
             awaitLatch(secondDone, "secondDone");
-
-            pipeline.submit(() -> 3);
             awaitLatch(secondConsumed, "secondConsumed");
+
             assertTrue(values.contains(2));
             assertFalse(values.contains(1));
 
             releaseFirst.countDown();
-            pipeline.finish();
+            joinThread(controller, "controller");
+            assertEquals(null, failure.get());
+        } finally {
+            releaseFirst.countDown();
+            joinThread(controller, "controller");
         }
-        assertEquals(Set.of(1, 2, 3), new HashSet<>(values));
+
+        assertEquals(Set.of(1, 2), new HashSet<>(values));
     }
 
     @Test
