@@ -10,9 +10,7 @@ import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.perf.RenderDataCacheStore;
-import cartographer.perf.SurfaceCacheTile;
 import cartographer.perf.SurfaceTileLookup;
-import cartographer.perf.TerrainHeightTile;
 import cartographer.perf.TerrainTileLookup;
 import cartographer.perf.WorldDataSnapshot;
 import cartographer.perf.WorldIndexCatalogStore;
@@ -27,10 +25,6 @@ import cartographer.scanner.SurfaceStreamingSession;
 import cartographer.scanner.SurfaceTileAccumulator;
 import cartographer.scanner.SurfaceTileLayout;
 
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -108,28 +102,17 @@ public final class SnapshotPreparedMapDataReader {
                     );
             Optional<TerrainRead> terrainRead = terrain(
                     snapshot,
-                    terrainCoordinates
+                    terrainCoordinates,
+                    center,
+                    options,
+                    progress
             );
             if (terrainRead.isEmpty()) {
                 return Optional.empty();
             }
 
-            progress.start("Composing Terrain from world snapshot");
-            MapTerrainPreparation.Builder terrainBuilder =
-                    MapTerrainPreparation.builder(
-                            center,
-                            options,
-                            terrainCoordinates.size(),
-                            progress
-                    );
-            for (MapChunkCoordinate coordinate : terrainCoordinates) {
-                TerrainHeightTile tile =
-                        terrainRead.orElseThrow().hits().get(coordinate);
-                if (tile != null) {
-                    terrainBuilder.accept(tile);
-                }
-            }
-            MapTerrainPreparation terrain = terrainBuilder.finish();
+            MapTerrainPreparation terrain =
+                    terrainRead.orElseThrow().terrain();
 
             Optional<SurfaceRead> surfaceRead = request.requireSurfaceData()
                     ? surface(
@@ -154,7 +137,7 @@ public final class SnapshotPreparedMapDataReader {
                     true,
                     new RenderDataCacheReport.ArtifactStats(
                             terrainCoordinates.size(),
-                            terrainRead.orElseThrow().hits().size(),
+                            terrainRead.orElseThrow().hits(),
                             terrainRead.orElseThrow().knownAbsent(),
                             0,
                             0,
@@ -205,12 +188,11 @@ public final class SnapshotPreparedMapDataReader {
 
     private Optional<TerrainRead> terrain(
             WorldDataSnapshot snapshot,
-            List<MapChunkCoordinate> coordinates
+            List<MapChunkCoordinate> coordinates,
+            WorldPosition center,
+            RenderOptions options,
+            ProgressReporter progress
     ) {
-        if (coordinates.isEmpty()) {
-            return Optional.of(new TerrainRead(Map.of(), 0));
-        }
-
         WorldIndexCatalogStore catalog = snapshot.indexCatalogStore();
         if (!catalog.mapChunkScanComplete()) {
             return Optional.empty();
@@ -218,31 +200,45 @@ public final class SnapshotPreparedMapDataReader {
 
         Set<MapChunkCoordinate> observed =
                 catalog.observedAmong(coordinates);
-        Map<MapChunkCoordinate, TerrainTileLookup> lookups =
-                snapshot.terrainStore().read(coordinates);
-        LinkedHashMap<MapChunkCoordinate, TerrainHeightTile> hits =
-                new LinkedHashMap<>();
-        int knownAbsent = 0;
+        progress.start("Composing Terrain from world snapshot");
+        MapTerrainPreparation.Builder builder =
+                MapTerrainPreparation.builder(
+                        center,
+                        options,
+                        coordinates.size(),
+                        progress
+                );
+        int[] hits = {0};
+        int[] knownAbsent = {0};
+        boolean[] complete = {true};
 
-        for (MapChunkCoordinate coordinate : coordinates) {
-            TerrainTileLookup lookup = lookups.getOrDefault(
-                    coordinate,
-                    TerrainTileLookup.miss()
-            );
-            if (lookup.status() == TerrainTileLookup.Status.HIT) {
-                hits.put(coordinate, lookup.tile());
-                continue;
-            }
-            if (lookup.status() == TerrainTileLookup.Status.MISS
-                    && !observed.contains(coordinate)) {
-                knownAbsent++;
-                continue;
-            }
+        snapshot.terrainStore().forEachLookup(
+                coordinates,
+                (coordinate, lookup) -> {
+                    if (lookup.status()
+                            == TerrainTileLookup.Status.HIT) {
+                        builder.accept(lookup.tile());
+                        hits[0]++;
+                        return true;
+                    }
+                    if (lookup.status()
+                            == TerrainTileLookup.Status.MISS
+                            && !observed.contains(coordinate)) {
+                        knownAbsent[0]++;
+                        return true;
+                    }
+                    complete[0] = false;
+                    return false;
+                }
+        );
+
+        if (!complete[0]) {
             return Optional.empty();
         }
         return Optional.of(new TerrainRead(
-                Map.copyOf(hits),
-                knownAbsent
+                builder.finish(),
+                hits[0],
+                knownAbsent[0]
         ));
     }
 
@@ -261,28 +257,6 @@ public final class SnapshotPreparedMapDataReader {
                 centerZ,
                 radius
         );
-        Map<MapChunkCoordinate, SurfaceTileLookup> lookups =
-                snapshot.surfaceStore().read(coordinates);
-        List<SurfaceCacheTile> hits = new ArrayList<>(
-                coordinates.size()
-        );
-
-        for (MapChunkCoordinate coordinate : coordinates) {
-            SurfaceTileLookup lookup = lookups.getOrDefault(
-                    coordinate,
-                    SurfaceTileLookup.miss()
-            );
-            if (lookup.status() != SurfaceTileLookup.Status.HIT
-                    || !lookup.tile().matchesWorld(metadata)) {
-                // A complete mapchunk catalog is deliberately not enough to
-                // infer server-chunk absence for Surface.
-                return Optional.empty();
-            }
-            hits.add(lookup.tile());
-        }
-
-        progresslessSurfaceValidation(hits);
-
         SurfaceStreamingSession session = SurfaceStreamingSession.begin(
                 metadata,
                 centerX,
@@ -294,8 +268,27 @@ public final class SnapshotPreparedMapDataReader {
                 true
         );
         session.finishPlanning();
-        for (SurfaceCacheTile tile : hits) {
-            session.acceptCachedTile(tile);
+        int[] hits = {0};
+        boolean[] complete = {true};
+
+        snapshot.surfaceStore().forEachLookup(
+                coordinates,
+                (coordinate, lookup) -> {
+                    if (lookup.status() != SurfaceTileLookup.Status.HIT
+                            || !lookup.tile().matchesWorld(metadata)) {
+                        // A complete mapchunk catalog is deliberately not
+                        // enough to infer server-chunk absence for Surface.
+                        complete[0] = false;
+                        return false;
+                    }
+                    session.acceptCachedTile(lookup.tile());
+                    hits[0]++;
+                    return true;
+                }
+        );
+
+        if (!complete[0]) {
+            return Optional.empty();
         }
 
         SurfaceRainHeightScanResult result = session.finish();
@@ -311,20 +304,8 @@ public final class SnapshotPreparedMapDataReader {
                         diagnostics.liquidUnavailableColumns()
                 ),
                 coordinates.size(),
-                hits.size()
+                hits[0]
         ));
-    }
-
-    /**
-     * Makes the full-tile requirement explicit before composition; no
-     * inference or source repair is allowed on this source-free path.
-     */
-    private void progresslessSurfaceValidation(
-            List<SurfaceCacheTile> tiles
-    ) {
-        for (SurfaceCacheTile tile : tiles) {
-            Objects.requireNonNull(tile, "Surface snapshot tile is required");
-        }
     }
 
     private SurfaceMapScanResult emptySurface(
@@ -366,17 +347,18 @@ public final class SnapshotPreparedMapDataReader {
     }
 
     private record TerrainRead(
-            Map<MapChunkCoordinate, TerrainHeightTile> hits,
+            MapTerrainPreparation terrain,
+            int hits,
             int knownAbsent
     ) {
         private TerrainRead {
-            hits = Map.copyOf(Objects.requireNonNull(
-                    hits,
-                    "terrain hits are required"
-            ));
-            if (knownAbsent < 0) {
+            Objects.requireNonNull(
+                    terrain,
+                    "terrain preparation is required"
+            );
+            if (hits < 0 || knownAbsent < 0) {
                 throw new IllegalArgumentException(
-                        "knownAbsent cannot be negative"
+                        "terrain counters cannot be negative"
                 );
             }
         }
