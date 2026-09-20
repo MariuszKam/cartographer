@@ -458,8 +458,13 @@ fun Test.attachTimingReports(reportPrefix: String) {
     })
 }
 
+fun Test.disableInProcessJUnitParallelism() {
+    systemProperty("junit.jupiter.execution.parallel.enabled", "false")
+}
+
 tasks.test {
     useJUnitPlatform()
+    disableInProcessJUnitParallelism()
     reports.junitXml.required.set(true)
     reports.html.required.set(true)
     maxParallelForks = 1
@@ -491,6 +496,7 @@ tasks.register<Test>("testParallelProbe") {
     useJUnitPlatform {
         excludeTags("serial")
     }
+    disableInProcessJUnitParallelism()
     maxParallelForks = configuredParallelProbeForks.get()
     reports.junitXml.required.set(true)
     reports.html.required.set(true)
@@ -513,6 +519,7 @@ tasks.register<Test>("testSerial") {
     useJUnitPlatform {
         includeTags("serial")
     }
+    disableInProcessJUnitParallelism()
     maxParallelForks = 1
     reports.junitXml.required.set(true)
     reports.html.required.set(true)
@@ -532,6 +539,7 @@ fun registerTaggedTestTask(
         useJUnitPlatform {
             includeTags(tag)
         }
+        disableInProcessJUnitParallelism()
         maxParallelForks = 1
         reports.junitXml.required.set(true)
         reports.html.required.set(true)
