@@ -3,7 +3,6 @@ package cartographer.render;
 import cartographer.model.SurfaceClass;
 import cartographer.model.SurfaceClassCode;
 import cartographer.scanner.SurfaceMap;
-import cartographer.scanner.SurfaceRegistryLookup;
 import cartographer.scanner.SurfaceTileLayout;
 
 import java.util.Arrays;
@@ -42,29 +41,25 @@ public final class SurfaceRenderData {
 
     public static Builder builder(
             RenderSamplingPlan sampling,
-            SurfaceTileLayout layout,
-            SurfaceRegistryLookup registry
+            SurfaceTileLayout layout
     ) {
-        return new Builder(sampling, layout, registry);
+        return new Builder(sampling, layout);
     }
 
     public static SurfaceRenderData from(
             SurfaceMap map,
-            SurfaceRegistryLookup registry,
             RenderSamplingPlan sampling
     ) {
         Objects.requireNonNull(map, "Surface map is required");
         Builder builder = builder(
                 sampling,
-                map.layout(),
-                registry
+                map.layout()
         );
         map.forEachResolvedCell(
                 (worldX, worldZ, y, blockId, liquidId, surfaceClass) ->
                         builder.acceptResolved(
                                 worldX,
                                 worldZ,
-                                blockId,
                                 surfaceClass
                         )
         );
@@ -155,7 +150,6 @@ public final class SurfaceRenderData {
 
     public static final class Builder {
         private final SurfaceTileLayout layout;
-        private final SurfaceRegistryLookup registry;
         private final int rasterSize;
         private final double scale;
         private final int worldMinX;
@@ -168,8 +162,7 @@ public final class SurfaceRenderData {
 
         private Builder(
                 RenderSamplingPlan sampling,
-                SurfaceTileLayout layout,
-                SurfaceRegistryLookup registry
+                SurfaceTileLayout layout
         ) {
             Objects.requireNonNull(
                     sampling,
@@ -178,10 +171,6 @@ public final class SurfaceRenderData {
             this.layout = Objects.requireNonNull(
                     layout,
                     "Surface layout is required"
-            );
-            this.registry = Objects.requireNonNull(
-                    registry,
-                    "Surface registry is required"
             );
             this.rasterSize = sampling.rasterSize();
             this.scale = sampling.effectivePixelsPerBlock();
@@ -196,7 +185,6 @@ public final class SurfaceRenderData {
         public void acceptResolved(
                 int worldX,
                 int worldZ,
-                int blockId,
                 SurfaceClass surfaceClass
         ) {
             ensureMutable();

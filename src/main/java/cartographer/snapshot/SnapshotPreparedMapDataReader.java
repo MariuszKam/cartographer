@@ -29,7 +29,6 @@ import cartographer.scanner.SurfaceDiagnosticsSummary;
 import cartographer.scanner.SurfaceMapScanResult;
 import cartographer.scanner.SurfaceRainHeightDiagnosticCounters;
 import cartographer.scanner.SurfaceRainHeightScanResult;
-import cartographer.scanner.SurfaceRegistryLookup;
 import cartographer.scanner.SurfaceStreamingSession;
 import cartographer.scanner.SurfaceTileLayout;
 
@@ -363,13 +362,10 @@ public final class SnapshotPreparedMapDataReader {
                 radius,
                 metadata
         );
-        SurfaceRegistryLookup registry =
-                new SurfaceRegistryLookup(header.blockRegistry());
         SurfaceRenderData.Builder renderBuilder =
                 SurfaceRenderData.builder(
                         RenderSamplingPlan.from(center, options),
-                        layout,
-                        registry
+                        layout
                 );
         SurfaceDiagnosticsSummary.Builder diagnostics =
                 SurfaceDiagnosticsSummary.builder(
@@ -437,7 +433,6 @@ public final class SnapshotPreparedMapDataReader {
                             renderBuilder.acceptResolved(
                                     worldX,
                                     worldZ,
-                                    blockId,
                                     surfaceClass
                             );
                         }

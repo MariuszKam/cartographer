@@ -7,7 +7,6 @@ import cartographer.render.RenderSamplingPlan;
 import cartographer.render.SurfaceRenderData;
 import cartographer.scanner.SurfaceDiagnosticsSummary;
 import cartographer.scanner.SurfaceMapScanResult;
-import cartographer.scanner.SurfaceRegistryLookup;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -73,7 +72,6 @@ public record PreparedSurfaceData(
                 options.layers().contains(RenderLayer.SURFACE)
                         ? SurfaceRenderData.from(
                                 exact.map(),
-                                new SurfaceRegistryLookup(exact.registry()),
                                 sampling
                         )
                         : SurfaceRenderData.empty(sampling);

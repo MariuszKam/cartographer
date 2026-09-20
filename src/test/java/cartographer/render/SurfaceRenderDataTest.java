@@ -1,14 +1,11 @@
 package cartographer.render;
 
-import cartographer.model.BlockInfo;
 import cartographer.model.SurfaceClass;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
-import cartographer.scanner.SurfaceRegistryLookup;
 import cartographer.scanner.SurfaceTileLayout;
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,8 +19,8 @@ class SurfaceRenderDataTest {
         Fixture fixture = fixture();
         SurfaceRenderData.Builder builder = fixture.builder();
 
-        builder.acceptResolved(20, 20, 1, SurfaceClass.GRASS);
-        builder.acceptResolved(21, 20, 2, SurfaceClass.ROCK);
+        builder.acceptResolved(20, 20, SurfaceClass.GRASS);
+        builder.acceptResolved(21, 20, SurfaceClass.ROCK);
         SurfaceRenderData data = builder.finish();
 
         assertEquals(SurfaceClass.ROCK, data.surfaceClassAt(33, 32));
@@ -72,11 +69,10 @@ class SurfaceRenderDataTest {
         );
         SurfaceRenderData.Builder builder = SurfaceRenderData.builder(
                 sampling,
-                layout,
-                new SurfaceRegistryLookup(Map.of())
+                layout
         );
 
-        builder.acceptResolved(0, 0, 404, SurfaceClass.UNKNOWN);
+        builder.acceptResolved(0, 0, SurfaceClass.UNKNOWN);
         SurfaceRenderData data = builder.finish();
 
         assertFalse(data.hasSurfaceAt(0, 0));
@@ -98,26 +94,17 @@ class SurfaceRenderDataTest {
                 20,
                 new WorldMetadata(64, 256, 64)
         );
-        SurfaceRegistryLookup registry = new SurfaceRegistryLookup(
-                Map.of(
-                        1, new BlockInfo(1, "game:grass"),
-                        2, new BlockInfo(2, "game:rock-granite"),
-                        3, new BlockInfo(3, "game:soil-medium-normal")
-                )
-        );
-        return new Fixture(sampling, layout, registry);
+        return new Fixture(sampling, layout);
     }
 
     private record Fixture(
             RenderSamplingPlan sampling,
-            SurfaceTileLayout layout,
-            SurfaceRegistryLookup registry
+            SurfaceTileLayout layout
     ) {
         SurfaceRenderData.Builder builder() {
             return SurfaceRenderData.builder(
                     sampling,
-                    layout,
-                    registry
+                    layout
             );
         }
     }
