@@ -50,6 +50,7 @@ public record Pf28SnapshotValidationReport(
         return snapshotComplete
                 && sourceSafety.status() == SaveSafetyStatus.PASS
                 && revisionInvalidationPassed
+                && warmRenders.size() == REQUIRED_RADII.size()
                 && radii.equals(REQUIRED_RADII)
                 && warmRenders.stream().allMatch(
                         Pf28WarmRenderSample::accepted
