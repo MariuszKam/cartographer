@@ -19,6 +19,7 @@ import cartographer.perf.WorldDataSnapshot;
 import cartographer.perf.WorldSnapshotHeader;
 import cartographer.render.ActualOreOverlayPainter;
 import cartographer.render.MapRenderer;
+import cartographer.render.MapRasterContract;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.render.UserMarkerRenderer;
@@ -109,8 +110,16 @@ class SnapshotBackedMapRoutingTest {
                 )
         );
 
-        assertEquals(8, result.geometry().imageWidth());
-        assertEquals(8, result.geometry().imageHeight());
+        assertEquals(
+                MapRasterContract.MIN_RASTER_SIZE,
+                result.geometry().imageWidth()
+        );
+        assertEquals(
+                MapRasterContract.MIN_RASTER_SIZE,
+                result.geometry().imageHeight()
+        );
+        assertEquals(8.0, result.geometry().worldWidthBlocks());
+        assertEquals(8.0, result.geometry().worldHeightBlocks());
         assertTrue(result.preparedMapData().isPresent());
         assertTrue(result.renderDataCacheReport().notes().stream()
                 .anyMatch(note -> note.contains(
