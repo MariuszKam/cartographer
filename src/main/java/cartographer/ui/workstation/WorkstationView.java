@@ -132,6 +132,11 @@ public final class WorkstationView implements UpdateCheckView {
     }
 
     @Override
+    public void setOnDownloadUpdate(Runnable action) {
+        worldBar.setOnDownloadUpdate(action);
+    }
+
+    @Override
     public void showUpdateChecking() {
         worldBar.showUpdateChecking();
     }
@@ -139,6 +144,27 @@ public final class WorkstationView implements UpdateCheckView {
     @Override
     public void showUpdateAvailable(ApplicationVersion version) {
         worldBar.showUpdateAvailable(version);
+    }
+
+    @Override
+    public void showUpdateDownloading(
+            ApplicationVersion version,
+            int percent
+    ) {
+        worldBar.showUpdateDownloading(version, percent);
+    }
+
+    @Override
+    public void showUpdateReady(ApplicationVersion version) {
+        worldBar.showUpdateReady(version);
+    }
+
+    @Override
+    public void showUpdateDownloadFailed(
+            ApplicationVersion version,
+            String message
+    ) {
+        worldBar.showUpdateDownloadFailed(version, message);
     }
 
     @Override
