@@ -372,15 +372,81 @@ to PF-2.8.
 
 ### PF-2.8 — cold-ingest / warm-render validation
 
-Treat these as separate workloads:
+PF-2.8 implements an executable real-save validation harness that treats these
+as separate workloads:
 
 ```text
 COLD SNAPSHOT BUILD
 WARM RENDER FROM SNAPSHOT
 ```
 
-Validate R1024/R2048/R4096, source safety, cache revision invalidation,
-cancellation, memory, visual parity and warm-render source-read elimination.
+The harness deliberately creates a fresh derived-cache namespace under the
+requested evidence directory. It then:
+
+- runs one full `PrepareWorldSnapshotUseCase` cold build;
+- records cold elapsed time plus process CPU, peak-heap and GC evidence where
+  the platform exposes those counters;
+- records per-layer cold HIT/publish counters and requires zero derived HITs
+  for Terrain, Surface, mapregion, UPPER_ROCK and resource chunks, proving the
+  fresh campaign actually performed a cold snapshot build;
+- requires the resulting Terrain, Surface, mapregion, UPPER_ROCK and resource
+  snapshot coverage to be complete;
+- renders Map + Surface at R1024, R2048 and R4096 through the PF-2.6 snapshot
+  consumer path;
+- injects a recording `SaveSessionLifecycleProbe` into the warm renderer and
+  requires exactly zero source SaveSession connections for every warm render;
+- renders the same request through the source-authoritative path and requires
+  exact viewport-geometry and logical ARGB image-fingerprint parity;
+- captures warm elapsed/resource evidence separately from the source parity
+  render;
+- protects the real save with before/after SHA-256 + metadata + SQLite sidecar
+  snapshots;
+- performs an isolated revision-invalidation probe through the real
+  `WorldDataSnapshot` facade: a marker header is published in revision A,
+  the source identity is changed to revision B, `openExisting` must miss B
+  before publication, and a newly created B namespace must not expose A's
+  derived header.
+
+The Gradle entry point is:
+
+```powershell
+.\gradlew.bat pf28SnapshotValidation `
+  -Psave="C:\path\world.vcdbs" `
+  -PgitSha=<full-40-character-sha> `
+  -PoutputRoot="C:\path\fresh-pf28-evidence"
+```
+
+The task depends on the full unit-test suite. PF-2.7 deterministic cancellation
+tests therefore remain the automated cancellation evidence and execute before
+the expensive real-save campaign. No scheduler-time assumptions are added.
+
+The evidence directory must be isolated from the source save directory and
+must be new or already empty. Reusing a non-empty evidence directory is
+rejected so a prior cache, report or revision probe cannot contaminate the
+cold-build campaign.
+
+The final report is written to
+`pf28-validation-report.txt`. PASS requires:
+
+- complete cold snapshot coverage;
+- source-safety PASS;
+- revision invalidation PASS;
+- exactly one warm sample for each of R1024/R2048/R4096;
+- zero source connections opened/closed by every warm render; this lifecycle
+  evidence is the hard proof of source-read elimination;
+- complete requested Surface tile HIT coverage and complete Terrain proof
+  (tile HIT plus authoritative known-absent mapchunks) for every warm render;
+- exact geometry parity;
+- exact logical image-fingerprint parity.
+
+PF-2.8 does not impose invented timing or memory thresholds. Runtime/resource
+values are factual evidence for comparison; correctness and source-read
+elimination are the hard gate.
+
+The PF-2.8 implementation candidate is under controller review on its branch.
+Real-save execution remains reviewer-controlled; the milestone is not DONE
+until automated tests, the harness run and the resulting evidence have been
+reviewed.
 
 ## Non-goals
 
