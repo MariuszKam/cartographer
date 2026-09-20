@@ -126,20 +126,27 @@ public final class PrepareMapDataUseCase {
         Objects.requireNonNull(request, "request is required");
         Objects.requireNonNull(progress, "progress is required");
 
-        if (snapshotReader.isPresent()) {
-            Optional<PreparedMapData> prepared =
-                    snapshotReader.orElseThrow().read(
-                            request,
-                            progress
-                    );
-            if (prepared.isPresent()) {
-                return prepared.orElseThrow();
-            }
+        Optional<PreparedMapData> snapshot =
+                executeSnapshot(request, progress);
+        if (snapshot.isPresent()) {
+            return snapshot.orElseThrow();
         }
 
         try (SaveSession session = sessionFactory.open(request.savePath())) {
             return execute(session, request, progress);
         }
+    }
+
+    public Optional<PreparedMapData> executeSnapshot(
+            PrepareMapDataRequest request,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(request, "request is required");
+        Objects.requireNonNull(progress, "progress is required");
+        if (snapshotReader.isEmpty()) {
+            return Optional.empty();
+        }
+        return snapshotReader.orElseThrow().read(request, progress);
     }
 
     public PreparedMapData execute(
