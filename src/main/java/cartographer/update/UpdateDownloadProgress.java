@@ -19,9 +19,9 @@ public record UpdateDownloadProgress(
     }
 
     public int percent() {
-        return (int) Math.min(
-                100L,
-                Math.round((bytesDownloaded * 100.0d) / totalBytes)
-        );
+        if (bytesDownloaded == totalBytes) {
+            return 100;
+        }
+        return (int) ((bytesDownloaded * 100.0d) / totalBytes);
     }
 }
