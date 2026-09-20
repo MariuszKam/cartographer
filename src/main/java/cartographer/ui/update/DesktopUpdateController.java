@@ -31,7 +31,7 @@ public final class DesktopUpdateController {
     private final Clock clock;
     private final Duration automaticCheckInterval;
     private final AtomicBoolean checkInProgress = new AtomicBoolean();
-    private final AtomicReference<URI> availableRelease =
+    private final AtomicReference<UpdateManifest> availableUpdate =
             new AtomicReference<>();
 
     public DesktopUpdateController(
@@ -138,13 +138,13 @@ public final class DesktopUpdateController {
         switch (result.status()) {
             case UPDATE_AVAILABLE -> {
                 UpdateManifest manifest = result.manifest().orElseThrow();
-                availableRelease.set(manifest.releaseUri());
+                availableUpdate.set(manifest);
                 uiDispatcher.accept(() ->
                         view.showUpdateAvailable(manifest.version())
                 );
             }
             case UP_TO_DATE -> {
-                availableRelease.set(null);
+                availableUpdate.set(null);
                 if (manual) {
                     uiDispatcher.accept(view::showUpToDate);
                 }
@@ -171,7 +171,8 @@ public final class DesktopUpdateController {
     }
 
     private void openAvailableRelease() {
-        Optional.ofNullable(availableRelease.get())
+        Optional.ofNullable(availableUpdate.get())
+                .map(UpdateManifest::releaseUri)
                 .ifPresent(releaseOpener);
     }
 
