@@ -25,6 +25,9 @@ public final class SnapshotWorldHeaderReader {
             return WorldDataSnapshot.openOrCreate(cacheStore, savePath)
                     .flatMap(snapshot -> snapshot.headerStore().read());
         } catch (RuntimeException failure) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw failure;
+            }
             return Optional.empty();
         }
     }
