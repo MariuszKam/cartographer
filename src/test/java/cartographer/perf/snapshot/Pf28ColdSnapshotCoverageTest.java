@@ -9,18 +9,15 @@ class Pf28ColdSnapshotCoverageTest {
 
     @Test
     void completeRequiresEveryPreparedLayer() {
-        assertTrue(new Pf28ColdSnapshotCoverage(
-                100,
-                true,
-                true,
-                true,
-                true,
-                true,
-                true
-        ).complete());
+        assertTrue(completeFresh().complete());
 
         assertFalse(new Pf28ColdSnapshotCoverage(
                 100,
+                0, 100,
+                0, 100,
+                0, 10,
+                0, 100,
+                0, 800,
                 true,
                 true,
                 false,
@@ -28,5 +25,42 @@ class Pf28ColdSnapshotCoverageTest {
                 true,
                 true
         ).complete());
+    }
+
+    @Test
+    void coldBuildProofRejectsAnyDerivedHit() {
+        assertTrue(completeFresh().coldBuildProven());
+
+        assertFalse(new Pf28ColdSnapshotCoverage(
+                100,
+                1, 99,
+                0, 100,
+                0, 10,
+                0, 100,
+                0, 800,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+        ).coldBuildProven());
+    }
+
+    private Pf28ColdSnapshotCoverage completeFresh() {
+        return new Pf28ColdSnapshotCoverage(
+                100,
+                0, 100,
+                0, 100,
+                0, 10,
+                0, 100,
+                0, 800,
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+        );
     }
 }
