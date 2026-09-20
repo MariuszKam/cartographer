@@ -54,11 +54,12 @@ public final class Pf28SnapshotValidationRunner {
             String candidateSha,
             Path outputRoot
     ) {
-        Path save = normalizeSave(savePath);
+        Pf28ValidationPaths paths =
+                Pf28ValidationPaths.prepare(savePath, outputRoot);
+        Path save = paths.save();
         String sha = Pf28SnapshotValidationReport.fullSha(candidateSha);
-        Path root = normalizeOutputRoot(save, outputRoot);
-        Path cacheRoot = root.resolve("snapshot-cache");
-        requireFreshCacheRoot(cacheRoot);
+        Path root = paths.outputRoot();
+        Path cacheRoot = paths.cacheRoot();
 
         SaveSafetySnapshotter safetySnapshotter =
                 new SaveSafetySnapshotter();
@@ -87,7 +88,7 @@ public final class Pf28SnapshotValidationRunner {
         long coldElapsed = elapsedSince(coldStart);
         PrepareWorldSnapshotResult prepared = cold.result();
 
-        Path stateRoot = root.resolve("render-state");
+        Path stateRoot = paths.renderStateRoot();
         HomeStore homeStore =
                 new HomeStore(stateRoot.resolve("home.properties"));
         MarkerStore markerStore =
@@ -158,25 +159,25 @@ public final class Pf28SnapshotValidationRunner {
             long sourceElapsed = elapsedSince(sourceStart);
 
             RenderActualOreMapResult warmResult = warm.result();
+            int sourceConnectionsOpened = Math.subtractExact(
+                    probeAfter.connectionsOpened(),
+                    probeBefore.connectionsOpened()
+            );
+            int sourceConnectionsClosed = Math.subtractExact(
+                    probeAfter.connectionsClosed(),
+                    probeBefore.connectionsClosed()
+            );
             boolean snapshotBacked =
-                    warmResult.renderDataCacheReport().notes().stream()
-                            .anyMatch(note -> note.contains(
-                                    "PF-2.6 snapshot-backed warm path"
-                            ));
+                    sourceConnectionsOpened == 0
+                            && sourceConnectionsClosed == 0;
 
             samples.add(new Pf28WarmRenderSample(
                     radius,
                     warmElapsed,
                     sourceElapsed,
                     warm.evidence(),
-                    Math.subtractExact(
-                            probeAfter.connectionsOpened(),
-                            probeBefore.connectionsOpened()
-                    ),
-                    Math.subtractExact(
-                            probeAfter.connectionsClosed(),
-                            probeBefore.connectionsClosed()
-                    ),
+                    sourceConnectionsOpened,
+                    sourceConnectionsClosed,
                     snapshotBacked,
                     warmResult.geometry().equals(source.geometry()),
                     ImageFingerprinter.fingerprint(warmResult.image()),
@@ -185,7 +186,7 @@ public final class Pf28SnapshotValidationRunner {
         }
 
         boolean revisionInvalidationPassed =
-                verifyRevisionInvalidation(root.resolve("revision-probe"));
+                verifyRevisionInvalidation(paths.revisionProbeRoot());
 
         SaveSafetySnapshot after = safetySnapshotter.capture(save);
         SaveSafetyResult safety =
@@ -263,56 +264,6 @@ public final class Pf28SnapshotValidationRunner {
                 new ChunkParser(),
                 new RegistryParser()
         );
-    }
-
-    private Path normalizeSave(Path savePath) {
-        Path save = java.util.Objects.requireNonNull(
-                savePath,
-                "savePath is required"
-        ).toAbsolutePath().normalize();
-        if (!Files.isRegularFile(save)) {
-            throw new IllegalArgumentException(
-                    "save must be an existing regular file: " + save
-            );
-        }
-        return save;
-    }
-
-    private Path normalizeOutputRoot(
-            Path save,
-            Path outputRoot
-    ) {
-        Path root = java.util.Objects.requireNonNull(
-                outputRoot,
-                "outputRoot is required"
-        ).toAbsolutePath().normalize();
-        Path sourceDirectory = java.util.Objects.requireNonNull(
-                save.getParent(),
-                "save parent is required"
-        );
-        if (root.equals(save) || root.startsWith(sourceDirectory)) {
-            throw new IllegalArgumentException(
-                    "PF-2.8 outputRoot must be outside the source save directory"
-            );
-        }
-        try {
-            Files.createDirectories(root);
-        } catch (IOException exception) {
-            throw new IllegalStateException(
-                    "Cannot create PF-2.8 output root: " + root,
-                    exception
-            );
-        }
-        return root;
-    }
-
-    private void requireFreshCacheRoot(Path cacheRoot) {
-        if (Files.exists(cacheRoot)) {
-            throw new IllegalArgumentException(
-                    "PF-2.8 requires a fresh cold cache root; already exists: "
-                            + cacheRoot
-            );
-        }
     }
 
     private long elapsedSince(long start) {
