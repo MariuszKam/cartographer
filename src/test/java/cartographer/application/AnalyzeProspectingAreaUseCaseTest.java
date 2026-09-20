@@ -1,8 +1,11 @@
 package cartographer.application;
 
+import cartographer.geology.rock.RockCatalog;
 import cartographer.geology.rock.RockColumnSample;
 import cartographer.geology.rock.RockIdentity;
 import cartographer.geology.rock.RockMap;
+import cartographer.geology.rock.RockMapAssembler;
+import cartographer.geology.rock.RockMapMode;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
@@ -177,21 +180,39 @@ class AnalyzeProspectingAreaUseCaseTest {
             implements ActualOreObservationProvider, FusedProspectingObservationProvider {
         private final AtomicInteger sessionCalls = new AtomicInteger();
         private List<String> lastResources = List.of();
-        private final RockMap rockMap = new RockMap(
-                new WorldPosition(16, 0, 16),
-                16,
-                List.of(RockColumnSample.observed(
-                        16,
-                        16,
-                        new RockIdentity(
-                                7,
-                                "game:rock-granite",
-                                "game",
-                                "granite"
-                        ),
-                        5
-                ))
-        );
+        private final RockMap rockMap = createRockMap();
+
+        private static RockMap createRockMap() {
+            RockIdentity granite = new RockIdentity(
+                    7,
+                    "game:rock-granite",
+                    "game",
+                    "granite"
+            );
+            RockMapAssembler assembler = new RockMapAssembler(
+                    new WorldPosition(16, 0, 16),
+                    16,
+                    0,
+                    64,
+                    RockMapMode.UPPER_ROCK,
+                    RockCatalog.from(Map.of(
+                            granite.blockId(),
+                            new BlockInfo(
+                                    granite.blockId(),
+                                    granite.code()
+                            )
+                    ))
+            );
+            assembler.accept(
+                    RockColumnSample.observed(
+                            16,
+                            16,
+                            granite,
+                            5
+                    )
+            );
+            return assembler.finish();
+        }
 
         @Override
         public boolean observed(
