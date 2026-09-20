@@ -29,7 +29,7 @@ class Pf28SnapshotValidationReportTest {
                 new Pf28SnapshotValidationReport(
                         SHA,
                         "revision",
-                        true,
+                        completeColdCoverage(),
                         100L,
                         Pf18ResourceEvidence.unavailable(),
                         new SaveSafetyResult(
@@ -45,6 +45,38 @@ class Pf28SnapshotValidationReportTest {
                 );
 
         assertTrue(report.accepted(), report.render());
+    }
+
+    @Test
+    void rejectsIncompleteColdSnapshotCoverage() {
+        Pf28SnapshotValidationReport report =
+                new Pf28SnapshotValidationReport(
+                        SHA,
+                        "revision",
+                        new Pf28ColdSnapshotCoverage(
+                                100,
+                                true,
+                                true,
+                                false,
+                                true,
+                                true,
+                                true
+                        ),
+                        100L,
+                        Pf18ResourceEvidence.unavailable(),
+                        new SaveSafetyResult(
+                                SaveSafetyStatus.PASS,
+                                List.of()
+                        ),
+                        true,
+                        List.of(
+                                accepted(1024),
+                                accepted(2048),
+                                accepted(4096)
+                        )
+                );
+
+        assertFalse(report.accepted());
     }
 
     @Test
@@ -71,7 +103,7 @@ class Pf28SnapshotValidationReportTest {
                 new Pf28SnapshotValidationReport(
                         SHA,
                         "revision",
-                        true,
+                        completeColdCoverage(),
                         100L,
                         Pf18ResourceEvidence.unavailable(),
                         new SaveSafetyResult(
@@ -113,7 +145,7 @@ class Pf28SnapshotValidationReportTest {
                 new Pf28SnapshotValidationReport(
                         SHA,
                         "revision",
-                        true,
+                        completeColdCoverage(),
                         100L,
                         Pf18ResourceEvidence.unavailable(),
                         new SaveSafetyResult(
@@ -137,7 +169,7 @@ class Pf28SnapshotValidationReportTest {
                 new Pf28SnapshotValidationReport(
                         SHA,
                         "revision",
-                        true,
+                        completeColdCoverage(),
                         100L,
                         Pf18ResourceEvidence.unavailable(),
                         new SaveSafetyResult(
@@ -162,7 +194,7 @@ class Pf28SnapshotValidationReportTest {
                 new Pf28SnapshotValidationReport(
                         SHA,
                         "revision",
-                        true,
+                        completeColdCoverage(),
                         100L,
                         Pf18ResourceEvidence.unavailable(),
                         new SaveSafetyResult(
