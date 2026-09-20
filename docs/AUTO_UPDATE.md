@@ -327,3 +327,151 @@ Before Stage 3 is considered validated:
 
 Stage 3 completion does not prove Windows installation or restart behavior.
 Those are Stage 4 concerns.
+
+
+## Stage 4: Install & Restart
+
+Stage 4 turns a Stage 3 `READY` installer into a controlled Windows upgrade.
+It deliberately delegates application replacement to the existing jpackage
+installer instead of modifying installed JAR/runtime files itself.
+
+### S4.1 Re-verify before installation
+
+`UpdateInstallService` re-validates the staged EXE against the manifest size
+and SHA-256 immediately before starting the bootstrap.
+
+The shared `UpdateInstallerVerifier` is used by both Stage 3 download
+promotion and Stage 4 install launch. A missing or changed installer fails
+closed and returns the UI to a download-retry state.
+
+The external bootstrap independently repeats the size and SHA-256 verification
+after the current Cartographer process has exited. This closes the integrity
+window between the in-process verification and actual installer execution.
+
+### S4.2 External Windows bootstrap
+
+The updater bootstrap is generated under Cartographer-owned state:
+
+```text
+~/.vs-cartographer/updates/bootstrap/install-update.ps1
+```
+
+It is outside the installed application directory so the jpackage installer is
+not asked to replace files used by the bootstrap itself.
+
+Restart-and-update is available only when the current process resolves to the
+packaged launcher:
+
+```text
+VS Cartographer.exe
+```
+
+Development runs through `java.exe` / Gradle `runGui` therefore fail safely
+instead of attempting to update an arbitrary Java process.
+
+### S4.3 Wait for the application process
+
+The bootstrap receives the exact current process ID and uses the Windows
+process lifecycle as its synchronization boundary:
+
+```text
+start bootstrap
+    -> application requests Platform.exit()
+    -> Application.stop() cancels Workstation operations and update work
+    -> process exits
+    -> bootstrap Wait-Process completes
+```
+
+No timer or guessed sleep is used to decide that Cartographer has probably
+closed.
+
+### S4.4 Installer execution and result
+
+After the process exit and the second integrity check, PowerShell starts the
+verified jpackage EXE with `-PassThru -Wait`.
+
+The bootstrap records the installer result under:
+
+```text
+~/.vs-cartographer/updates/bootstrap/result.properties
+```
+
+The result distinguishes:
+
+```text
+SUCCESS
+INTEGRITY_CHECK_FAILED
+INSTALLER_FAILED
+BOOTSTRAP_FAILED
+```
+
+and includes the target application version and installer exit code. The next
+Cartographer launch consumes this small result once; malformed/stale result
+data never blocks application startup.
+
+### S4.5 Relaunch
+
+After installer completion the bootstrap attempts to start the same packaged
+`VS Cartographer.exe` path that launched the update.
+
+A successful recorded install is accepted by the UI only when the running
+application version is at least the recorded target version. If the installer
+reported success but the old version is still running, the application reports
+the mismatch instead of pretending the upgrade succeeded.
+
+### S4.6 Desktop UX and failure behavior
+
+Stage 3 `Ready <version>` becomes an explicit user action:
+
+```text
+Restart & update
+```
+
+The application does not silently install in the background.
+
+Before shutdown the UI shows a preparing state. If bootstrap startup fails, the
+verified installer remains retryable. If the installer is no longer valid, the
+ready state is discarded and the normal Stage 3 download path must verify or
+download it again.
+
+A failed bootstrap/installer outcome is shown on the next launch without
+preventing normal local application use or update checks.
+
+### Stage 4 safety boundaries
+
+Stage 4 does not:
+
+```text
+overwrite installed application files directly
+modify Vintage Story .vcdbs saves
+delete Cartographer user configuration
+force an update
+perform silent installation
+implement automatic rollback
+support beta/prerelease channels
+support delta patching
+```
+
+The existing jpackage Windows upgrade UUID remains the authority for replacing
+a compatible installed VS Cartographer version.
+
+## Stage 4 validation gates
+
+Stage 4 implementation is not considered runtime validated until all of the
+following are checked on the exact final Stage 4 candidate:
+
+1. independent controller review of the exact branch/PR diff;
+2. green Gradle test suite;
+3. packaged Windows launch detects and securely downloads a controlled newer
+   stable release;
+4. `Restart & update` closes the old process, runs the installer only after
+   process exit, and relaunches the application;
+5. the relaunched application reports the new runtime version;
+6. installer cancellation/failure does not claim success and remains
+   recoverable on the next launch;
+7. tampering with the staged installer between Ready and execution is rejected;
+8. Cartographer-owned configuration remains present across the upgrade.
+
+Vintage Story save-integrity, shortcuts/uninstall, and the complete
+old-version-to-new-version release campaign remain part of Stage 5 final
+validation. Static implementation alone is not a Stage 4 runtime PASS.
