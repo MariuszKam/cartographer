@@ -245,9 +245,21 @@ Performance work follows this order:
    justified;
 8. shard CI only if simpler process-level parallelism is insufficient.
 
-Do not set permanent numeric budgets before measuring representative baselines.
-Once budgets are adopted, they must be based on observed CI behavior and must
-not encourage weakening correctness.
+The current representative baseline is roughly twenty seconds for the complete
+1100+ test suite on the Windows CI runner, with the slowest class around a few
+seconds after the SQLite fixture refactor.
+
+`testPerformanceBudget` deliberately uses coarse regression limits rather than
+microbenchmark thresholds:
+
+- complete suite: at most 60 seconds;
+- individual test class: at most 15 seconds;
+- at least 1100 tests must execute;
+- zero failed and zero skipped tests.
+
+These limits are intentionally much wider than normal run-to-run noise. Their
+purpose is to catch structural regressions such as accidentally restoring
+row-by-row autocommit fixture setup, not to fail CI over minor runner variance.
 
 ## Parallel execution strategy
 
@@ -279,6 +291,7 @@ The repository provides these TEST-PERF tasks:
 ```text
 testArchitectureAudit
 testArchitectureGuard
+testPerformanceBudget
 testParallelProbe
 testSerial
 testIntegration
@@ -292,19 +305,19 @@ testGui
 The audit summary is triage evidence, not a static proof that a test is safe.
 It assigns each file one of three review priorities:
 
-- `HIGH` when a signal points at likely cross-test interference or forbidden
-  synchronization, such as filesystem/SQLite mutation without `@TempDir`,
-  process-global mutation, mutable static state, network fixtures, sleeps, or
-  unbounded thread joins;
-- `REVIEW` when the file contains stateful infrastructure that still requires
-  human inspection, but the static scan has not found a high-priority reason;
-- `INFO` when the current findings are informational only.
+- `HIGH` for patterns that violate the current isolation contract, including
+  filesystem or SQLite mutation without `@TempDir`, process-global default or
+  system-property mutation, mutable static test state, sleep-based
+  synchronization, unbounded `Thread.join()`, or thread/executor/network
+  fixtures that have not been explicitly categorized;
+- `REVIEW` for explicitly categorized concurrency/resource behavior that
+  still deserves human inspection, such as owned thread creation;
+- `INFO` for owned fixture behavior such as filesystem/SQLite mutation under
+  `@TempDir`, category annotations, and other non-blocking evidence.
 
-`testArchitectureGuard` is the enforceable subset of that contract. It fails
-the build when test sources introduce sleep-based synchronization or an
-unbounded `Thread.join()`. These patterns are forbidden rather than merely
-reported because they conflict directly with the deterministic concurrency
-rules above.
+`testArchitectureGuard` enforces the generated triage. Any `HIGH` row fails
+the build. This keeps the audit and the gate on one source of truth instead of
+maintaining a smaller independent regex deny-list.
 
 Large SQLite fixture populations must be inserted inside an explicit
 transaction and should use JDBC batching. Repeating one auto-committed insert
@@ -339,9 +352,10 @@ The normal pull-request correctness gate is the complete
 `test` task.
 
 Pull-request CI has exactly one test job. That job performs the architecture
-audit and guard, runs the complete test suite once with the selected one-worker
-topology, retains timing/JUnit evidence, and then performs the existing tooling
-syntax validation.
+audit and guard, runs `testPerformanceBudget` (which executes the complete
+suite once with the selected one-worker topology and validates the coarse
+performance/completeness budget), retains timing/JUnit evidence, and then
+performs the existing tooling syntax validation.
 
 Topology matrices and repeated stress campaigns are diagnostic techniques, not
 normal PR checks. They may be run deliberately when test architecture changes,
