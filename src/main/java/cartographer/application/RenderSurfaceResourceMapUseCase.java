@@ -211,9 +211,33 @@ public class RenderSurfaceResourceMapUseCase {
     ) {
         Objects.requireNonNull(request, "request is required");
         Objects.requireNonNull(progress, "progress is required");
-        try (SaveSession session = sessionFactory.open(request.savePath())) {
-            return execute(session, request, progress);
-        }
+
+        PreparedMapData prepared = mapDataUseCase.execute(
+                new PrepareMapDataRequest(
+                        request.savePath(),
+                        request.radius(),
+                        request.pixelsPerBlock(),
+                        request.style(),
+                        request.layers(),
+                        request.center(),
+                        true
+                ),
+                progress
+        );
+        WorldMetadata metadata = prepared.metadata();
+        RenderOptions options = prepared.options();
+        HomeState home = absoluteHome(request.savePath(), metadata);
+        MapDecorationState decorations =
+                decorationState(request.savePath(), home, options);
+        return renderPrepared(
+                request,
+                prepared,
+                decorations,
+                prepared.mapChunkDiagnostics(),
+                prepared.chunkDiagnostics(),
+                prepared.renderDataCacheReport(),
+                progress
+        );
     }
 
     public RenderSurfaceResourceMapResult execute(
