@@ -80,11 +80,22 @@ jobs:
         run: powershell -ExecutionPolicy Bypass -File .\tools\validate-windows-release.ps1 -Mode Artifacts
 
       - name: Generate stable update manifest
-        if: github.event_name == 'push'
         shell: pwsh
         run: |
+          $versionLine = Get-Content -LiteralPath "gradle.properties" |
+            Where-Object { $_ -match "^version=(.+)$" }
+          if (@($versionLine).Count -ne 1) {
+              throw "gradle.properties must contain exactly one version entry"
+          }
+          $version = ($versionLine -replace "^version=", "").Trim()
+          $releaseTag = if ($env:GITHUB_EVENT_NAME -eq "push") {
+              $env:GITHUB_REF_NAME
+          } else {
+              "v$version"
+          }
+
           .\gradlew.bat generateUpdateManifest `
-            -PreleaseTag="$env:GITHUB_REF_NAME" `
+            -PreleaseTag="$releaseTag" `
             -PreleaseRepository="$env:GITHUB_REPOSITORY"
 
       - name: Upload Windows release artifacts
