@@ -7,6 +7,7 @@ import cartographer.application.RenderRockMapResult;
 import cartographer.application.RenderRockMapUseCase;
 import cartographer.model.ChunkPosition;
 import cartographer.model.WorldPosition;
+import cartographer.perf.RenderDataCacheStore;
 import cartographer.render.PngWriter;
 import cartographer.render.RockLegendEntry;
 import cartographer.render.RockMapRenderer;
@@ -18,6 +19,7 @@ import cartographer.save.WorldMetadataReader;
 import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 
 public final class RockCommand implements Command {
@@ -51,6 +53,39 @@ public final class RockCommand implements Command {
                         new SqliteSaveConnection(), reader, metadataReader
                 )
         );
+    }
+
+    public RockCommand(
+            PrintStream out,
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            RockMapRenderer renderer,
+            PngWriter pngWriter,
+            RenderDataCacheStore renderDataCacheStore,
+            String subcommand
+    ) {
+        this.out = Objects.requireNonNull(out, "out is required");
+        this.reader = Objects.requireNonNull(reader, "reader is required");
+        this.metadataReader = Objects.requireNonNull(
+                metadataReader,
+                "metadataReader is required"
+        );
+        this.useCase = renderer == null
+                ? null
+                : new RenderRockMapUseCase(
+                        reader,
+                        metadataReader,
+                        renderer,
+                        Objects.requireNonNull(
+                                renderDataCacheStore,
+                                "render data cache store is required"
+                        )
+                );
+        this.pngWriter = Objects.requireNonNull(
+                pngWriter,
+                "pngWriter is required"
+        );
+        this.subcommand = subcommand;
     }
 
     RockCommand(
