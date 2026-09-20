@@ -30,6 +30,11 @@ class ResourceChunkBatchIndexerTest {
 
         ResourceChunkBatchIndexer indexer =
                 new ResourceChunkBatchIndexer(
+                        new cartographer.model.WorldMetadata(
+                                256,
+                                64,
+                                256
+                        ),
                         List.of(
                                 decodedPosition,
                                 rejectedPosition,
@@ -110,6 +115,54 @@ class ResourceChunkBatchIndexerTest {
                 ResourceChunkCoverageStatus.FAILED,
                 entries.get(failedPosition).coverageStatus()
         );
+    }
+
+    @Test
+    void ignoresDecodedOreOutsidePartialWorldEdge() {
+        ResourceBlockCatalog catalog = ResourceBlockCatalog.from(Map.of(
+                2, new BlockInfo(2, "game:ore-nativecopper-granite")
+        ));
+        ChunkPosition position = new ChunkPosition(1, 1, 1, 0);
+        ResourceChunkBatchIndexer indexer =
+                new ResourceChunkBatchIndexer(
+                        new cartographer.model.WorldMetadata(
+                                33,
+                                33,
+                                33
+                        ),
+                        List.of(position),
+                        catalog
+                );
+
+        int size = ChunkCoordinate.SIZE_BLOCKS;
+        int[] blocks = new int[size * size * size];
+        int[] liquids = new int[blocks.length];
+        Arrays.fill(blocks, 1);
+        set(blocks, size, 0, 0, 0, 2);
+        set(blocks, size, 1, 1, 1, 2);
+
+        indexer.accept(
+                SelectiveChunkVisit.decoded(
+                        position,
+                        new ParsedChunk(
+                                new ChunkCoordinate(1, 1, 1),
+                                32,
+                                size,
+                                size,
+                                size,
+                                blocks,
+                                liquids,
+                                2
+                        )
+                )
+        );
+
+        ResourceChunkIndexEntry entry = indexer.finish().getFirst();
+        assertEquals(1, entry.occurrences().size());
+        ResourceOccurrence occurrence = entry.occurrences().getFirst();
+        assertEquals(0, occurrence.localX());
+        assertEquals(0, occurrence.localZ());
+        assertEquals(1L, occurrence.localYMask());
     }
 
     private ParsedChunk chunkWithOre(ChunkPosition position) {
