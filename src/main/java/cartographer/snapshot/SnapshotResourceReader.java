@@ -211,12 +211,31 @@ public final class SnapshotResourceReader {
 
             Set<Integer> observedIds = new LinkedHashSet<>();
             if (!union.isEmpty()) {
+                long radiusSquared = (long) radius * radius;
                 for (ResourceOccurrence occurrence :
                         store.orElseThrow().readOccurrences(
                                 positions,
                                 union
                         )) {
-                    observedIds.add(occurrence.blockId());
+                    int worldX = Math.addExact(
+                            Math.multiplyExact(
+                                    occurrence.position().x(),
+                                    32
+                            ),
+                            occurrence.localX()
+                    );
+                    int worldZ = Math.addExact(
+                            Math.multiplyExact(
+                                    occurrence.position().z(),
+                                    32
+                            ),
+                            occurrence.localZ()
+                    );
+                    long dx = (long) worldX - centerWorldX;
+                    long dz = (long) worldZ - centerWorldZ;
+                    if (dx * dx + dz * dz <= radiusSquared) {
+                        observedIds.add(occurrence.blockId());
+                    }
                 }
             }
 
