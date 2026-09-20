@@ -386,6 +386,9 @@ requested evidence directory. It then:
 - runs one full `PrepareWorldSnapshotUseCase` cold build;
 - records cold elapsed time plus process CPU, peak-heap and GC evidence where
   the platform exposes those counters;
+- records per-layer cold HIT/publish counters and requires zero derived HITs
+  for Terrain, Surface, mapregion, UPPER_ROCK and resource chunks, proving the
+  fresh campaign actually performed a cold snapshot build;
 - requires the resulting Terrain, Surface, mapregion, UPPER_ROCK and resource
   snapshot coverage to be complete;
 - renders Map + Surface at R1024, R2048 and R4096 through the PF-2.6 snapshot
