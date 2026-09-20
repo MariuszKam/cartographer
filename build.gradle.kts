@@ -266,8 +266,9 @@ tasks.register("testArchitectureAudit") {
     }
 }
 
-fun Test.attachClassTimingReport(reportFileName: String) {
-    val durations = ConcurrentHashMap<String, Long>()
+fun Test.attachTimingReports(reportPrefix: String) {
+    val classDurations = ConcurrentHashMap<String, Long>()
+    val methodDurations = ConcurrentHashMap<String, Long>()
 
     addTestListener(object : TestListener {
         override fun beforeSuite(suite: TestDescriptor) = Unit
@@ -275,31 +276,65 @@ fun Test.attachClassTimingReport(reportFileName: String) {
         override fun afterSuite(suite: TestDescriptor, result: TestResult) {
             val className = suite.className
             if (className != null && suite.parent?.className == null) {
-                durations[className] = result.endTime - result.startTime
+                classDurations[className] = result.endTime - result.startTime
             }
 
             if (suite.parent == null) {
-                val output = layout.buildDirectory
-                    .file("reports/test-performance/$reportFileName")
+                val reportDirectory = layout.buildDirectory
+                    .dir("reports/test-performance")
                     .get()
                     .asFile
-                output.parentFile.mkdirs()
-                output.bufferedWriter().use { writer ->
+                reportDirectory.mkdirs()
+
+                val classOutput = File(
+                    reportDirectory,
+                    "$reportPrefix-class-timings.csv"
+                )
+                classOutput.bufferedWriter().use { writer ->
                     writer.appendLine("class,durationMs")
-                    durations.entries
+                    classDurations.entries
                         .sortedByDescending { it.value }
                         .forEach { (testClass, durationMs) ->
                             writer.appendLine("$testClass,$durationMs")
                         }
                 }
 
-                logger.lifecycle("Test timing report: ${output.absolutePath}")
-                durations.entries
+                val methodOutput = File(
+                    reportDirectory,
+                    "$reportPrefix-method-timings.csv"
+                )
+                methodOutput.bufferedWriter().use { writer ->
+                    writer.appendLine("test,durationMs")
+                    methodDurations.entries
+                        .sortedByDescending { it.value }
+                        .forEach { (testName, durationMs) ->
+                            writer.appendLine("$testName,$durationMs")
+                        }
+                }
+
+                logger.lifecycle(
+                    "Test class timing report: ${classOutput.absolutePath}"
+                )
+                classDurations.entries
                     .sortedByDescending { it.value }
                     .take(20)
                     .forEachIndexed { index, entry ->
                         logger.lifecycle(
-                            "TEST-TIMING #${index + 1} ${entry.value} ms ${entry.key}"
+                            "TEST-CLASS-TIMING #${index + 1} " +
+                                "${entry.value} ms ${entry.key}"
+                        )
+                    }
+
+                logger.lifecycle(
+                    "Test method timing report: ${methodOutput.absolutePath}"
+                )
+                methodDurations.entries
+                    .sortedByDescending { it.value }
+                    .take(30)
+                    .forEachIndexed { index, entry ->
+                        logger.lifecycle(
+                            "TEST-METHOD-TIMING #${index + 1} " +
+                                "${entry.value} ms ${entry.key}"
                         )
                     }
             }
@@ -307,7 +342,14 @@ fun Test.attachClassTimingReport(reportFileName: String) {
 
         override fun beforeTest(testDescriptor: TestDescriptor) = Unit
 
-        override fun afterTest(testDescriptor: TestDescriptor, result: TestResult) = Unit
+        override fun afterTest(
+            testDescriptor: TestDescriptor,
+            result: TestResult
+        ) {
+            val className = testDescriptor.className ?: return
+            val testName = "$className#${testDescriptor.name}"
+            methodDurations[testName] = result.endTime - result.startTime
+        }
     })
 }
 
@@ -316,7 +358,7 @@ tasks.test {
     reports.junitXml.required.set(true)
     reports.html.required.set(true)
     maxParallelForks = 1
-    attachClassTimingReport("test-class-timings.csv")
+    attachTimingReports("test")
 }
 
 val detectedTestCpuCount = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
@@ -347,7 +389,7 @@ tasks.register<Test>("testParallelProbe") {
     maxParallelForks = configuredParallelProbeForks.get()
     reports.junitXml.required.set(true)
     reports.html.required.set(true)
-    attachClassTimingReport("test-parallel-probe-class-timings.csv")
+    attachTimingReports("test-parallel-probe")
 
     doFirst {
         logger.lifecycle(
