@@ -57,7 +57,8 @@ import java.util.Set;
 /**
  * PF-2 world preparation operation. PF-2.3 prepares revision-scoped Terrain
  * and Surface coverage; PF-2.4 extends the same snapshot with interpreted
- * mapregion state and UPPER_ROCK tiles.
+ * mapregion state and UPPER_ROCK tiles; PF-2.5 adds compact source-derived
+ * actual-resource membership/occurrence coverage.
  *
  * <p>The source save remains read-only and is owned by one operation-scoped
  * {@link SaveSession}. Source payloads and decoded chunks are never retained.
