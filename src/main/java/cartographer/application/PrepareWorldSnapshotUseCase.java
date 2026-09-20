@@ -182,6 +182,19 @@ public final class PrepareWorldSnapshotUseCase {
                 snapshot.upperRockTileStore();
         ResourceIndexStore resourceIndexStore =
                 snapshot.resourceIndexStore();
+        WorldSnapshotPreparationSummary previousSummary =
+                snapshot.preparationSummaryStore()
+                        .read()
+                        .orElseGet(() -> new WorldSnapshotPreparationSummary(
+                                snapshot.revisionHash(),
+                                0,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false,
+                                false
+                        ));
 
         ReadDiagnostics mapChunkDiagnostics = new ReadDiagnostics();
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
@@ -234,10 +247,10 @@ public final class PrepareWorldSnapshotUseCase {
                 observed.size(),
                 indexStore.mapChunkScanComplete(),
                 terrainComplete,
-                false,
-                false,
-                false,
-                false
+                previousSummary.surfaceCoverageComplete(),
+                previousSummary.mapRegionCoverageComplete(),
+                previousSummary.upperRockCoverageComplete(),
+                previousSummary.resourceIndexCoverageComplete()
         );
 
         List<List<MapChunkCoordinate>> batches =
@@ -276,9 +289,9 @@ public final class PrepareWorldSnapshotUseCase {
                 indexStore.mapChunkScanComplete(),
                 terrainComplete,
                 surfaceComplete,
-                false,
-                false,
-                false
+                previousSummary.mapRegionCoverageComplete(),
+                previousSummary.upperRockCoverageComplete(),
+                previousSummary.resourceIndexCoverageComplete()
         );
 
         ProgressReporter mapRegionProgress =
@@ -303,8 +316,8 @@ public final class PrepareWorldSnapshotUseCase {
                 terrainComplete,
                 surfaceComplete,
                 mapRegionComplete,
-                false,
-                false
+                previousSummary.upperRockCoverageComplete(),
+                previousSummary.resourceIndexCoverageComplete()
         );
 
         ProgressReporter rockProgress =
@@ -329,7 +342,7 @@ public final class PrepareWorldSnapshotUseCase {
                 surfaceComplete,
                 mapRegionComplete,
                 upperRockComplete,
-                false
+                previousSummary.resourceIndexCoverageComplete()
         );
 
         ProgressReporter resourceProgress =
