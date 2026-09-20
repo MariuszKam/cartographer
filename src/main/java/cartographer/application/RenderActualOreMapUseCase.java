@@ -274,7 +274,7 @@ public class RenderActualOreMapUseCase {
         Objects.requireNonNull(progress, "progress is required");
 
         Optional<RenderActualOreMapResult> snapshot =
-                executeSnapshotBaseMap(request, progress);
+                executeSnapshotMap(request, progress);
         if (snapshot.isPresent()) {
             return snapshot.orElseThrow();
         }
@@ -284,16 +284,10 @@ public class RenderActualOreMapUseCase {
         }
     }
 
-    private Optional<RenderActualOreMapResult> executeSnapshotBaseMap(
+    private Optional<RenderActualOreMapResult> executeSnapshotMap(
             RenderActualOreMapRequest request,
             ProgressReporter progress
     ) {
-        if (!request.oreOverlays().isEmpty()
-                || request.layers().contains(RenderLayer.ENVIRONMENT)
-                || request.layers().contains(RenderLayer.GEOLOGY)) {
-            return Optional.empty();
-        }
-
         boolean surfaceDataRequired =
                 request.layers().contains(RenderLayer.SURFACE)
                         || request.layers().contains(RenderLayer.SOIL_FERTILITY);
@@ -316,19 +310,41 @@ public class RenderActualOreMapUseCase {
 
         PreparedMapData prepared = preparedOptional.orElseThrow();
         WorldMetadata metadata = prepared.metadata();
+        WorldPosition player = prepared.player();
+        WorldPosition center = prepared.center();
         RenderOptions options = prepared.options();
+
+        Optional<MapRegionOverlayState> mapRegionState =
+                snapshotMapRegionState(
+                        request.savePath(),
+                        options,
+                        progress
+                );
+        if (mapRegionState.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Optional<List<ActualOreOverlayResult>> oreOverlays =
+                snapshotOreOverlays(
+                        request,
+                        prepared,
+                        progress
+                );
+        if (oreOverlays.isEmpty()) {
+            return Optional.empty();
+        }
+
         HomeState home = absoluteHome(request.savePath(), metadata);
         MapDecorationState decorations =
                 decorationState(request.savePath(), home, options);
         if (options.layers().contains(RenderLayer.MARKERS)
                 && !decorations.userMarkersAvailable()) {
-            return Optional.empty();
+            throw new IllegalStateException(
+                    "marker state is unavailable; full render cannot proceed"
+            );
         }
 
-        WorldPosition player = prepared.player();
-        WorldPosition center = prepared.center();
         SurfaceMapScanResult compactSurface = prepared.surface();
-
         progress.start("Rendering map from world snapshot");
         RenderedMap rendered = renderer.render(
                 center,
@@ -340,6 +356,47 @@ public class RenderActualOreMapUseCase {
                 options,
                 progress
         );
+
+        if (hasMapRegionOverlay(options)) {
+            progress.start("Painting snapshot map-region overlays");
+        }
+        OverlayRenderReport environmentOverlay = drawEnvironmentOverlay(
+                rendered,
+                center,
+                request.radius(),
+                options,
+                mapRegionState.orElseThrow()
+        );
+        OverlayRenderReport geologyOverlay = drawGeologyOverlay(
+                rendered,
+                center,
+                request.radius(),
+                options,
+                mapRegionState.orElseThrow()
+        );
+
+        List<ActualOreOverlayResult> actualOreOverlays =
+                oreOverlays.orElseThrow();
+        if (!actualOreOverlays.isEmpty()) {
+            progress.start("Painting actual ore from world snapshot");
+            actualOreOverlayPainter.paint(
+                    rendered.image(),
+                    actualOreOverlays,
+                    center,
+                    request.radius()
+            );
+        }
+
+        if ((hasMapRegionOverlay(options) || !actualOreOverlays.isEmpty())
+                && options.layers().contains(RenderLayer.MARKERS)) {
+            systemMarkerOverlayRenderer.draw(
+                    rendered.image(),
+                    center,
+                    player,
+                    decorations.home(),
+                    request.radius()
+            );
+        }
 
         int userMarkersDrawn = 0;
         if (options.layers().contains(RenderLayer.MARKERS)
@@ -353,31 +410,128 @@ public class RenderActualOreMapUseCase {
             );
         }
 
-        MapRegionOverlayState mapRegionState =
-                new MapRegionOverlayState(
-                        Optional.empty(),
-                        Optional.empty()
-                );
         progress.done("Rendered map from world snapshot");
         return Optional.of(new RenderActualOreMapResult(
                 rendered.image(),
                 rendered.geometry(),
                 rendered.report(),
                 compactSurface,
-                OverlayRenderReport.none(),
-                OverlayRenderReport.none(),
-                Optional.empty(),
+                environmentOverlay,
+                geologyOverlay,
+                actualOreOverlays.isEmpty()
+                        ? Optional.empty()
+                        : Optional.of(actualOreOverlays.getFirst().map()),
                 prepared.mapChunkDiagnostics(),
                 prepared.chunkDiagnostics(),
                 new ReadDiagnostics(),
                 new ReadDiagnostics(),
                 userMarkersDrawn,
-                List.of(),
+                actualOreOverlays,
                 prepared.renderDataCacheReport(),
                 Optional.of(prepared),
                 Optional.of(decorations),
-                Optional.of(mapRegionState)
+                Optional.of(mapRegionState.orElseThrow())
         ));
+    }
+
+    private Optional<MapRegionOverlayState> snapshotMapRegionState(
+            Path savePath,
+            RenderOptions options,
+            ProgressReporter progress
+    ) {
+        boolean environmentRequested =
+                options.layers().contains(RenderLayer.ENVIRONMENT);
+        boolean geologyRequested =
+                options.layers().contains(RenderLayer.GEOLOGY);
+        if (!environmentRequested && !geologyRequested) {
+            return Optional.of(new MapRegionOverlayState(
+                    Optional.empty(),
+                    Optional.empty()
+            ));
+        }
+        if (snapshotMapRegionReader.isEmpty()) {
+            return Optional.empty();
+        }
+
+        progress.start("Reading map-region overlays from world snapshot");
+        Optional<SnapshotMapRegionReader.Result> snapshot =
+                snapshotMapRegionReader.orElseThrow().read(savePath);
+        if (snapshot.isEmpty()) {
+            return Optional.empty();
+        }
+        SnapshotMapRegionReader.Result result = snapshot.orElseThrow();
+        return Optional.of(new MapRegionOverlayState(
+                environmentRequested
+                        ? Optional.of(result.environmentProfiles())
+                        : Optional.empty(),
+                geologyRequested
+                        ? Optional.of(result.geologySummaries())
+                        : Optional.empty()
+        ));
+    }
+
+    private Optional<List<ActualOreOverlayResult>> snapshotOreOverlays(
+            RenderActualOreMapRequest request,
+            PreparedMapData prepared,
+            ProgressReporter progress
+    ) {
+        List<ActualOreOverlaySpec> specs = request.oreOverlays();
+        if (specs.isEmpty()) {
+            return Optional.of(List.of());
+        }
+        if (snapshotResourceReader.isEmpty()) {
+            return Optional.empty();
+        }
+
+        List<ActualBlockMatchSpec> matches = specs.stream()
+                .map(spec -> new ActualBlockMatchSpec(
+                        spec.match(),
+                        spec.matchMode()
+                ))
+                .toList();
+        int centerX = checkedRound(prepared.center().x());
+        int centerZ = checkedRound(prepared.center().z());
+
+        progress.start("Reading actual ore from world snapshot");
+        Optional<List<ActualBlockMap>> maps =
+                snapshotResourceReader.orElseThrow().readMaps(
+                        request.savePath(),
+                        prepared.metadata(),
+                        prepared.registry(),
+                        centerX,
+                        centerZ,
+                        request.radius(),
+                        matches,
+                        request.yFilter()
+                );
+        if (maps.isEmpty() || maps.orElseThrow().size() != specs.size()) {
+            return Optional.empty();
+        }
+
+        List<ActualOreOverlayResult> result =
+                new java.util.ArrayList<>(specs.size());
+        for (int index = 0; index < specs.size(); index++) {
+            result.add(new ActualOreOverlayResult(
+                    specs.get(index),
+                    maps.orElseThrow().get(index)
+            ));
+        }
+        return Optional.of(List.copyOf(result));
+    }
+
+    private int checkedRound(double value) {
+        if (!Double.isFinite(value)) {
+            throw new IllegalArgumentException(
+                    "world center must be finite"
+            );
+        }
+        long rounded = Math.round(value);
+        if (rounded < Integer.MIN_VALUE || rounded > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException(
+                    "world center is outside the supported block range"
+            );
+        }
+        return (int) rounded;
     }
 
     public RenderActualOreMapResult execute(
