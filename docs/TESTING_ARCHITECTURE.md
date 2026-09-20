@@ -341,11 +341,22 @@ The normal PR correctness gate must not switch from `test` to
 `testParallelProbe` until the parallel-safety audit and repeated validation
 support that change.
 
-During TEST-PERF rollout, draft PR CI may run a fixed two-worker
-`testParallelProbe` *after* the complete serial `test` gate. This is
-validation evidence, not a replacement for the serial correctness gate. Probe
-JUnit XML/HTML and timing reports are retained as CI artifacts so test counts,
-failures, and elapsed time can be compared directly with the serial run.
+During TEST-PERF rollout, draft PR CI may run additional
+`testParallelProbe` evidence *after* the complete serial `test` gate. This
+is validation evidence, not a replacement for the serial correctness gate.
+
+The TEST-PERF branch currently uses an isolated topology matrix with
+1, 2, 3 and 4 Gradle worker JVMs. Each worker count runs on a fresh Windows
+runner and uploads its own JUnit and timing evidence. A summary job then checks
+that all topology runs executed the same test count with zero reported failures
+and emits one machine-readable `test-topology-summary.csv`.
+
+The topology matrix is intentionally scoped to the
+`test-perf-parallel-test-architecture` branch. It is measurement
+infrastructure, not a permanent four-run tax for every future pull request.
+Once repeated evidence selects a production topology, normal PR CI should keep
+only the smallest set of executions needed for correctness and regression
+detection.
 
 ## CI contract
 
