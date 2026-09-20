@@ -693,6 +693,38 @@ their own compatible coverage before avoiding source IO.
 PF-2.7 changes no Surface fallback ordering/scanning semantics and introduces
 no top-down early-stop fallback.
 
+### PF-2.8 cold-ingest / warm-render validation
+
+PF-2.8 adds one production validation harness over the PF-2.3–2.7 snapshot
+pipeline. It does not add another renderer, another source reader or another
+cache authority.
+
+The harness creates a fresh derived snapshot cache, performs one complete world
+prepare, and then compares snapshot-backed Map + Surface renders at R1024,
+R2048 and R4096 against source-authoritative renders of the same requests.
+
+For each warm render, a recording `SaveSessionLifecycleProbe` is injected into
+the existing source fallback factory. PASS requires zero source connections to
+be opened or closed, so the result is evidence of source-read elimination
+rather than an inference from status text.
+
+Correctness uses exact viewport geometry equality and SHA-256 fingerprinting of
+logical row-major ARGB pixels. Cold build and warm renders separately record
+elapsed time plus available process CPU, peak-heap and GC evidence.
+
+The campaign also protects the real save with before/after file and SQLite
+sidecar snapshots and executes an isolated revision-invalidation probe. The
+Gradle task depends on the full unit-test suite, preserving PF-2.7's
+deterministic cancellation tests as the automated cancellation gate.
+
+No timing or memory threshold is invented by PF-2.8. Factual resource values
+are comparison evidence; complete snapshot coverage, source safety, revision
+invalidation, source-read elimination and exact render parity are hard
+correctness gates.
+
+Runtime execution remains reviewer-controlled. Implementation alone does not
+mark PF-2.8 DONE.
+
 ## 14. Explicit non-goals and current boundaries
 
 - There is no global decoded-world cache.
