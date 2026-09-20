@@ -422,6 +422,25 @@ tasks.register<JavaExec>("pf28SnapshotValidation") {
     }
 }
 
+tasks.register<JavaExec>("pf3RenderSizedValidation") {
+    group = "verification"
+    description = "Runs PF-3 render-sized Map/Surface/ROCK integrated real-save validation"
+    dependsOn("test", "classes")
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("cartographer.perf.snapshot.Pf3RenderSizedValidationMain")
+    javaLauncher.set(jpackageJavaLauncher)
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    doFirst {
+        val save = project.findProperty("save")?.toString()
+            ?: throw GradleException("pf3RenderSizedValidation requires -Psave=<path>")
+        val gitSha = project.findProperty("gitSha")?.toString()
+            ?: throw GradleException("pf3RenderSizedValidation requires -PgitSha=<40-character-sha>")
+        val outputRoot = project.findProperty("outputRoot")?.toString()
+            ?: throw GradleException("pf3RenderSizedValidation requires -PoutputRoot=<fresh-evidence-directory>")
+        args(save, gitSha, outputRoot)
+    }
+}
+
 tasks.register<JavaExec>("runGui") {
     group = "application"
     description = "Launches the VS Cartographer desktop UI"
