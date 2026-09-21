@@ -6,7 +6,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class RenderLayerTest {
 
@@ -28,33 +28,15 @@ class RenderLayerTest {
     }
 
     @Test
-    void legacyWaterLayerMapsToSurface() {
-        Set<RenderLayer> layers =
-                RenderLayer.parse(
-                        "terrain,water,markers"
-                );
-
-        assertTrue(
-                layers.contains(
-                        RenderLayer.TERRAIN
-                )
-        );
-
-        assertTrue(
-                layers.contains(
-                        RenderLayer.SURFACE
-                )
-        );
-
-        assertTrue(
-                layers.contains(
-                        RenderLayer.MARKERS
-                )
+    void removedWaterAliasIsRejected() {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> RenderLayer.parse("terrain,water,markers")
         );
 
         assertEquals(
-                3,
-                layers.size()
+                "Unknown render layer: water",
+                exception.getMessage()
         );
     }
 

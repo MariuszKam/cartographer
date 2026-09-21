@@ -16,7 +16,6 @@ import cartographer.model.WorldPosition;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.ChunkDecodeWorkspace;
 import cartographer.parser.ChunkDecodeProfile;
-import cartographer.parser.ChunkPaletteProbe;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
@@ -2376,19 +2375,6 @@ public class VcdbsReader {
                         decoded.error()
                 )
         );
-    }
-
-    private boolean containsWantedBlock(
-            ChunkPaletteProbe palette,
-            int[] wantedBlockIds
-    ) {
-        for (int wantedBlockId : wantedBlockIds) {
-            if (palette.contains(wantedBlockId)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private ChunkDecodeOutcome decodeChunk(

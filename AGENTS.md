@@ -411,8 +411,7 @@ missing-data diagnostics
 Still missing for 1.0 completion:
 
 ```text
-explored-world spatial coverage index
-explored-region coverage visualization
+explored-world spatial coverage explored-region coverage visualization
 ```
 
 ---
@@ -582,11 +581,7 @@ markers list
 markers remove
 markers clear
 
-cache warm
-cache status
 
-incremental status
-incremental update
 
 atlas render
 

@@ -677,8 +677,5 @@ public class CommandRouter {
                 "Default map layers: terrain,surface,markers"
         );
 
-        out.println(
-                "Legacy layer alias: water -> surface"
-        );
     }
 }
