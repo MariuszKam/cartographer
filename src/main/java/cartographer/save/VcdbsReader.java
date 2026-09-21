@@ -69,7 +69,6 @@ public class VcdbsReader {
     private final SqliteSaveConnection connectionFactory;
     private final int chunkDecodeWorkerCount;
     private final int chunkDecodeMaxInFlight;
-    private final ChunkReadMetricsProbe chunkReadMetricsProbe;
     private final AtomicReference<ChunkReadMetrics> lastChunkReadMetrics =
             new AtomicReference<>();
     private final PackedPositionRunPlanner packedPositionRunPlanner =
@@ -2448,11 +2447,6 @@ public class VcdbsReader {
 
     private void recordChunkReadMetrics(ChunkReadMetrics metrics) {
         lastChunkReadMetrics.set(metrics);
-        try {
-            chunkReadMetricsProbe.record(metrics);
-        } catch (RuntimeException ignored) {
-            // Instrumentation must never change source-read correctness.
-        }
     }
 
     private long elapsedNanos(long startedAt) {
@@ -2631,28 +2625,7 @@ public class VcdbsReader {
                 registryParser,
                 connectionFactory,
                 defaultChunkDecodeWorkerCount(),
-                defaultChunkDecodeMaxInFlight(defaultChunkDecodeWorkerCount()),
-                ChunkReadMetricsProbe.NONE
-        );
-    }
-
-    public VcdbsReader(
-            PlayerDataParser playerDataParser,
-            MapChunkParser mapChunkParser,
-            ChunkParser chunkParser,
-            RegistryParser registryParser,
-            SqliteSaveConnection connectionFactory,
-            ChunkReadMetricsProbe chunkReadMetricsProbe
-    ) {
-        this(
-                playerDataParser,
-                mapChunkParser,
-                chunkParser,
-                registryParser,
-                connectionFactory,
-                defaultChunkDecodeWorkerCount(),
-                defaultChunkDecodeMaxInFlight(defaultChunkDecodeWorkerCount()),
-                chunkReadMetricsProbe
+                defaultChunkDecodeMaxInFlight(defaultChunkDecodeWorkerCount())
         );
     }
 
@@ -2672,8 +2645,7 @@ public class VcdbsReader {
                 registryParser,
                 connectionFactory,
                 chunkDecodeWorkerCount,
-                chunkDecodeMaxInFlight,
-                ChunkReadMetricsProbe.NONE
+                chunkDecodeMaxInFlight
         );
     }
 
@@ -2684,8 +2656,7 @@ public class VcdbsReader {
             RegistryParser registryParser,
             SqliteSaveConnection connectionFactory,
             int chunkDecodeWorkerCount,
-            int chunkDecodeMaxInFlight,
-            ChunkReadMetricsProbe chunkReadMetricsProbe
+            int chunkDecodeMaxInFlight
     ) {
         if (chunkDecodeWorkerCount <= 0) {
             throw new IllegalArgumentException(
@@ -2717,10 +2688,6 @@ public class VcdbsReader {
 
         this.chunkDecodeWorkerCount = chunkDecodeWorkerCount;
         this.chunkDecodeMaxInFlight = chunkDecodeMaxInFlight;
-        this.chunkReadMetricsProbe = Objects.requireNonNull(
-                chunkReadMetricsProbe,
-                "chunkReadMetricsProbe is required"
-        );
     }
 
     public Optional<ChunkReadMetrics> lastChunkReadMetrics() {
