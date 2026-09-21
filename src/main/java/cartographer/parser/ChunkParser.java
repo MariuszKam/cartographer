@@ -121,26 +121,6 @@ public class ChunkParser {
     }
 
     /** Palette probe directly from source protobuf bytes. */
-    public ParseResult<ChunkPaletteProbe> probeBlockPalette(
-            byte[] payload,
-            ChunkDecodeWorkspace workspace
-    ) {
-        Objects.requireNonNull(workspace, "workspace is required");
-        ParseResult<OwnedServerChunkPayload> parsedPayload =
-                parseOwnedPayload(payload);
-        if (!parsedPayload.isSuccess()) {
-            return ParseResult.failure(
-                    parsedPayload.error().orElse(
-                            "unable to parse ServerChunk"
-                    )
-            );
-        }
-        return probeBlockPaletteOwned(
-                parsedPayload.value().orElseThrow(),
-                workspace
-        );
-    }
-
     /**
      * Selective hot path: parse the protobuf once, inspect the block palette,
      * and only decode the full block layer when one of the wanted IDs exists.
@@ -310,30 +290,6 @@ public class ChunkParser {
         } catch (IllegalArgumentException exception) {
             return ParseResult.failure(
                     "blocksCompressed: "
-                            + exception.getMessage()
-            );
-        }
-    }
-
-    private ParseResult<ChunkPaletteProbe> probeBlockPaletteOwned(
-            OwnedServerChunkPayload serverChunk,
-            ChunkDecodeWorkspace workspace
-    ) {
-        try {
-            PayloadSlice blocks =
-                    serverChunk.blocksCompressed();
-            return ParseResult.success(
-                    layerDecoder.probePalette(
-                            blocks.source(),
-                            blocks.offset(),
-                            blocks.length(),
-                            serverChunk.savedCompressionVersion(),
-                            workspace
-                    )
-            );
-        } catch (IllegalArgumentException exception) {
-            return ParseResult.failure(
-                    "blocksCompressed palette: "
                             + exception.getMessage()
             );
         }
