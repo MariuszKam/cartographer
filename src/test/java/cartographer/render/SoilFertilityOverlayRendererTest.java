@@ -2,12 +2,16 @@ package cartographer.render;
 
 import cartographer.application.ProgressReporter;
 import cartographer.model.BlockInfo;
-import cartographer.model.SurfaceBlock;
 import cartographer.model.SurfaceClass;
+import cartographer.model.WorldMetadata;
+import cartographer.scanner.SurfaceMap;
+import cartographer.scanner.SurfaceTileAccumulator;
+import cartographer.scanner.SurfaceTileLayout;
 import org.junit.jupiter.api.Test;
 
 import java.awt.image.BufferedImage;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -22,19 +26,12 @@ class SoilFertilityOverlayRendererTest {
     void waterObscuresOtherwiseClassifiableFarmland() {
         BufferedImage image = image();
 
-        int drawn = renderer.draw(
+        int drawn = draw(
                 image,
-                List.of(new SurfaceBlock(
-                        2, 80, 3,
-                        new BlockInfo(1, "game:farmland-moist-high"),
-                        2,
-                        new BlockInfo(2, "game:water-still-7"),
-                        SurfaceClass.WATER
-                )),
-                0,
-                0,
-                1.0,
-                ProgressReporter.NONE
+                new BlockInfo(1, "game:farmland-moist-high"),
+                2,
+                new BlockInfo(2, "game:water-still-7"),
+                SurfaceClass.WATER
         );
 
         assertEquals(0, drawn);
@@ -45,19 +42,12 @@ class SoilFertilityOverlayRendererTest {
     void snowDoesNotInferUnderlyingFertility() {
         BufferedImage image = image();
 
-        int drawn = renderer.draw(
+        int drawn = draw(
                 image,
-                List.of(new SurfaceBlock(
-                        2, 80, 3,
-                        new BlockInfo(1, "game:snowlayer-1"),
-                        0,
-                        BlockInfo.unknown(0),
-                        SurfaceClass.SNOW
-                )),
+                new BlockInfo(1, "game:snowlayer-1"),
                 0,
-                0,
-                1.0,
-                ProgressReporter.NONE
+                BlockInfo.unknown(0),
+                SurfaceClass.SNOW
         );
 
         assertEquals(0, drawn);
@@ -68,19 +58,12 @@ class SoilFertilityOverlayRendererTest {
     void farmlandStillRendersWhenSurfaceClassIsUnknown() {
         BufferedImage image = image();
 
-        int drawn = renderer.draw(
+        int drawn = draw(
                 image,
-                List.of(new SurfaceBlock(
-                        2, 80, 3,
-                        new BlockInfo(1, "game:farmland-moist-high"),
-                        0,
-                        BlockInfo.unknown(0),
-                        SurfaceClass.UNKNOWN
-                )),
+                new BlockInfo(1, "game:farmland-moist-high"),
                 0,
-                0,
-                1.0,
-                ProgressReporter.NONE
+                BlockInfo.unknown(0),
+                SurfaceClass.UNKNOWN
         );
 
         assertEquals(1, drawn);
@@ -91,23 +74,56 @@ class SoilFertilityOverlayRendererTest {
     void forestFloorStillRenders() {
         BufferedImage image = image();
 
-        int drawn = renderer.draw(
+        int drawn = draw(
                 image,
-                List.of(new SurfaceBlock(
-                        2, 80, 3,
-                        new BlockInfo(1, "game:forestfloor-7"),
-                        0,
-                        BlockInfo.unknown(0),
-                        SurfaceClass.FOREST_FLOOR
-                )),
+                new BlockInfo(1, "game:forestfloor-7"),
+                0,
+                BlockInfo.unknown(0),
+                SurfaceClass.FOREST_FLOOR
+        );
+
+        assertEquals(1, drawn);
+        assertNotEquals(BACKGROUND, image.getRGB(2, 3));
+    }
+
+    private int draw(
+            BufferedImage image,
+            BlockInfo block,
+            int liquidBlockId,
+            BlockInfo liquidBlock,
+            SurfaceClass surfaceClass
+    ) {
+        SurfaceTileLayout layout = SurfaceTileLayout.forSurface(
+                8,
+                8,
+                8,
+                new WorldMetadata(16, 256, 16)
+        );
+        SurfaceTileAccumulator accumulator =
+                new SurfaceTileAccumulator(layout);
+        accumulator.recordSurface(
+                2,
+                3,
+                80,
+                block.id(),
+                liquidBlockId,
+                surfaceClass
+        );
+        SurfaceMap surface = accumulator.finish();
+
+        Map<Integer, BlockInfo> registry = new HashMap<>();
+        registry.put(block.id(), block);
+        registry.put(liquidBlockId, liquidBlock);
+
+        return renderer.draw(
+                image,
+                surface,
+                registry,
                 0,
                 0,
                 1.0,
                 ProgressReporter.NONE
         );
-
-        assertEquals(1, drawn);
-        assertNotEquals(BACKGROUND, image.getRGB(2, 3));
     }
 
     private BufferedImage image() {
