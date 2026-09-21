@@ -104,7 +104,7 @@ public final class Pf18ProductionOperationFactory implements Pf18MacroOperationF
         WorldMetadataReader metadataReader = new WorldMetadataReader();
         Path root = cacheRoot == null ? stateRoot.resolve("authoritative") : cacheRoot;
         HomeStore home = new HomeStore(root.resolve("home.properties"));
-        MarkerStore markers = new MarkerStore(root.resolve("markers.csv"));
+        MarkerStore markers = new MarkerStore(root);
         SaveSessionFactory sessions = new SaveSessionFactory(
                 new SqliteSaveConnection(), reader, metadataReader);
         if (cacheRoot == null) {

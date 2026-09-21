@@ -98,7 +98,7 @@ public final class Pf28SnapshotValidationRunner {
         HomeStore homeStore =
                 new HomeStore(stateRoot.resolve("home.properties"));
         MarkerStore markerStore =
-                new MarkerStore(stateRoot.resolve("markers.csv"));
+                new MarkerStore(stateRoot);
 
         RecordingSqliteSaveConnection warmConnections =
                 new RecordingSqliteSaveConnection();

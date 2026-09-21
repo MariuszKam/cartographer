@@ -127,9 +127,9 @@ src/main/java/cartographer/
 │   ├── ResourceAnalyzer
 │   ├── ResourceHotspot
 │   ├── ResourceOverlayCell
-│   ├── SurfaceResourceAnalyzer
-│   ├── SurfaceResourceAnalysis
-│   ├── SurfaceResourceDeposit
+│   ├── SurfaceMaterialAnalyzer
+│   ├── SurfaceMaterialAnalysis
+│   ├── SurfaceMaterialDeposit
 │   └── SurfaceResourcePoint
 │
 ├── marker/

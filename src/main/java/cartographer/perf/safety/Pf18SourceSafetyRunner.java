@@ -167,7 +167,7 @@ public final class Pf18SourceSafetyRunner {
                 reader,
                 metadataReader,
                 new HomeStore(cacheRoot.resolve("pf18-state").resolve("home.properties")),
-                new MarkerStore(cacheRoot.resolve("pf18-state").resolve("markers.csv")),
+                new MarkerStore(cacheRoot.resolve("pf18-state")),
                 new MapRenderer(),
                 new UserMarkerRenderer(),
                 new cartographer.scanner.ActualBlockMapScanner(),
