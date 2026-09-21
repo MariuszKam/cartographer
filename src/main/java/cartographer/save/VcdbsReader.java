@@ -2638,26 +2638,6 @@ public class VcdbsReader {
             int chunkDecodeWorkerCount,
             int chunkDecodeMaxInFlight
     ) {
-        this(
-                playerDataParser,
-                mapChunkParser,
-                chunkParser,
-                registryParser,
-                connectionFactory,
-                chunkDecodeWorkerCount,
-                chunkDecodeMaxInFlight
-        );
-    }
-
-    VcdbsReader(
-            PlayerDataParser playerDataParser,
-            MapChunkParser mapChunkParser,
-            ChunkParser chunkParser,
-            RegistryParser registryParser,
-            SqliteSaveConnection connectionFactory,
-            int chunkDecodeWorkerCount,
-            int chunkDecodeMaxInFlight
-    ) {
         if (chunkDecodeWorkerCount <= 0) {
             throw new IllegalArgumentException(
                     "chunkDecodeWorkerCount must be positive"
