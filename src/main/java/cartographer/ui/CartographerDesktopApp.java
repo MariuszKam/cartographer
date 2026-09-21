@@ -29,7 +29,6 @@ import cartographer.resource.ResourceAnalyzer;
 import cartographer.resource.SurfaceMaterialAnalyzer;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
-import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.ui.update.DesktopUpdateController;
 import cartographer.update.ApplicationVersion;
 import cartographer.update.HttpUpdateInstallerSource;
@@ -268,7 +267,6 @@ public class CartographerDesktopApp extends Application {
                 new MarkerStore(config),
                 new MapRenderer(),
                 new UserMarkerRenderer(),
-                new ActualBlockMapScanner(),
                 new ActualOreOverlayPainter(),
                 renderDataCacheStore
         );

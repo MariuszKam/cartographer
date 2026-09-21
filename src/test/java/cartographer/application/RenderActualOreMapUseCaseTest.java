@@ -37,7 +37,6 @@ import cartographer.save.MapChunkStreamStats;
 import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
-import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockMatchMode;
 import cartographer.scanner.ActualBlockYFilter;
 import org.junit.jupiter.api.Test;
@@ -1557,7 +1556,6 @@ class RenderActualOreMapUseCaseTest {
                 new MarkerStore(markerPath),
                 new MapRenderer(),
                 new UserMarkerRenderer(),
-                new ActualBlockMapScanner(),
                 new ActualOreOverlayPainter(),
                 new cartographer.scanner.MultiActualBlockMapScanner(),
                 new OreChunkPositionPlanner(),
@@ -1590,7 +1588,6 @@ class RenderActualOreMapUseCaseTest {
                 new MarkerStore(markerPath),
                 new MapRenderer(),
                 new UserMarkerRenderer(),
-                new ActualBlockMapScanner(),
                 new ActualOreOverlayPainter(),
                 new cartographer.scanner.MultiActualBlockMapScanner(),
                 new OreChunkPositionPlanner(),
@@ -1619,7 +1616,7 @@ class RenderActualOreMapUseCaseTest {
         };
         return new RenderActualOreMapUseCase(
                 reader, metadataReader, new HomeStore(homePath), new MarkerStore(markerPath),
-                new MapRenderer(), new UserMarkerRenderer(), new ActualBlockMapScanner(),
+                new MapRenderer(), new UserMarkerRenderer(),
                 new ActualOreOverlayPainter(), new cartographer.scanner.MultiActualBlockMapScanner(),
                 new OreChunkPositionPlanner(),
                 new SaveSessionFactory(new TestConnectionFactory(), reader, metadataReader, probe)
