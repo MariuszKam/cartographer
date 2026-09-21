@@ -99,23 +99,6 @@ public final class RockMap {
         return Optional.of(materialize(index, worldX, worldZ));
     }
 
-    /**
-     * Test-oracle adapter: materializes samples on demand and never caches them.
-     * Production consumers must use compact indexed access instead.
-     */
-    List<RockColumnSample> columns() {
-        List<RockColumnSample> result = new ArrayList<>();
-        for (int row = 0; row < geometry.rowCount(); row++) {
-            int z = geometry.worldZForRow(row);
-            int start = geometry.rowStartX(row);
-            for (int i = 0; i < geometry.rowLength(row); i++) {
-                int x = Math.addExact(start, i);
-                sampleAt(x, z).ifPresent(result::add);
-            }
-        }
-        return List.copyOf(result);
-    }
-
     int packedStorageIdentityForTest() {
         return System.identityHashCode(layout.intBacked() ? intCells : longCells);
     }

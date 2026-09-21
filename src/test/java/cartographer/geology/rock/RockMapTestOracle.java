@@ -1,6 +1,5 @@
 package cartographer.geology.rock;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
@@ -11,11 +10,17 @@ final class RockMapTestOracle {
 
     static Snapshot snapshot(RockMap map) {
         Objects.requireNonNull(map, "map is required");
-        List<Cell> cells = map.columns().stream()
-                .sorted(Comparator.comparingInt(RockColumnSample::worldZ)
-                        .thenComparingInt(RockColumnSample::worldX))
-                .map(RockMapTestOracle::cell)
-                .toList();
+        java.util.ArrayList<Cell> cells = new java.util.ArrayList<>();
+        for (int row = 0; row < map.geometry().rowCount(); row++) {
+            int worldZ = map.geometry().worldZForRow(row);
+            int startX = map.geometry().rowStartX(row);
+            for (int offset = 0; offset < map.geometry().rowLength(row); offset++) {
+                int worldX = Math.addExact(startX, offset);
+                map.sampleAt(worldX, worldZ)
+                        .map(RockMapTestOracle::cell)
+                        .ifPresent(cells::add);
+            }
+        }
         return new Snapshot(
                 cells,
                 map.observedCount(),

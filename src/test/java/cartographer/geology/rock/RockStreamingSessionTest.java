@@ -29,7 +29,7 @@ class RockStreamingSessionTest {
         SelectiveChunkVisit upper = decoded(0, 1, 0, 8, 2);
         RockMap first = mapWith(List.of(lower, upper));
         RockMap second = mapWith(List.of(upper, lower));
-        assertEquals(first.columns(), second.columns());
+        assertEquals(RockMapTestOracle.snapshot(first), RockMapTestOracle.snapshot(second));
         assertEquals(RockColumnState.OBSERVED, first.stateAt(0, 0));
         assertEquals(40, first.rockYAt(0, 0).orElseThrow());
         assertEquals(SHALE.code(), first.sampleAt(0, 0).orElseThrow().rock().orElseThrow().code());
