@@ -26,8 +26,6 @@ import cartographer.render.RockLegendEntry;
 import cartographer.render.RockMapRenderResult;
 import cartographer.render.RockMapRenderer;
 import cartographer.save.SaveSessionFactory;
-import cartographer.save.SaveSessionLifecycleProbe;
-import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.snapshot.SnapshotUpperRockReader;
@@ -83,14 +81,13 @@ public final class Pf3RenderSizedValidationRunner {
         VcdbsReader reader = createReader();
         WorldMetadataReader metadataReader =
                 new WorldMetadataReader();
-        SaveSessionLifecycleProbe warmProbe =
-                SaveSessionLifecycleProbe.recording();
+        RecordingSqliteSaveConnection warmConnections =
+                new RecordingSqliteSaveConnection();
         SaveSessionFactory warmSessionFactory =
                 new SaveSessionFactory(
-                        new SqliteSaveConnection(),
+                        warmConnections,
                         reader,
-                        metadataReader,
-                        warmProbe
+                        metadataReader
                 );
         RenderRockMapUseCase warmRockUseCase =
                 new RenderRockMapUseCase(
@@ -108,7 +105,7 @@ public final class Pf3RenderSizedValidationRunner {
         for (int radius : RADII) {
             MeasuredRock warm = measureWarmRock(
                     warmRockUseCase,
-                    warmProbe,
+                    warmConnections,
                     resourceSampler,
                     save,
                     center,
@@ -163,7 +160,7 @@ public final class Pf3RenderSizedValidationRunner {
 
     private MeasuredRock measureWarmRock(
             RenderRockMapUseCase useCase,
-            SaveSessionLifecycleProbe probe,
+            RecordingSqliteSaveConnection connections,
             Pf18ResourceSampler resourceSampler,
             Path save,
             WorldPosition center,
@@ -178,8 +175,8 @@ public final class Pf3RenderSizedValidationRunner {
                 OptionalInt.empty(),
                 OptionalInt.empty()
         );
-        SaveSessionLifecycleProbe.Snapshot probeBefore =
-                probe.snapshot();
+        RecordingSqliteSaveConnection.Snapshot probeBefore =
+                connections.snapshot();
 
         long started = System.nanoTime();
         Pf18ResourceSampler.Measured<RenderRockMapResult> measured =
@@ -188,8 +185,8 @@ public final class Pf3RenderSizedValidationRunner {
                         ProgressReporter.NONE
                 ));
         long elapsed = elapsedSince(started);
-        SaveSessionLifecycleProbe.Snapshot probeAfter =
-                probe.snapshot();
+        RecordingSqliteSaveConnection.Snapshot probeAfter =
+                connections.snapshot();
 
         RenderRockMapResult result = measured.result();
         return new MeasuredRock(

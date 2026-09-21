@@ -393,7 +393,7 @@ requested evidence directory. It then:
   snapshot coverage to be complete;
 - renders Map + Surface at R1024, R2048 and R4096 through the PF-2.6 snapshot
   consumer path;
-- injects a recording `SaveSessionLifecycleProbe` into the warm renderer and
+- injects a validation-scoped `RecordingSqliteSaveConnection` into the warm renderer and
   requires exactly zero source SaveSession connections for every warm render;
 - renders the same request through the source-authoritative path and requires
   exact viewport-geometry and logical ARGB image-fingerprint parity;

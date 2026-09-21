@@ -722,8 +722,8 @@ Cold evidence includes per-layer HIT/publish counters; PASS requires zero
 Terrain, Surface, mapregion, UPPER_ROCK and resource-chunk HITs so the measured
 ingest cannot silently reuse derived artifacts.
 
-For each warm render, a recording `SaveSessionLifecycleProbe` is injected into
-the existing source fallback factory. PASS requires zero source connections to
+For each warm render, a validation-scoped `RecordingSqliteSaveConnection` is supplied to
+the existing source fallback `SaveSessionFactory`. PASS requires zero source connections to
 be opened or closed, so the lifecycle delta is the source-read-elimination
 proof rather than a status-text marker. Warm evidence also records requested
 versus HIT/proven-absent Terrain coverage and requested versus HIT Surface

@@ -27,8 +27,6 @@ import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.save.SaveSessionFactory;
-import cartographer.save.SaveSessionLifecycleProbe;
-import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMapScanner;
@@ -102,14 +100,13 @@ public final class Pf28SnapshotValidationRunner {
         MarkerStore markerStore =
                 new MarkerStore(stateRoot.resolve("markers.csv"));
 
-        SaveSessionLifecycleProbe warmProbe =
-                SaveSessionLifecycleProbe.recording();
+        RecordingSqliteSaveConnection warmConnections =
+                new RecordingSqliteSaveConnection();
         SaveSessionFactory warmSessionFactory =
                 new SaveSessionFactory(
-                        new SqliteSaveConnection(),
+                        warmConnections,
                         reader,
-                        metadataReader,
-                        warmProbe
+                        metadataReader
                 );
 
         RenderActualOreMapUseCase warmUseCase =
@@ -143,8 +140,8 @@ public final class Pf28SnapshotValidationRunner {
         List<Pf28WarmRenderSample> samples = new ArrayList<>();
         for (int radius : RADII) {
             RenderActualOreMapRequest request = request(save, radius);
-            SaveSessionLifecycleProbe.Snapshot probeBefore =
-                    warmProbe.snapshot();
+            RecordingSqliteSaveConnection.Snapshot probeBefore =
+                    warmConnections.snapshot();
 
             long warmStart = System.nanoTime();
             Pf18ResourceSampler.Measured<RenderActualOreMapResult> warm =
@@ -155,8 +152,8 @@ public final class Pf28SnapshotValidationRunner {
                             )
                     );
             long warmElapsed = elapsedSince(warmStart);
-            SaveSessionLifecycleProbe.Snapshot probeAfter =
-                    warmProbe.snapshot();
+            RecordingSqliteSaveConnection.Snapshot probeAfter =
+                    warmConnections.snapshot();
 
             long sourceStart = System.nanoTime();
             RenderActualOreMapResult source =
