@@ -12,45 +12,19 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.Optional;
+import java.util.Objects;
 
 public class MarkerStore {
 
-    private final Path legacyPath;
+    private final Path baseDirectory;
 
     public MarkerStore(
-            Path legacyPath
+            Path baseDirectory
     ) {
-        this.legacyPath =
-                legacyPath;
-    }
-
-    /*
-     * Legacy access kept so older unfinished code still compiles.
-     */
-    public List<UserMarker> load() {
-        return loadLegacy(
-                legacyPath
-        );
-    }
-
-    public void add(
-            UserMarker marker
-    ) {
-        List<UserMarker> markers =
-                new ArrayList<>(
-                        load()
-                );
-
-        replaceByName(
-                markers,
-                marker
-        );
-
-        writeLegacy(
-                legacyPath,
-                markers
-        );
+        this.baseDirectory = Objects.requireNonNull(
+                baseDirectory,
+                "baseDirectory is required"
+        ).toAbsolutePath().normalize();
     }
 
     /*
@@ -339,8 +313,6 @@ public class MarkerStore {
                         .toAbsolutePath()
                         .normalize();
 
-        Path baseDirectory = getBaseDirectory();
-
         String fileName =
                 normalized.getFileName() == null
                         ? "save"
@@ -368,23 +340,6 @@ public class MarkerStore {
                                 + "-"
                                 + hash
                                 + ".markers"
-                );
-    }
-
-    private Path getBaseDirectory() {
-        Path absoluteLegacy =
-                legacyPath
-                        .toAbsolutePath()
-                        .normalize();
-
-        return Optional.ofNullable(
-                        absoluteLegacy
-                                .getParent()
-                )
-                .orElse(
-                        Path.of(".")
-                                .toAbsolutePath()
-                                .normalize()
                 );
     }
 
@@ -524,144 +479,5 @@ public class MarkerStore {
         return output.toString();
     }
 
-    /*
-     * Legacy CSV support.
-     */
-    private List<UserMarker> loadLegacy(
-            Path path
-    ) {
-        if (!Files.exists(path)) {
-            return List.of();
-        }
 
-        try {
-            List<UserMarker> markers =
-                    new ArrayList<>();
-
-            for (String line :
-                    Files.readAllLines(
-                            path,
-                            StandardCharsets.UTF_8
-                    )) {
-
-                if (line.isBlank()) {
-                    continue;
-                }
-
-                String[] parts =
-                        line.split(
-                                ",",
-                                3
-                        );
-
-                if (parts.length == 3) {
-                    markers.add(
-                            new UserMarker(
-                                    legacyUnescape(
-                                            parts[2]
-                                    ),
-                                    Double.parseDouble(
-                                            parts[0]
-                                    ),
-                                    Double.parseDouble(
-                                            parts[1]
-                                    )
-                            )
-                    );
-                }
-            }
-
-            return List.copyOf(
-                    markers
-            );
-
-        } catch (IOException
-                 | NumberFormatException exception) {
-
-            throw new CommandException(
-                    "Cannot read legacy markers: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
-    }
-
-    private void writeLegacy(
-            Path path,
-            List<UserMarker> markers
-    ) {
-        try {
-            Path parent =
-                    path.getParent();
-
-            if (parent != null) {
-                Files.createDirectories(
-                        parent
-                );
-            }
-
-            StringBuilder content =
-                    new StringBuilder();
-
-            for (UserMarker marker : markers) {
-                content.append(
-                                marker.x()
-                        )
-                        .append(',')
-                        .append(
-                                marker.z()
-                        )
-                        .append(',')
-                        .append(
-                                legacyEscape(
-                                        marker.name()
-                                )
-                        )
-                        .append(
-                                System.lineSeparator()
-                        );
-            }
-
-            Files.writeString(
-                    path,
-                    content.toString(),
-                    StandardCharsets.UTF_8
-            );
-
-        } catch (IOException exception) {
-            throw new CommandException(
-                    "Cannot write legacy markers: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
-    }
-
-    private String legacyEscape(
-            String value
-    ) {
-        return value
-                .replace(
-                        "\\",
-                        "\\\\"
-                )
-                .replace(
-                        ",",
-                        "\\,"
-                );
-    }
-
-    private String legacyUnescape(
-            String value
-    ) {
-        return value
-                .replace(
-                        "\\,",
-                        ","
-                )
-                .replace(
-                        "\\\\",
-                        "\\"
-                );
-    }
 }

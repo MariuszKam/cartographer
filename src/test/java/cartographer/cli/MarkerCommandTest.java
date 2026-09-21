@@ -222,9 +222,7 @@ class MarkerCommandTest {
 
     private MarkerStore store() {
         return new MarkerStore(
-                tempDir.resolve(
-                        "markers.csv"
-                )
+                tempDir
         );
     }
 

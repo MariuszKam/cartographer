@@ -3,6 +3,7 @@ package cartographer.marker;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -161,6 +162,23 @@ class MarkerStoreTest {
     }
 
     @Test
+    void storesPerSaveFilesUnderConfigMarkerDirectory() throws Exception {
+        MarkerStore store = store();
+        Path savePath = tempDir.resolve("world.vcdbs");
+
+        store.put(
+                savePath,
+                new UserMarker("BASE", 10.0, 20.0)
+        );
+
+        Path markerDirectory = tempDir.resolve("markers");
+        assertTrue(Files.isDirectory(markerDirectory));
+        try (var files = Files.list(markerDirectory)) {
+            assertEquals(1L, files.count());
+        }
+    }
+
+    @Test
     void markersAreIsolatedBetweenDifferentSavePaths() {
         MarkerStore store =
                 store();
@@ -228,9 +246,7 @@ class MarkerStoreTest {
 
     private MarkerStore store() {
         return new MarkerStore(
-                tempDir.resolve(
-                        "markers.csv"
-                )
+                tempDir
         );
     }
 }

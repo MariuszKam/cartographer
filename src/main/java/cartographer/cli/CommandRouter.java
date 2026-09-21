@@ -132,9 +132,7 @@ public class CommandRouter {
 
         MarkerStore markerStore =
                 new MarkerStore(
-                        configDirectory.resolve(
-                                "markers.csv"
-                        )
+                        configDirectory
                 );
 
         Path cachePath =
