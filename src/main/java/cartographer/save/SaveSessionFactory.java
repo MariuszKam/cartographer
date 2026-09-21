@@ -18,7 +18,6 @@ public final class SaveSessionFactory {
     private final SqliteSaveConnection connectionFactory;
     private final VcdbsReader reader;
     private final WorldMetadataReader metadataReader;
-    private final SaveSessionLifecycleProbe lifecycleProbe;
 
     public SaveSessionFactory() {
         this(
@@ -29,8 +28,7 @@ public final class SaveSessionFactory {
                         new ChunkParser(),
                         new RegistryParser()
                 ),
-                new WorldMetadataReader(),
-                SaveSessionLifecycleProbe.noOp()
+                new WorldMetadataReader()
         );
     }
 
@@ -39,27 +37,14 @@ public final class SaveSessionFactory {
             VcdbsReader reader,
             WorldMetadataReader metadataReader
     ) {
-        this(connectionFactory, reader, metadataReader, SaveSessionLifecycleProbe.noOp());
-    }
-
-    public SaveSessionFactory(
-            SqliteSaveConnection connectionFactory,
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            SaveSessionLifecycleProbe lifecycleProbe
-    ) {
         this.connectionFactory = Objects.requireNonNull(connectionFactory, "connection factory is required");
         this.reader = Objects.requireNonNull(reader, "reader is required");
         this.metadataReader = Objects.requireNonNull(metadataReader, "metadata reader is required");
-        this.lifecycleProbe = Objects.requireNonNull(lifecycleProbe, "lifecycle probe is required");
     }
 
     public SaveSession open(Path savePath) {
         Path normalized = normalize(savePath);
-        Connection connection = lifecycleProbe.observe(
-                normalized,
-                connectionFactory.openReadOnly(normalized)
-        );
+        Connection connection = connectionFactory.openReadOnly(normalized);
         try {
             WorldMetadata metadata = metadataReader.read(connection, cartographer.application.ProgressReporter.NONE);
             Map<Integer, BlockInfo> registry = reader.readBlockRegistry(connection);
