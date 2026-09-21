@@ -5,7 +5,6 @@ import cartographer.model.ChunkCoordinate;
 import cartographer.model.DecodedChunkLayer;
 import cartographer.model.ParsedChunk;
 import cartographer.model.ParseResult;
-import cartographer.model.ServerChunkPayload;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -162,20 +161,21 @@ class ChunkParserTest {
     }
 
     @Test
-    void publicParsedPayloadRemainsDefensive() {
+    void hotPathDoesNotMutateSourcePayload() {
         byte[] blocks = encodedLayer(
                 new int[]{0, 11},
                 index -> index == 0 ? 1 : 0
         );
-        ServerChunkPayload payload = new ChunkParser()
-                .parsePayload(serverChunk(blocks, emptyLayer(), 2))
-                .value()
-                .orElseThrow();
+        byte[] source = serverChunk(blocks, emptyLayer(), 2);
+        byte[] original = source.clone();
 
-        byte[] exposed = payload.blocksCompressed();
-        exposed[0] ^= 0x7f;
+        ParseResult<ParsedChunk> result = new ChunkParser().parse(
+                new ChunkCoordinate(0, 0, 0),
+                source
+        );
 
-        assertArrayEquals(blocks, payload.blocksCompressed());
+        assertTrue(result.isSuccess());
+        assertArrayEquals(original, source);
     }
 
     @Test
@@ -362,7 +362,7 @@ class ChunkParserTest {
                 .array();
         assertFalse(parser.parse(
                 coordinate,
-                new ServerChunkPayload(minimum, emptyLayer(), 2),
+                serverChunk(minimum, emptyLayer(), 2),
                 ChunkDecodeProfile.BLOCKS_ONLY
         ).isSuccess());
 
@@ -372,7 +372,7 @@ class ChunkParserTest {
                 .array();
         assertFalse(parser.parse(
                 coordinate,
-                new ServerChunkPayload(oversizedRaw, emptyLayer(), 2),
+                serverChunk(oversizedRaw, emptyLayer(), 2),
                 ChunkDecodeProfile.BLOCKS_ONLY
         ).isSuccess());
 
@@ -382,7 +382,7 @@ class ChunkParserTest {
                 .array();
         assertFalse(parser.parse(
                 coordinate,
-                new ServerChunkPayload(oversizedCompressed, emptyLayer(), 2),
+                serverChunk(oversizedCompressed, emptyLayer(), 2),
                 ChunkDecodeProfile.BLOCKS_ONLY
         ).isSuccess());
     }
@@ -399,7 +399,7 @@ class ChunkParserTest {
 
         ParseResult<ParsedChunk> result = new ChunkParser().parse(
                 new ChunkCoordinate(0, 0, 0),
-                new ServerChunkPayload(payload, emptyLayer(), 2),
+                serverChunk(payload, emptyLayer(), 2),
                 ChunkDecodeProfile.BLOCKS_ONLY
         );
 
@@ -420,185 +420,57 @@ class ChunkParserTest {
     }
 
     @Test
-    void alreadyParsedServerChunkDoesNotParseProtobufAgain() {
-        byte[] blocks =
-                encodedLayer(
-                        new int[]{0, 11},
-                        index -> index == 0 ? 1 : 0
-                );
-        ChunkParser parser = new ChunkParser() {
-            @Override
-            public ParseResult<ServerChunkPayload> parsePayload(
-                    byte[] payload
-            ) {
-                throw new AssertionError("parsePayload must not be called");
-            }
-        };
+    void callerOwnedWorkspaceCanBeReusedAcrossHotPathParses() {
+        byte[] blocks = encodedLayer(
+                new int[]{0, 11},
+                index -> index == 0 ? 1 : 0
+        );
+        byte[] source = serverChunk(blocks, emptyLayer(), 2);
+        ChunkParser parser = new ChunkParser();
 
-        ParseResult<ParsedChunk> result =
-                parser.parse(
-                        new ChunkCoordinate(0, 0, 0),
-                        new ServerChunkPayload(blocks, emptyLayer(), 2),
-                        ChunkDecodeProfile.BLOCKS_ONLY
-                );
-
-        assertTrue(result.isSuccess());
-    }
-
-    private static final class SelectiveRecordingLayerDecoder
-            extends ChunkDataLayerDecoder {
-        private int paletteContainsCalls;
-        private int ownedDecodeCalls;
-        private byte[] probedPayload;
-        private byte[] decodedPayload;
-        private int probedOffset;
-        private int decodedOffset;
-        private int probedLength;
-        private int decodedLength;
-
-        @Override
-        boolean paletteContainsAny(
-                byte[] payload,
-                int sourceOffset,
-                int sourceLength,
-                int savedCompressionVersion,
-                int[] wantedBlockIds,
-                ChunkDecodeWorkspace workspace
-        ) {
-            paletteContainsCalls++;
-            probedPayload = payload;
-            probedOffset = sourceOffset;
-            probedLength = sourceLength;
-            return super.paletteContainsAny(
-                    payload,
-                    sourceOffset,
-                    sourceLength,
-                    savedCompressionVersion,
-                    wantedBlockIds,
+        try (ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace()) {
+            ParseResult<ParsedChunk> first = parser.parse(
+                    new ChunkCoordinate(0, 0, 0),
+                    source,
+                    ChunkDecodeProfile.BLOCKS_ONLY,
                     workspace
             );
-        }
-
-        @Override
-        DecodedChunkLayer decodeOwned(
-                byte[] payload,
-                int sourceOffset,
-                int sourceLength,
-                int savedCompressionVersion,
-                ChunkDecodeWorkspace workspace
-        ) {
-            ownedDecodeCalls++;
-            decodedPayload = payload;
-            decodedOffset = sourceOffset;
-            decodedLength = sourceLength;
-            return super.decodeOwned(
-                    payload,
-                    sourceOffset,
-                    sourceLength,
-                    savedCompressionVersion,
+            ParseResult<ParsedChunk> second = parser.parse(
+                    new ChunkCoordinate(0, 0, 0),
+                    source,
+                    ChunkDecodeProfile.BLOCKS_ONLY,
                     workspace
             );
-        }
-    }
 
-    private static final class RecordingLayerDecoder
-            extends ChunkDataLayerDecoder {
-        private int ownedDecodeCalls;
-
-        @Override
-        public int[] decode(
-                byte[] payload,
-                int savedCompressionVersion
-        ) {
-            throw new AssertionError(
-                    "ChunkParser must use decodeOwned"
-            );
-        }
-
-        @Override
-        DecodedChunkLayer decodeOwned(
-                byte[] payload,
-                int savedCompressionVersion
-        ) {
-            ownedDecodeCalls++;
-            return super.decodeOwned(
-                    payload,
-                    savedCompressionVersion
-            );
-        }
-
-        @Override
-        DecodedChunkLayer decodeOwned(
-                byte[] payload,
-                int sourceOffset,
-                int sourceLength,
-                int savedCompressionVersion,
-                ChunkDecodeWorkspace workspace
-        ) {
-            ownedDecodeCalls++;
-            return super.decodeOwned(
-                    payload,
-                    sourceOffset,
-                    sourceLength,
-                    savedCompressionVersion,
-                    workspace
-            );
+            assertTrue(first.isSuccess());
+            assertTrue(second.isSuccess());
+            assertEquals(11, first.value().orElseThrow().blockIdAt(0, 0, 0));
+            assertEquals(11, second.value().orElseThrow().blockIdAt(0, 0, 0));
         }
     }
 
     @Test
-    void parsesRealServerChunkProtobufFields() {
-        byte[] blocks =
-                encodedLayer(
-                        new int[]{0, 17},
-                        index ->
-                                index == 0
-                                        ? 1
-                                        : 0
-                );
+    void parsesRealServerChunkProtobufFieldsThroughHotPath() {
+        byte[] blocks = encodedLayer(
+                new int[]{0, 17},
+                index -> index == 0 ? 1 : 0
+        );
+        byte[] liquids = emptyLayer();
 
-        byte[] liquids =
-                emptyLayer();
-
-        ParseResult<ServerChunkPayload> result =
-                new ChunkParser()
-                        .parsePayload(
-                                serverChunk(
-                                        blocks,
-                                        liquids,
-                                        2
-                                )
-                        );
+        ParseResult<ParsedChunk> result = new ChunkParser().parse(
+                new ChunkCoordinate(0, 0, 0),
+                serverChunk(blocks, liquids, 2)
+        );
 
         assertTrue(
                 result.isSuccess(),
-                () ->
-                        result.error()
-                                .orElse(
-                                        "unknown error"
-                                )
+                () -> result.error().orElse("unknown error")
         );
-
-        ServerChunkPayload payload =
-                result.value()
-                        .orElseThrow();
-
-        assertEquals(
-                2,
-                payload.savedCompressionVersion()
-        );
-
-        assertEquals(
-                blocks.length,
-                payload.blocksCompressed()
-                        .length
-        );
-
-        assertEquals(
-                liquids.length,
-                payload.liquidsCompressed()
-                        .length
-        );
+        ParsedChunk chunk = result.value().orElseThrow();
+        assertEquals(2, chunk.savedCompressionVersion());
+        assertEquals(17, chunk.blockIdAt(0, 0, 0));
+        assertTrue(chunk.liquidLayerAvailable());
+        assertEquals(0, chunk.liquidIdAt(0, 0, 0));
     }
 
     @Test

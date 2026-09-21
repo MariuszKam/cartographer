@@ -5,7 +5,6 @@ import cartographer.application.ProgressReporter;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
-import cartographer.model.ServerChunkPayload;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.MapRegionCoordinate;
