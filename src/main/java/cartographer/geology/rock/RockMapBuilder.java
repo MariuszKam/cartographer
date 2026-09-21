@@ -126,11 +126,6 @@ final class RockMapBuilder {
                 observedCount, noRockCount, unavailableCount);
     }
 
-    int packedStorageIdentityForTest() {
-        checkOpen();
-        return System.identityHashCode(layout.intBacked() ? intCells : longCells);
-    }
-
     int candidateY(int index) {
         long packed = packedAt(index);
         if (layout.state(packed) != RockColumnState.OBSERVED) {

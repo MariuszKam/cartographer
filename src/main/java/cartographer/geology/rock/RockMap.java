@@ -99,10 +99,6 @@ public final class RockMap {
         return Optional.of(materialize(index, worldX, worldZ));
     }
 
-    int packedStorageIdentityForTest() {
-        return System.identityHashCode(layout.intBacked() ? intCells : longCells);
-    }
-
     private boolean present(int index) { return (presentWords[index >>> 6] & (1L << (index & 63))) != 0; }
     private long packedAtIndex(int index) {
         checkCellIndex(index);

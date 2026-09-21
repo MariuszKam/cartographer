@@ -79,13 +79,30 @@ class RockMapCompactTest {
     }
 
     @Test
-    void ownershipTransfersWithoutASecondPackedArray() {
-        RockCatalog catalog = RockCatalog.from(Map.of(10, new BlockInfo(10, GRANITE.code())));
-        RockMapBuilder builder = new RockMapBuilder(new WorldPosition(0, 0, 0), 1, 0, 8,
-                RockMapMode.UPPER_ROCK, catalog);
-        int storage = builder.packedStorageIdentityForTest();
+    void ownershipTransfersWithoutASecondPackedArray() throws Exception {
+        RockCatalog catalog = RockCatalog.from(Map.of(
+                10,
+                new BlockInfo(10, GRANITE.code())
+        ));
+        RockMapBuilder builder = new RockMapBuilder(
+                new WorldPosition(0, 0, 0),
+                1,
+                0,
+                8,
+                RockMapMode.UPPER_ROCK,
+                catalog
+        );
+        java.lang.reflect.Field builderCells =
+                RockMapBuilder.class.getDeclaredField("intCells");
+        builderCells.setAccessible(true);
+        Object storage = builderCells.get(builder);
+
         RockMap map = builder.finish();
-        assertEquals(storage, map.packedStorageIdentityForTest());
+
+        java.lang.reflect.Field mapCells =
+                RockMap.class.getDeclaredField("intCells");
+        mapCells.setAccessible(true);
+        assertEquals(storage, mapCells.get(map));
         assertThrows(IllegalStateException.class, builder::finish);
     }
 }

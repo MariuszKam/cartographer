@@ -63,14 +63,6 @@ public final class RockCellLayout {
         return new RockCellLayout(rockBits, yBits, rockCount, yRangeHeight);
     }
 
-    static RockCellLayout forTestFieldWidths(int rockBits, int yBits) {
-        int rockCount = rockBits == 0 ? 0 : (rockBits <= 30
-                ? (1 << rockBits) - 1
-                : Integer.MAX_VALUE);
-        long yRange = yBits == 0 ? 1 : 1L << Math.min(yBits, 30);
-        return new RockCellLayout(rockBits, yBits, rockCount, yRange);
-    }
-
     public int rockOrdinalBits() {
         return rockOrdinalBits;
     }
