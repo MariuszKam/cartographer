@@ -34,14 +34,23 @@ public final class SurfaceObjectStreamingScanner {
         private int[] observationZ = new int[16];
         private int[] observationBlockIds = new int[16];
         private int observationCount;
-        private boolean unvisitedPositionsAvailable;
         private boolean finished;
 
         private Session(SurfaceObjectCompactPlan plan, int[] wantedBlockIds) {
             this.plan = Objects.requireNonNull(plan, "plan is required");
+            Objects.requireNonNull(
+                    wantedBlockIds,
+                    "wanted block IDs are required"
+            );
+            if (wantedBlockIds.length == 0) {
+                throw new IllegalArgumentException(
+                        "wanted block IDs cannot be empty"
+                );
+            }
             this.wantedBlockIds = Arrays.copyOf(
-                    Objects.requireNonNull(wantedBlockIds, "wanted block IDs are required"),
-                    wantedBlockIds.length);
+                    wantedBlockIds,
+                    wantedBlockIds.length
+            );
             Arrays.sort(this.wantedBlockIds);
             this.positionStatuses = new byte[plan.chunkPositions().size()];
             this.targetStates = new byte[plan.tileCount()][];
@@ -66,12 +75,6 @@ public final class SurfaceObjectStreamingScanner {
             if (visit.status() == SelectiveChunkVisitStatus.DECODED) {
                 consumeDecoded(positionIndex, visit.chunk());
             }
-        }
-
-        /** Used by the legacy empty-wanted-ID path, which intentionally skips reading. */
-        public void markExpectedPositionsAvailableWithoutVisits() {
-            ensureMutable();
-            unvisitedPositionsAvailable = true;
         }
 
         public SurfaceObjectCompactScanResult finish() {
@@ -211,8 +214,9 @@ public final class SurfaceObjectStreamingScanner {
         }
 
         private boolean isUnavailable(int positionIndex) {
-            return positionIndex < 0 || (positionStatuses[positionIndex] & 2) != 0
-                    || ((positionStatuses[positionIndex] & VISITED) == 0 && !unvisitedPositionsAvailable);
+            return positionIndex < 0
+                    || (positionStatuses[positionIndex] & 2) != 0
+                    || (positionStatuses[positionIndex] & VISITED) == 0;
         }
 
         private void ensureMutable() {
