@@ -585,9 +585,7 @@ markers clear
 
 atlas render
 
-inspect
-index
-```
+inspect```
 
 ---
 
