@@ -1,17 +1,19 @@
 package cartographer.ui.workstation;
 
 import cartographer.model.BlockInfo;
-import cartographer.model.SurfaceBlock;
 import cartographer.resource.ObservedSurfaceResource;
 import cartographer.resource.ObservedSurfaceResourceCatalog;
 import cartographer.resource.ObservedSurfaceResourceCatalogBuilder;
 import cartographer.resource.SurfaceObjectCandidateCatalogBuilder;
+import cartographer.scanner.SurfaceObjectCompactFixtures;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static cartographer.scanner.SurfaceObjectCompactFixtures.observation;
+import static cartographer.scanner.SurfaceObjectCompactFixtures.scan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -43,11 +45,9 @@ class ObservedSurfaceResourceSelectionTest {
                         1, new BlockInfo(1, "game:loosestones-something-free"),
                         2, new BlockInfo(2, "somemod:loosestones-something-free")
                 )),
-                List.of(
-                        new SurfaceBlock(0, 0, 0,
-                                new BlockInfo(1, "game:loosestones-something-free")),
-                        new SurfaceBlock(1, 0, 0,
-                                new BlockInfo(2, "somemod:loosestones-something-free"))
+                scan(
+                        surface(0, 0, 0, 1),
+                        surface(1, 0, 0, 2)
                 )
         );
 
@@ -77,11 +77,10 @@ class ObservedSurfaceResourceSelectionTest {
                 candidates.build(Map.of(
                         1, new BlockInfo(1, "game:loosestones-something-free"),
                         2, new BlockInfo(2, "somemod:loosestones-something-free"))),
-                List.of(
-                        new SurfaceBlock(0, 0, 0,
-                                new BlockInfo(1, "game:loosestones-something-free")),
-                        new SurfaceBlock(1, 0, 0,
-                                new BlockInfo(2, "somemod:loosestones-something-free"))));
+                scan(
+                        surface(0, 0, 0, 1),
+                        surface(1, 0, 0, 2)
+                ));
 
         assertEquals(List.of("game:something", "somemod:something"),
                 ObservedSurfaceResourceSelection.preserveAll(
@@ -95,11 +94,21 @@ class ObservedSurfaceResourceSelectionTest {
                 1, new BlockInfo(1, "game:loosestones-obsidian-free"),
                 2, new BlockInfo(2, "game:loosestones-nativecopper-free")
         ));
-        return observed.build(candidateCatalog, List.of(
-                new SurfaceBlock(0, 0, 0,
-                        new BlockInfo(1, "game:loosestones-obsidian-free")),
-                new SurfaceBlock(1, 0, 0,
-                        new BlockInfo(2, "game:loosestones-nativecopper-free"))
-        ));
+        return observed.build(
+                candidateCatalog,
+                scan(
+                        surface(0, 0, 0, 1),
+                        surface(1, 0, 0, 2)
+                )
+        );
+    }
+
+    private SurfaceObjectCompactFixtures.Observation surface(
+            int x,
+            int y,
+            int z,
+            int blockId
+    ) {
+        return observation(x, y, z, blockId);
     }
 }

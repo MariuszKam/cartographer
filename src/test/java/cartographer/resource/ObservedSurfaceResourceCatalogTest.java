@@ -1,13 +1,15 @@
 package cartographer.resource;
 
 import cartographer.model.BlockInfo;
-import cartographer.model.SurfaceBlock;
+import cartographer.scanner.SurfaceObjectCompactFixtures;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static cartographer.scanner.SurfaceObjectCompactFixtures.observation;
+import static cartographer.scanner.SurfaceObjectCompactFixtures.scan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -28,7 +30,7 @@ class ObservedSurfaceResourceCatalogTest {
 
         ObservedSurfaceResourceCatalog observed = observedBuilder.build(
                 candidates,
-                List.of(
+                scan(
                         surface(12, 3, 20, 4),
                         surface(10, 1, 10, 2),
                         surface(11, 2, 10, 1)
@@ -55,7 +57,7 @@ class ObservedSurfaceResourceCatalogTest {
 
         ObservedSurfaceResourceCatalog observed = observedBuilder.build(
                 candidates,
-                List.of(
+                scan(
                         surface(2, 1, 1, 1),
                         surface(3, 1, 2, 1),
                         surface(1, 1, 3, 1)
@@ -78,11 +80,11 @@ class ObservedSurfaceResourceCatalogTest {
 
         ObservedSurfaceResourceCatalog observed = observedBuilder.build(
                 candidates,
-                List.of(surface(99, 0, 0, 0))
+                scan(surface(99, 0, 0, 0))
         );
         ObservedSurfaceResourceCatalog empty = observedBuilder.build(
                 candidates,
-                List.of()
+                scan()
         );
 
         assertEquals(List.of(), observed.resources());
@@ -97,7 +99,7 @@ class ObservedSurfaceResourceCatalogTest {
         ));
         ObservedSurfaceResourceCatalog observed = observedBuilder.build(
                 candidates,
-                List.of(surface(1, 1, 1, 1))
+                scan(surface(1, 1, 1, 1))
         );
 
         assertThrows(UnsupportedOperationException.class,
@@ -112,15 +114,12 @@ class ObservedSurfaceResourceCatalogTest {
         return new BlockInfo(id, code);
     }
 
-    private SurfaceBlock surface(int blockId, int x, int y, int z) {
-        return new SurfaceBlock(x, y, z, block(blockId, switch (blockId) {
-            case 1 -> "game:loosestones-something-free";
-            case 2 -> "somemod:loosestones-something-free";
-            case 3 -> "game:loosestones-obsidian-free";
-            case 10 -> "game:loosestones-obsidian-free";
-            case 11 -> "game:looseflints-obsidian-free";
-            case 12 -> "game:looseboulders-obsidian-snow";
-            default -> "game:unknown";
-        }));
+    private SurfaceObjectCompactFixtures.Observation surface(
+            int blockId,
+            int x,
+            int y,
+            int z
+    ) {
+        return observation(x, y, z, blockId);
     }
 }

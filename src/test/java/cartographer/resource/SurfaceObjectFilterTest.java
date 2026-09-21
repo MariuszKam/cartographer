@@ -1,7 +1,7 @@
 package cartographer.resource;
 
 import cartographer.model.BlockInfo;
-import cartographer.model.SurfaceBlock;
+import cartographer.scanner.SurfaceObjectCompactFixtures;
 import cartographer.ui.workstation.SurfaceObjectDiscoveryState;
 import org.junit.jupiter.api.Test;
 
@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static cartographer.scanner.SurfaceObjectCompactFixtures.observation;
+import static cartographer.scanner.SurfaceObjectCompactFixtures.scan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -43,9 +45,14 @@ class SurfaceObjectFilterTest {
         SurfaceObjectCandidateCatalog catalog = new SurfaceObjectCandidateCatalogBuilder().build(Map.of(
                 1, block("game:looseores-nativecopper-granite-free"),
                 2, block("game:loosestones-nativecopper-free")));
-        List<ObservedSurfaceResource> resources = new ObservedSurfaceResourceCatalogBuilder().build(catalog, List.of(
-                surfaceBlock(1, "game:looseores-nativecopper-granite-free"),
-                surfaceBlock(2, "game:loosestones-nativecopper-free"))).resources();
+        List<ObservedSurfaceResource> resources =
+                new ObservedSurfaceResourceCatalogBuilder().build(
+                        catalog,
+                        scan(
+                                surface(1),
+                                surface(2)
+                        )
+                ).resources();
 
         assertEquals(List.of("game:nativecopper"), keys(SurfaceObjectFilter.visibleResources(
                 resources, "", Set.of(SurfaceObjectFamily.LOOSE_STONE))));
@@ -103,14 +110,18 @@ class SurfaceObjectFilterTest {
                 1, block("game:looseores-nativecopper-granite-free"),
                 2, block("game:loosestones-obsidian-free"),
                 3, block("somemod:loosestones-obsidian-free")));
-        return new ObservedSurfaceResourceCatalogBuilder().build(catalog, List.of(
-                surfaceBlock(1, "game:looseores-nativecopper-granite-free"),
-                surfaceBlock(2, "game:loosestones-obsidian-free"),
-                surfaceBlock(3, "somemod:loosestones-obsidian-free"))).resources();
+        return new ObservedSurfaceResourceCatalogBuilder().build(
+                catalog,
+                scan(
+                        surface(1),
+                        surface(2),
+                        surface(3)
+                )
+        ).resources();
     }
 
-    private SurfaceBlock surfaceBlock(int id, String code) {
-        return new SurfaceBlock(id, 0, id, new BlockInfo(id, code));
+    private SurfaceObjectCompactFixtures.Observation surface(int id) {
+        return observation(id, 0, id, id);
     }
 
     private BlockInfo block(String code) {

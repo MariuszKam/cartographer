@@ -6,7 +6,6 @@ import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
-import cartographer.model.SurfaceBlock;
 import cartographer.model.SurfaceClass;
 import cartographer.model.WorldPosition;
 import cartographer.model.WorldMetadata;
@@ -193,7 +192,7 @@ class MapRendererTest {
                 new WorldPosition(16.0, 0.0, 16.0),
                 HomeState.absent(),
                 List.of(),
-                List.of(new SurfaceBlock(
+                List.of(new SurfaceCell(
                         16, 80, 16, BlockInfo.unknown(1), 0,
                         BlockInfo.unknown(0), SurfaceClass.ROCK
                 )),
@@ -215,7 +214,7 @@ class MapRendererTest {
                 new WorldPosition(16.0, 0.0, 16.0),
                 HomeState.absent(),
                 List.of(),
-                List.of(new SurfaceBlock(
+                List.of(new SurfaceCell(
                         16, 80, 16,
                         new BlockInfo(1, "game:soil-medium-normal")
                 )),
@@ -239,9 +238,9 @@ class MapRendererTest {
                 HomeState.absent(),
                 List.of(),
                 List.of(
-                        new SurfaceBlock(16, 80, 16,
+                        new SurfaceCell(16, 80, 16,
                                 new BlockInfo(1, "game:rock-granite")),
-                        new SurfaceBlock(17, 80, 16,
+                        new SurfaceCell(17, 80, 16,
                                 new BlockInfo(2, "creativegrass-medium-normal"))
                 ),
                 options,
@@ -261,7 +260,7 @@ class MapRendererTest {
                 new WorldPosition(16.0, 0.0, 16.0),
                 HomeState.absent(),
                 List.of(),
-                List.of(new SurfaceBlock(16, 80, 16,
+                List.of(new SurfaceCell(16, 80, 16,
                         new BlockInfo(1, "game:soil-low-normal"))),
                 options,
                 ProgressReporter.NONE
@@ -270,7 +269,7 @@ class MapRendererTest {
                 new WorldPosition(16.0, 0.0, 16.0),
                 HomeState.absent(),
                 List.of(),
-                List.of(new SurfaceBlock(16, 80, 16,
+                List.of(new SurfaceCell(16, 80, 16,
                         new BlockInfo(1, "game:soil-high-normal"))),
                 options,
                 ProgressReporter.NONE
@@ -285,7 +284,7 @@ class MapRendererTest {
                 16, 1, RenderStyle.SIMPLE,
                 Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE, RenderLayer.SOIL_FERTILITY)
         );
-        SurfaceBlock block = new SurfaceBlock(
+        SurfaceCell block = new SurfaceCell(
                 16, 80, 16,
                 new BlockInfo(1, "game:soil-medium-normal"),
                 0,
@@ -315,7 +314,7 @@ class MapRendererTest {
                 new WorldPosition(16.0, 0.0, 16.0),
                 HomeState.absent(),
                 List.of(),
-                List.of(new SurfaceBlock(16, 80, 16,
+                List.of(new SurfaceCell(16, 80, 16,
                         new BlockInfo(1, "game:soil-medium-normal"))),
                 options,
                 ProgressReporter.NONE
@@ -335,7 +334,7 @@ class MapRendererTest {
                 new WorldPosition(128.0, 0.0, 128.0),
                 HomeState.absent(),
                 List.of(),
-                List.of(new SurfaceBlock(
+                List.of(new SurfaceCell(
                         128, 80, 128,
                         new BlockInfo(1, "game:soil-medium-normal"),
                         0,
@@ -438,7 +437,7 @@ class MapRendererTest {
                 new WorldPosition(16.0, 0.0, 16.0),
                 HomeState.absent(),
                 List.of(chunk(0, 0, 80)),
-                List.of(new SurfaceBlock(
+                List.of(new SurfaceCell(
                         0, 80, 0, BlockInfo.unknown(1), 0,
                         BlockInfo.unknown(0), SurfaceClass.UNKNOWN
                 )),
@@ -613,7 +612,7 @@ class MapRendererTest {
                                 HomeState.absent(),
                                 List.of(),
                                 List.of(
-                                        new SurfaceBlock(
+                                        new SurfaceCell(
                                                 16,
                                                 80,
                                                 16,
@@ -670,7 +669,7 @@ class MapRendererTest {
                                 HomeState.absent(),
                                 List.of(),
                                 List.of(
-                                        new SurfaceBlock(
+                                        new SurfaceCell(
                                                 128,
                                                 80,
                                                 128,
@@ -717,7 +716,7 @@ class MapRendererTest {
             WorldPosition center,
             HomeState home,
             List<MapChunk> chunks,
-            List<SurfaceBlock> surfaceBlocks,
+            List<SurfaceCell> surfaceBlocks,
             RenderOptions options,
             ProgressReporter progress
     ) {
@@ -740,7 +739,7 @@ class MapRendererTest {
         SurfaceTileAccumulator accumulator =
                 new SurfaceTileAccumulator(layout);
         Map<Integer, BlockInfo> registry = new HashMap<>();
-        for (SurfaceBlock block : surfaceBlocks) {
+        for (SurfaceCell block : surfaceBlocks) {
             accumulator.recordSurface(
                     block.worldX(),
                     block.worldZ(),
@@ -770,6 +769,33 @@ class MapRendererTest {
                 options,
                 progress
         );
+    }
+
+    private record SurfaceCell(
+            int worldX,
+            int y,
+            int worldZ,
+            BlockInfo blockInfo,
+            int liquidBlockId,
+            BlockInfo liquidBlockInfo,
+            SurfaceClass surfaceClass
+    ) {
+        private SurfaceCell(
+                int worldX,
+                int y,
+                int worldZ,
+                BlockInfo blockInfo
+        ) {
+            this(
+                    worldX,
+                    y,
+                    worldZ,
+                    blockInfo,
+                    0,
+                    BlockInfo.unknown(0),
+                    SurfaceClass.UNKNOWN
+            );
+        }
     }
 
     private MapChunk chunk(
