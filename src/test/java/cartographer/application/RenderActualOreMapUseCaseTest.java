@@ -30,7 +30,6 @@ import cartographer.render.UserMarkerRenderer;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
-import cartographer.save.SaveSessionLifecycleProbe;
 import cartographer.save.SelectiveChunkStreamStats;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.MapChunkStreamStats;
@@ -1128,12 +1127,12 @@ class RenderActualOreMapUseCaseTest {
 
     @Test
     void productionRenderUsesOneSourceConnectionAcrossMultipleReaderActions() {
-        SaveSessionLifecycleProbe probe = SaveSessionLifecycleProbe.recording();
+        TestConnectionFactory connections = new TestConnectionFactory();
         FakeReader reader = surfaceReader(true);
         RenderActualOreMapResult result = useCase(
                 reader, new WorldMetadata(32, 256, 32),
                 temporaryDirectory.resolve("lifecycle-home.properties"),
-                temporaryDirectory.resolve("lifecycle-markers.csv"), probe
+                temporaryDirectory.resolve("lifecycle-markers.csv"), connections
         ).execute(new RenderActualOreMapRequest(
                 temporaryDirectory.resolve("lifecycle-save.vcdbs"), 23, 1,
                 RenderStyle.TOPOGRAPHIC,
@@ -1144,13 +1143,14 @@ class RenderActualOreMapUseCaseTest {
 
         assertTrue(result.surface().chunksScanned() >= 0);
         assertTrue(reader.sessionMapRegionCalls > 0);
-        assertEquals(new SaveSessionLifecycleProbe.Snapshot(1, 1), probe.snapshot());
+        assertEquals(1, connections.opened());
+        assertEquals(1, connections.closed());
     }
 
     @Test
     void separateProductionOperationsDoNotShareLifecycleState() {
-        SaveSessionLifecycleProbe firstProbe = SaveSessionLifecycleProbe.recording();
-        SaveSessionLifecycleProbe secondProbe = SaveSessionLifecycleProbe.recording();
+        TestConnectionFactory firstConnections = new TestConnectionFactory();
+        TestConnectionFactory secondConnections = new TestConnectionFactory();
         RenderActualOreMapRequest request = new RenderActualOreMapRequest(
                 temporaryDirectory.resolve("isolated-save.vcdbs"), 23, 1,
                 RenderStyle.TOPOGRAPHIC, Set.of(RenderLayer.TERRAIN), Optional.empty(),
@@ -1166,8 +1166,10 @@ class RenderActualOreMapUseCaseTest {
                 temporaryDirectory.resolve("isolated-two-markers.csv"), secondProbe)
                 .execute(request);
 
-        assertEquals(new SaveSessionLifecycleProbe.Snapshot(1, 1), firstProbe.snapshot());
-        assertEquals(new SaveSessionLifecycleProbe.Snapshot(1, 1), secondProbe.snapshot());
+        assertEquals(1, firstConnections.opened());
+        assertEquals(1, firstConnections.closed());
+        assertEquals(1, secondConnections.opened());
+        assertEquals(1, secondConnections.closed());
     }
 
     private static void assertParity(
@@ -1601,7 +1603,7 @@ class RenderActualOreMapUseCaseTest {
             WorldMetadata metadata,
             Path homePath,
             Path markerPath,
-            SaveSessionLifecycleProbe probe
+            TestConnectionFactory connections
     ) {
         WorldMetadataReader metadataReader = new WorldMetadataReader() {
             @Override
@@ -1619,7 +1621,7 @@ class RenderActualOreMapUseCaseTest {
                 new MapRenderer(), new UserMarkerRenderer(),
                 new ActualOreOverlayPainter(), new cartographer.scanner.MultiActualBlockMapScanner(),
                 new OreChunkPositionPlanner(),
-                new SaveSessionFactory(new TestConnectionFactory(), reader, metadataReader, probe)
+                new SaveSessionFactory(connections, reader, metadataReader)
         );
     }
 
@@ -2174,13 +2176,31 @@ class RenderActualOreMapUseCaseTest {
     }
 
     private static final class TestConnectionFactory extends SqliteSaveConnection {
+        private int opened;
+        private int closed;
+
         @Override
         public Connection openReadOnly(Path savePath) {
+            opened++;
             return (Connection) Proxy.newProxyInstance(
                     Connection.class.getClassLoader(),
                     new Class<?>[]{Connection.class},
-                    (proxy, method, args) -> null
+                    (proxy, method, args) -> {
+                        if (method.getName().equals("close")
+                                && method.getParameterCount() == 0) {
+                            closed++;
+                        }
+                        return null;
+                    }
             );
+        }
+
+        private int opened() {
+            return opened;
+        }
+
+        private int closed() {
+            return closed;
         }
     }
 }

@@ -5,12 +5,8 @@ import cartographer.testing.ConcurrencyTest;
 import cartographer.cli.ProgressReporter;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
-import cartographer.model.ParseResult;
 import cartographer.model.ParsedChunk;
-import cartographer.model.ServerChunkPayload;
-import cartographer.parser.ChunkDecodeProfile;
 import cartographer.parser.ChunkDecodeWorkspace;
-import cartographer.parser.ChunkPaletteProbe;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.SelectiveChunkParseResult;
 import org.junit.jupiter.api.Test;
@@ -56,9 +52,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
                 new int[]{99}
         );
 
-        assertEquals(1, parser.parsePayloadCalls.get());
-        assertEquals(1, parser.paletteProbeCalls.get());
-        assertEquals(0, parser.parseServerChunkCalls.get());
+        assertEquals(1, parser.selectiveCalls.get());
         assertEquals(1, stats.payloadsParsed());
         assertEquals(1, stats.paletteRejectedChunks());
         assertEquals(0, stats.fullyDecodedChunks());
@@ -78,9 +72,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
                 new int[]{99}
         );
 
-        assertEquals(1, parser.parsePayloadCalls.get());
-        assertEquals(1, parser.parseServerChunkCalls.get());
-        assertEquals(ChunkDecodeProfile.BLOCKS_ONLY, parser.lastProfile.get());
+        assertEquals(1, parser.selectiveCalls.get());
         assertEquals(1, stats.fullyDecodedChunks());
         assertEquals(1, parser.delivered.size());
     }
@@ -99,7 +91,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
         );
 
         assertEquals(1, stats.fullyDecodedChunks());
-        assertEquals(1, parser.parseServerChunkCalls.get());
+        assertEquals(1, parser.selectiveCalls.get());
     }
 
     @Test
@@ -107,7 +99,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
         ChunkPosition position = new ChunkPosition(1, 0, 2, 0);
         Path database = databaseWithRow(position, new byte[]{7});
         RecordingChunkParser parser = parserWithPalette(99);
-        parser.fullDecodeResult = ParseResult.failure("decode failed");
+        parser.decodeFailure = "decode failed";
 
         SelectiveChunkStreamStats stats = read(
                 database,
@@ -123,11 +115,11 @@ class VcdbsReaderSelectiveChunkLookupTest {
     }
 
     @Test
-    void recordsPaletteProbeFailure() throws Exception {
+    void recordsPayloadParseFailure() throws Exception {
         ChunkPosition position = new ChunkPosition(1, 0, 2, 0);
         Path database = databaseWithRow(position, new byte[]{7});
         RecordingChunkParser parser = parserWithPalette(99);
-        parser.paletteResult = ParseResult.failure("malformed palette");
+        parser.payloadFailure = "malformed payload";
 
         SelectiveChunkStreamStats stats = read(
                 database,
@@ -136,9 +128,9 @@ class VcdbsReaderSelectiveChunkLookupTest {
                 new int[]{99}
         );
 
-        assertEquals(1, stats.payloadsParsed());
+        assertEquals(0, stats.payloadsParsed());
         assertEquals(1, stats.failedChunks());
-        assertEquals(0, parser.parseServerChunkCalls.get());
+        assertTrue(parser.delivered.isEmpty());
     }
 
     @Test
@@ -157,7 +149,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
         assertEquals(1, stats.rowsFound());
         assertEquals(0, stats.payloadBytes());
         assertEquals(0, stats.payloadsParsed());
-        assertEquals(0, parser.parsePayloadCalls.get());
+        assertEquals(0, parser.selectiveCalls.get());
     }
 
     @Test
@@ -216,7 +208,8 @@ class VcdbsReaderSelectiveChunkLookupTest {
                         List.of(first, second),
                         new int[]{99},
                         new ReadDiagnostics(),
-                        ignored -> consumerThread.set(Thread.currentThread())
+                        ignored -> consumerThread.set(Thread.currentThread()),
+                        ProgressReporter.NONE
                 );
             } catch (Throwable exception) {
                 failure.set(exception);
@@ -342,11 +335,11 @@ class VcdbsReaderSelectiveChunkLookupTest {
     }
 
     @Test
-    void coveragePaletteProbeFailureProducesTerminalFailedVisit() throws Exception {
+    void coverageSelectiveDecodeFailureProducesTerminalFailedVisit() throws Exception {
         ChunkPosition position = new ChunkPosition(1, 0, 2, 0);
         Path database = databaseWithRow(position, new byte[]{7});
         RecordingChunkParser parser = parserWithPalette(99);
-        parser.paletteResult = ParseResult.failure("malformed palette");
+        parser.decodeFailure = "malformed palette";
         List<SelectiveChunkVisit> visits = new ArrayList<>();
 
         new VcdbsReader(null, null, parser, null)
@@ -377,7 +370,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
             statement.executeUpdate();
         }
         RecordingChunkParser parser = parserWithPalette(99);
-        parser.fullDecodeResult = ParseResult.failure("decode failed");
+        parser.decodeFailure = "decode failed";
         List<SelectiveChunkVisit> visits = new ArrayList<>();
 
         new VcdbsReader(null, null, parser, null)
@@ -434,7 +427,8 @@ class VcdbsReaderSelectiveChunkLookupTest {
                 new int[]{99},
                 new ReadDiagnostics(),
                 chunk -> {
-                }
+                },
+                ProgressReporter.NONE
         );
 
         assertEquals(
@@ -455,7 +449,8 @@ class VcdbsReaderSelectiveChunkLookupTest {
                 positions(320),
                 new int[]{99},
                 new ReadDiagnostics(),
-                parser.delivered::add
+                parser.delivered::add,
+                ProgressReporter.NONE
         );
 
         assertEquals(320, stats.uniquePositionsRequested());
@@ -464,7 +459,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
         assertEquals(300, stats.fullyDecodedChunks());
         assertEquals(0, stats.failedChunks());
         assertEquals(1, stats.batchesExecuted());
-        assertEquals(ChunkDecodeProfile.BLOCKS_ONLY, parser.lastProfile.get());
+        assertEquals(300, parser.selectiveCalls.get());
     }
 
     @Test
@@ -480,7 +475,8 @@ class VcdbsReaderSelectiveChunkLookupTest {
                         List.of(new ChunkPosition(1, 0, 2, 0)),
                         new int[0],
                         new ReadDiagnostics(),
-                        ignored -> { }
+                        ignored -> { },
+                        ProgressReporter.NONE
                 )
         );
         assertEquals(0, connections.openCount());
@@ -522,8 +518,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
         assertEquals(direct.fullyDecodedChunks(), table.fullyDecodedChunks());
         assertEquals(direct.failedChunks(), table.failedChunks());
         assertEquals(direct.payloadBytes(), table.payloadBytes());
-        assertEquals(1, tableParser.parsePayloadCalls.get());
-        assertEquals(ChunkDecodeProfile.BLOCKS_ONLY, tableParser.lastProfile.get());
+        assertEquals(1, tableParser.selectiveCalls.get());
     }
 
     @Test
@@ -550,9 +545,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
                         new ProgressReporter(null)
                 );
 
-        assertEquals(1, parser.parsePayloadCalls.get());
-        assertEquals(1, parser.paletteProbeCalls.get());
-        assertEquals(1, parser.parseServerChunkCalls.get());
+        assertEquals(1, parser.selectiveCalls.get());
     }
 
     private SelectiveChunkStreamStats read(
@@ -577,7 +570,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
 
     private RecordingChunkParser parserWithPalette(int... blockIds) {
         RecordingChunkParser parser = new RecordingChunkParser();
-        parser.paletteResult = ParseResult.success(new ChunkPaletteProbe(blockIds));
+        parser.paletteBlockIds = blockIds.clone();
         return parser;
     }
 
@@ -671,23 +664,10 @@ class VcdbsReaderSelectiveChunkLookupTest {
     }
 
     private static final class RecordingChunkParser extends ChunkParser {
-        private final AtomicInteger parsePayloadCalls = new AtomicInteger();
-        private final AtomicInteger paletteProbeCalls = new AtomicInteger();
-        private final AtomicInteger parseServerChunkCalls = new AtomicInteger();
-        private final AtomicReference<ChunkDecodeProfile> lastProfile =
-                new AtomicReference<>();
-        private final ParseResult<ServerChunkPayload> payloadResult =
-                ParseResult.success(new ServerChunkPayload(new byte[]{1}, new byte[0], 2));
-        private ParseResult<ChunkPaletteProbe> paletteResult;
-        private ParseResult<ParsedChunk> fullDecodeResult =
-                ParseResult.success(new ParsedChunk(
-                        new ChunkCoordinate(1, 0, 2),
-                        0,
-                        1,
-                        1,
-                        1,
-                        new int[]{1}
-                ));
+        private final AtomicInteger selectiveCalls = new AtomicInteger();
+        private int[] paletteBlockIds = new int[0];
+        private String payloadFailure;
+        private String decodeFailure;
         private final List<ParsedChunk> delivered =
                 Collections.synchronizedList(new ArrayList<>());
 
@@ -698,26 +678,23 @@ class VcdbsReaderSelectiveChunkLookupTest {
                 int[] wantedBlockIds,
                 ChunkDecodeWorkspace workspace
         ) {
-            ParseResult<ServerChunkPayload> parsed = parsePayload(payload);
-            if (!parsed.isSuccess()) {
-                return SelectiveChunkParseResult.payloadFailure(
-                        parsed.error().orElse("payload parse failed")
-                );
+            selectiveCalls.incrementAndGet();
+            if (payloadFailure != null) {
+                return SelectiveChunkParseResult.payloadFailure(payloadFailure);
             }
-
-            ServerChunkPayload serverChunk = parsed.value().orElseThrow();
-            ParseResult<ChunkPaletteProbe> probe =
-                    probeBlockPalette(serverChunk, workspace);
-            if (!probe.isSuccess()) {
-                return SelectiveChunkParseResult.decodeFailure(
-                        probe.error().orElse("palette probe failed")
-                );
+            if (decodeFailure != null) {
+                return SelectiveChunkParseResult.decodeFailure(decodeFailure);
             }
 
             boolean wanted = false;
             for (int wantedBlockId : wantedBlockIds) {
-                if (probe.value().orElseThrow().contains(wantedBlockId)) {
-                    wanted = true;
+                for (int paletteBlockId : paletteBlockIds) {
+                    if (wantedBlockId == paletteBlockId) {
+                        wanted = true;
+                        break;
+                    }
+                }
+                if (wanted) {
                     break;
                 }
             }
@@ -725,73 +702,16 @@ class VcdbsReaderSelectiveChunkLookupTest {
                 return SelectiveChunkParseResult.rejected();
             }
 
-            ParseResult<ParsedChunk> decoded = parse(
-                    coordinate,
-                    serverChunk,
-                    ChunkDecodeProfile.BLOCKS_ONLY,
-                    workspace
-            );
-            if (!decoded.isSuccess()) {
-                return SelectiveChunkParseResult.decodeFailure(
-                        decoded.error().orElse("full decode failed")
-                );
-            }
             return SelectiveChunkParseResult.decoded(
-                    decoded.value().orElseThrow()
+                    new ParsedChunk(
+                            coordinate,
+                            coordinate.y(),
+                            1,
+                            1,
+                            1,
+                            new int[]{1}
+                    )
             );
-        }
-
-        @Override
-        public ParseResult<ServerChunkPayload> parsePayload(byte[] payload) {
-            parsePayloadCalls.incrementAndGet();
-            return payloadResult;
-        }
-
-        @Override
-        public ParseResult<ChunkPaletteProbe> probeBlockPalette(
-                ServerChunkPayload serverChunk
-        ) {
-            return probePaletteStub();
-        }
-
-        @Override
-        public ParseResult<ChunkPaletteProbe> probeBlockPalette(
-                ServerChunkPayload serverChunk,
-                ChunkDecodeWorkspace workspace
-        ) {
-            return probePaletteStub();
-        }
-
-        private ParseResult<ChunkPaletteProbe> probePaletteStub() {
-            paletteProbeCalls.incrementAndGet();
-            return paletteResult;
-        }
-
-        @Override
-        public ParseResult<ParsedChunk> parse(
-                ChunkCoordinate coordinate,
-                ServerChunkPayload serverChunk,
-                ChunkDecodeProfile profile
-        ) {
-            return parseServerChunkStub(profile);
-        }
-
-        @Override
-        public ParseResult<ParsedChunk> parse(
-                ChunkCoordinate coordinate,
-                ServerChunkPayload serverChunk,
-                ChunkDecodeProfile profile,
-                ChunkDecodeWorkspace workspace
-        ) {
-            return parseServerChunkStub(profile);
-        }
-
-        private ParseResult<ParsedChunk> parseServerChunkStub(
-                ChunkDecodeProfile profile
-        ) {
-            parseServerChunkCalls.incrementAndGet();
-            lastProfile.set(profile);
-            return fullDecodeResult;
         }
     }
 
@@ -808,104 +728,24 @@ class VcdbsReaderSelectiveChunkLookupTest {
                 int[] wantedBlockIds,
                 ChunkDecodeWorkspace workspace
         ) {
-            ParseResult<ServerChunkPayload> parsed = parsePayload(payload);
-            if (!parsed.isSuccess()) {
-                return SelectiveChunkParseResult.payloadFailure(
-                        parsed.error().orElse("payload parse failed")
-                );
-            }
-            ServerChunkPayload serverChunk = parsed.value().orElseThrow();
-
-            ParseResult<ChunkPaletteProbe> probe =
-                    probeBlockPalette(serverChunk, workspace);
-            if (!probe.isSuccess()) {
-                return SelectiveChunkParseResult.decodeFailure(
-                        probe.error().orElse("palette probe failed")
-                );
-            }
-
-            boolean wanted = false;
-            for (int wantedBlockId : wantedBlockIds) {
-                if (probe.value().orElseThrow().contains(wantedBlockId)) {
-                    wanted = true;
-                    break;
-                }
-            }
-            if (!wanted) {
-                return SelectiveChunkParseResult.rejected();
-            }
-
-            ParseResult<ParsedChunk> decoded = parse(
-                    coordinate,
-                    serverChunk,
-                    ChunkDecodeProfile.BLOCKS_ONLY,
-                    workspace
-            );
-            if (!decoded.isSuccess()) {
-                return SelectiveChunkParseResult.decodeFailure(
-                        decoded.error().orElse("full decode failed")
-                );
-            }
-            return SelectiveChunkParseResult.decoded(
-                    decoded.value().orElseThrow()
-            );
-        }
-
-        @Override
-        public ParseResult<ServerChunkPayload> parsePayload(byte[] payload) {
             workerThreads.add(Thread.currentThread());
             bothStarted.countDown();
             try {
                 release.await();
             } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
-                return ParseResult.failure("interrupted");
+                return SelectiveChunkParseResult.payloadFailure("interrupted");
             }
-            return ParseResult.success(new ServerChunkPayload(
-                    new byte[]{1}, new byte[0], 2
-            ));
-        }
-
-        @Override
-        public ParseResult<ChunkPaletteProbe> probeBlockPalette(
-                ServerChunkPayload serverChunk
-        ) {
-            return ParseResult.success(new ChunkPaletteProbe(new int[]{99}));
-        }
-
-        @Override
-        public ParseResult<ChunkPaletteProbe> probeBlockPalette(
-                ServerChunkPayload serverChunk,
-                ChunkDecodeWorkspace workspace
-        ) {
-            return ParseResult.success(new ChunkPaletteProbe(new int[]{99}));
-        }
-
-        @Override
-        public ParseResult<ParsedChunk> parse(
-                ChunkCoordinate coordinate,
-                ServerChunkPayload serverChunk,
-                ChunkDecodeProfile profile
-        ) {
-            return parseServerChunkStub(coordinate);
-        }
-
-        @Override
-        public ParseResult<ParsedChunk> parse(
-                ChunkCoordinate coordinate,
-                ServerChunkPayload serverChunk,
-                ChunkDecodeProfile profile,
-                ChunkDecodeWorkspace workspace
-        ) {
-            return parseServerChunkStub(coordinate);
-        }
-
-        private ParseResult<ParsedChunk> parseServerChunkStub(
-                ChunkCoordinate coordinate
-        ) {
-            return ParseResult.success(new ParsedChunk(
-                    coordinate, coordinate.y(), 1, 1, 1, new int[]{1}
-            ));
+            return SelectiveChunkParseResult.decoded(
+                    new ParsedChunk(
+                            coordinate,
+                            coordinate.y(),
+                            1,
+                            1,
+                            1,
+                            new int[]{1}
+                    )
+            );
         }
     }
 
