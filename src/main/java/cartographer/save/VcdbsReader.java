@@ -2948,6 +2948,50 @@ public class VcdbsReader {
         }
     }
 
+    public List<MapChunk> readMapChunksAround(
+            SaveSession session,
+            WorldPosition center,
+            int radiusBlocks,
+            ReadDiagnostics diagnostics,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(session, "session is required");
+        Objects.requireNonNull(center, "center is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(progress, "progress is required");
+
+        try {
+            Connection connection =
+                    session.connection();
+
+            if (tableMissing(
+                    connection,
+                    SaveTable.MAPCHUNK.tableName()
+            )) {
+                diagnostics.missingTable(
+                        SaveTable.MAPCHUNK.tableName()
+                );
+
+                return List.of();
+            }
+
+            return readMapChunksAroundFromResultSet(
+                    connection,
+                    center,
+                    radiusBlocks,
+                    diagnostics,
+                    progress
+            );
+
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot read mapchunk table: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
     public List<ParsedChunk> readChunksAround(
             Path savePath,
             WorldPosition center,
@@ -2967,6 +3011,50 @@ public class VcdbsReader {
             progress.done(
                     "Save opened read-only"
             );
+
+            if (tableMissing(
+                    connection,
+                    SaveTable.CHUNK.tableName()
+            )) {
+                diagnostics.missingTable(
+                        SaveTable.CHUNK.tableName()
+                );
+
+                return List.of();
+            }
+
+            return readChunksAroundFromResultSet(
+                    connection,
+                    center,
+                    radiusBlocks,
+                    diagnostics,
+                    progress
+            );
+
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot read chunk table: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
+    public List<ParsedChunk> readChunksAround(
+            SaveSession session,
+            WorldPosition center,
+            int radiusBlocks,
+            ReadDiagnostics diagnostics,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(session, "session is required");
+        Objects.requireNonNull(center, "center is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(progress, "progress is required");
+
+        try {
+            Connection connection =
+                    session.connection();
 
             if (tableMissing(
                     connection,

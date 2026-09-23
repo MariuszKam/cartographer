@@ -14,6 +14,8 @@ import cartographer.render.ActualBlockMapRenderer;
 import cartographer.render.PngWriter;
 import cartographer.render.RenderStyle;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMap;
@@ -57,6 +59,7 @@ public class ScanCommand implements Command {
 
     private final PrintStream out;
     private final VcdbsReader reader;
+    private final SaveSessionFactory sessionFactory;
     private final PrepareMapDataUseCase mapDataUseCase;
     private final BlockScanner blockScanner;
     private final ActualBlockMapScanner actualBlockMapScanner;
@@ -67,12 +70,14 @@ public class ScanCommand implements Command {
     public ScanCommand(
             PrintStream out,
             VcdbsReader reader,
+            SaveSessionFactory sessionFactory,
             BlockScanner blockScanner,
             String subcommand
     ) {
         this(
                 out,
                 reader,
+                sessionFactory,
                 blockScanner,
                 new ActualBlockMapScanner(),
                 new ActualBlockMapRenderer(),
@@ -84,6 +89,7 @@ public class ScanCommand implements Command {
     public ScanCommand(
             PrintStream out,
             VcdbsReader reader,
+            SaveSessionFactory sessionFactory,
             BlockScanner blockScanner,
             ActualBlockMapScanner actualBlockMapScanner,
             ActualBlockMapRenderer actualBlockMapRenderer,
@@ -92,6 +98,7 @@ public class ScanCommand implements Command {
     ) {
         this.out = out;
         this.reader = reader;
+        this.sessionFactory = sessionFactory;
         this.mapDataUseCase = new PrepareMapDataUseCase(
                 reader,
                 new WorldMetadataReader()
@@ -356,16 +363,41 @@ public class ScanCommand implements Command {
                         out
                 );
 
-        WorldPosition center =
-                center(
-                        args
-                ).orElseGet(
-                        () ->
-                                reader.readPlayerPosition(
-                                        savePath,
-                                        progress
-                                )
-                );
+        WorldPosition center;
+        ReadDiagnostics diagnostics =
+                new ReadDiagnostics();
+        List<ParsedChunk> chunks;
+        Map<Integer, BlockInfo> registry;
+
+        try (SaveSession session =
+                     sessionFactory.open(
+                             savePath
+                     )) {
+
+            center =
+                    center(
+                            args
+                    ).orElseGet(
+                            () ->
+                                    reader.readPlayerPosition(
+                                            session,
+                                            progress
+                                    )
+                    );
+
+            chunks =
+                    reader.readChunksAround(
+                            session,
+                            center,
+                            radius,
+                            diagnostics,
+                            progress
+                    );
+
+            registry =
+                    session.snapshot()
+                            .registry();
+        }
 
         int centerX =
                 (int) Math.round(
@@ -375,24 +407,6 @@ public class ScanCommand implements Command {
         int centerZ =
                 (int) Math.round(
                         center.z()
-                );
-
-        ReadDiagnostics diagnostics =
-                new ReadDiagnostics();
-
-        List<ParsedChunk> chunks =
-                reader.readChunksAround(
-                        savePath,
-                        center,
-                        radius,
-                        diagnostics,
-                        progress
-                );
-
-        Map<Integer, BlockInfo> registry =
-                reader.readBlockRegistry(
-                        savePath,
-                        progress
                 );
 
         if (splitY.isPresent()) {
@@ -965,34 +979,41 @@ public class ScanCommand implements Command {
                         out
                 );
 
-        WorldPosition center =
-                center(
-                        args
-                ).orElseGet(
-                        () ->
-                                reader.readPlayerPosition(
-                                        savePath,
-                                        progress
-                                )
-                );
-
+        WorldPosition center;
         ReadDiagnostics diagnostics =
                 new ReadDiagnostics();
+        List<ParsedChunk> chunks;
+        Map<Integer, BlockInfo> registry;
 
-        List<ParsedChunk> chunks =
-                reader.readChunksAround(
-                        savePath,
-                        center,
-                        radius,
-                        diagnostics,
-                        progress
-                );
+        try (SaveSession session =
+                     sessionFactory.open(
+                             savePath
+                     )) {
 
-        Map<Integer, BlockInfo> registry =
-                reader.readBlockRegistry(
-                        savePath,
-                        progress
-                );
+            center =
+                    center(
+                            args
+                    ).orElseGet(
+                            () ->
+                                    reader.readPlayerPosition(
+                                            session,
+                                            progress
+                                    )
+                    );
+
+            chunks =
+                    reader.readChunksAround(
+                            session,
+                            center,
+                            radius,
+                            diagnostics,
+                            progress
+                    );
+
+            registry =
+                    session.snapshot()
+                            .registry();
+        }
 
         BlockScanResult result =
                 blockScanner.scan(

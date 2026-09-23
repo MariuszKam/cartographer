@@ -260,6 +260,7 @@ public class CommandRouter {
                     new ScanCommand(
                             out,
                             reader,
+                            sessionFactory,
                             new BlockScanner(),
                             subcommand(
                                     args,
@@ -271,6 +272,7 @@ public class CommandRouter {
                     new GeologyCommand(
                             out,
                             reader,
+                            sessionFactory,
                             new GeologyAnalyzer(),
                             subcommand(
                                     args,
