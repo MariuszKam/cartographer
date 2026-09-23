@@ -114,8 +114,8 @@ Implemented on the PF-2.2 branch:
 - Surface source reads use an immutable compact palette + decoded-bitplane
   representation for non-uniform block/liquid layers. Point lookups preserve
   `ParsedChunk` semantics without publishing the reusable decoder workspace;
-- both operation-scoped `PrepareMapDataUseCase` Surface reads and the legacy
-  `ReadSurfaceMapUseCase` use the compact Surface decode path;
+- operation-scoped rendering and exact Surface analysis both use the shared
+  `PrepareMapDataUseCase` compact Surface decode path;
 - normal adaptive traversal remains on the full materialized decoder and the
   selective Ore/ROCK/Prospecting paths retain their existing selective decode;
 - PF-2.1 SQL strategy selection, requested chunk sets, Surface fallback

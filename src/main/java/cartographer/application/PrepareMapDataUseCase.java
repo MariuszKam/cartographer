@@ -192,7 +192,11 @@ public final class PrepareMapDataUseCase {
 
         Set<MapChunkCoordinate> renderMapChunkSet =
                 new HashSet<>(renderMapChunkCoordinates);
-        CacheContext cache = prepareCache(request.savePath());
+        CacheContext cache = request.ignoreFoliage()
+                ? prepareCache(request.savePath())
+                : CacheContext.disabled(
+                        "foliage-inclusive Surface analysis bypasses render-data cache"
+                );
 
         Map<MapChunkCoordinate, SurfaceTileLookup> surfaceLookups = surfaceDataRequired
                 ? lookupSurface(cache, surfaceMapChunkCoordinates, metadata)
@@ -255,7 +259,7 @@ public final class PrepareMapDataUseCase {
                                 request.radius(),
                                 surfaceMissSet,
                                 registry,
-                                true,
+                                request.ignoreFoliage(),
                                 true
                         )
                         : null;

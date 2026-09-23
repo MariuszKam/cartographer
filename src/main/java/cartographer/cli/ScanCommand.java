@@ -5,14 +5,17 @@ import cartographer.analysis.BlockScanResult;
 import cartographer.analysis.BlockScanner;
 import cartographer.model.BlockInfo;
 import cartographer.model.ParsedChunk;
-import cartographer.application.ReadSurfaceMapRequest;
-import cartographer.application.ReadSurfaceMapResult;
-import cartographer.application.ReadSurfaceMapUseCase;
+import cartographer.application.PrepareMapDataRequest;
+import cartographer.application.PrepareMapDataUseCase;
+import cartographer.application.PreparedMapData;
+import cartographer.application.SurfaceDataRequirement;
 import cartographer.model.WorldPosition;
 import cartographer.render.ActualBlockMapRenderer;
 import cartographer.render.PngWriter;
+import cartographer.render.RenderStyle;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
+import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockYFilter;
@@ -25,6 +28,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public class ScanCommand implements Command {
     private static final int DEFAULT_BLOCK_MAP_RADIUS =
@@ -53,7 +57,7 @@ public class ScanCommand implements Command {
 
     private final PrintStream out;
     private final VcdbsReader reader;
-    private final ReadSurfaceMapUseCase surfaceReader;
+    private final PrepareMapDataUseCase mapDataUseCase;
     private final BlockScanner blockScanner;
     private final ActualBlockMapScanner actualBlockMapScanner;
     private final ActualBlockMapRenderer actualBlockMapRenderer;
@@ -88,7 +92,10 @@ public class ScanCommand implements Command {
     ) {
         this.out = out;
         this.reader = reader;
-        this.surfaceReader = new ReadSurfaceMapUseCase(reader, new cartographer.save.WorldMetadataReader());
+        this.mapDataUseCase = new PrepareMapDataUseCase(
+                reader,
+                new WorldMetadataReader()
+        );
         this.blockScanner = blockScanner;
         this.actualBlockMapScanner = actualBlockMapScanner;
         this.actualBlockMapRenderer = actualBlockMapRenderer;
@@ -154,13 +161,25 @@ public class ScanCommand implements Command {
                         out
                 );
 
-        WorldPosition player = reader.readPlayerPosition(savePath, progress);
-        ReadSurfaceMapResult loaded = surfaceReader.execute(
-                new ReadSurfaceMapRequest(savePath, player, radius,
-                        !includeFoliage(args), true), progress);
-        SurfaceMapScanResult result = loaded.surface();
-        ReadDiagnostics diagnostics = loaded.chunkDiagnostics();
-        Map<Integer, BlockInfo> registry = result.registry();
+        PreparedMapData loaded = mapDataUseCase.execute(
+                new PrepareMapDataRequest(
+                        savePath,
+                        radius,
+                        1,
+                        RenderStyle.SIMPLE,
+                        Set.of(),
+                        Optional.empty(),
+                        SurfaceDataRequirement.ANALYSIS,
+                        !includeFoliage(args)
+                ),
+                progress
+        );
+        SurfaceMapScanResult result =
+                loaded.surface().requireAnalysis();
+        ReadDiagnostics diagnostics =
+                loaded.chunkDiagnostics();
+        Map<Integer, BlockInfo> registry =
+                loaded.registry();
 
         out.println(
                 "SURFACE"
