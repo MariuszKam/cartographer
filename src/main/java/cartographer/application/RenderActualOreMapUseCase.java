@@ -121,59 +121,6 @@ public class RenderActualOreMapUseCase {
             MapRenderer renderer,
             UserMarkerRenderer userMarkerRenderer,
             ActualOreOverlayPainter actualOreOverlayPainter,
-            MultiActualBlockMapScanner multiActualBlockMapScanner
-    ) {
-        this(
-                reader,
-                metadataReader,
-                homeStore,
-                markerStore,
-                renderer,
-                userMarkerRenderer,
-                actualOreOverlayPainter,
-                multiActualBlockMapScanner,
-                new OreChunkPositionPlanner(),
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(), reader, metadataReader
-                )
-        );
-    }
-
-    public RenderActualOreMapUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            ActualOreOverlayPainter actualOreOverlayPainter,
-            MultiActualBlockMapScanner multiActualBlockMapScanner,
-            OreChunkPositionPlanner oreChunkPositionPlanner
-    ) {
-        this(
-                reader,
-                metadataReader,
-                homeStore,
-                markerStore,
-                renderer,
-                userMarkerRenderer,
-                actualOreOverlayPainter,
-                multiActualBlockMapScanner,
-                oreChunkPositionPlanner,
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(), reader, metadataReader
-                )
-        );
-    }
-
-    public RenderActualOreMapUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            ActualOreOverlayPainter actualOreOverlayPainter,
             MultiActualBlockMapScanner multiActualBlockMapScanner,
             OreChunkPositionPlanner oreChunkPositionPlanner,
             SaveSessionFactory sessionFactory

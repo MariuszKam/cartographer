@@ -2,6 +2,7 @@ package cartographer.cli;
 
 import cartographer.analysis.BlockScanner;
 import cartographer.application.PrepareWorldSnapshotUseCase;
+import cartographer.application.RenderActualOreMapUseCase;
 import cartographer.atlas.AtlasRenderer;
 import cartographer.atlas.TilePyramid;
 import cartographer.coverage.RegionCoverageAnalyzer;
@@ -15,6 +16,7 @@ import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.perf.RenderDataCacheStore;
+import cartographer.render.ActualOreOverlayPainter;
 import cartographer.render.MapRenderer;
 import cartographer.render.PngWriter;
 import cartographer.render.UserMarkerRenderer;
@@ -179,14 +181,17 @@ public class CommandRouter {
             case "map" ->
                     new MapCommand(
                             out,
-                            reader,
-                            metadataReader,
-                            homeStore,
-                            markerStore,
-                            new MapRenderer(),
-                            new UserMarkerRenderer(),
                             new PngWriter(),
-                            renderDataCache,
+                            new RenderActualOreMapUseCase(
+                                    reader,
+                                    metadataReader,
+                                    homeStore,
+                                    markerStore,
+                                    new MapRenderer(),
+                                    new UserMarkerRenderer(),
+                                    new ActualOreOverlayPainter(),
+                                    renderDataCache
+                            ),
                             subcommand(
                                     args,
                                     "map"
