@@ -37,7 +37,7 @@ class ReadSurfaceMapUseCaseTest {
     void readsCompactSurfaceThroughCallbacksWithoutBatchChunkRead() {
         FakeReader reader = new FakeReader();
         ReadSurfaceMapResult result = new ReadSurfaceMapUseCase(
-                reader, new FixedMetadataReader()).execute(
+                reader, sessionFactory(reader)).execute(
                 new ReadSurfaceMapRequest(Path.of("fixture.vcdbs"),
                         new WorldPosition(1.6, 0, 1.6), 2, true, true));
 
@@ -57,7 +57,7 @@ class ReadSurfaceMapUseCaseTest {
         FakeReader reader = new FakeReader();
         reader.liquidAvailable = false;
         ReadSurfaceMapResult result = new ReadSurfaceMapUseCase(
-                reader, new FixedMetadataReader()).execute(
+                reader, sessionFactory(reader)).execute(
                 new ReadSurfaceMapRequest(Path.of("fixture.vcdbs"),
                         new WorldPosition(1, 0, 1), 2, true, true));
 
@@ -82,7 +82,7 @@ class ReadSurfaceMapUseCaseTest {
     }
 
     private ReadSurfaceMapResult read(FakeReader reader, boolean ignoreFoliage) {
-        return new ReadSurfaceMapUseCase(reader, new FixedMetadataReader()).execute(
+        return new ReadSurfaceMapUseCase(reader, sessionFactory(reader)).execute(
                 new ReadSurfaceMapRequest(Path.of("fixture.vcdbs"),
                         new WorldPosition(1, 0, 1), 2, ignoreFoliage, true));
     }

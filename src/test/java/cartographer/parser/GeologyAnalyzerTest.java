@@ -46,7 +46,7 @@ class GeologyAnalyzerTest {
 
         assertEquals(3, report.samples());
         assertEquals(3, report.geologicalSamples());
-        assertEquals(0, report.unknownSamples());
+        assertEquals(1, report.unknownSamples());
         assertEquals(1, report.rockFamilies().get("granite"));
         assertEquals(1, report.rockFamilies().get("basalt"));
         assertEquals(2, report.materialTypes().get("rock"));

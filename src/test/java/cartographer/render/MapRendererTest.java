@@ -438,7 +438,7 @@ class MapRendererTest {
                 HomeState.absent(),
                 List.of(chunk(0, 0, 80)),
                 List.of(new SurfaceCell(
-                        0, 80, 0, BlockInfo.unknown(1), 0,
+                        0, 80, 16, BlockInfo.unknown(1), 0,
                         BlockInfo.unknown(0), SurfaceClass.UNKNOWN
                 )),
                 new RenderOptions(
@@ -451,7 +451,7 @@ class MapRendererTest {
         int expected = new SemanticTerrainPalette().color(
                 SurfaceClass.UNKNOWN, 0.0
         );
-        assertEquals(expected, rendered.image().getRGB(0, 0));
+        assertEquals(expected, rendered.image().getRGB(0, 16));
     }
 
     @Test
