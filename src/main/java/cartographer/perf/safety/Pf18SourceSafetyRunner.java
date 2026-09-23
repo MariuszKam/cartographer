@@ -170,7 +170,6 @@ public final class Pf18SourceSafetyRunner {
                 new MarkerStore(cacheRoot.resolve("pf18-state")),
                 new MapRenderer(),
                 new UserMarkerRenderer(),
-                new cartographer.scanner.ActualBlockMapScanner(),
                 new ActualOreOverlayPainter(),
                 new cartographer.scanner.MultiActualBlockMapScanner(),
                 new cartographer.application.OreChunkPositionPlanner(),

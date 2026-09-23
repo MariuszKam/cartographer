@@ -29,7 +29,6 @@ import cartographer.render.UserMarkerRenderer;
 import cartographer.save.SaveSessionFactory;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
-import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockYFilter;
 import cartographer.scanner.MultiActualBlockMapScanner;
 
@@ -117,7 +116,6 @@ public final class Pf28SnapshotValidationRunner {
                         markerStore,
                         new MapRenderer(),
                         new UserMarkerRenderer(),
-                        new ActualBlockMapScanner(),
                         new ActualOreOverlayPainter(),
                         new MultiActualBlockMapScanner(),
                         new OreChunkPositionPlanner(),
@@ -133,7 +131,6 @@ public final class Pf28SnapshotValidationRunner {
                         markerStore,
                         new MapRenderer(),
                         new UserMarkerRenderer(),
-                        new ActualBlockMapScanner(),
                         new ActualOreOverlayPainter()
                 );
 

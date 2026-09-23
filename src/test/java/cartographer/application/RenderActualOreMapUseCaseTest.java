@@ -1159,11 +1159,11 @@ class RenderActualOreMapUseCaseTest {
 
         useCase(surfaceReader(true), new WorldMetadata(32, 256, 32),
                 temporaryDirectory.resolve("isolated-one-home.properties"),
-                temporaryDirectory.resolve("isolated-one-markers.csv"), firstProbe)
+                temporaryDirectory.resolve("isolated-one-markers.csv"), firstConnections)
                 .execute(request);
         useCase(surfaceReader(true), new WorldMetadata(32, 256, 32),
                 temporaryDirectory.resolve("isolated-two-home.properties"),
-                temporaryDirectory.resolve("isolated-two-markers.csv"), secondProbe)
+                temporaryDirectory.resolve("isolated-two-markers.csv"), secondConnections)
                 .execute(request);
 
         assertEquals(1, firstConnections.opened());
