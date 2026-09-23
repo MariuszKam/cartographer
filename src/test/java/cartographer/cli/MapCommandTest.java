@@ -454,7 +454,7 @@ class MapCommandTest {
 
         @Override
         public List<MapChunk> readMapChunksAround(
-                Path savePath,
+                SaveSession session,
                 WorldPosition center,
                 int radiusBlocks,
                 ReadDiagnostics diagnostics,
@@ -465,7 +465,7 @@ class MapCommandTest {
 
         @Override
         public List<ParsedChunk> readChunksAround(
-                Path savePath,
+                SaveSession session,
                 WorldPosition center,
                 int radiusBlocks,
                 ReadDiagnostics diagnostics,

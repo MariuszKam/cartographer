@@ -863,7 +863,11 @@ class RenderSurfaceResourceMapUseCaseTest {
 
         @Override
         public List<MapChunk> readMapChunksAround(
-                Path savePath, WorldPosition center, int radiusBlocks, ReadDiagnostics diagnostics
+                SaveSession session,
+                WorldPosition center,
+                int radiusBlocks,
+                ReadDiagnostics diagnostics,
+                ProgressReporter progress
         ) {
             legacyMapChunkCalls++;
             throw new AssertionError("legacy mapchunk reader must not be used");
@@ -871,7 +875,11 @@ class RenderSurfaceResourceMapUseCaseTest {
 
         @Override
         public List<ParsedChunk> readChunksAround(
-                Path savePath, WorldPosition center, int radiusBlocks, ReadDiagnostics diagnostics
+                SaveSession session,
+                WorldPosition center,
+                int radiusBlocks,
+                ReadDiagnostics diagnostics,
+                ProgressReporter progress
         ) {
             legacyChunkCalls++;
             throw new AssertionError("legacy chunk reader must not be used");
