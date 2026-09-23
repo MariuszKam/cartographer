@@ -49,7 +49,12 @@ class RockCommandTest {
                 new FakeMetadataReader(),
                 null,
                 new PngWriter(),
-                "list"
+                "list",
+                new SaveSessionFactory(
+                        new TestConnectionFactory(),
+                        reader,
+                        new FakeMetadataReader()
+                )
         ).run(new String[]{"world.vcdbs"});
 
         String text = output.toString();
@@ -120,11 +125,6 @@ class RockCommandTest {
                     new ChunkParser(),
                     new RegistryParser()
             );
-        }
-
-        @Override
-        public Map<Integer, BlockInfo> readBlockRegistry(Path savePath) {
-            return registry;
         }
 
         @Override
