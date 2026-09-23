@@ -5,8 +5,6 @@ import cartographer.geology.rock.RockIdentity;
 import cartographer.geology.rock.RockMap;
 import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldPosition;
-import cartographer.prospecting.ActualOreObservationProvider;
-import cartographer.prospecting.ActualOreObservation;
 import cartographer.prospecting.FusedProspectingObservationProvider;
 import cartographer.prospecting.FusedProspectingResult;
 import cartographer.prospecting.OreRockCompatibilityProvider;
@@ -31,46 +29,28 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
-import java.util.function.Function;
 
 public final class AnalyzeProspectingAreaUseCase {
     private final VcdbsReader reader;
-    private final RenderRockMapUseCase rockMapUseCase;
     private final ResourceAnalyzer resourceAnalyzer;
     private final ProspectingEvaluator evaluator;
     private final OreRockCompatibilityProvider compatibilityProvider;
-    private final ActualOreObservationProvider actualOreProvider;
+    private final FusedProspectingObservationProvider prospectingProvider;
     private final SaveSessionFactory sessionFactory;
     private final Optional<SnapshotMapRegionReader> snapshotMapRegionReader;
     private final Optional<SnapshotWorldHeaderReader> snapshotHeaderReader;
 
     public AnalyzeProspectingAreaUseCase(
             VcdbsReader reader,
-            RenderRockMapUseCase rockMapUseCase,
-            ResourceAnalyzer resourceAnalyzer
-    ) {
-        this(
-                reader,
-                rockMapUseCase,
-                resourceAnalyzer,
-                OreRockCompatibilityProvider.unknown(),
-                ActualOreObservationProvider.none()
-        );
-    }
-
-    public AnalyzeProspectingAreaUseCase(
-            VcdbsReader reader,
-            RenderRockMapUseCase rockMapUseCase,
             ResourceAnalyzer resourceAnalyzer,
             OreRockCompatibilityProvider compatibilityProvider,
-            ActualOreObservationProvider actualOreProvider
+            FusedProspectingObservationProvider prospectingProvider
     ) {
         this(
                 reader,
-                rockMapUseCase,
                 resourceAnalyzer,
                 compatibilityProvider,
-                actualOreProvider,
+                prospectingProvider,
                 new SaveSessionFactory(
                         new SqliteSaveConnection(),
                         reader,
@@ -82,18 +62,16 @@ public final class AnalyzeProspectingAreaUseCase {
 
     public AnalyzeProspectingAreaUseCase(
             VcdbsReader reader,
-            RenderRockMapUseCase rockMapUseCase,
             ResourceAnalyzer resourceAnalyzer,
             OreRockCompatibilityProvider compatibilityProvider,
-            ActualOreObservationProvider actualOreProvider,
+            FusedProspectingObservationProvider prospectingProvider,
             RenderDataCacheStore renderDataCacheStore
     ) {
         this(
                 reader,
-                rockMapUseCase,
                 resourceAnalyzer,
                 compatibilityProvider,
-                actualOreProvider,
+                prospectingProvider,
                 new SaveSessionFactory(
                         new SqliteSaveConnection(),
                         reader,
@@ -106,20 +84,18 @@ public final class AnalyzeProspectingAreaUseCase {
         );
     }
 
-    public AnalyzeProspectingAreaUseCase(
+    AnalyzeProspectingAreaUseCase(
             VcdbsReader reader,
-            RenderRockMapUseCase rockMapUseCase,
             ResourceAnalyzer resourceAnalyzer,
             OreRockCompatibilityProvider compatibilityProvider,
-            ActualOreObservationProvider actualOreProvider,
+            FusedProspectingObservationProvider prospectingProvider,
             SaveSessionFactory sessionFactory
     ) {
         this(
                 reader,
-                rockMapUseCase,
                 resourceAnalyzer,
                 compatibilityProvider,
-                actualOreProvider,
+                prospectingProvider,
                 sessionFactory,
                 Optional.empty()
         );
@@ -127,18 +103,13 @@ public final class AnalyzeProspectingAreaUseCase {
 
     AnalyzeProspectingAreaUseCase(
             VcdbsReader reader,
-            RenderRockMapUseCase rockMapUseCase,
             ResourceAnalyzer resourceAnalyzer,
             OreRockCompatibilityProvider compatibilityProvider,
-            ActualOreObservationProvider actualOreProvider,
+            FusedProspectingObservationProvider prospectingProvider,
             SaveSessionFactory sessionFactory,
             Optional<RenderDataCacheStore> renderDataCacheStore
     ) {
         this.reader = Objects.requireNonNull(reader, "reader is required");
-        this.rockMapUseCase = Objects.requireNonNull(
-                rockMapUseCase,
-                "rock map use case is required"
-        );
         this.resourceAnalyzer = Objects.requireNonNull(
                 resourceAnalyzer,
                 "resource analyzer is required"
@@ -148,9 +119,9 @@ public final class AnalyzeProspectingAreaUseCase {
                 compatibilityProvider,
                 "compatibility provider is required"
         );
-        this.actualOreProvider = Objects.requireNonNull(
-                actualOreProvider,
-                "actual ore provider is required"
+        this.prospectingProvider = Objects.requireNonNull(
+                prospectingProvider,
+                "prospecting provider is required"
         );
         this.sessionFactory = Objects.requireNonNull(
                 sessionFactory,
@@ -185,9 +156,7 @@ public final class AnalyzeProspectingAreaUseCase {
             ProspectingAreaRequest request
     ) {
         if (snapshotMapRegionReader.isEmpty()
-                || snapshotHeaderReader.isEmpty()
-                || !(actualOreProvider
-                instanceof FusedProspectingObservationProvider provider)) {
+                || snapshotHeaderReader.isEmpty()) {
             return Optional.empty();
         }
 
@@ -212,7 +181,7 @@ public final class AnalyzeProspectingAreaUseCase {
                 mapRegions.orElseThrow().resourceRegions();
         List<String> resources =
                 resources(regions, request.resources());
-        FusedProspectingResult fused = provider.analyze(
+        FusedProspectingResult fused = prospectingProvider.analyze(
                 request.savePath(),
                 center,
                 request.radius(),
@@ -223,8 +192,7 @@ public final class AnalyzeProspectingAreaUseCase {
                 center,
                 regions,
                 resources,
-                fused.rockMap(),
-                fused::observation
+                fused
         ));
     }
 
@@ -252,50 +220,18 @@ public final class AnalyzeProspectingAreaUseCase {
                             );
                         });
         List<String> resources = resources(regions, request.resources());
-        FusedProspectingResult fused =
-                actualOreProvider instanceof FusedProspectingObservationProvider provider
-                        ? provider.analyze(
-                        saveSession,
-                        center,
-                        request.radius(),
-                        resources
-                )
-                        : null;
-        RockMap rockMap = fused == null
-                ? rockMapUseCase.execute(
-                        saveSession,
-                        new RenderRockMapRequest(
-                                request.savePath(),
-                                cartographer.geology.rock.RockMapMode.UPPER_ROCK,
-                                request.radius(),
-                                Optional.of(center),
-                                java.util.OptionalInt.empty(),
-                                java.util.OptionalInt.empty(),
-                                java.util.OptionalInt.empty()
-                        ),
-                        ProgressReporter.NONE
-                ).retainedMap().orElseThrow(() ->
-                        new IllegalStateException(
-                                "Prospecting geology analysis requires retained ROCK data"
-                        )
-                )
-                : fused.rockMap();
-        Function<String, ActualOreObservation> observation =
-                fused == null
-                        ? resource -> actualOreProvider.observation(
-                        resource,
-                        request.savePath(),
-                        center,
-                        request.radius()
-                )
-                        : fused::observation;
+        FusedProspectingResult fused = prospectingProvider.analyze(
+                saveSession,
+                center,
+                request.radius(),
+                resources
+        );
         return buildResult(
                 request,
                 center,
                 regions,
                 resources,
-                rockMap,
-                observation
+                fused
         );
     }
 
@@ -304,10 +240,9 @@ public final class AnalyzeProspectingAreaUseCase {
             WorldPosition center,
             List<ServerMapRegion> regions,
             List<String> resources,
-            RockMap rockMap,
-            Function<String, ActualOreObservation> observation
+            FusedProspectingResult fused
     ) {
-        RockEvidence geology = geology(rockMap);
+        RockEvidence geology = geology(fused.rockMap());
         List<ProspectingCandidate> candidates = new ArrayList<>();
         for (String resource : resources) {
             OptionalDouble signal = signal(
@@ -322,7 +257,7 @@ public final class AnalyzeProspectingAreaUseCase {
                             signal,
                             geology.state(),
                             geology.rocks(),
-                            observation.apply(resource),
+                            fused.observation(resource),
                             geology.observedColumns(),
                             geology.noRockColumns(),
                             geology.unavailableColumns()
@@ -337,7 +272,7 @@ public final class AnalyzeProspectingAreaUseCase {
                 center,
                 request.radius(),
                 assessments,
-                Optional.of(rockMap)
+                Optional.of(fused.rockMap())
         );
     }
 

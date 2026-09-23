@@ -23,7 +23,6 @@ import cartographer.perf.WorldSnapshotHeader;
 import cartographer.prospecting.ActualOreObservation;
 import cartographer.prospecting.OreRockCompatibilityProvider;
 import cartographer.prospecting.SavedOreObservationProvider;
-import cartographer.render.RockMapRenderer;
 import cartographer.resource.ResourceAnalyzer;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
@@ -65,12 +64,6 @@ class SnapshotBackedProspectingRoutingTest {
                 new RegistryParser()
         );
         WorldMetadataReader metadataReader = new WorldMetadataReader();
-        RenderRockMapUseCase rockUseCase = new RenderRockMapUseCase(
-                reader,
-                metadataReader,
-                new RockMapRenderer(),
-                cache
-        );
         SavedOreObservationProvider provider =
                 new SavedOreObservationProvider(
                         reader,
@@ -80,7 +73,6 @@ class SnapshotBackedProspectingRoutingTest {
         AnalyzeProspectingAreaUseCase useCase =
                 new AnalyzeProspectingAreaUseCase(
                         reader,
-                        rockUseCase,
                         new ResourceAnalyzer(),
                         OreRockCompatibilityProvider.unknown(),
                         provider,

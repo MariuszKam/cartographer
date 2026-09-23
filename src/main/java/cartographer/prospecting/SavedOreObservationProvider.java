@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-public final class SavedOreObservationProvider implements ActualOreObservationProvider, FusedProspectingObservationProvider {
+public final class SavedOreObservationProvider implements FusedProspectingObservationProvider {
     private final FusedProspectingEngine fusedEngine;
     private final Optional<SnapshotUpperRockReader> snapshotRockReader;
     private final Optional<SnapshotResourceReader> snapshotResourceReader;
@@ -176,27 +176,6 @@ public final class SavedOreObservationProvider implements ActualOreObservationPr
         );
     }
 
-    @Override
-    public boolean observed(
-            String resourceKey,
-            Path savePath,
-            WorldPosition center,
-            int radius
-    ) {
-        return observation(resourceKey, savePath, center, radius)
-                == ActualOreObservation.OBSERVED;
-    }
-
-    @Override
-    public ActualOreObservation observation(
-            String resourceKey,
-            Path savePath,
-            WorldPosition center,
-            int radius
-    ) {
-        return fusedEngine.analyze(savePath, center, radius, List.of(resourceKey))
-                .observation(resourceKey);
-    }
     private int floor(double value) {
         double floored = Math.floor(value);
         if (floored < Integer.MIN_VALUE || floored > Integer.MAX_VALUE) {
