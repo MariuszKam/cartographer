@@ -4,6 +4,7 @@ import cartographer.analysis.BlockScanner;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ParsedChunk;
+import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
@@ -12,15 +13,21 @@ import cartographer.parser.RegistryParser;
 import cartographer.render.ActualBlockMapRenderer;
 import cartographer.render.PngWriter;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
+import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMapScanner;
 import org.junit.jupiter.api.Test;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -526,11 +533,24 @@ class ScanCommandBlocksMapTest {
         return new ScanCommand(
                 out,
                 reader,
+                sessionFactory(
+                        reader
+                ),
                 new BlockScanner(),
                 new ActualBlockMapScanner(),
                 new ActualBlockMapRenderer(),
                 writer,
                 "blocks-map"
+        );
+    }
+
+    private static SaveSessionFactory sessionFactory(
+            FakeReader reader
+    ) {
+        return new SaveSessionFactory(
+                new TestConnectionFactory(),
+                reader,
+                new FakeMetadataReader()
         );
     }
 
@@ -578,7 +598,7 @@ class ScanCommandBlocksMapTest {
 
         @Override
         public WorldPosition readPlayerPosition(
-                Path savePath,
+                SaveSession session,
                 cartographer.application.ProgressReporter progress
         ) {
             return new WorldPosition(
@@ -590,7 +610,7 @@ class ScanCommandBlocksMapTest {
 
         @Override
         public List<ParsedChunk> readChunksAround(
-                Path savePath,
+                SaveSession session,
                 WorldPosition center,
                 int radiusBlocks,
                 ReadDiagnostics diagnostics,
@@ -608,9 +628,8 @@ class ScanCommandBlocksMapTest {
         }
 
         @Override
-        public Map<Integer, BlockInfo> readBlockRegistry(
-                Path savePath,
-                cartographer.application.ProgressReporter progress
+        protected Map<Integer, BlockInfo> readBlockRegistry(
+                Connection connection
         ) {
             registryReads++;
 
@@ -625,6 +644,36 @@ class ScanCommandBlocksMapTest {
                             2,
                             "rock-granite"
                     )
+            );
+        }
+    }
+    private static final class FakeMetadataReader
+            extends WorldMetadataReader {
+
+        @Override
+        protected WorldMetadata read(
+                Connection connection,
+                cartographer.application.ProgressReporter progress
+        ) {
+            return new WorldMetadata(
+                    1024,
+                    256,
+                    1024
+            );
+        }
+    }
+
+    private static final class TestConnectionFactory
+            extends SqliteSaveConnection {
+
+        @Override
+        public Connection openReadOnly(
+                Path savePath
+        ) {
+            return (Connection) Proxy.newProxyInstance(
+                    Connection.class.getClassLoader(),
+                    new Class<?>[]{Connection.class},
+                    (proxy, method, args) -> null
             );
         }
     }
