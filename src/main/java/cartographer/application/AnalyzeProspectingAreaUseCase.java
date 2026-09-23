@@ -231,8 +231,7 @@ public final class AnalyzeProspectingAreaUseCase {
                 center,
                 regions,
                 resources,
-                rockMap,
-                observation
+                fused
         );
     }
 
