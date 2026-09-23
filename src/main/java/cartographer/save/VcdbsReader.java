@@ -2585,17 +2585,6 @@ public class VcdbsReader {
         );
     }
 
-    public List<ServerMapRegion> readMapRegions(
-            Path savePath,
-            ReadDiagnostics diagnostics
-    ) {
-        return readMapRegions(
-                savePath,
-                diagnostics,
-                ProgressReporter.NONE
-        );
-    }
-
     public VcdbsReader(
             PlayerDataParser playerDataParser,
             MapChunkParser mapChunkParser,
