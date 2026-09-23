@@ -3,22 +3,14 @@ package cartographer.cli;
 import cartographer.application.RenderActualOreMapRequest;
 import cartographer.application.RenderActualOreMapResult;
 import cartographer.application.RenderActualOreMapUseCase;
-import cartographer.marker.MarkerStore;
-import cartographer.navigation.HomeStore;
 import cartographer.model.WorldPosition;
-import cartographer.render.ActualOreOverlayPainter;
 import cartographer.render.MapRenderReport;
-import cartographer.render.MapRenderer;
 import cartographer.render.OverlayRenderReport;
 import cartographer.render.PngWriter;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderOptions;
 import cartographer.render.RenderStyle;
-import cartographer.render.UserMarkerRenderer;
 import cartographer.save.ReadDiagnostics;
-import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
-import cartographer.perf.RenderDataCacheStore;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockYFilter;
 import cartographer.scanner.SurfaceDiagnosticsSummary;
@@ -33,111 +25,6 @@ public class MapCommand implements Command {
     private final PngWriter pngWriter;
     private final RenderActualOreMapUseCase renderActualOreMapUseCase;
     private final String subcommand;
-
-    public MapCommand(
-            PrintStream out,
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            PngWriter pngWriter,
-            String subcommand
-    ) {
-        this(
-                out,
-                reader,
-                metadataReader,
-                homeStore,
-                markerStore,
-                renderer,
-                userMarkerRenderer,
-                pngWriter,
-                new ActualOreOverlayPainter(),
-                subcommand
-        );
-    }
-
-    public MapCommand(
-            PrintStream out,
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            PngWriter pngWriter,
-            ActualOreOverlayPainter actualOreOverlayPainter,
-            String subcommand
-    ) {
-        this.out = out;
-        this.pngWriter = pngWriter;
-        this.renderActualOreMapUseCase = new RenderActualOreMapUseCase(
-                reader,
-                metadataReader,
-                homeStore,
-                markerStore,
-                renderer,
-                userMarkerRenderer,
-                actualOreOverlayPainter
-        );
-        this.subcommand = subcommand;
-    }
-
-    public MapCommand(
-            PrintStream out,
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            PngWriter pngWriter,
-            RenderDataCacheStore renderDataCacheStore,
-            String subcommand
-    ) {
-        this(
-                out,
-                reader,
-                metadataReader,
-                homeStore,
-                markerStore,
-                renderer,
-                userMarkerRenderer,
-                pngWriter,
-                new ActualOreOverlayPainter(),
-                renderDataCacheStore,
-                subcommand
-        );
-    }
-
-    public MapCommand(
-            PrintStream out,
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            PngWriter pngWriter,
-            ActualOreOverlayPainter actualOreOverlayPainter,
-            RenderDataCacheStore renderDataCacheStore,
-            String subcommand
-    ) {
-        this.out = out;
-        this.pngWriter = pngWriter;
-        this.renderActualOreMapUseCase = new RenderActualOreMapUseCase(
-                reader, metadataReader, homeStore, markerStore, renderer, userMarkerRenderer,
-                actualOreOverlayPainter,
-                new cartographer.scanner.MultiActualBlockMapScanner(),
-                new cartographer.application.OreChunkPositionPlanner(),
-                new cartographer.save.SaveSessionFactory(
-                        new cartographer.save.SqliteSaveConnection(), reader, metadataReader),
-                renderDataCacheStore
-        );
-        this.subcommand = subcommand;
-    }
 
     public MapCommand(
             PrintStream out,

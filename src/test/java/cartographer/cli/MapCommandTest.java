@@ -373,12 +373,14 @@ class MapCommandTest {
     }
 
     private MapCommand commandForValidation() {
-        return new MapCommand(
+        FakeReader reader = new FakeReader();
+        FakeMetadataReader metadataReader = new FakeMetadataReader();
+        return realMapCommand(
                 new PrintStream(
                         new ByteArrayOutputStream()
                 ),
-                new FakeReader(),
-                new FakeMetadataReader(),
+                reader,
+                metadataReader,
                 new HomeStore(
                         tempDir.resolve(
                                 "home.properties"
@@ -390,9 +392,7 @@ class MapCommandTest {
                         )
                 ),
                 new CapturingRenderer(),
-                new UserMarkerRenderer(),
-                new NoopPngWriter(),
-                "render"
+                new NoopPngWriter()
         );
     }
 
