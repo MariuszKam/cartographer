@@ -186,7 +186,7 @@ public class ScanCommand implements Command {
         ReadDiagnostics diagnostics =
                 loaded.chunkDiagnostics();
         Map<Integer, BlockInfo> registry =
-                loaded.blockRegistry();
+                loaded.registry();
 
         out.println(
                 "SURFACE"
