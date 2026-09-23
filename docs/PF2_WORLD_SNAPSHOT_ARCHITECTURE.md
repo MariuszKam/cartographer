@@ -106,9 +106,9 @@ source authority.
 
 Implemented on the PF-2.2 branch:
 
-- internal ServerChunk parsing keeps block/liquid protobuf fields as owned
-  source-buffer slices and passes offset/length directly to Zstd; the public
-  `ServerChunkPayload` compatibility API keeps its defensive-copy contract;
+- ServerChunk parsing keeps block/liquid protobuf fields as owned source-buffer
+  slices and passes offset/length directly to Zstd; the removed materialized
+  payload compatibility layer is no longer part of the production API;
 - empty and uniform decoded layers use constant storage instead of allocating
   an `int[32768]`;
 - Surface source reads use an immutable compact palette + decoded-bitplane

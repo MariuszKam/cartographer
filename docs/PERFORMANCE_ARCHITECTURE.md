@@ -164,8 +164,8 @@ the same session.
 `SurfaceTileAccumulator` owns primitive arrays for state, surface Y, block ID,
 liquid block ID, and compact Surface class codes. State records active,
 considered, resolved, and liquid-unavailable semantics. Finalization transfers
-tile-array ownership to immutable `SurfaceMap`; it does not create a bulk list
-of `SurfaceBlock` objects. Deterministic tie-breaking preserves the preferred
+tile-array ownership to immutable `SurfaceMap`; it does not materialize a bulk
+per-column object list. Deterministic tie-breaking preserves the preferred
 surface observation when multiple observations address a cell.
 
 The rain-height fast path supplies candidate columns cheaply. Columns lacking

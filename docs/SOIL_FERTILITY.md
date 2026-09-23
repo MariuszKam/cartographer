@@ -98,7 +98,7 @@ not infer through snow, so a snow-covered column can have no fertility overlay.
 
 **WATER**
 
-Water is treated as obscuring fertility evidence. A WATER `SurfaceBlock` must
+Water is treated as obscuring fertility evidence. A WATER surface cell must
 not produce a fertility overlay even if its solid block code happens to look
 fertility-bearing. Lake and river-bed soil fertility is not inferred.
 
