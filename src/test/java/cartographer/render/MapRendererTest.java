@@ -6,14 +6,19 @@ import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
-import cartographer.model.SurfaceBlock;
 import cartographer.model.SurfaceClass;
 import cartographer.model.WorldPosition;
+import cartographer.model.WorldMetadata;
+import cartographer.scanner.SurfaceMap;
+import cartographer.scanner.SurfaceTileAccumulator;
+import cartographer.scanner.SurfaceTileLayout;
 import org.junit.jupiter.api.Test;
 
 import java.awt.Color;
 import java.awt.image.BufferedImage;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -183,11 +188,11 @@ class MapRendererTest {
                 16, 2, RenderStyle.SIMPLE, Set.of(RenderLayer.SURFACE)
         );
         int color = new SemanticTerrainPalette().color(SurfaceClass.ROCK, 0.0);
-        RenderedMap rendered = new MapRenderer().render(
+        RenderedMap rendered = renderWithSurface(
                 new WorldPosition(16.0, 0.0, 16.0),
                 HomeState.absent(),
                 List.of(),
-                List.of(new SurfaceBlock(
+                List.of(new SurfaceCell(
                         16, 80, 16, BlockInfo.unknown(1), 0,
                         BlockInfo.unknown(0), SurfaceClass.ROCK
                 )),
@@ -205,11 +210,11 @@ class MapRendererTest {
                 16, 2, RenderStyle.SIMPLE, Set.of(RenderLayer.SOIL_FERTILITY)
         );
         int background = new TerrainPalette().background(RenderStyle.SIMPLE);
-        RenderedMap rendered = new MapRenderer().render(
+        RenderedMap rendered = renderWithSurface(
                 new WorldPosition(16.0, 0.0, 16.0),
                 HomeState.absent(),
                 List.of(),
-                List.of(new SurfaceBlock(
+                List.of(new SurfaceCell(
                         16, 80, 16,
                         new BlockInfo(1, "game:soil-medium-normal")
                 )),
@@ -228,14 +233,14 @@ class MapRendererTest {
                 16, 1, RenderStyle.SIMPLE, Set.of(RenderLayer.SOIL_FERTILITY)
         );
         int background = new TerrainPalette().background(RenderStyle.SIMPLE);
-        RenderedMap rendered = new MapRenderer().render(
+        RenderedMap rendered = renderWithSurface(
                 new WorldPosition(16.0, 0.0, 16.0),
                 HomeState.absent(),
                 List.of(),
                 List.of(
-                        new SurfaceBlock(16, 80, 16,
+                        new SurfaceCell(16, 80, 16,
                                 new BlockInfo(1, "game:rock-granite")),
-                        new SurfaceBlock(17, 80, 16,
+                        new SurfaceCell(17, 80, 16,
                                 new BlockInfo(2, "creativegrass-medium-normal"))
                 ),
                 options,
@@ -251,21 +256,20 @@ class MapRendererTest {
         RenderOptions options = new RenderOptions(
                 16, 1, RenderStyle.SIMPLE, Set.of(RenderLayer.SOIL_FERTILITY)
         );
-        MapRenderer renderer = new MapRenderer();
-        int low = renderer.render(
+        int low = renderWithSurface(
                 new WorldPosition(16.0, 0.0, 16.0),
                 HomeState.absent(),
                 List.of(),
-                List.of(new SurfaceBlock(16, 80, 16,
+                List.of(new SurfaceCell(16, 80, 16,
                         new BlockInfo(1, "game:soil-low-normal"))),
                 options,
                 ProgressReporter.NONE
         ).image().getRGB(32, 32);
-        int high = renderer.render(
+        int high = renderWithSurface(
                 new WorldPosition(16.0, 0.0, 16.0),
                 HomeState.absent(),
                 List.of(),
-                List.of(new SurfaceBlock(16, 80, 16,
+                List.of(new SurfaceCell(16, 80, 16,
                         new BlockInfo(1, "game:soil-high-normal"))),
                 options,
                 ProgressReporter.NONE
@@ -280,7 +284,7 @@ class MapRendererTest {
                 16, 1, RenderStyle.SIMPLE,
                 Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE, RenderLayer.SOIL_FERTILITY)
         );
-        SurfaceBlock block = new SurfaceBlock(
+        SurfaceCell block = new SurfaceCell(
                 16, 80, 16,
                 new BlockInfo(1, "game:soil-medium-normal"),
                 0,
@@ -288,7 +292,7 @@ class MapRendererTest {
                 SurfaceClass.SOIL
         );
         int surfaceColor = new SemanticTerrainPalette().color(SurfaceClass.SOIL, 0.0);
-        int actual = new MapRenderer().render(
+        int actual = renderWithSurface(
                 new WorldPosition(16.0, 0.0, 16.0),
                 HomeState.absent(),
                 List.of(),
@@ -306,11 +310,11 @@ class MapRendererTest {
                 16, 1, RenderStyle.SIMPLE,
                 Set.of(RenderLayer.SOIL_FERTILITY, RenderLayer.MARKERS)
         );
-        RenderedMap rendered = new MapRenderer().render(
+        RenderedMap rendered = renderWithSurface(
                 new WorldPosition(16.0, 0.0, 16.0),
                 HomeState.absent(),
                 List.of(),
-                List.of(new SurfaceBlock(16, 80, 16,
+                List.of(new SurfaceCell(16, 80, 16,
                         new BlockInfo(1, "game:soil-medium-normal"))),
                 options,
                 ProgressReporter.NONE
@@ -326,11 +330,11 @@ class MapRendererTest {
                 Set.of(RenderLayer.SURFACE, RenderLayer.SOIL_FERTILITY)
         );
         int background = new TerrainPalette().background(RenderStyle.SIMPLE);
-        RenderedMap rendered = new MapRenderer().render(
+        RenderedMap rendered = renderWithSurface(
                 new WorldPosition(128.0, 0.0, 128.0),
                 HomeState.absent(),
                 List.of(),
-                List.of(new SurfaceBlock(
+                List.of(new SurfaceCell(
                         128, 80, 128,
                         new BlockInfo(1, "game:soil-medium-normal"),
                         0,
@@ -350,7 +354,7 @@ class MapRendererTest {
     }
 
     @Test
-    void preparedTerrainRenderingMatchesListBasedRendering() {
+    void preparedTerrainRenderingMatchesChunkRendering() {
         WorldPosition center = new WorldPosition(32.0, 0.0, 32.0);
         RenderOptions options = new RenderOptions(
                 32,
@@ -381,8 +385,13 @@ class MapRendererTest {
                 center,
                 HomeState.absent(),
                 builder.finish(),
-                List.of(),
-                options
+                SurfaceRenderData.empty(
+                        RenderSamplingPlan.from(center, options)
+                ),
+                null,
+                Map.of(),
+                options,
+                ProgressReporter.NONE
         );
 
         assertEquals(listRendered.image().getWidth(), preparedRendered.image().getWidth());
@@ -424,12 +433,12 @@ class MapRendererTest {
 
     @Test
     void hillshadeFallsBackToZeroWhenNeighborSampleMissing() {
-        RenderedMap rendered = new MapRenderer().render(
+        RenderedMap rendered = renderWithSurface(
                 new WorldPosition(16.0, 0.0, 16.0),
                 HomeState.absent(),
                 List.of(chunk(0, 0, 80)),
-                List.of(new SurfaceBlock(
-                        0, 80, 0, BlockInfo.unknown(1), 0,
+                List.of(new SurfaceCell(
+                        0, 80, 16, BlockInfo.unknown(1), 0,
                         BlockInfo.unknown(0), SurfaceClass.UNKNOWN
                 )),
                 new RenderOptions(
@@ -442,7 +451,7 @@ class MapRendererTest {
         int expected = new SemanticTerrainPalette().color(
                 SurfaceClass.UNKNOWN, 0.0
         );
-        assertEquals(expected, rendered.image().getRGB(0, 0));
+        assertEquals(expected, rendered.image().getRGB(0, 32));
     }
 
     @Test
@@ -594,8 +603,7 @@ class MapRendererTest {
     @Test
     void semanticSurfaceLayerUsesClassPaletteOverHeightTerrain() {
         RenderedMap rendered =
-                new MapRenderer()
-                        .render(
+                renderWithSurface(
                                 new WorldPosition(
                                         16.0,
                                         0.0,
@@ -604,7 +612,7 @@ class MapRendererTest {
                                 HomeState.absent(),
                                 List.of(),
                                 List.of(
-                                        new SurfaceBlock(
+                                        new SurfaceCell(
                                                 16,
                                                 80,
                                                 16,
@@ -652,8 +660,7 @@ class MapRendererTest {
     @Test
     void semanticSurfaceLegendDrawsWhenClassesArePresent() {
         RenderedMap rendered =
-                new MapRenderer()
-                        .render(
+                renderWithSurface(
                                 new WorldPosition(
                                         128.0,
                                         0.0,
@@ -662,7 +669,7 @@ class MapRendererTest {
                                 HomeState.absent(),
                                 List.of(),
                                 List.of(
-                                        new SurfaceBlock(
+                                        new SurfaceCell(
                                                 128,
                                                 80,
                                                 128,
@@ -702,6 +709,93 @@ class MapRendererTest {
                                         - 20
                         )
         );
+    }
+
+
+    private RenderedMap renderWithSurface(
+            WorldPosition center,
+            HomeState home,
+            List<MapChunk> chunks,
+            List<SurfaceCell> surfaceBlocks,
+            RenderOptions options,
+            ProgressReporter progress
+    ) {
+        MapTerrainPreparation.Builder terrain =
+                MapTerrainPreparation.builder(
+                        center,
+                        options,
+                        chunks.size(),
+                        progress
+                );
+        chunks.forEach(terrain::accept);
+
+        WorldMetadata metadata = new WorldMetadata(1024, 256, 1024);
+        SurfaceTileLayout layout = SurfaceTileLayout.forSurface(
+                center.x(),
+                center.z(),
+                options.radiusBlocks(),
+                metadata
+        );
+        SurfaceTileAccumulator accumulator =
+                new SurfaceTileAccumulator(layout);
+        Map<Integer, BlockInfo> registry = new HashMap<>();
+        for (SurfaceCell block : surfaceBlocks) {
+            accumulator.recordSurface(
+                    block.worldX(),
+                    block.worldZ(),
+                    block.y(),
+                    block.blockInfo().id(),
+                    block.liquidBlockId(),
+                    block.surfaceClass()
+            );
+            registry.put(block.blockInfo().id(), block.blockInfo());
+            registry.put(block.liquidBlockId(), block.liquidBlockInfo());
+        }
+
+        SurfaceMap surface = accumulator.finish();
+        SurfaceRenderData renderData = SurfaceRenderData.from(
+                surface,
+                RenderSamplingPlan.from(center, options)
+        );
+
+        return new MapRenderer().render(
+                center,
+                center,
+                home,
+                terrain.finish(),
+                renderData,
+                surface,
+                registry,
+                options,
+                progress
+        );
+    }
+
+    private record SurfaceCell(
+            int worldX,
+            int y,
+            int worldZ,
+            BlockInfo blockInfo,
+            int liquidBlockId,
+            BlockInfo liquidBlockInfo,
+            SurfaceClass surfaceClass
+    ) {
+        private SurfaceCell(
+                int worldX,
+                int y,
+                int worldZ,
+                BlockInfo blockInfo
+        ) {
+            this(
+                    worldX,
+                    y,
+                    worldZ,
+                    blockInfo,
+                    0,
+                    BlockInfo.unknown(0),
+                    SurfaceClass.UNKNOWN
+            );
+        }
     }
 
     private MapChunk chunk(

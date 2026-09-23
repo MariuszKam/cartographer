@@ -17,7 +17,6 @@ import cartographer.save.MapChunkStreamStats;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
-import cartographer.save.SaveSessionLifecycleProbe;
 import cartographer.save.SelectiveChunkStreamStats;
 import cartographer.save.SqliteSaveConnection;
 import cartographer.save.SelectiveChunkVisit;
@@ -84,7 +83,7 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
         CountDownLatch selectiveStarted = new CountDownLatch(1);
         CountDownLatch selectiveInterrupted = new CountDownLatch(1);
         AtomicReference<Throwable> failure = new AtomicReference<>();
-        SaveSessionLifecycleProbe probe = SaveSessionLifecycleProbe.recording();
+        TestConnectionFactory connections = new TestConnectionFactory();
         BlockingReader reader = new BlockingReader(
                 selectiveStarted,
                 selectiveInterrupted
@@ -94,10 +93,9 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
                 new DiscoverObservedSurfaceResourcesUseCase(
                         reader,
                         new SaveSessionFactory(
-                                new TestConnectionFactory(),
+                                connections,
                                 reader,
-                                metadata,
-                                probe
+                                metadata
                         )
                 );
 
@@ -125,10 +123,8 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
             joinThread(operation, "surface discovery operation");
 
             assertTrue(failure.get() instanceof CancellationException);
-            assertEquals(
-                    new SaveSessionLifecycleProbe.Snapshot(1, 1),
-                    probe.snapshot()
-            );
+            assertEquals(1, connections.opened());
+            assertEquals(1, connections.closed());
         } finally {
             operation.interrupt();
             joinThread(operation, "surface discovery operation");
@@ -259,19 +255,34 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
         }
     }
     private static final class TestConnectionFactory extends SqliteSaveConnection {
+        private int opened;
+        private int closed;
+
         @Override
         public Connection openReadOnly(Path savePath) {
+            opened++;
             return (Connection) Proxy.newProxyInstance(
                     Connection.class.getClassLoader(),
                     new Class<?>[]{Connection.class},
                     (proxy, method, args) -> {
-                        if (method.getName().equals("close")) return null;
+                        if (method.getName().equals("close")) {
+                            closed++;
+                            return null;
+                        }
                         if (method.getReturnType() == boolean.class) return false;
                         if (method.getReturnType() == int.class) return 0;
                         if (method.getReturnType() == long.class) return 0L;
                         return null;
                     }
             );
+        }
+
+        private int opened() {
+            return opened;
+        }
+
+        private int closed() {
+            return closed;
         }
     }
 

@@ -32,7 +32,6 @@ import cartographer.save.SaveSessionFactory;
 import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
-import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockYFilter;
 import cartographer.scanner.MultiActualBlockMapScanner;
 
@@ -105,17 +104,17 @@ public final class Pf18ProductionOperationFactory implements Pf18MacroOperationF
         WorldMetadataReader metadataReader = new WorldMetadataReader();
         Path root = cacheRoot == null ? stateRoot.resolve("authoritative") : cacheRoot;
         HomeStore home = new HomeStore(root.resolve("home.properties"));
-        MarkerStore markers = new MarkerStore(root.resolve("markers.csv"));
+        MarkerStore markers = new MarkerStore(root);
         SaveSessionFactory sessions = new SaveSessionFactory(
                 new SqliteSaveConnection(), reader, metadataReader);
         if (cacheRoot == null) {
             return new RenderActualOreMapUseCase(reader, metadataReader, home, markers,
-                    new MapRenderer(), new UserMarkerRenderer(), new ActualBlockMapScanner(),
+                    new MapRenderer(), new UserMarkerRenderer(),
                     new ActualOreOverlayPainter(), new MultiActualBlockMapScanner(),
                     new OreChunkPositionPlanner(), sessions);
         }
         return new RenderActualOreMapUseCase(reader, metadataReader, home, markers,
-                new MapRenderer(), new UserMarkerRenderer(), new ActualBlockMapScanner(),
+                new MapRenderer(), new UserMarkerRenderer(),
                 new ActualOreOverlayPainter(), new MultiActualBlockMapScanner(),
                 new OreChunkPositionPlanner(), sessions, new RenderDataCacheStore(cacheRoot));
     }

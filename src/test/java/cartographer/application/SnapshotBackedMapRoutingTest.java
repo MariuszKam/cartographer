@@ -27,7 +27,6 @@ import cartographer.save.SaveSessionFactory;
 import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
-import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockYFilter;
 import cartographer.scanner.MultiActualBlockMapScanner;
 import org.junit.jupiter.api.Test;
@@ -86,7 +85,6 @@ class SnapshotBackedMapRoutingTest {
                         new MarkerStore(root.resolve("markers.csv")),
                         new MapRenderer(),
                         new UserMarkerRenderer(),
-                        new ActualBlockMapScanner(),
                         new ActualOreOverlayPainter(),
                         new MultiActualBlockMapScanner(),
                         new OreChunkPositionPlanner(),

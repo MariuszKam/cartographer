@@ -11,7 +11,6 @@ import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
 import cartographer.model.MapChunk;
 import cartographer.model.ParsedChunk;
-import cartographer.model.SurfaceBlock;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
@@ -32,7 +31,6 @@ import cartographer.render.RenderedMap;
 import cartographer.render.SurfaceRenderData;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.render.ActualOreOverlayPainter;
-import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.SurfaceDiagnosticsSummary;
 import cartographer.scanner.SurfaceMap;
 import cartographer.save.ReadDiagnostics;
@@ -288,7 +286,6 @@ class MapCommandTest {
                         ),
                         new MapRenderer(),
                         new UserMarkerRenderer(),
-                        new ActualBlockMapScanner(),
                         new ActualOreOverlayPainter()
                 );
 
@@ -353,7 +350,6 @@ class MapCommandTest {
                 new MarkerStore(tempDir.resolve("markers.csv")),
                 new MapRenderer(),
                 new UserMarkerRenderer(),
-                new ActualBlockMapScanner(),
                 new ActualOreOverlayPainter()
         );
         MapCommand command = new MapCommand(
@@ -416,7 +412,6 @@ class MapCommandTest {
                 markerStore,
                 renderer,
                 new UserMarkerRenderer(),
-                new ActualBlockMapScanner(),
                 new ActualOreOverlayPainter(),
                 new cartographer.scanner.MultiActualBlockMapScanner(),
                 new cartographer.application.OreChunkPositionPlanner(),
@@ -559,19 +554,6 @@ class MapCommandTest {
         ) {
             return forEachChunkByPositionAdaptive(
                     (Path) null, positions, diagnostics, consumer, progress
-            );
-        }
-
-        @Override
-        public ChunkStreamStats forEachSurfaceChunkByPositionAdaptive(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer,
-                cartographer.application.ProgressReporter progress
-        ) {
-            return forEachChunkByPositionAdaptive(
-                    savePath, positions, diagnostics, consumer, progress
             );
         }
 
@@ -806,74 +788,6 @@ class MapCommandTest {
                 WorldPosition center,
                 WorldPosition player,
                 HomeState home,
-                List<MapChunk> chunks,
-                List<SurfaceBlock> surfaceBlocks,
-                RenderOptions options,
-                cartographer.application.ProgressReporter progress
-        ) {
-            this.player =
-                    player;
-
-            this.home =
-                    home;
-
-            return new RenderedMap(
-                    new BufferedImage(
-                            32,
-                            32,
-                            BufferedImage.TYPE_INT_ARGB
-                    ),
-                    new MapRenderReport(
-                            32,
-                            32,
-                            chunks.size(),
-                            0,
-                            home instanceof HomeState.Present
-                                    ? 2
-                                    : 1,
-                            RenderStyle.SIMPLE,
-                            "MARKERS"
-                    ),
-                    MapViewportGeometry.fullImage(32, 32, 0, 0, 1, 1)
-            );
-        }
-
-        @Override
-        public RenderedMap render(
-                WorldPosition center,
-                WorldPosition player,
-                HomeState home,
-                MapTerrainPreparation terrain,
-                List<SurfaceBlock> surfaceBlocks,
-                RenderOptions options,
-                cartographer.application.ProgressReporter progress
-        ) {
-            this.player = player;
-            this.home = home;
-            return new RenderedMap(
-                    new BufferedImage(
-                            32,
-                            32,
-                            BufferedImage.TYPE_INT_ARGB
-                    ),
-                    new MapRenderReport(
-                            32,
-                            32,
-                            terrain.mapChunkCount(),
-                            0,
-                            home instanceof HomeState.Present ? 2 : 1,
-                            RenderStyle.SIMPLE,
-                            "MARKERS"
-                    ),
-                    MapViewportGeometry.fullImage(32, 32, 0, 0, 1, 1)
-            );
-        }
-
-        @Override
-        public RenderedMap render(
-                WorldPosition center,
-                WorldPosition player,
-                HomeState home,
                 MapTerrainPreparation terrain,
                 SurfaceRenderData surfaceData,
                 SurfaceMap exactSurface,
@@ -941,7 +855,6 @@ class MapCommandTest {
                 MarkerStore markerStore,
                 MapRenderer renderer,
                 UserMarkerRenderer userMarkerRenderer,
-                ActualBlockMapScanner actualBlockMapScanner,
                 ActualOreOverlayPainter actualOreOverlayPainter
         ) {
             super(
@@ -951,7 +864,6 @@ class MapCommandTest {
                     markerStore,
                     renderer,
                     userMarkerRenderer,
-                    actualBlockMapScanner,
                     actualOreOverlayPainter
             );
         }

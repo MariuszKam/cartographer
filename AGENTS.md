@@ -80,8 +80,6 @@ src/main/java/cartographer/
 │   ├── ScanCommand
 │   ├── GeologyCommand
 │   ├── MarkerCommand
-│   ├── CacheCommand
-│   ├── IncrementalCommand
 │   ├── AtlasCommand
 │   └── ProgressReporter
 │
@@ -89,7 +87,6 @@ src/main/java/cartographer/
 │   ├── SqliteSaveConnection
 │   ├── VcdbsReader
 │   ├── WorldMetadataReader
-│   ├── SaveIndexReader
 │   └── SaveInspector
 │
 ├── parser/
@@ -100,8 +97,11 @@ src/main/java/cartographer/
 │   └── ServerMapRegionParser
 │
 ├── scanner/
-│   ├── SurfaceScanner
-│   └── SurfaceScanResult
+│   ├── SurfaceStreamingSession
+│   ├── SurfaceRainHeightPlanner
+│   ├── SurfaceRainHeightScanner
+│   ├── SurfaceObjectCompactPlanner
+│   └── SurfaceObjectStreamingScanner
 │
 ├── render/
 │   ├── MapRenderer
@@ -127,9 +127,9 @@ src/main/java/cartographer/
 │   ├── ResourceAnalyzer
 │   ├── ResourceHotspot
 │   ├── ResourceOverlayCell
-│   ├── SurfaceResourceAnalyzer
-│   ├── SurfaceResourceAnalysis
-│   ├── SurfaceResourceDeposit
+│   ├── SurfaceMaterialAnalyzer
+│   ├── SurfaceMaterialAnalysis
+│   ├── SurfaceMaterialDeposit
 │   └── SurfaceResourcePoint
 │
 ├── marker/
@@ -144,8 +144,12 @@ src/main/java/cartographer/
 │   └── TilePyramid
 │
 └── perf/
-    ├── RenderCache
-    └── IncrementalRenderIndex
+    ├── RenderDataCacheStore
+    ├── WorldDataSnapshot
+    ├── TerrainTileStore
+    ├── SurfaceTileStore
+    ├── UpperRockTileStore
+    └── ResourceIndexStore
 ```
 
 This is a living architecture. Do not create unused abstractions only because they appear in the roadmap.
@@ -277,7 +281,7 @@ Implemented:
 ```text
 streaming SQLite reads
 range filtering before loading chunk BLOBs
-bounded SurfaceScanner temporary state
+bounded Surface streaming temporary state
 large-radius rendering without previous OOM
 progress overflow fix
 ```
@@ -407,8 +411,7 @@ missing-data diagnostics
 Still missing for 1.0 completion:
 
 ```text
-explored-world spatial coverage index
-explored-region coverage visualization
+explored-world spatial coverage explored-region coverage visualization
 ```
 
 ---
@@ -578,17 +581,11 @@ markers list
 markers remove
 markers clear
 
-cache warm
-cache status
 
-incremental status
-incremental update
 
 atlas render
 
-inspect
-index
-```
+inspect```
 
 ---
 

@@ -164,8 +164,8 @@ the same session.
 `SurfaceTileAccumulator` owns primitive arrays for state, surface Y, block ID,
 liquid block ID, and compact Surface class codes. State records active,
 considered, resolved, and liquid-unavailable semantics. Finalization transfers
-tile-array ownership to immutable `SurfaceMap`; it does not create a bulk list
-of `SurfaceBlock` objects. Deterministic tie-breaking preserves the preferred
+tile-array ownership to immutable `SurfaceMap`; it does not materialize a bulk
+per-column object list. Deterministic tie-breaking preserves the preferred
 surface observation when multiple observations address a cell.
 
 The rain-height fast path supplies candidate columns cheaply. Columns lacking
@@ -722,8 +722,8 @@ Cold evidence includes per-layer HIT/publish counters; PASS requires zero
 Terrain, Surface, mapregion, UPPER_ROCK and resource-chunk HITs so the measured
 ingest cannot silently reuse derived artifacts.
 
-For each warm render, a recording `SaveSessionLifecycleProbe` is injected into
-the existing source fallback factory. PASS requires zero source connections to
+For each warm render, a validation-scoped `RecordingSqliteSaveConnection` is supplied to
+the existing source fallback `SaveSessionFactory`. PASS requires zero source connections to
 be opened or closed, so the lifecycle delta is the source-read-elimination
 proof rather than a status-text marker. Warm evidence also records requested
 versus HIT/proven-absent Terrain coverage and requested versus HIT Surface
@@ -758,7 +758,8 @@ mark PF-2.8 DONE.
 - Unrelated render paths may retain their own source-read architecture; the
   integrated render-data cache contract applies to render paths that delegate
   terrain/Surface preparation to `PrepareMapDataUseCase`.
-- Complete real incremental rendering is not claimed merely because legacy
-  cache/incremental commands exist.
+- Legacy table-fingerprint cache/incremental commands have been removed.
+  Snapshot-backed reuse is represented by the revision-scoped render-data and
+  world-snapshot architecture described above.
 - This architecture does not justify GC tuning, thread-count tuning, off-heap
   storage, JNI, SIMD, GPU work, or invented performance targets.

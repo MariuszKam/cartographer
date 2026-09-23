@@ -15,6 +15,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class SurfaceObjectCompactDiscoveryTest {
     private static final WorldMetadata WORLD = new WorldMetadata(64, 64, 64);
@@ -234,22 +235,6 @@ class SurfaceObjectCompactDiscoveryTest {
     }
 
     @Test
-    void compactPlannerMatchesLegacyCandidateRanges() {
-        MapChunk mapChunk = new MapChunk(new MapChunkCoordinate(0, 0), filled(20), filled(10));
-        SurfaceObjectCompactPlan compact = compactPlan(mapChunk, WORLD, 16, 16, 1);
-        SurfaceObjectPlanner.StreamingSession legacySession = new SurfaceObjectPlanner()
-                .begin(WORLD, 16, 16, 1);
-        legacySession.accept(mapChunk);
-        SurfaceObjectPlan legacy = legacySession.finish();
-
-        List<String> legacyFingerprint = legacy.targets().stream()
-                .map(target -> target.worldX() + ":" + target.worldZ() + ":" + target.candidateWorldYs())
-                .sorted()
-                .toList();
-        assertEquals(legacyFingerprint, planFingerprint(compact).stream().sorted().toList());
-    }
-
-    @Test
     void unavailableCandidateDoesNotOverrideAnObservedCandidate() {
         SurfaceObjectCompactPlan plan = planned(31, 31);
         SurfaceObjectStreamingScanner.Session session = new SurfaceObjectStreamingScanner()
@@ -326,16 +311,19 @@ class SurfaceObjectCompactDiscoveryTest {
     }
 
     @Test
-    void emptyWantedIdsTreatSkippedExpectedPositionsAsAvailable() {
+    void emptyWantedIdsAreRejected() {
         SurfaceObjectCompactPlan plan = planned(10, 20);
-        SurfaceObjectStreamingScanner.Session session = new SurfaceObjectStreamingScanner()
-                .begin(plan, new int[0]);
-        session.markExpectedPositionsAvailableWithoutVisits();
 
-        SurfaceObjectCompactScanResult result = session.finish();
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> new SurfaceObjectStreamingScanner()
+                        .begin(plan, new int[0])
+        );
 
-        assertEquals(0, result.unavailablePositions());
-        assertEquals(plan.plannedTargetCount(), result.notObservedTargets());
+        assertEquals(
+                "wanted block IDs cannot be empty",
+                exception.getMessage()
+        );
     }
 
     @Test

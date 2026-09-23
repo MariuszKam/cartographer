@@ -1,7 +1,6 @@
 package cartographer.application;
 
 import cartographer.model.BlockInfo;
-import cartographer.model.SurfaceBlock;
 
 import java.util.List;
 import java.util.Locale;
@@ -26,8 +25,4 @@ public record SurfaceMaterialMatch(String displayName, List<String> requiredToke
         return requiredTokens.stream().allMatch(code::contains);
     }
 
-    public boolean matches(SurfaceBlock block) { return block != null && matches(block.blockInfo()); }
-    public List<SurfaceBlock> matchingBlocks(List<SurfaceBlock> blocks) {
-        return blocks.stream().filter(this::matches).toList();
-    }
 }

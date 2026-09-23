@@ -106,9 +106,9 @@ source authority.
 
 Implemented on the PF-2.2 branch:
 
-- internal ServerChunk parsing keeps block/liquid protobuf fields as owned
-  source-buffer slices and passes offset/length directly to Zstd; the public
-  `ServerChunkPayload` compatibility API keeps its defensive-copy contract;
+- ServerChunk parsing keeps block/liquid protobuf fields as owned source-buffer
+  slices and passes offset/length directly to Zstd; the removed materialized
+  payload compatibility layer is no longer part of the production API;
 - empty and uniform decoded layers use constant storage instead of allocating
   an `int[32768]`;
 - Surface source reads use an immutable compact palette + decoded-bitplane
@@ -393,7 +393,7 @@ requested evidence directory. It then:
   snapshot coverage to be complete;
 - renders Map + Surface at R1024, R2048 and R4096 through the PF-2.6 snapshot
   consumer path;
-- injects a recording `SaveSessionLifecycleProbe` into the warm renderer and
+- injects a validation-scoped `RecordingSqliteSaveConnection` into the warm renderer and
   requires exactly zero source SaveSession connections for every warm render;
 - renders the same request through the source-authoritative path and requires
   exact viewport-geometry and logical ARGB image-fingerprint parity;

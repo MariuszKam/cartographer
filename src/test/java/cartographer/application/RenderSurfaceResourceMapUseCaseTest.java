@@ -34,7 +34,6 @@ import cartographer.save.SaveSessionFactory;
 import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
-import cartographer.scanner.SurfaceScanner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

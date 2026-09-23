@@ -4,7 +4,6 @@ import cartographer.model.ChunkCoordinate;
 import cartographer.model.DecodedChunkLayer;
 import cartographer.model.ParseResult;
 import cartographer.model.ParsedChunk;
-import cartographer.model.ServerChunkPayload;
 import cartographer.save.ProtobufWireReader;
 
 import java.util.Arrays;
@@ -52,25 +51,13 @@ public class ChunkParser {
         }
     }
 
-    public ParseResult<ParsedChunk> parse(
-            ChunkCoordinate coordinate,
-            ServerChunkPayload serverChunk,
-            ChunkDecodeProfile profile
-    ) {
-        Objects.requireNonNull(serverChunk, "serverChunk is required");
-        Objects.requireNonNull(profile, "profile is required");
-        try (ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace()) {
-            return parse(coordinate, serverChunk, profile, workspace);
-        }
-    }
-
     /**
      * Hot-path parse from the original ServerChunk protobuf bytes.
      *
      * <p>Length-delimited block/liquid fields are represented as slices of the
      * original source protobuf and passed directly to the layer decoder. The
-     * internal hot path therefore avoids both the public ServerChunkPayload
-     * defensive copies and a copyOfRange of each compressed field.</p>
+     * hot path avoids materializing defensive copies of each compressed
+     * field.</p>
      */
     public ParseResult<ParsedChunk> parse(
             ChunkCoordinate coordinate,
@@ -133,95 +120,7 @@ public class ChunkParser {
         );
     }
 
-    /**
-     * Compatibility path for already materialized public ServerChunkPayload.
-     * Public defensive-copy semantics remain unchanged.
-     */
-    public ParseResult<ParsedChunk> parse(
-            ChunkCoordinate coordinate,
-            ServerChunkPayload serverChunk,
-            ChunkDecodeProfile profile,
-            ChunkDecodeWorkspace workspace
-    ) {
-        Objects.requireNonNull(serverChunk, "serverChunk is required");
-        Objects.requireNonNull(profile, "profile is required");
-        Objects.requireNonNull(workspace, "workspace is required");
-
-        return parseOwned(
-                coordinate,
-                new OwnedServerChunkPayload(
-                        PayloadSlice.whole(
-                                serverChunk.blocksCompressed()
-                        ),
-                        PayloadSlice.whole(
-                                serverChunk.liquidsCompressed()
-                        ),
-                        serverChunk.savedCompressionVersion()
-                ),
-                profile,
-                workspace
-        );
-    }
-
-    public ParseResult<ChunkPaletteProbe> probeBlockPalette(
-            ServerChunkPayload serverChunk
-    ) {
-        Objects.requireNonNull(serverChunk, "serverChunk is required");
-        try (ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace()) {
-            return probeBlockPalette(serverChunk, workspace);
-        }
-    }
-
-    public ParseResult<ChunkPaletteProbe> probeBlockPalette(
-            ServerChunkPayload serverChunk,
-            ChunkDecodeWorkspace workspace
-    ) {
-        Objects.requireNonNull(serverChunk, "serverChunk is required");
-        Objects.requireNonNull(workspace, "workspace is required");
-        try {
-            PayloadSlice blocks =
-                    PayloadSlice.whole(serverChunk.blocksCompressed());
-            return ParseResult.success(
-                    layerDecoder.probePalette(
-                            blocks.source(),
-                            blocks.offset(),
-                            blocks.length(),
-                            serverChunk.savedCompressionVersion(),
-                            workspace
-                    )
-            );
-        } catch (IllegalArgumentException exception) {
-            return ParseResult.failure(
-                    "blocksCompressed palette: "
-                            + exception.getMessage()
-            );
-        }
-    }
-
-    /**
-     * Palette probe directly from source protobuf bytes without materializing
-     * the public defensive-copy payload object.
-     */
-    public ParseResult<ChunkPaletteProbe> probeBlockPalette(
-            byte[] payload,
-            ChunkDecodeWorkspace workspace
-    ) {
-        Objects.requireNonNull(workspace, "workspace is required");
-        ParseResult<OwnedServerChunkPayload> parsedPayload =
-                parseOwnedPayload(payload);
-        if (!parsedPayload.isSuccess()) {
-            return ParseResult.failure(
-                    parsedPayload.error().orElse(
-                            "unable to parse ServerChunk"
-                    )
-            );
-        }
-        return probeBlockPaletteOwned(
-                parsedPayload.value().orElseThrow(),
-                workspace
-        );
-    }
-
+    /** Palette probe directly from source protobuf bytes. */
     /**
      * Selective hot path: parse the protobuf once, inspect the block palette,
      * and only decode the full block layer when one of the wanted IDs exists.
@@ -294,27 +193,6 @@ public class ChunkParser {
         }
         return SelectiveChunkParseResult.decoded(
                 parsedChunk.value().orElseThrow()
-        );
-    }
-
-    /**
-     * Public compatibility parser retains defensive-array ownership.
-     */
-    public ParseResult<ServerChunkPayload> parsePayload(byte[] payload) {
-        ParseResult<OwnedServerChunkPayload> owned =
-                parseOwnedPayload(payload);
-        if (!owned.isSuccess()) {
-            return ParseResult.failure(
-                    owned.error().orElse("unable to parse ServerChunk")
-            );
-        }
-        OwnedServerChunkPayload value = owned.value().orElseThrow();
-        return ParseResult.success(
-                new ServerChunkPayload(
-                        value.blocksCompressed().copy(),
-                        value.liquidsCompressed().copy(),
-                        value.savedCompressionVersion()
-                )
         );
     }
 
@@ -412,30 +290,6 @@ public class ChunkParser {
         } catch (IllegalArgumentException exception) {
             return ParseResult.failure(
                     "blocksCompressed: "
-                            + exception.getMessage()
-            );
-        }
-    }
-
-    private ParseResult<ChunkPaletteProbe> probeBlockPaletteOwned(
-            OwnedServerChunkPayload serverChunk,
-            ChunkDecodeWorkspace workspace
-    ) {
-        try {
-            PayloadSlice blocks =
-                    serverChunk.blocksCompressed();
-            return ParseResult.success(
-                    layerDecoder.probePalette(
-                            blocks.source(),
-                            blocks.offset(),
-                            blocks.length(),
-                            serverChunk.savedCompressionVersion(),
-                            workspace
-                    )
-            );
-        } catch (IllegalArgumentException exception) {
-            return ParseResult.failure(
-                    "blocksCompressed palette: "
                             + exception.getMessage()
             );
         }

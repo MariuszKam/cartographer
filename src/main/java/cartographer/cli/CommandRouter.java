@@ -14,8 +14,6 @@ import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
-import cartographer.perf.IncrementalRenderIndex;
-import cartographer.perf.RenderCache;
 import cartographer.perf.RenderDataCacheStore;
 import cartographer.render.MapRenderer;
 import cartographer.render.PngWriter;
@@ -23,7 +21,6 @@ import cartographer.render.UserMarkerRenderer;
 import cartographer.render.RockMapRenderer;
 import cartographer.resource.ResourceAnalyzer;
 import cartographer.prospecting.SavedOreObservationProvider;
-import cartographer.save.SaveIndexReader;
 import cartographer.save.SaveInspector;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
@@ -135,19 +132,12 @@ public class CommandRouter {
 
         MarkerStore markerStore =
                 new MarkerStore(
-                        configDirectory.resolve(
-                                "markers.csv"
-                        )
+                        configDirectory
                 );
 
         Path cachePath =
                 configDirectory.resolve(
                         "cache"
-                );
-
-        RenderCache renderCache =
-                new RenderCache(
-                        cachePath
                 );
 
         RenderDataCacheStore renderDataCache = new RenderDataCacheStore(
@@ -318,17 +308,6 @@ public class CommandRouter {
                             )
                     );
 
-            case "cache" ->
-                    new CacheCommand(
-                            out,
-                            renderCache,
-                            new SaveIndexReader(),
-                            subcommand(
-                                    args,
-                                    "cache"
-                            )
-                    );
-
             case "snapshot" ->
                     new SnapshotCommand(
                             out,
@@ -340,20 +319,6 @@ public class CommandRouter {
                             subcommand(
                                     args,
                                     "snapshot"
-                            )
-                    );
-
-            case "incremental" ->
-                    new IncrementalCommand(
-                            out,
-                            renderCache,
-                            new IncrementalRenderIndex(
-                                    cachePath
-                            ),
-                            new SaveIndexReader(),
-                            subcommand(
-                                    args,
-                                    "incremental"
                             )
                     );
 
@@ -378,12 +343,6 @@ public class CommandRouter {
                     new InspectCommand(
                             out,
                             new SaveInspector()
-                    );
-
-            case "index" ->
-                    new IndexCommand(
-                            out,
-                            new SaveIndexReader()
                     );
 
             default ->
@@ -426,9 +385,7 @@ public class CommandRouter {
                  "scan",
                  "geology",
                  "markers",
-                 "cache",
                  "snapshot",
-                 "incremental",
                  "atlas",
                  "mapregion",
                  "environment",
@@ -665,14 +622,10 @@ public class CommandRouter {
                 "  vs-cartographer inspect <save.vcdbs>"
         );
 
-        out.println(
-                "  vs-cartographer index <save.vcdbs>"
-        );
-
         out.println();
 
         out.println(
-                "Cache and atlas:"
+                "Snapshot and atlas:"
         );
 
         out.println(
@@ -680,22 +633,6 @@ public class CommandRouter {
         );
 
         out.println();
-
-        out.println(
-                "  vs-cartographer cache warm <save.vcdbs>"
-        );
-
-        out.println(
-                "  vs-cartographer cache status <save.vcdbs>"
-        );
-
-        out.println(
-                "  vs-cartographer incremental status <save.vcdbs>"
-        );
-
-        out.println(
-                "  vs-cartographer incremental update <save.vcdbs>"
-        );
 
         out.println(
                 "  vs-cartographer atlas render <save.vcdbs> "
@@ -738,8 +675,5 @@ public class CommandRouter {
                 "Default map layers: terrain,surface,markers"
         );
 
-        out.println(
-                "Legacy layer alias: water -> surface"
-        );
     }
 }

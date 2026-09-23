@@ -14,11 +14,16 @@ import cartographer.parser.RegistryParser;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.MapChunkStreamStats;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Proxy;
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
@@ -32,7 +37,7 @@ class ReadSurfaceMapUseCaseTest {
     void readsCompactSurfaceThroughCallbacksWithoutBatchChunkRead() {
         FakeReader reader = new FakeReader();
         ReadSurfaceMapResult result = new ReadSurfaceMapUseCase(
-                reader, new FixedMetadataReader()).execute(
+                reader, sessionFactory(reader)).execute(
                 new ReadSurfaceMapRequest(Path.of("fixture.vcdbs"),
                         new WorldPosition(1.6, 0, 1.6), 2, true, true));
 
@@ -52,7 +57,7 @@ class ReadSurfaceMapUseCaseTest {
         FakeReader reader = new FakeReader();
         reader.liquidAvailable = false;
         ReadSurfaceMapResult result = new ReadSurfaceMapUseCase(
-                reader, new FixedMetadataReader()).execute(
+                reader, sessionFactory(reader)).execute(
                 new ReadSurfaceMapRequest(Path.of("fixture.vcdbs"),
                         new WorldPosition(1, 0, 1), 2, true, true));
 
@@ -77,9 +82,17 @@ class ReadSurfaceMapUseCaseTest {
     }
 
     private ReadSurfaceMapResult read(FakeReader reader, boolean ignoreFoliage) {
-        return new ReadSurfaceMapUseCase(reader, new FixedMetadataReader()).execute(
+        return new ReadSurfaceMapUseCase(reader, sessionFactory(reader)).execute(
                 new ReadSurfaceMapRequest(Path.of("fixture.vcdbs"),
                         new WorldPosition(1, 0, 1), 2, ignoreFoliage, true));
+    }
+
+    private SaveSessionFactory sessionFactory(FakeReader reader) {
+        return new SaveSessionFactory(
+                new FakeSqliteSaveConnection(),
+                reader,
+                new FixedMetadataReader()
+        );
     }
 
     private int resolvedCells(ReadSurfaceMapResult result) {
@@ -89,9 +102,31 @@ class ReadSurfaceMapUseCaseTest {
         return count[0];
     }
 
+    private static final class FakeSqliteSaveConnection
+            extends SqliteSaveConnection {
+        @Override
+        public Connection openReadOnly(Path savePath) {
+            return (Connection) Proxy.newProxyInstance(
+                    Connection.class.getClassLoader(),
+                    new Class<?>[]{Connection.class},
+                    (proxy, method, args) -> switch (method.getName()) {
+                        case "close" -> null;
+                        case "isClosed" -> false;
+                        case "toString" -> "FakeConnection";
+                        default -> throw new UnsupportedOperationException(
+                                "Unexpected JDBC call: " + method.getName()
+                        );
+                    }
+            );
+        }
+    }
+
     private static final class FixedMetadataReader extends WorldMetadataReader {
         @Override
-        public WorldMetadata read(Path savePath, ProgressReporter progress) {
+        protected WorldMetadata read(
+                Connection connection,
+                ProgressReporter progress
+        ) {
             return new WorldMetadata(64, 64, 64);
         }
     }
@@ -107,35 +142,42 @@ class ReadSurfaceMapUseCaseTest {
         }
 
         @Override
-        public Map<Integer, BlockInfo> readBlockRegistry(Path savePath, ProgressReporter progress) {
-            return Map.of(0, new BlockInfo(0, "air"),
+        protected Map<Integer, BlockInfo> readBlockRegistry(
+                Connection connection
+        ) {
+            return Map.of(
+                    0, new BlockInfo(0, "air"),
                     1, new BlockInfo(1, "game:soil-medium"),
-                    2, new BlockInfo(2, "game:fern-leaf"));
+                    2, new BlockInfo(2, "game:fern-leaf")
+            );
         }
 
         @Override
         public MapChunkStreamStats forEachMapChunkByCoordinate(
-                Path savePath, Collection<MapChunkCoordinate> coordinates,
-                ReadDiagnostics diagnostics, Consumer<MapChunk> consumer,
-                ProgressReporter progress) {
-            consumer.accept(new MapChunk(new MapChunkCoordinate(0, 0),
-                    filledHeights(1), new int[0]));
-            return new MapChunkStreamStats(coordinates.size(), 1, 1, 1, 0, 0);
-        }
-
-        @Override
-        public ChunkStreamStats forEachChunkByPositionAdaptive(
-                Path savePath, Collection<cartographer.model.ChunkPosition> positions,
-                ReadDiagnostics diagnostics, Consumer<ParsedChunk> consumer,
-                ProgressReporter progress) {
-            adaptiveReadCalls++;
-            consumer.accept(liquidAvailable ? filledChunk() : unavailableChunk());
-            return new ChunkStreamStats(positions.size(), 1, 1, 1, 0, 0);
+                SaveSession session,
+                Collection<MapChunkCoordinate> coordinates,
+                ReadDiagnostics diagnostics,
+                Consumer<MapChunk> consumer,
+                ProgressReporter progress
+        ) {
+            consumer.accept(new MapChunk(
+                    new MapChunkCoordinate(0, 0),
+                    filledHeights(1),
+                    new int[0]
+            ));
+            return new MapChunkStreamStats(
+                    coordinates.size(),
+                    1,
+                    1,
+                    1,
+                    0,
+                    0
+            );
         }
 
         @Override
         public ChunkStreamStats forEachSurfaceChunkByPositionAdaptive(
-                Path savePath,
+                SaveSession session,
                 Collection<cartographer.model.ChunkPosition> positions,
                 ReadDiagnostics diagnostics,
                 Consumer<ParsedChunk> consumer,
@@ -162,14 +204,6 @@ class ReadSurfaceMapUseCaseTest {
             return new ParsedChunk(new ChunkCoordinate(0, 0, 0), 0,
                     size, size, size, new int[size * size * size], null,
                     0, false, "liquid decode failed");
-        }
-
-        @Override
-        public java.util.List<ParsedChunk> readChunksAround(
-                Path savePath, cartographer.model.WorldPosition center, int radiusBlocks,
-                ReadDiagnostics diagnostics, ProgressReporter progress) {
-            batchReadCalls++;
-            return java.util.List.of();
         }
 
         private ParsedChunk filledChunk() {

@@ -1,13 +1,18 @@
 package cartographer.application;
 
 import cartographer.model.BlockInfo;
-import cartographer.model.SurfaceBlock;
+import cartographer.model.SurfaceClass;
+import cartographer.model.WorldMetadata;
 import cartographer.resource.SurfaceMaterialAnalysis;
 import cartographer.resource.SurfaceMaterialAnalyzer;
 import cartographer.resource.SurfaceResourcePoint;
+import cartographer.scanner.SurfaceMapScanResult;
+import cartographer.scanner.SurfaceTileAccumulator;
+import cartographer.scanner.SurfaceTileLayout;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -71,14 +76,19 @@ class SurfaceMaterialMatchTest {
         SurfaceMaterialMatch match = new SurfaceMaterialMatch(
                 "Fire Clay", List.of("fire", "clay")
         );
-        SurfaceMaterialAnalyzer analyzer = new SurfaceMaterialAnalyzer();
-        List<SurfaceBlock> blocks = List.of(
-                new SurfaceBlock(10, 5, 20, new BlockInfo(1, "game:fire-clay-blue")),
-                new SurfaceBlock(11, 5, 20, new BlockInfo(2, "game:fire-clay-blue"))
+        SurfaceMapScanResult surface = surface(
+                Map.of(
+                        1, new BlockInfo(1, "game:fire-clay-blue"),
+                        2, new BlockInfo(2, "game:fire-clay-blue")
+                ),
+                new Cell(10, 5, 20, 1),
+                new Cell(11, 5, 20, 2)
         );
 
-        SurfaceMaterialAnalysis result = analyzer.analyzeMatched(
-                match.displayName(), match.matchingBlocks(blocks), 2
+        SurfaceMaterialAnalysis result = new SurfaceMaterialAnalyzer().analyze(
+                surface,
+                match,
+                match.displayName()
         );
 
         assertEquals(2, result.matchedBlockCount());
@@ -89,15 +99,61 @@ class SurfaceMaterialMatchTest {
 
     @Test
     void emptyMatchInputProducesValidAnalysis() {
-        SurfaceMaterialAnalysis analysis = new SurfaceMaterialAnalyzer().analyze(
-                List.of(), "peat"
-        );
+        SurfaceMaterialMatch match =
+                new SurfaceMaterialMatch("peat", List.of("peat"));
+        SurfaceMaterialAnalysis analysis =
+                new SurfaceMaterialAnalyzer().analyze(
+                        surface(Map.of()),
+                        match,
+                        match.displayName()
+                );
 
         assertTrue(analysis.matchingBlocks().isEmpty());
         assertTrue(analysis.deposits().isEmpty());
     }
 
-    private SurfaceBlock block(String code) {
-        return new SurfaceBlock(0, 100, 0, new BlockInfo(1, code));
+    private SurfaceMapScanResult surface(
+            Map<Integer, BlockInfo> registry,
+            Cell... cells
+    ) {
+        SurfaceTileAccumulator accumulator =
+                new SurfaceTileAccumulator(
+                        SurfaceTileLayout.forSurface(
+                                16,
+                                16,
+                                16,
+                                new WorldMetadata(64, 256, 64)
+                        )
+                );
+        for (Cell cell : cells) {
+            accumulator.recordSurface(
+                    cell.worldX(),
+                    cell.worldZ(),
+                    cell.worldY(),
+                    cell.blockId(),
+                    0,
+                    SurfaceClass.UNKNOWN
+            );
+        }
+        return new SurfaceMapScanResult(
+                accumulator.finish(),
+                registry,
+                0,
+                cells.length,
+                0,
+                0
+        );
+    }
+
+    private BlockInfo block(String code) {
+        return new BlockInfo(1, code);
+    }
+
+    private record Cell(
+            int worldX,
+            int worldY,
+            int worldZ,
+            int blockId
+    ) {
     }
 }

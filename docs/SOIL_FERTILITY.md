@@ -98,7 +98,7 @@ not infer through snow, so a snow-covered column can have no fertility overlay.
 
 **WATER**
 
-Water is treated as obscuring fertility evidence. A WATER `SurfaceBlock` must
+Water is treated as obscuring fertility evidence. A WATER surface cell must
 not produce a fertility overlay even if its solid block code happens to look
 fertility-bearing. Lake and river-bed soil fertility is not inferred.
 
@@ -114,9 +114,10 @@ interpolation or guessed substrate is used.
    `SURFACE` or `SOIL_FERTILITY` is selected.
 3. `SURFACE` and `SOIL_FERTILITY` share the same surface data scan.
 4. No duplicate fertility-specific full surface scan exists.
-5. `SurfaceBlock` evidence is passed to `MapRenderer`.
-6. `SoilFertilityOverlayRenderer` performs conservative fertility
-   classification.
+5. Exact `SurfaceMap` evidence and the block registry are passed to
+   `MapRenderer` when fertility is enabled.
+6. `SoilFertilityOverlayRenderer` resolves block identities through the
+   registry and performs conservative fertility classification.
 7. Markers are rendered after the fertility overlay.
 
 The RainHeight fast path and existing fallback scanning are reused. There is no

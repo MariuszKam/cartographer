@@ -79,12 +79,9 @@ public final class InspectSurfaceObjectsUseCase {
         ReadDiagnostics chunkDiagnostics = new ReadDiagnostics();
         SurfaceObjectStreamingScanner.Session scanSession = scanner.begin(plan, wantedIds);
         SelectiveChunkStreamStats stats;
-        if (wantedIds.length == 0 || plan.chunkPositions().isEmpty()) {
-            if (wantedIds.length == 0) {
-                scanSession.markExpectedPositionsAvailableWithoutVisits();
-            }
+        if (plan.chunkPositions().isEmpty()) {
             stats = new SelectiveChunkStreamStats(
-                    plan.chunkPositions().size(), 0, 0, 0, 0, 0, 0, 0
+                    0, 0, 0, 0, 0, 0, 0, 0
             );
         } else {
             stats = reader.forEachChunkByPositionMatchingBlockIdsWithCoverage(

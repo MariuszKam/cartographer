@@ -32,7 +32,6 @@ import cartographer.perf.RenderDataCacheStore;
 import cartographer.snapshot.SnapshotMapRegionReader;
 import cartographer.snapshot.SnapshotResourceReader;
 import cartographer.scanner.ActualBlockMap;
-import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockMatchSpec;
 import cartographer.scanner.MultiActualBlockMapScanner;
 
@@ -69,7 +68,6 @@ public class RenderActualOreMapUseCase {
             MarkerStore markerStore,
             MapRenderer renderer,
             UserMarkerRenderer userMarkerRenderer,
-            ActualBlockMapScanner actualBlockMapScanner,
             ActualOreOverlayPainter actualOreOverlayPainter
     ) {
         this(
@@ -79,7 +77,6 @@ public class RenderActualOreMapUseCase {
                 markerStore,
                 renderer,
                 userMarkerRenderer,
-                actualBlockMapScanner,
                 actualOreOverlayPainter,
                 new MultiActualBlockMapScanner(),
                 new OreChunkPositionPlanner(),
@@ -96,7 +93,6 @@ public class RenderActualOreMapUseCase {
             MarkerStore markerStore,
             MapRenderer renderer,
             UserMarkerRenderer userMarkerRenderer,
-            ActualBlockMapScanner actualBlockMapScanner,
             ActualOreOverlayPainter actualOreOverlayPainter,
             RenderDataCacheStore renderDataCacheStore
     ) {
@@ -107,7 +103,6 @@ public class RenderActualOreMapUseCase {
                 markerStore,
                 renderer,
                 userMarkerRenderer,
-                actualBlockMapScanner,
                 actualOreOverlayPainter,
                 new MultiActualBlockMapScanner(),
                 new OreChunkPositionPlanner(),
@@ -125,7 +120,6 @@ public class RenderActualOreMapUseCase {
             MarkerStore markerStore,
             MapRenderer renderer,
             UserMarkerRenderer userMarkerRenderer,
-            ActualBlockMapScanner actualBlockMapScanner,
             ActualOreOverlayPainter actualOreOverlayPainter,
             MultiActualBlockMapScanner multiActualBlockMapScanner
     ) {
@@ -136,7 +130,6 @@ public class RenderActualOreMapUseCase {
                 markerStore,
                 renderer,
                 userMarkerRenderer,
-                actualBlockMapScanner,
                 actualOreOverlayPainter,
                 multiActualBlockMapScanner,
                 new OreChunkPositionPlanner(),
@@ -153,7 +146,6 @@ public class RenderActualOreMapUseCase {
             MarkerStore markerStore,
             MapRenderer renderer,
             UserMarkerRenderer userMarkerRenderer,
-            ActualBlockMapScanner actualBlockMapScanner,
             ActualOreOverlayPainter actualOreOverlayPainter,
             MultiActualBlockMapScanner multiActualBlockMapScanner,
             OreChunkPositionPlanner oreChunkPositionPlanner
@@ -165,7 +157,6 @@ public class RenderActualOreMapUseCase {
                 markerStore,
                 renderer,
                 userMarkerRenderer,
-                actualBlockMapScanner,
                 actualOreOverlayPainter,
                 multiActualBlockMapScanner,
                 oreChunkPositionPlanner,
@@ -182,14 +173,13 @@ public class RenderActualOreMapUseCase {
             MarkerStore markerStore,
             MapRenderer renderer,
             UserMarkerRenderer userMarkerRenderer,
-            ActualBlockMapScanner actualBlockMapScanner,
             ActualOreOverlayPainter actualOreOverlayPainter,
             MultiActualBlockMapScanner multiActualBlockMapScanner,
             OreChunkPositionPlanner oreChunkPositionPlanner,
             SaveSessionFactory sessionFactory
     ) {
         this(reader, metadataReader, homeStore, markerStore, renderer, userMarkerRenderer,
-                actualBlockMapScanner, actualOreOverlayPainter, multiActualBlockMapScanner,
+                actualOreOverlayPainter, multiActualBlockMapScanner,
                 oreChunkPositionPlanner, sessionFactory, Optional.empty());
     }
 
@@ -200,7 +190,6 @@ public class RenderActualOreMapUseCase {
             MarkerStore markerStore,
             MapRenderer renderer,
             UserMarkerRenderer userMarkerRenderer,
-            ActualBlockMapScanner actualBlockMapScanner,
             ActualOreOverlayPainter actualOreOverlayPainter,
             MultiActualBlockMapScanner multiActualBlockMapScanner,
             OreChunkPositionPlanner oreChunkPositionPlanner,
@@ -208,7 +197,7 @@ public class RenderActualOreMapUseCase {
             RenderDataCacheStore renderDataCacheStore
     ) {
         this(reader, metadataReader, homeStore, markerStore, renderer, userMarkerRenderer,
-                actualBlockMapScanner, actualOreOverlayPainter, multiActualBlockMapScanner,
+                actualOreOverlayPainter, multiActualBlockMapScanner,
                 oreChunkPositionPlanner, sessionFactory,
                 Optional.of(Objects.requireNonNull(renderDataCacheStore, "render data cache store is required")));
     }
@@ -220,7 +209,6 @@ public class RenderActualOreMapUseCase {
             MarkerStore markerStore,
             MapRenderer renderer,
             UserMarkerRenderer userMarkerRenderer,
-            ActualBlockMapScanner actualBlockMapScanner,
             ActualOreOverlayPainter actualOreOverlayPainter,
             MultiActualBlockMapScanner multiActualBlockMapScanner,
             OreChunkPositionPlanner oreChunkPositionPlanner,
@@ -249,7 +237,6 @@ public class RenderActualOreMapUseCase {
         this.markerStore = Objects.requireNonNull(markerStore, "markerStore is required");
         this.renderer = Objects.requireNonNull(renderer, "renderer is required");
         this.userMarkerRenderer = Objects.requireNonNull(userMarkerRenderer, "userMarkerRenderer is required");
-        Objects.requireNonNull(actualBlockMapScanner, "actualBlockMapScanner is required");
         this.actualOreOverlayPainter = Objects.requireNonNull(actualOreOverlayPainter, "actualOreOverlayPainter is required");
         this.multiActualBlockMapScanner = Objects.requireNonNull(
                 multiActualBlockMapScanner,

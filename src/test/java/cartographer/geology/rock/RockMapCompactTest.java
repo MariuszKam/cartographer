@@ -22,7 +22,7 @@ class RockMapCompactTest {
                 GRANITE.blockId(),
                 new BlockInfo(GRANITE.blockId(), GRANITE.code())
         ));
-        RockMapAssembler assembler = new RockMapAssembler(
+        RockMapBuilder builder = new RockMapBuilder(
                 new WorldPosition(0, 0, 0),
                 1,
                 0,
@@ -30,10 +30,10 @@ class RockMapCompactTest {
                 RockMapMode.UPPER_ROCK,
                 catalog
         );
-        assembler.accept(RockColumnSample.observed(0, 0, GRANITE, 7));
-        assembler.accept(RockColumnSample.noRock(0, -1));
-        assembler.accept(RockColumnSample.unavailable(-1, 0));
-        RockMap map = assembler.finish();
+        builder.accept(RockColumnSample.observed(0, 0, GRANITE, 7));
+        builder.accept(RockColumnSample.noRock(0, -1));
+        builder.accept(RockColumnSample.unavailable(-1, 0));
+        RockMap map = builder.finish();
         assertEquals(1, map.observedCount());
         assertEquals(1, map.noRockCount());
         assertEquals(1, map.unavailableCount());
@@ -56,7 +56,7 @@ class RockMapCompactTest {
         registry.put(11, new BlockInfo(11, GRANITE_ALIAS.code()));
         registry.put(10, new BlockInfo(10, GRANITE.code()));
         RockCatalog catalog = RockCatalog.from(registry);
-        RockMapAssembler assembler = new RockMapAssembler(
+        RockMapBuilder builder = new RockMapBuilder(
                 new WorldPosition(0, 0, 0),
                 1,
                 0,
@@ -64,13 +64,13 @@ class RockMapCompactTest {
                 RockMapMode.UPPER_ROCK,
                 catalog
         );
-        assembler.accept(
+        builder.accept(
                 RockColumnSample.observed(0, 0, GRANITE_ALIAS, 3)
         );
-        assembler.accept(
+        builder.accept(
                 RockColumnSample.observed(0, -1, SHALE, 4)
         );
-        RockMap map = assembler.finish();
+        RockMap map = builder.finish();
         assertEquals(List.of("game:rock-granite", "game:rock-shale"),
                 map.ordinalTable().stream().map(RockIdentity::code).toList());
         assertEquals(GRANITE.blockId(), map.ordinalTable().get(0).blockId());
@@ -79,13 +79,30 @@ class RockMapCompactTest {
     }
 
     @Test
-    void ownershipTransfersWithoutASecondPackedArray() {
-        RockCatalog catalog = RockCatalog.from(Map.of(10, new BlockInfo(10, GRANITE.code())));
-        RockMapBuilder builder = new RockMapBuilder(new WorldPosition(0, 0, 0), 1, 0, 8,
-                RockMapMode.UPPER_ROCK, catalog);
-        int storage = builder.packedStorageIdentityForTest();
+    void ownershipTransfersWithoutASecondPackedArray() throws Exception {
+        RockCatalog catalog = RockCatalog.from(Map.of(
+                10,
+                new BlockInfo(10, GRANITE.code())
+        ));
+        RockMapBuilder builder = new RockMapBuilder(
+                new WorldPosition(0, 0, 0),
+                1,
+                0,
+                8,
+                RockMapMode.UPPER_ROCK,
+                catalog
+        );
+        java.lang.reflect.Field builderCells =
+                RockMapBuilder.class.getDeclaredField("intCells");
+        builderCells.setAccessible(true);
+        Object storage = builderCells.get(builder);
+
         RockMap map = builder.finish();
-        assertEquals(storage, map.packedStorageIdentityForTest());
+
+        java.lang.reflect.Field mapCells =
+                RockMap.class.getDeclaredField("intCells");
+        mapCells.setAccessible(true);
+        assertEquals(storage, mapCells.get(map));
         assertThrows(IllegalStateException.class, builder::finish);
     }
 }

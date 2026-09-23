@@ -193,58 +193,6 @@ public class ChunkDataLayerDecoder {
         );
     }
 
-    public ChunkPaletteProbe probePalette(
-            byte[] payload,
-            int savedCompressionVersion
-    ) {
-        try (ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace()) {
-            return probePalette(
-                    payload,
-                    0,
-                    payloadLength(payload),
-                    savedCompressionVersion,
-                    workspace
-            );
-        }
-    }
-
-    ChunkPaletteProbe probePalette(
-            byte[] payload,
-            int savedCompressionVersion,
-            ChunkDecodeWorkspace workspace
-    ) {
-        return probePalette(
-                payload,
-                0,
-                payloadLength(payload),
-                savedCompressionVersion,
-                workspace
-        );
-    }
-
-    ChunkPaletteProbe probePalette(
-            byte[] payload,
-            int sourceOffset,
-            int sourceLength,
-            int savedCompressionVersion,
-            ChunkDecodeWorkspace workspace
-    ) {
-        DecodedPalette palette =
-                readPalette(
-                        payload,
-                        sourceOffset,
-                        sourceLength,
-                        savedCompressionVersion,
-                        workspace
-                );
-        return new ChunkPaletteProbe(
-                Arrays.copyOf(
-                        workspace.paletteBuffer(),
-                        palette.length()
-                )
-        );
-    }
-
     boolean paletteContainsAny(
             byte[] payload,
             int savedCompressionVersion,

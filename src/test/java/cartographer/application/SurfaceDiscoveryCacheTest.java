@@ -13,7 +13,6 @@ import cartographer.save.ReadDiagnostics;
 import cartographer.save.SelectiveChunkStreamStats;
 import cartographer.scanner.SurfaceObjectCompactScanResult;
 import java.nio.file.Path;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class SurfaceDiscoveryCacheTest {
@@ -113,7 +112,7 @@ class SurfaceDiscoveryCacheTest {
                 0,
                 new SelectiveChunkStreamStats(0, 0, 0, 0, 0, 0, 0, 0),
                 SurfaceObjectCompactScanResult.empty(),
-                new ObservedSurfaceResourceCatalogBuilder().build(candidates, List.of()),
+                new ObservedSurfaceResourceCatalogBuilder().build(candidates, SurfaceObjectCompactScanResult.empty()),
                 new ReadDiagnostics(),
                 new ReadDiagnostics()
         );

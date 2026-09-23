@@ -41,20 +41,6 @@ public enum RenderLayer {
                                     Locale.ROOT
                             );
 
-            /*
-             * Backward-compatible CLI alias.
-             *
-             * Water is decoded through the real liquid/surface data,
-             * therefore it remains part of SURFACE.
-             */
-            if ("WATER".equals(normalized)) {
-                layers.add(
-                        SURFACE
-                );
-
-                continue;
-            }
-
             try {
                 layers.add(
                         RenderLayer.valueOf(

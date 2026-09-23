@@ -20,7 +20,6 @@ import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.perf.RenderDataCacheStore;
 import cartographer.scanner.ActualBlockMap;
-import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockYFilter;
 import cartographer.scanner.SurfaceDiagnosticsSummary;
 
@@ -55,7 +54,6 @@ public class MapCommand implements Command {
                 renderer,
                 userMarkerRenderer,
                 pngWriter,
-                new ActualBlockMapScanner(),
                 new ActualOreOverlayPainter(),
                 subcommand
         );
@@ -70,7 +68,6 @@ public class MapCommand implements Command {
             MapRenderer renderer,
             UserMarkerRenderer userMarkerRenderer,
             PngWriter pngWriter,
-            ActualBlockMapScanner actualBlockMapScanner,
             ActualOreOverlayPainter actualOreOverlayPainter,
             String subcommand
     ) {
@@ -83,7 +80,6 @@ public class MapCommand implements Command {
                 markerStore,
                 renderer,
                 userMarkerRenderer,
-                actualBlockMapScanner,
                 actualOreOverlayPainter
         );
         this.subcommand = subcommand;
@@ -110,7 +106,6 @@ public class MapCommand implements Command {
                 renderer,
                 userMarkerRenderer,
                 pngWriter,
-                new ActualBlockMapScanner(),
                 new ActualOreOverlayPainter(),
                 renderDataCacheStore,
                 subcommand
@@ -126,7 +121,6 @@ public class MapCommand implements Command {
             MapRenderer renderer,
             UserMarkerRenderer userMarkerRenderer,
             PngWriter pngWriter,
-            ActualBlockMapScanner actualBlockMapScanner,
             ActualOreOverlayPainter actualOreOverlayPainter,
             RenderDataCacheStore renderDataCacheStore,
             String subcommand
@@ -135,7 +129,7 @@ public class MapCommand implements Command {
         this.pngWriter = pngWriter;
         this.renderActualOreMapUseCase = new RenderActualOreMapUseCase(
                 reader, metadataReader, homeStore, markerStore, renderer, userMarkerRenderer,
-                actualBlockMapScanner, actualOreOverlayPainter,
+                actualOreOverlayPainter,
                 new cartographer.scanner.MultiActualBlockMapScanner(),
                 new cartographer.application.OreChunkPositionPlanner(),
                 new cartographer.save.SaveSessionFactory(

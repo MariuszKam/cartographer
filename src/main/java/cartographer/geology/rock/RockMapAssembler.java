@@ -5,8 +5,12 @@ import cartographer.model.WorldPosition;
 import java.util.Objects;
 
 /**
- * Public streaming seam for constructing the existing compact RockMap without
- * materializing an intermediate list of column samples.
+ * Production streaming assembler for compact ROCK maps built from already
+ * resolved column states, such as world-snapshot tiles.
+ *
+ * <p>Source chunk scanning uses {@link RockStreamingSession}; this assembler
+ * exists so snapshot reconstruction can keep {@link RockMapBuilder} internal
+ * to the ROCK package without materializing an intermediate column list.</p>
  */
 public final class RockMapAssembler {
     private final RockMapBuilder delegate;
@@ -20,7 +24,7 @@ public final class RockMapAssembler {
             RockMapMode mode,
             RockCatalog catalog
     ) {
-        delegate = new RockMapBuilder(
+        this.delegate = new RockMapBuilder(
                 Objects.requireNonNull(center, "center is required"),
                 radius,
                 minY,

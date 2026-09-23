@@ -153,8 +153,8 @@ PF-3 reuses the PF-2.8 cold-build and Map/Surface validation implementation.
 It does not maintain a second copy of that harness. The PF-3 layer adds the
 render-sized UPPER_ROCK gate and one outer source-safety snapshot covering the
 whole campaign. ROCK is executed through the production
-`RenderRockMapUseCase.executeRenderOnly(...)` route with a recording
-`SaveSessionLifecycleProbe`; PASS requires zero opened/closed source
+`RenderRockMapUseCase.executeRenderOnly(...)` route with a validation-scoped
+`RecordingSqliteSaveConnection`; PASS requires zero opened/closed source
 connections and no retained request-shaped `RockMap`.
 
 The Gradle entry point is:

@@ -5,7 +5,6 @@ import cartographer.application.ProgressReporter;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
-import cartographer.model.ServerChunkPayload;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.MapRegionCoordinate;
@@ -17,7 +16,6 @@ import cartographer.model.WorldPosition;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.ChunkDecodeWorkspace;
 import cartographer.parser.ChunkDecodeProfile;
-import cartographer.parser.ChunkPaletteProbe;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
@@ -71,7 +69,6 @@ public class VcdbsReader {
     private final SqliteSaveConnection connectionFactory;
     private final int chunkDecodeWorkerCount;
     private final int chunkDecodeMaxInFlight;
-    private final ChunkReadMetricsProbe chunkReadMetricsProbe;
     private final AtomicReference<ChunkReadMetrics> lastChunkReadMetrics =
             new AtomicReference<>();
     private final PackedPositionRunPlanner packedPositionRunPlanner =
@@ -245,75 +242,6 @@ public class VcdbsReader {
         } catch (SQLException exception) {
             throw new CommandException(
                     "Cannot open save for adaptive chunk traversal: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
-    }
-
-    /**
-     * Path-scoped Surface traversal for legacy callers. It keeps the same
-     * adaptive SQL strategy and read-only connection lifecycle while using
-     * compact Surface decode workers.
-     */
-    public ChunkStreamStats forEachSurfaceChunkByPositionAdaptive(
-            Path savePath,
-            Collection<ChunkPosition> positions,
-            ReadDiagnostics diagnostics,
-            Consumer<ParsedChunk> consumer,
-            ProgressReporter progress
-    ) {
-        Objects.requireNonNull(
-                savePath,
-                "savePath is required"
-        );
-        Objects.requireNonNull(
-                positions,
-                "positions is required"
-        );
-        Objects.requireNonNull(
-                diagnostics,
-                "diagnostics is required"
-        );
-        Objects.requireNonNull(
-                consumer,
-                "consumer is required"
-        );
-        Objects.requireNonNull(
-                progress,
-                "progress is required"
-        );
-
-        Set<Long> packedPositions =
-                packedUniquePositions(
-                        positions
-                );
-        if (packedPositions.isEmpty()) {
-            return new ChunkStreamStats(
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0
-            );
-        }
-
-        try (Connection connection =
-                     connectionFactory.openReadOnly(
-                             savePath
-                     )) {
-            return forEachChunkByPositionAdaptive(
-                    connection,
-                    packedPositions,
-                    diagnostics,
-                    consumer,
-                    progress,
-                    ChunkDecodeMode.SURFACE_COMPACT
-            );
-        } catch (SQLException exception) {
-            throw new CommandException(
-                    "Cannot open save for adaptive Surface chunk traversal: "
                             + exception.getMessage(),
                     exception
             );
@@ -1047,28 +975,6 @@ public class VcdbsReader {
                 consumer,
                 progress,
                 tableStream
-        );
-    }
-
-    /**
-     * Compatibility overload for callers that still use the CLI progress
-     * reporter. The neutral application callback is the primary contract.
-     */
-    public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
-            Path savePath,
-            Collection<ChunkPosition> positions,
-            int[] wantedBlockIds,
-            ReadDiagnostics diagnostics,
-            Consumer<SelectiveChunkVisit> consumer,
-            cartographer.cli.ProgressReporter progress
-    ) {
-        return forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                savePath,
-                positions,
-                wantedBlockIds,
-                diagnostics,
-                consumer,
-                (ProgressReporter) progress
         );
     }
 
@@ -2401,19 +2307,6 @@ public class VcdbsReader {
         );
     }
 
-    private boolean containsWantedBlock(
-            ChunkPaletteProbe palette,
-            int[] wantedBlockIds
-    ) {
-        for (int wantedBlockId : wantedBlockIds) {
-            if (palette.contains(wantedBlockId)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private ChunkDecodeOutcome decodeChunk(
             ChunkCoordinate coordinate,
             byte[] payload,
@@ -2554,11 +2447,6 @@ public class VcdbsReader {
 
     private void recordChunkReadMetrics(ChunkReadMetrics metrics) {
         lastChunkReadMetrics.set(metrics);
-        try {
-            chunkReadMetricsProbe.record(metrics);
-        } catch (RuntimeException ignored) {
-            // Instrumentation must never change source-read correctness.
-        }
     }
 
     private long elapsedNanos(long startedAt) {
@@ -2737,28 +2625,7 @@ public class VcdbsReader {
                 registryParser,
                 connectionFactory,
                 defaultChunkDecodeWorkerCount(),
-                defaultChunkDecodeMaxInFlight(defaultChunkDecodeWorkerCount()),
-                ChunkReadMetricsProbe.NONE
-        );
-    }
-
-    public VcdbsReader(
-            PlayerDataParser playerDataParser,
-            MapChunkParser mapChunkParser,
-            ChunkParser chunkParser,
-            RegistryParser registryParser,
-            SqliteSaveConnection connectionFactory,
-            ChunkReadMetricsProbe chunkReadMetricsProbe
-    ) {
-        this(
-                playerDataParser,
-                mapChunkParser,
-                chunkParser,
-                registryParser,
-                connectionFactory,
-                defaultChunkDecodeWorkerCount(),
-                defaultChunkDecodeMaxInFlight(defaultChunkDecodeWorkerCount()),
-                chunkReadMetricsProbe
+                defaultChunkDecodeMaxInFlight(defaultChunkDecodeWorkerCount())
         );
     }
 
@@ -2770,28 +2637,6 @@ public class VcdbsReader {
             SqliteSaveConnection connectionFactory,
             int chunkDecodeWorkerCount,
             int chunkDecodeMaxInFlight
-    ) {
-        this(
-                playerDataParser,
-                mapChunkParser,
-                chunkParser,
-                registryParser,
-                connectionFactory,
-                chunkDecodeWorkerCount,
-                chunkDecodeMaxInFlight,
-                ChunkReadMetricsProbe.NONE
-        );
-    }
-
-    VcdbsReader(
-            PlayerDataParser playerDataParser,
-            MapChunkParser mapChunkParser,
-            ChunkParser chunkParser,
-            RegistryParser registryParser,
-            SqliteSaveConnection connectionFactory,
-            int chunkDecodeWorkerCount,
-            int chunkDecodeMaxInFlight,
-            ChunkReadMetricsProbe chunkReadMetricsProbe
     ) {
         if (chunkDecodeWorkerCount <= 0) {
             throw new IllegalArgumentException(
@@ -2823,10 +2668,6 @@ public class VcdbsReader {
 
         this.chunkDecodeWorkerCount = chunkDecodeWorkerCount;
         this.chunkDecodeMaxInFlight = chunkDecodeMaxInFlight;
-        this.chunkReadMetricsProbe = Objects.requireNonNull(
-                chunkReadMetricsProbe,
-                "chunkReadMetricsProbe is required"
-        );
     }
 
     public Optional<ChunkReadMetrics> lastChunkReadMetrics() {

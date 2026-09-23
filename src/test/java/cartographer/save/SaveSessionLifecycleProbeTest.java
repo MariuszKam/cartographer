@@ -9,73 +9,109 @@ import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class SaveSessionLifecycleProbeTest {
     @Test
-    void recordsOneOpenAndOneCloseWhenSessionCloseIsRepeated() {
-        SaveSessionLifecycleProbe probe = SaveSessionLifecycleProbe.recording();
-        SaveSession session = factory(probe, false).open(Path.of("fixture.vcdbs"));
+    void closesOwnedConnectionOnceWhenSessionCloseIsRepeated() {
+        ConnectionCounters counters = new ConnectionCounters();
+        SaveSession session = factory(counters, false)
+                .open(Path.of("fixture.vcdbs"));
 
         session.close();
         session.close();
 
-        assertEquals(new SaveSessionLifecycleProbe.Snapshot(1, 1), probe.snapshot());
+        assertEquals(1, counters.opened.get());
+        assertEquals(1, counters.closed.get());
     }
 
     @Test
-    void failedSnapshotInitializationStillClosesTheObservedConnection() {
-        SaveSessionLifecycleProbe probe = SaveSessionLifecycleProbe.recording();
+    void failedSnapshotInitializationStillClosesOwnedConnection() {
+        ConnectionCounters counters = new ConnectionCounters();
 
-        assertThrows(IllegalStateException.class,
-                () -> factory(probe, true).open(Path.of("fixture.vcdbs")));
+        assertThrows(
+                IllegalStateException.class,
+                () -> factory(counters, true)
+                        .open(Path.of("fixture.vcdbs"))
+        );
 
-        assertEquals(new SaveSessionLifecycleProbe.Snapshot(1, 1), probe.snapshot());
+        assertEquals(1, counters.opened.get());
+        assertEquals(1, counters.closed.get());
     }
 
     @Test
     void sessionIdentityAndClosedStateAreEnforced() {
-        SaveSession session = factory(SaveSessionLifecycleProbe.recording(), false)
+        ConnectionCounters counters = new ConnectionCounters();
+        SaveSession session = factory(counters, false)
                 .open(Path.of("fixture.vcdbs"));
-        assertThrows(IllegalArgumentException.class,
-                () -> session.requireSameSave(Path.of("other.vcdbs")));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> session.requireSameSave(Path.of("other.vcdbs"))
+        );
         session.close();
         assertThrows(IllegalStateException.class, session::snapshot);
-        assertThrows(IllegalStateException.class,
-                () -> session.requireSameSave(Path.of("fixture.vcdbs")));
+        assertThrows(
+                IllegalStateException.class,
+                () -> session.requireSameSave(Path.of("fixture.vcdbs"))
+        );
     }
 
     private static SaveSessionFactory factory(
-            SaveSessionLifecycleProbe probe,
+            ConnectionCounters counters,
             boolean failMetadata
     ) {
         SqliteSaveConnection connections = new SqliteSaveConnection() {
             @Override
             public Connection openReadOnly(Path savePath) {
+                counters.opened.incrementAndGet();
                 return (Connection) Proxy.newProxyInstance(
                         Connection.class.getClassLoader(),
                         new Class<?>[]{Connection.class},
-                        (proxy, method, args) -> null
+                        (proxy, method, args) -> {
+                            if (method.getName().equals("close")
+                                    && method.getParameterCount() == 0) {
+                                counters.closed.incrementAndGet();
+                            }
+                            return null;
+                        }
                 );
             }
         };
         VcdbsReader reader = new VcdbsReader(null, null, null, null) {
             @Override
-            protected Map<Integer, BlockInfo> readBlockRegistry(Connection connection) {
+            protected Map<Integer, BlockInfo> readBlockRegistry(
+                    Connection connection
+            ) {
                 return Map.of();
             }
         };
         WorldMetadataReader metadata = new WorldMetadataReader() {
             @Override
-            protected WorldMetadata read(Connection connection, ProgressReporter progress) {
+            protected WorldMetadata read(
+                    Connection connection,
+                    ProgressReporter progress
+            ) {
                 if (failMetadata) {
-                    throw new IllegalStateException("fixture initialization failure");
+                    throw new IllegalStateException(
+                            "fixture initialization failure"
+                    );
                 }
                 return new WorldMetadata(32, 256, 32);
             }
         };
-        return new SaveSessionFactory(connections, reader, metadata, probe);
+        return new SaveSessionFactory(
+                connections,
+                reader,
+                metadata
+        );
+    }
+
+    private static final class ConnectionCounters {
+        private final AtomicInteger opened = new AtomicInteger();
+        private final AtomicInteger closed = new AtomicInteger();
     }
 }
