@@ -542,7 +542,7 @@ public class GeologyCommand implements Command {
 
             registry =
                     session.snapshot()
-                            .registry();
+                            .blockRegistry();
         }
 
         progress.start(

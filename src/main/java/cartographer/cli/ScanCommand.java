@@ -186,7 +186,7 @@ public class ScanCommand implements Command {
         ReadDiagnostics diagnostics =
                 loaded.chunkDiagnostics();
         Map<Integer, BlockInfo> registry =
-                loaded.registry();
+                loaded.blockRegistry();
 
         out.println(
                 "SURFACE"
@@ -396,7 +396,7 @@ public class ScanCommand implements Command {
 
             registry =
                     session.snapshot()
-                            .registry();
+                            .blockRegistry();
         }
 
         int centerX =
@@ -1012,7 +1012,7 @@ public class ScanCommand implements Command {
 
             registry =
                     session.snapshot()
-                            .registry();
+                            .blockRegistry();
         }
 
         BlockScanResult result =

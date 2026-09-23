@@ -234,7 +234,7 @@ public final class RockCommand implements Command {
 
             return RockCatalog.from(
                     session.snapshot()
-                            .registry()
+                            .blockRegistry()
             );
         }
     }
