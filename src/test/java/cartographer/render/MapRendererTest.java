@@ -451,7 +451,7 @@ class MapRendererTest {
         int expected = new SemanticTerrainPalette().color(
                 SurfaceClass.UNKNOWN, 0.0
         );
-        assertEquals(expected, rendered.image().getRGB(0, 16));
+        assertEquals(expected, rendered.image().getRGB(0, 32));
     }
 
     @Test
