@@ -4,6 +4,7 @@ import cartographer.coverage.RegionCoverageAnalyzer;
 import cartographer.coverage.RegionCoverageRenderer;
 import cartographer.coverage.RegionCoverageRenderResult;
 import cartographer.coverage.RegionCoverageSummary;
+import cartographer.model.BlockInfo;
 import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
 import cartographer.model.MapRegionCoordinate;
@@ -11,13 +12,12 @@ import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
-import cartographer.parser.ChunkParser;
-import cartographer.parser.MapChunkParser;
-import cartographer.parser.PlayerDataParser;
-import cartographer.parser.RegistryParser;
 import cartographer.render.PngWriter;
 import cartographer.render.MapViewportGeometry;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import org.junit.jupiter.api.Test;
@@ -26,8 +26,11 @@ import org.junit.jupiter.api.io.TempDir;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.lang.reflect.Proxy;
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -83,13 +86,18 @@ class CoverageCommandTest {
         CapturingRenderer renderer =
                 new CapturingRenderer();
 
+        FakeReader reader =
+                new FakeReader();
+
         CoverageCommand command =
                 new CoverageCommand(
                         new PrintStream(
                                 new ByteArrayOutputStream()
                         ),
-                        new FakeReader(),
-                        new FakeMetadataReader(),
+                        reader,
+                        sessionFactory(
+                                reader
+                        ),
                         homeStore,
                         new RegionCoverageAnalyzer(),
                         renderer,
@@ -120,12 +128,17 @@ class CoverageCommandTest {
             RegionCoverageRenderer renderer,
             PngWriter pngWriter
     ) {
+        FakeReader reader =
+                new FakeReader();
+
         return new CoverageCommand(
                 new PrintStream(
                         new ByteArrayOutputStream()
                 ),
-                new FakeReader(),
-                new FakeMetadataReader(),
+                reader,
+                sessionFactory(
+                        reader
+                ),
                 new HomeStore(
                         tempDir.resolve(
                                 "home.properties"
@@ -138,21 +151,52 @@ class CoverageCommandTest {
         );
     }
 
+    private SaveSessionFactory sessionFactory(
+            FakeReader reader
+    ) {
+        SqliteSaveConnection connections =
+                new SqliteSaveConnection() {
+                    @Override
+                    public Connection openReadOnly(
+                            Path savePath
+                    ) {
+                        return (Connection) Proxy.newProxyInstance(
+                                Connection.class.getClassLoader(),
+                                new Class<?>[]{Connection.class},
+                                (proxy, method, args) -> null
+                        );
+                    }
+                };
+
+        return new SaveSessionFactory(
+                connections,
+                reader,
+                new FakeMetadataReader()
+        );
+    }
+
     private static class FakeReader
             extends VcdbsReader {
 
         FakeReader() {
             super(
-                    new PlayerDataParser(),
-                    new MapChunkParser(),
-                    new ChunkParser(),
-                    new RegistryParser()
+                    null,
+                    null,
+                    null,
+                    null
             );
         }
 
         @Override
+        protected Map<Integer, BlockInfo> readBlockRegistry(
+                Connection connection
+        ) {
+            return Map.of();
+        }
+
+        @Override
         public List<ServerMapRegion> readMapRegions(
-                Path savePath,
+                SaveSession session,
                 ReadDiagnostics diagnostics,
                 cartographer.application.ProgressReporter progress
         ) {
@@ -175,7 +219,7 @@ class CoverageCommandTest {
 
         @Override
         public WorldPosition readPlayerPosition(
-                Path savePath,
+                SaveSession session,
                 cartographer.application.ProgressReporter progress
         ) {
             return new WorldPosition(
@@ -190,8 +234,8 @@ class CoverageCommandTest {
             extends WorldMetadataReader {
 
         @Override
-        public WorldMetadata read(
-                Path savePath,
+        protected WorldMetadata read(
+                Connection connection,
                 cartographer.application.ProgressReporter progress
         ) {
             return new WorldMetadata(

@@ -3,6 +3,8 @@ package cartographer.cli;
 import cartographer.model.IntDataMap2D;
 import cartographer.model.ServerMapRegion;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
 import cartographer.save.VcdbsReader;
 
 import java.io.PrintStream;
@@ -18,15 +20,18 @@ public class MapRegionCommand implements Command {
 
     private final PrintStream out;
     private final VcdbsReader reader;
+    private final SaveSessionFactory sessionFactory;
     private final String subcommand;
 
     public MapRegionCommand(
             PrintStream out,
             VcdbsReader reader,
+            SaveSessionFactory sessionFactory,
             String subcommand
     ) {
         this.out = out;
         this.reader = reader;
+        this.sessionFactory = sessionFactory;
         this.subcommand = subcommand;
     }
 
@@ -62,12 +67,20 @@ public class MapRegionCommand implements Command {
                         out
                 );
 
-        List<ServerMapRegion> regions =
-                reader.readMapRegions(
-                        savePath,
-                        diagnostics,
-                        progress
-                );
+        List<ServerMapRegion> regions;
+
+        try (SaveSession session =
+                     sessionFactory.open(
+                             savePath
+                     )) {
+
+            regions =
+                    reader.readMapRegions(
+                            session,
+                            diagnostics,
+                            progress
+                    );
+        }
 
         out.println(
                 "MAPREGION"

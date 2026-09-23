@@ -211,6 +211,7 @@ public class CommandRouter {
                     new MapRegionCommand(
                             out,
                             reader,
+                            sessionFactory,
                             subcommand(
                                     args,
                                     "mapregion"
@@ -221,6 +222,7 @@ public class CommandRouter {
                     new EnvironmentCommand(
                             out,
                             reader,
+                            sessionFactory,
                             new EnvironmentInterpreter(),
                             subcommand(
                                     args,
@@ -243,7 +245,7 @@ public class CommandRouter {
                     new CoverageCommand(
                             out,
                             reader,
-                            metadataReader,
+                            sessionFactory,
                             homeStore,
                             new RegionCoverageAnalyzer(),
                             new RegionCoverageRenderer(),

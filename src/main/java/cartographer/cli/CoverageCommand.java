@@ -12,8 +12,9 @@ import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
 import cartographer.render.PngWriter;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 
 import java.awt.image.BufferedImage;
 import java.io.PrintStream;
@@ -26,7 +27,7 @@ public class CoverageCommand implements Command {
 
     private final PrintStream out;
     private final VcdbsReader reader;
-    private final WorldMetadataReader metadataReader;
+    private final SaveSessionFactory sessionFactory;
     private final HomeStore homeStore;
     private final RegionCoverageAnalyzer analyzer;
     private final RegionCoverageRenderer renderer;
@@ -36,7 +37,7 @@ public class CoverageCommand implements Command {
     public CoverageCommand(
             PrintStream out,
             VcdbsReader reader,
-            WorldMetadataReader metadataReader,
+            SaveSessionFactory sessionFactory,
             HomeStore homeStore,
             RegionCoverageAnalyzer analyzer,
             RegionCoverageRenderer renderer,
@@ -45,7 +46,7 @@ public class CoverageCommand implements Command {
     ) {
         this.out = out;
         this.reader = reader;
-        this.metadataReader = metadataReader;
+        this.sessionFactory = sessionFactory;
         this.homeStore = homeStore;
         this.analyzer = analyzer;
         this.renderer = renderer;
@@ -129,21 +130,31 @@ public class CoverageCommand implements Command {
                         )
                 );
 
-        LoadedCoverage loaded =
-                load(
-                        savePath
-                );
-
         ProgressReporter progress =
                 new ProgressReporter(
                         out
                 );
 
-        WorldPosition player =
-                reader.readPlayerPosition(
-                        savePath,
-                        progress
-                );
+        LoadedCoverage loaded;
+        WorldPosition player;
+
+        try (SaveSession session =
+                     sessionFactory.open(
+                             savePath
+                     )) {
+
+            loaded =
+                    load(
+                            session,
+                            progress
+                    );
+
+            player =
+                    reader.readPlayerPosition(
+                            session,
+                            progress
+                    );
+        }
 
         HomeState home =
                 absoluteHome(
@@ -212,21 +223,35 @@ public class CoverageCommand implements Command {
                         out
                 );
 
+        try (SaveSession session =
+                     sessionFactory.open(
+                             savePath
+                     )) {
+
+            return load(
+                    session,
+                    progress
+            );
+        }
+    }
+
+    private LoadedCoverage load(
+            SaveSession session,
+            ProgressReporter progress
+    ) {
         ReadDiagnostics diagnostics =
                 new ReadDiagnostics();
 
         List<ServerMapRegion> regions =
                 reader.readMapRegions(
-                        savePath,
+                        session,
                         diagnostics,
                         progress
                 );
 
         WorldMetadata metadata =
-                metadataReader.read(
-                        savePath,
-                        progress
-                );
+                session.snapshot()
+                        .metadata();
 
         RegionCoverageSummary summary =
                 analyzer.analyze(
