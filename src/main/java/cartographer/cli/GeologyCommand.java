@@ -19,12 +19,14 @@ import cartographer.model.WorldPosition;
 import cartographer.render.GeologyCrossSectionRenderer;
 import cartographer.render.GeologySectionMarker;
 import cartographer.render.PngWriter;
+import cartographer.render.RenderStyle;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
-import cartographer.application.ReadSurfaceMapRequest;
-import cartographer.application.ReadSurfaceMapResult;
-import cartographer.application.ReadSurfaceMapUseCase;
+import cartographer.application.PrepareMapDataRequest;
+import cartographer.application.PrepareMapDataUseCase;
+import cartographer.application.PreparedMapData;
+import cartographer.application.SurfaceDataRequirement;
 import cartographer.scanner.SurfaceMapScanResult;
 
 import java.awt.image.BufferedImage;
@@ -35,6 +37,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public class GeologyCommand implements Command {
 
@@ -67,7 +70,7 @@ public class GeologyCommand implements Command {
 
     private final PrintStream out;
     private final VcdbsReader reader;
-    private final ReadSurfaceMapUseCase surfaceReader;
+    private final PrepareMapDataUseCase mapDataUseCase;
     private final GeologyAnalyzer geologyAnalyzer;
     private final GeologyCrossSectionAnalyzer crossSectionAnalyzer;
     private final GeologyCrossSectionRenderer crossSectionRenderer;
@@ -102,7 +105,10 @@ public class GeologyCommand implements Command {
     ) {
         this.out = out;
         this.reader = reader;
-        this.surfaceReader = new ReadSurfaceMapUseCase(reader, new WorldMetadataReader());
+        this.mapDataUseCase = new PrepareMapDataUseCase(
+                reader,
+                new WorldMetadataReader()
+        );
         this.geologyAnalyzer = geologyAnalyzer;
         this.crossSectionAnalyzer = crossSectionAnalyzer;
         this.crossSectionRenderer = crossSectionRenderer;
@@ -164,21 +170,22 @@ public class GeologyCommand implements Command {
                         out
                 );
 
-        WorldPosition center =
-                center(
-                        args
-                ).orElseGet(
-                        () ->
-                                reader.readPlayerPosition(
-                                        savePath,
-                                        progress
-                                )
-                );
-
-        ReadSurfaceMapResult loaded = surfaceReader.execute(
-                new ReadSurfaceMapRequest(savePath, center, radius, true, true), progress);
-        SurfaceMapScanResult surface = loaded.surface();
-        ReadDiagnostics diagnostics = loaded.chunkDiagnostics();
+        PreparedMapData loaded = mapDataUseCase.execute(
+                new PrepareMapDataRequest(
+                        savePath,
+                        radius,
+                        1,
+                        RenderStyle.SIMPLE,
+                        Set.of(),
+                        center(args),
+                        SurfaceDataRequirement.ANALYSIS
+                ),
+                progress
+        );
+        SurfaceMapScanResult surface =
+                loaded.surface().requireAnalysis();
+        ReadDiagnostics diagnostics =
+                loaded.chunkDiagnostics();
 
         GeologyReport report =
                 geologyAnalyzer.analyze(

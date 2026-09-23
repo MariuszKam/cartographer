@@ -69,6 +69,14 @@ public final class SnapshotPreparedMapDataReader {
         Objects.requireNonNull(progress, "progress is required");
 
         try {
+            if (request.surfaceDataRequirement().requiresSurface()
+                    && !request.ignoreFoliage()) {
+                // Snapshot Surface tiles use the canonical foliage-ignored
+                // profile. Inclusive foliage analysis must fall back to the
+                // authoritative source path.
+                return Optional.empty();
+            }
+
             Optional<WorldDataSnapshot> snapshotOptional =
                     WorldDataSnapshot.openOrCreate(
                             cacheStore,

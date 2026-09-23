@@ -17,8 +17,30 @@ public record PrepareMapDataRequest(
         RenderStyle style,
         Set<RenderLayer> layers,
         Optional<WorldPosition> center,
-        SurfaceDataRequirement surfaceDataRequirement
+        SurfaceDataRequirement surfaceDataRequirement,
+        boolean ignoreFoliage
 ) {
+    public PrepareMapDataRequest(
+            Path savePath,
+            int radius,
+            int pixelsPerBlock,
+            RenderStyle style,
+            Set<RenderLayer> layers,
+            Optional<WorldPosition> center,
+            SurfaceDataRequirement surfaceDataRequirement
+    ) {
+        this(
+                savePath,
+                radius,
+                pixelsPerBlock,
+                style,
+                layers,
+                center,
+                surfaceDataRequirement,
+                true
+        );
+    }
+
     public PrepareMapDataRequest {
         Objects.requireNonNull(savePath, "savePath is required");
         if (radius <= 0) {

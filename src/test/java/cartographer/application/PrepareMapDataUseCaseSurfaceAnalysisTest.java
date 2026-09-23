@@ -11,6 +11,7 @@ import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
+import cartographer.render.RenderStyle;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.MapChunkStreamStats;
 import cartographer.save.ReadDiagnostics;
@@ -19,6 +20,7 @@ import cartographer.save.SaveSessionFactory;
 import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
+import cartographer.scanner.SurfaceMapScanResult;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
@@ -27,53 +29,71 @@ import java.sql.Connection;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class ReadSurfaceMapUseCaseTest {
+class PrepareMapDataUseCaseSurfaceAnalysisTest {
     @Test
-    void readsCompactSurfaceThroughCallbacksWithoutBatchChunkRead() {
+    void readsExactSurfaceAnalysisThroughCompactCallbacks() {
         FakeReader reader = new FakeReader();
-        ReadSurfaceMapResult result = new ReadSurfaceMapUseCase(
-                reader, sessionFactory(reader)).execute(
-                new ReadSurfaceMapRequest(Path.of("fixture.vcdbs"),
-                        new WorldPosition(1.6, 0, 1.6), 2, true, true));
 
-        assertEquals(2, result.surface().map().layout().centerWorldX());
-        assertEquals(2, result.surface().map().layout().centerWorldZ());
-        assertTrue(result.surface().map().isResolved(1, 1));
-        assertEquals(1, result.surface().chunksScanned());
-        assertTrue(result.surface().columnsScanned() > 0);
-        assertEquals(0, result.surface().emptyColumns());
-        assertEquals(0, result.surface().liquidUnavailableColumns());
-        assertEquals(0, reader.batchReadCalls);
+        PreparedMapData prepared = read(
+                reader,
+                new WorldPosition(1.6, 0, 1.6),
+                true
+        );
+        SurfaceMapScanResult result =
+                prepared.surface().requireAnalysis();
+
+        assertEquals(2, result.map().layout().centerWorldX());
+        assertEquals(2, result.map().layout().centerWorldZ());
+        assertTrue(result.map().isResolved(1, 1));
+        assertEquals(1, result.chunksScanned());
+        assertTrue(result.columnsScanned() > 0);
+        assertEquals(0, result.emptyColumns());
+        assertEquals(0, result.liquidUnavailableColumns());
         assertEquals(1, reader.adaptiveReadCalls);
     }
 
     @Test
-    void recordsOneLiquidDecodeFailureWhenTheChunkIsSeenInBothPhases() {
+    void recordsOneLiquidDecodeFailureWhenChunkIsSeenInBothPhases() {
         FakeReader reader = new FakeReader();
         reader.liquidAvailable = false;
-        ReadSurfaceMapResult result = new ReadSurfaceMapUseCase(
-                reader, sessionFactory(reader)).execute(
-                new ReadSurfaceMapRequest(Path.of("fixture.vcdbs"),
-                        new WorldPosition(1, 0, 1), 2, true, true));
 
-        assertEquals(1, result.chunkDiagnostics().liquidDecodeFailures());
+        PreparedMapData prepared = read(
+                reader,
+                new WorldPosition(1, 0, 1),
+                true
+        );
+
+        assertEquals(
+                1,
+                prepared.chunkDiagnostics().liquidDecodeFailures()
+        );
         assertEquals(2, reader.adaptiveReadCalls);
     }
 
     @Test
-    void forwardsIgnoreFoliageToCompactSurfaceSession() {
+    void forwardsIgnoreFoliageToExactSurfaceAnalysis() {
         FakeReader ignoredReader = new FakeReader();
         ignoredReader.blockId = 2;
-        ReadSurfaceMapResult ignored = read(ignoredReader, true);
+        SurfaceMapScanResult ignored = read(
+                ignoredReader,
+                new WorldPosition(1, 0, 1),
+                true
+        ).surface().requireAnalysis();
 
         FakeReader includedReader = new FakeReader();
         includedReader.blockId = 2;
-        ReadSurfaceMapResult included = read(includedReader, false);
+        SurfaceMapScanResult included = read(
+                includedReader,
+                new WorldPosition(1, 0, 1),
+                false
+        ).surface().requireAnalysis();
 
         assertEquals(0, resolvedCells(ignored));
         assertTrue(resolvedCells(included) > 0);
@@ -81,10 +101,29 @@ class ReadSurfaceMapUseCaseTest {
         assertEquals(1, includedReader.adaptiveReadCalls);
     }
 
-    private ReadSurfaceMapResult read(FakeReader reader, boolean ignoreFoliage) {
-        return new ReadSurfaceMapUseCase(reader, sessionFactory(reader)).execute(
-                new ReadSurfaceMapRequest(Path.of("fixture.vcdbs"),
-                        new WorldPosition(1, 0, 1), 2, ignoreFoliage, true));
+    private PreparedMapData read(
+            FakeReader reader,
+            WorldPosition center,
+            boolean ignoreFoliage
+    ) {
+        PrepareMapDataUseCase useCase = new PrepareMapDataUseCase(
+                reader,
+                sessionFactory(reader),
+                Optional.empty()
+        );
+        return useCase.execute(
+                new PrepareMapDataRequest(
+                        Path.of("fixture.vcdbs"),
+                        2,
+                        1,
+                        RenderStyle.SIMPLE,
+                        Set.of(),
+                        Optional.of(center),
+                        SurfaceDataRequirement.ANALYSIS,
+                        ignoreFoliage
+                ),
+                ProgressReporter.NONE
+        );
     }
 
     private SaveSessionFactory sessionFactory(FakeReader reader) {
@@ -95,10 +134,12 @@ class ReadSurfaceMapUseCaseTest {
         );
     }
 
-    private int resolvedCells(ReadSurfaceMapResult result) {
+    private int resolvedCells(SurfaceMapScanResult result) {
         int[] count = {0};
-        result.surface().map().forEachResolvedCell(
-                (x, z, y, blockId, liquidId, surfaceClass) -> count[0]++);
+        result.map().forEachResolvedCell(
+                (x, z, y, blockId, liquidId, surfaceClass) ->
+                        count[0]++
+        );
         return count[0];
     }
 
@@ -121,7 +162,8 @@ class ReadSurfaceMapUseCaseTest {
         }
     }
 
-    private static final class FixedMetadataReader extends WorldMetadataReader {
+    private static final class FixedMetadataReader
+            extends WorldMetadataReader {
         @Override
         protected WorldMetadata read(
                 Connection connection,
@@ -132,13 +174,17 @@ class ReadSurfaceMapUseCaseTest {
     }
 
     private static final class FakeReader extends VcdbsReader {
-        private int batchReadCalls;
         private int adaptiveReadCalls;
         private boolean liquidAvailable = true;
         private int blockId = 1;
 
         private FakeReader() {
-            super(new PlayerDataParser(), new MapChunkParser(), new ChunkParser(), new RegistryParser());
+            super(
+                    new PlayerDataParser(),
+                    new MapChunkParser(),
+                    new ChunkParser(),
+                    new RegistryParser()
+            );
         }
 
         @Override
@@ -153,6 +199,14 @@ class ReadSurfaceMapUseCaseTest {
         }
 
         @Override
+        public WorldPosition readPlayerPosition(
+                SaveSession session,
+                ProgressReporter progress
+        ) {
+            return new WorldPosition(1, 0, 1);
+        }
+
+        @Override
         public MapChunkStreamStats forEachMapChunkByCoordinate(
                 SaveSession session,
                 Collection<MapChunkCoordinate> coordinates,
@@ -163,7 +217,7 @@ class ReadSurfaceMapUseCaseTest {
             consumer.accept(new MapChunk(
                     new MapChunkCoordinate(0, 0),
                     filledHeights(1),
-                    new int[0]
+                    filledHeights(1)
             ));
             return new MapChunkStreamStats(
                     coordinates.size(),
@@ -201,17 +255,36 @@ class ReadSurfaceMapUseCaseTest {
 
         private ParsedChunk unavailableChunk() {
             int size = ChunkCoordinate.SIZE_BLOCKS;
-            return new ParsedChunk(new ChunkCoordinate(0, 0, 0), 0,
-                    size, size, size, new int[size * size * size], null,
-                    0, false, "liquid decode failed");
+            return new ParsedChunk(
+                    new ChunkCoordinate(0, 0, 0),
+                    0,
+                    size,
+                    size,
+                    size,
+                    new int[size * size * size],
+                    null,
+                    0,
+                    false,
+                    "liquid decode failed"
+            );
         }
 
         private ParsedChunk filledChunk() {
             int size = ChunkCoordinate.SIZE_BLOCKS;
             int[] blocks = new int[size * size * size];
             Arrays.fill(blocks, blockId);
-            return new ParsedChunk(new ChunkCoordinate(0, 0, 0), 0,
-                    size, size, size, blocks, new int[blocks.length], 0, true, "");
+            return new ParsedChunk(
+                    new ChunkCoordinate(0, 0, 0),
+                    0,
+                    size,
+                    size,
+                    size,
+                    blocks,
+                    new int[blocks.length],
+                    0,
+                    true,
+                    ""
+            );
         }
 
         private static int[] filledHeights(int value) {

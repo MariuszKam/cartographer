@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Shared operation-scoped terrain/Surface preparation pipeline.
@@ -192,7 +193,11 @@ public final class PrepareMapDataUseCase {
 
         Set<MapChunkCoordinate> renderMapChunkSet =
                 new HashSet<>(renderMapChunkCoordinates);
-        CacheContext cache = prepareCache(request.savePath());
+        CacheContext cache = request.ignoreFoliage()
+                ? prepareCache(request.savePath())
+                : CacheContext.disabled(
+                        "foliage-inclusive Surface analysis bypasses render-data cache"
+                );
 
         Map<MapChunkCoordinate, SurfaceTileLookup> surfaceLookups = surfaceDataRequired
                 ? lookupSurface(cache, surfaceMapChunkCoordinates, metadata)
@@ -255,7 +260,7 @@ public final class PrepareMapDataUseCase {
                                 request.radius(),
                                 surfaceMissSet,
                                 registry,
-                                true,
+                                request.ignoreFoliage(),
                                 true
                         )
                         : null;
@@ -359,6 +364,7 @@ public final class PrepareMapDataUseCase {
             ProgressReporter progress
     ) {
         SurfaceRainHeightPlan rainPlan = surfaceSession.finishPlanning();
+        Set<ChunkPosition> liquidFailureChunks = new HashSet<>();
         for (SurfaceCacheTile tile : surfaceHits.values()) {
             surfaceSession.acceptCachedTile(tile);
         }
@@ -370,7 +376,12 @@ public final class PrepareMapDataUseCase {
                     session,
                     rainPlan.chunkPositions(),
                     chunkDiagnostics,
-                    surfaceSession::acceptFastChunk,
+                    chunk -> consumeSurfaceChunk(
+                            chunk,
+                            chunkDiagnostics,
+                            liquidFailureChunks,
+                            surfaceSession::acceptFastChunk
+                    ),
                     progress
             );
             recordChunkReadDiagnostics(cache, "Surface fast");
@@ -387,7 +398,12 @@ public final class PrepareMapDataUseCase {
                     session,
                     fallbackPositions,
                     chunkDiagnostics,
-                    surfaceSession::acceptFallbackChunk,
+                    chunk -> consumeSurfaceChunk(
+                            chunk,
+                            chunkDiagnostics,
+                            liquidFailureChunks,
+                            surfaceSession::acceptFallbackChunk
+                    ),
                     progress
             );
             recordChunkReadDiagnostics(cache, "Surface fallback");
@@ -421,6 +437,28 @@ public final class PrepareMapDataUseCase {
                 diagnostics.emptyColumns(),
                 diagnostics.liquidUnavailableColumns()
         );
+    }
+
+    private void consumeSurfaceChunk(
+            cartographer.model.ParsedChunk chunk,
+            ReadDiagnostics diagnostics,
+            Set<ChunkPosition> liquidFailureChunks,
+            Consumer<cartographer.model.ParsedChunk> consumer
+    ) {
+        if (!chunk.liquidLayerAvailable()) {
+            ChunkPosition position = new ChunkPosition(
+                    chunk.coordinate().x(),
+                    chunk.coordinate().y(),
+                    chunk.coordinate().z(),
+                    0
+            );
+            if (liquidFailureChunks.add(position)) {
+                diagnostics.recordLiquidDecodeFailure(
+                        chunk.liquidDecodeError()
+                );
+            }
+        }
+        consumer.accept(chunk);
     }
 
     private void recordChunkReadDiagnostics(

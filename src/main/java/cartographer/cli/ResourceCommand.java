@@ -3,9 +3,10 @@ package cartographer.cli;
 import cartographer.application.InspectSurfaceObjectsRequest;
 import cartographer.application.InspectSurfaceObjectsResult;
 import cartographer.application.InspectSurfaceObjectsUseCase;
-import cartographer.application.ReadSurfaceMapRequest;
-import cartographer.application.ReadSurfaceMapResult;
-import cartographer.application.ReadSurfaceMapUseCase;
+import cartographer.application.PrepareMapDataRequest;
+import cartographer.application.PrepareMapDataUseCase;
+import cartographer.application.PreparedMapData;
+import cartographer.application.SurfaceDataRequirement;
 import cartographer.application.SurfaceMaterialMatch;
 import cartographer.application.SurfaceMaterialPreset;
 import cartographer.model.BlockInfo;
@@ -46,6 +47,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public class ResourceCommand implements Command {
 
@@ -77,7 +79,7 @@ public class ResourceCommand implements Command {
     private final PngWriter pngWriter;
     private final InspectSurfaceObjectsUseCase surfaceObjectInspectionUseCase;
 
-    private final ReadSurfaceMapUseCase surfaceReader;
+    private final PrepareMapDataUseCase mapDataUseCase;
 
     private final SurfaceMaterialAnalyzer surfaceResourceAnalyzer =
             new SurfaceMaterialAnalyzer();
@@ -129,7 +131,10 @@ public class ResourceCommand implements Command {
                 reader,
                 metadataReader
         );
-        this.surfaceReader = new ReadSurfaceMapUseCase(reader, metadataReader);
+        this.mapDataUseCase = new PrepareMapDataUseCase(
+                reader,
+                metadataReader
+        );
         this.subcommand = subcommand;
     }
 
@@ -1110,24 +1115,25 @@ public class ResourceCommand implements Command {
                         out
                 );
 
-        WorldPosition player =
-                reader.readPlayerPosition(
-                        savePath,
-                        progress
-                );
-
-        WorldPosition center =
-                center(
-                        args
-                )
-                        .orElse(
-                                player
-                        );
-
         SurfaceMaterialMatch surfaceMatch = surfaceMatch(match);
-        ReadSurfaceMapResult loaded = surfaceReader.execute(
-                new ReadSurfaceMapRequest(savePath, center, radius, true, true), progress);
-        SurfaceMapScanResult surface = loaded.surface();
+        PreparedMapData loaded = mapDataUseCase.execute(
+                new PrepareMapDataRequest(
+                        savePath,
+                        radius,
+                        1,
+                        RenderStyle.SIMPLE,
+                        Set.of(),
+                        center(args),
+                        SurfaceDataRequirement.ANALYSIS
+                ),
+                progress
+        );
+        WorldPosition player =
+                loaded.player();
+        WorldPosition center =
+                loaded.center();
+        SurfaceMapScanResult surface =
+                loaded.surface().requireAnalysis();
         SurfaceMaterialAnalysis analysis = surfaceResourceAnalyzer.analyze(
                 surface, surfaceMatch, surfaceMatch.displayName());
 
