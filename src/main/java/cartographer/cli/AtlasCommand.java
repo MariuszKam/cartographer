@@ -9,8 +9,9 @@ import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
@@ -21,7 +22,7 @@ public class AtlasCommand implements Command {
 
     private final PrintStream out;
     private final VcdbsReader reader;
-    private final WorldMetadataReader metadataReader;
+    private final SaveSessionFactory sessionFactory;
     private final HomeStore homeStore;
     private final AtlasRenderer atlasRenderer;
     private final String subcommand;
@@ -29,14 +30,14 @@ public class AtlasCommand implements Command {
     public AtlasCommand(
             PrintStream out,
             VcdbsReader reader,
-            WorldMetadataReader metadataReader,
+            SaveSessionFactory sessionFactory,
             HomeStore homeStore,
             AtlasRenderer atlasRenderer,
             String subcommand
     ) {
         this.out = out;
         this.reader = reader;
-        this.metadataReader = metadataReader;
+        this.sessionFactory = sessionFactory;
         this.homeStore = homeStore;
         this.atlasRenderer = atlasRenderer;
         this.subcommand = subcommand;
@@ -76,17 +77,10 @@ public class AtlasCommand implements Command {
                         out
                 );
 
-        WorldPosition center =
+        Optional<WorldPosition> requestedCenter =
                 center(
                         args
-                )
-                        .orElseGet(
-                                () ->
-                                        reader.readPlayerPosition(
-                                                savePath,
-                                                progress
-                                        )
-                        );
+                );
 
         int radius =
                 intOption(
@@ -112,20 +106,40 @@ public class AtlasCommand implements Command {
         ReadDiagnostics diagnostics =
                 new ReadDiagnostics();
 
-        HomeState home =
-                absoluteHome(
-                        savePath,
-                        progress
-                );
+        WorldPosition center;
+        HomeState home;
+        List<MapChunk> chunks;
 
-        List<MapChunk> chunks =
-                reader.readMapChunksAround(
-                        savePath,
-                        center,
-                        radius,
-                        diagnostics,
-                        progress
-                );
+        try (SaveSession session =
+                     sessionFactory.open(
+                             savePath
+                     )) {
+
+            center =
+                    requestedCenter.orElseGet(
+                            () ->
+                                    reader.readPlayerPosition(
+                                            session,
+                                            progress
+                                    )
+                    );
+
+            home =
+                    absoluteHome(
+                            savePath,
+                            session.snapshot()
+                                    .metadata()
+                    );
+
+            chunks =
+                    reader.readMapChunksAround(
+                            session,
+                            center,
+                            radius,
+                            diagnostics,
+                            progress
+                    );
+        }
 
         atlasRenderer.render(
                 output,
@@ -341,7 +355,7 @@ public class AtlasCommand implements Command {
 
     private HomeState absoluteHome(
             Path savePath,
-            ProgressReporter progress
+            WorldMetadata metadata
     ) {
         Optional<HomeLocation> displayHome =
                 homeStore.load(
@@ -354,12 +368,6 @@ public class AtlasCommand implements Command {
 
         HomeLocation location =
                 displayHome.orElseThrow();
-
-        WorldMetadata metadata =
-                metadataReader.read(
-                        savePath,
-                        progress
-                );
 
         WorldPosition absolute =
                 metadata.toAbsolute(

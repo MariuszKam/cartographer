@@ -234,6 +234,7 @@ public class CommandRouter {
                     new ResourceCommand(
                             out,
                             reader,
+                            sessionFactory,
                             new ResourceAnalyzer(),
                             subcommand(
                                     args,
@@ -288,6 +289,7 @@ public class CommandRouter {
                             new RockMapRenderer(),
                             new PngWriter(),
                             renderDataCache,
+                            sessionFactory,
                             subcommand(args, "rock")
                             );
 
@@ -338,7 +340,7 @@ public class CommandRouter {
                     new AtlasCommand(
                             out,
                             reader,
-                            metadataReader,
+                            sessionFactory,
                             homeStore,
                             new AtlasRenderer(
                                     new TilePyramid(),

@@ -36,6 +36,8 @@ import cartographer.resource.SurfaceMaterialAnalysis;
 import cartographer.resource.SurfaceMaterialAnalyzer;
 import cartographer.resource.SurfaceMaterialDeposit;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.SurfaceMapScanResult;
@@ -71,6 +73,7 @@ public class ResourceCommand implements Command {
 
     private final PrintStream out;
     private final VcdbsReader reader;
+    private final SaveSessionFactory sessionFactory;
     private final ResourceAnalyzer analyzer;
     private final WorldMetadataReader metadataReader;
     private final HomeStore homeStore;
@@ -92,12 +95,14 @@ public class ResourceCommand implements Command {
     public ResourceCommand(
             PrintStream out,
             VcdbsReader reader,
+            SaveSessionFactory sessionFactory,
             ResourceAnalyzer analyzer,
             String subcommand
     ) {
         this(
                 out,
                 reader,
+                sessionFactory,
                 analyzer,
                 new WorldMetadataReader(),
                 defaultHomeStore(),
@@ -111,6 +116,7 @@ public class ResourceCommand implements Command {
     public ResourceCommand(
             PrintStream out,
             VcdbsReader reader,
+            SaveSessionFactory sessionFactory,
             ResourceAnalyzer analyzer,
             WorldMetadataReader metadataReader,
             HomeStore homeStore,
@@ -121,6 +127,7 @@ public class ResourceCommand implements Command {
     ) {
         this.out = out;
         this.reader = reader;
+        this.sessionFactory = sessionFactory;
         this.analyzer = analyzer;
         this.metadataReader = metadataReader;
         this.homeStore = homeStore;
@@ -357,10 +364,7 @@ public class ResourceCommand implements Command {
                 );
 
         WorldMetadata metadata =
-                metadataReader.read(
-                        savePath,
-                        ProgressReporter.NONE
-                );
+                loaded.metadata();
 
         out.println(
                 "Resource: "
@@ -482,76 +486,91 @@ public class ResourceCommand implements Command {
                         )
                 );
 
-        LoadedResources loaded =
-                load(
-                        savePath
-                );
-
-        Optional<String> selected =
-                selectResource(
-                        loaded.regions(),
-                        args[1]
-                );
-
-        if (selected.isEmpty()) {
-            return;
-        }
-
-        String resourceKey =
-                selected.orElseThrow();
-
-        Path output =
-                option(
-                        args,
-                        "--out"
-                )
-                        .map(
-                                Path::of
-                        )
-                        .orElse(
-                                Path.of(
-                                        "output",
-                                        resourceKey
-                                                + "-search.png"
-                                )
-                        );
-
         ProgressReporter progress =
                 new ProgressReporter(
                         out
                 );
 
-        WorldPosition player =
-                reader.readPlayerPosition(
-                        savePath,
-                        progress
-                );
-
-        WorldPosition center =
-                center(
-                        args
-                )
-                        .orElse(
-                                player
-                        );
-
-        HomeState home =
-                absoluteHome(
-                        savePath,
-                        progress
-                );
-
         ReadDiagnostics mapDiagnostics =
                 new ReadDiagnostics();
 
-        List<MapChunk> chunks =
-                reader.readMapChunksAround(
-                        savePath,
-                        center,
-                        radius,
-                        mapDiagnostics,
-                        progress
-                );
+        LoadedResources loaded;
+        String resourceKey;
+        Path output;
+        WorldPosition player;
+        WorldPosition center;
+        HomeState home;
+        List<MapChunk> chunks;
+
+        try (SaveSession session =
+                     sessionFactory.open(
+                             savePath
+                     )) {
+
+            loaded =
+                    load(
+                            session,
+                            progress
+                    );
+
+            Optional<String> selected =
+                    selectResource(
+                            loaded.regions(),
+                            args[1]
+                    );
+
+            if (selected.isEmpty()) {
+                return;
+            }
+
+            resourceKey =
+                    selected.orElseThrow();
+
+            output =
+                    option(
+                            args,
+                            "--out"
+                    )
+                            .map(
+                                    Path::of
+                            )
+                            .orElse(
+                                    Path.of(
+                                            "output",
+                                            resourceKey
+                                                    + "-search.png"
+                                    )
+                            );
+
+            player =
+                    reader.readPlayerPosition(
+                            session,
+                            progress
+                    );
+
+            center =
+                    center(
+                            args
+                    )
+                            .orElse(
+                                    player
+                            );
+
+            home =
+                    absoluteHome(
+                            savePath,
+                            loaded.metadata()
+                    );
+
+            chunks =
+                    reader.readMapChunksAround(
+                            session,
+                            center,
+                            radius,
+                            mapDiagnostics,
+                            progress
+                    );
+        }
 
         RenderOptions renderOptions =
                 terrainRenderOptions(
@@ -711,10 +730,7 @@ public class ResourceCommand implements Command {
                 );
 
         WorldMetadata metadata =
-                metadataReader.read(
-                        savePath,
-                        ProgressReporter.NONE
-                );
+                loaded.metadata();
 
         out.println(
                 "SURFACE RESOURCE SEARCH"
@@ -985,20 +1001,28 @@ public class ResourceCommand implements Command {
         HomeState home =
                 absoluteHome(
                         savePath,
-                        progress
+                        loaded.metadata()
                 );
 
         ReadDiagnostics mapDiagnostics =
                 new ReadDiagnostics();
 
-        List<MapChunk> mapChunks =
-                reader.readMapChunksAround(
-                        savePath,
-                        loaded.center(),
-                        radius,
-                        mapDiagnostics,
-                        progress
-                );
+        List<MapChunk> mapChunks;
+
+        try (SaveSession session =
+                     sessionFactory.open(
+                             savePath
+                     )) {
+
+            mapChunks =
+                    reader.readMapChunksAround(
+                            session,
+                            loaded.center(),
+                            radius,
+                            mapDiagnostics,
+                            progress
+                    );
+        }
 
         RenderedMap rendered =
                 mapRenderer.render(
@@ -1138,6 +1162,7 @@ public class ResourceCommand implements Command {
                 surface, surfaceMatch, surfaceMatch.displayName());
 
         return new SurfaceResourceLoad(
+                loaded.metadata(),
                 player,
                 center,
                 loaded.chunkDiagnostics(),
@@ -1174,24 +1199,42 @@ public class ResourceCommand implements Command {
     private LoadedResources load(
             Path savePath
     ) {
-        ReadDiagnostics diagnostics =
-                new ReadDiagnostics();
-
         ProgressReporter progress =
                 new ProgressReporter(
                         out
                 );
 
+        try (SaveSession session =
+                     sessionFactory.open(
+                             savePath
+                     )) {
+
+            return load(
+                    session,
+                    progress
+            );
+        }
+    }
+
+    private LoadedResources load(
+            SaveSession session,
+            ProgressReporter progress
+    ) {
+        ReadDiagnostics diagnostics =
+                new ReadDiagnostics();
+
         List<ServerMapRegion> regions =
                 reader.readMapRegions(
-                        savePath,
+                        session,
                         diagnostics,
                         progress
                 );
 
         return new LoadedResources(
                 regions,
-                diagnostics
+                diagnostics,
+                session.snapshot()
+                        .metadata()
         );
     }
 
@@ -1557,7 +1600,7 @@ public class ResourceCommand implements Command {
 
     private HomeState absoluteHome(
             Path savePath,
-            ProgressReporter progress
+            WorldMetadata metadata
     ) {
         Optional<HomeLocation> displayHome =
                 homeStore.load(
@@ -1570,12 +1613,6 @@ public class ResourceCommand implements Command {
 
         HomeLocation location =
                 displayHome.orElseThrow();
-
-        WorldMetadata metadata =
-                metadataReader.read(
-                        savePath,
-                        progress
-                );
 
         WorldPosition absolute =
                 metadata.toAbsolute(
@@ -1634,11 +1671,13 @@ public class ResourceCommand implements Command {
 
     private record LoadedResources(
             List<ServerMapRegion> regions,
-            ReadDiagnostics diagnostics
+            ReadDiagnostics diagnostics,
+            WorldMetadata metadata
     ) {
     }
 
     private record SurfaceResourceLoad(
+            WorldMetadata metadata,
             WorldPosition player,
             WorldPosition center,
             ReadDiagnostics chunkDiagnostics,
