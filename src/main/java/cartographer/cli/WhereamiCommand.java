@@ -3,8 +3,9 @@ package cartographer.cli;
 import cartographer.model.DisplayPosition;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
@@ -16,16 +17,16 @@ public class WhereamiCommand
 
     private final PrintStream out;
     private final VcdbsReader reader;
-    private final WorldMetadataReader metadataReader;
+    private final SaveSessionFactory sessionFactory;
 
     public WhereamiCommand(
             PrintStream out,
             VcdbsReader reader,
-            WorldMetadataReader metadataReader
+            SaveSessionFactory sessionFactory
     ) {
         this.out = out;
         this.reader = reader;
-        this.metadataReader = metadataReader;
+        this.sessionFactory = sessionFactory;
     }
 
     @Override
@@ -54,29 +55,36 @@ public class WhereamiCommand
                         out
                 );
 
-        WorldPosition absolutePosition =
-                playerSelector
-                        .map(
-                                selector ->
-                                        reader.readPlayerPosition(
-                                                savePath,
-                                                selector,
-                                                progress
-                                        )
-                        )
-                        .orElseGet(
-                                () ->
-                                        reader.readPlayerPosition(
-                                                savePath,
-                                                progress
-                                        )
-                        );
+        WorldPosition absolutePosition;
+        WorldMetadata metadata;
 
-        WorldMetadata metadata =
-                metadataReader.read(
-                        savePath,
-                        progress
-                );
+        try (SaveSession session =
+                     sessionFactory.open(
+                             savePath
+                     )) {
+
+            absolutePosition =
+                    playerSelector
+                            .map(
+                                    selector ->
+                                            reader.readPlayerPosition(
+                                                    session,
+                                                    selector,
+                                                    progress
+                                            )
+                            )
+                            .orElseGet(
+                                    () ->
+                                            reader.readPlayerPosition(
+                                                    session,
+                                                    progress
+                                            )
+                            );
+
+            metadata =
+                    session.snapshot()
+                            .metadata();
+        }
 
         DisplayPosition displayPosition =
                 metadata.toDisplay(

@@ -24,6 +24,8 @@ import cartographer.render.RockMapRenderer;
 import cartographer.resource.ResourceAnalyzer;
 import cartographer.prospecting.SavedOreObservationProvider;
 import cartographer.save.SaveInspector;
+import cartographer.save.SaveSessionFactory;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 
@@ -117,6 +119,13 @@ public class CommandRouter {
         WorldMetadataReader metadataReader =
                 new WorldMetadataReader();
 
+        SaveSessionFactory sessionFactory =
+                new SaveSessionFactory(
+                        new SqliteSaveConnection(),
+                        reader,
+                        metadataReader
+                );
+
         Path configDirectory =
                 Path.of(
                         System.getProperty(
@@ -151,14 +160,14 @@ public class CommandRouter {
                     new WhereamiCommand(
                             out,
                             reader,
-                            metadataReader
+                            sessionFactory
                     );
 
             case "home" ->
                     new HomeCommand(
                             out,
                             reader,
-                            metadataReader,
+                            sessionFactory,
                             homeStore,
                             subcommand(
                                     args,
@@ -170,7 +179,7 @@ public class CommandRouter {
                     new NavCommand(
                             out,
                             reader,
-                            metadataReader,
+                            sessionFactory,
                             homeStore,
                             subcommand(
                                     args,
@@ -300,7 +309,7 @@ public class CommandRouter {
                             out,
                             markerStore,
                             reader,
-                            metadataReader,
+                            sessionFactory,
                             subcommand(
                                     args,
                                     "markers"

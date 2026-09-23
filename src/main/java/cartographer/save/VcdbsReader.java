@@ -2717,20 +2717,62 @@ public class VcdbsReader {
             SaveSession session,
             ProgressReporter progress
     ) {
-        Objects.requireNonNull(session, "session is required");
-        List<SaveRecord> records;
-        try {
-            records = readPlayerRecords(session.connection(), progress);
-        } catch (SQLException exception) {
-            throw new CommandException(
-                    "Cannot read playerdata: " + exception.getMessage(),
-                    exception
-            );
-        }
-        SaveRecord selected = selectDefaultPlayer(records)
-                .orElseThrow(() -> new CommandException(
-                        "Table playerdata exists but contains no selectable rows"));
-        return parsePlayerPosition(selected, progress);
+        List<SaveRecord> records =
+                readPlayerRecords(
+                        session,
+                        progress
+                );
+
+        SaveRecord selected =
+                selectDefaultPlayer(
+                        records
+                )
+                        .orElseThrow(
+                                () ->
+                                        new CommandException(
+                                                "Table playerdata exists but contains no selectable rows"
+                                        )
+                        );
+
+        return parsePlayerPosition(
+                selected,
+                progress
+        );
+    }
+
+    public WorldPosition readPlayerPosition(
+            SaveSession session,
+            String playerSelector,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(
+                playerSelector,
+                "playerSelector is required"
+        );
+
+        List<SaveRecord> records =
+                readPlayerRecords(
+                        session,
+                        progress
+                );
+
+        SaveRecord selected =
+                selectPlayer(
+                        records,
+                        playerSelector
+                )
+                        .orElseThrow(
+                                () ->
+                                        new CommandException(
+                                                "No playerdata row matched selector: "
+                                                        + playerSelector
+                                        )
+                        );
+
+        return parsePlayerPosition(
+                selected,
+                progress
+        );
     }
 
     public WorldPosition readPlayerPosition(
@@ -2766,6 +2808,30 @@ public class VcdbsReader {
                 selected,
                 progress
         );
+    }
+
+    private List<SaveRecord> readPlayerRecords(
+            SaveSession session,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(
+                session,
+                "session is required"
+        );
+
+        try {
+            return readPlayerRecords(
+                    session.connection(),
+                    progress
+            );
+
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot read playerdata: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
     }
 
     private List<SaveRecord> readPlayerRecords(

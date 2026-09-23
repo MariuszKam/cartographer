@@ -7,8 +7,9 @@ import cartographer.model.WorldPosition;
 import cartographer.navigation.Direction;
 import cartographer.navigation.DirectionCalculator;
 import cartographer.navigation.HomeStore;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
@@ -19,7 +20,7 @@ public class NavCommand
 
     private final PrintStream out;
     private final VcdbsReader reader;
-    private final WorldMetadataReader metadataReader;
+    private final SaveSessionFactory sessionFactory;
     private final HomeStore homeStore;
     private final String subcommand;
 
@@ -29,13 +30,13 @@ public class NavCommand
     public NavCommand(
             PrintStream out,
             VcdbsReader reader,
-            WorldMetadataReader metadataReader,
+            SaveSessionFactory sessionFactory,
             HomeStore homeStore,
             String subcommand
     ) {
         this.out = out;
         this.reader = reader;
-        this.metadataReader = metadataReader;
+        this.sessionFactory = sessionFactory;
         this.homeStore = homeStore;
         this.subcommand = subcommand;
     }
@@ -69,17 +70,24 @@ public class NavCommand
                         out
                 );
 
-        WorldPosition absolutePlayer =
-                reader.readPlayerPosition(
-                        savePath,
-                        progress
-                );
+        WorldPosition absolutePlayer;
+        WorldMetadata metadata;
 
-        WorldMetadata metadata =
-                metadataReader.read(
-                        savePath,
-                        progress
-                );
+        try (SaveSession session =
+                     sessionFactory.open(
+                             savePath
+                     )) {
+
+            absolutePlayer =
+                    reader.readPlayerPosition(
+                            session,
+                            progress
+                    );
+
+            metadata =
+                    session.snapshot()
+                            .metadata();
+        }
 
         DisplayPosition player =
                 metadata.toDisplay(
