@@ -8,7 +8,7 @@ import cartographer.model.WorldPosition;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
-import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,13 +26,17 @@ class MapTerrainPreparationTest {
         builder.accept(chunk(0, 0, 55));
         MapTerrainPreparation terrain = builder.finish();
 
+        WorldPosition center = new WorldPosition(16, 0, 16);
         RenderedMap rendered = new MapRenderer().render(
-                new WorldPosition(16, 0, 16),
-                new WorldPosition(16, 0, 16),
+                center,
+                center,
                 HomeState.absent(),
                 terrain,
-                List.of(),
-                options
+                SurfaceRenderData.empty(RenderSamplingPlan.from(center, options)),
+                null,
+                Map.of(),
+                options,
+                ProgressReporter.NONE
         );
 
         assertNotEquals(

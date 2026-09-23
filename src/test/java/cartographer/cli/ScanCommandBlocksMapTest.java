@@ -14,7 +14,6 @@ import cartographer.render.PngWriter;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.VcdbsReader;
 import cartographer.scanner.ActualBlockMapScanner;
-import cartographer.scanner.SurfaceScanner;
 import org.junit.jupiter.api.Test;
 
 import java.awt.image.BufferedImage;
