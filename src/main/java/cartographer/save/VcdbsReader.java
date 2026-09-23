@@ -83,21 +83,6 @@ public class VcdbsReader {
         );
     }
 
-    public List<MapChunk> readMapChunksAround(
-            Path savePath,
-            WorldPosition center,
-            int radiusBlocks,
-            ReadDiagnostics diagnostics
-    ) {
-        return readMapChunksAround(
-                savePath,
-                center,
-                radiusBlocks,
-                diagnostics,
-                ProgressReporter.NONE
-        );
-    }
-
     public MapChunkStreamStats forEachMapChunkByCoordinate(
             Path savePath,
             Collection<MapChunkCoordinate> coordinates,
@@ -148,21 +133,6 @@ public class VcdbsReader {
                     exception
             );
         }
-    }
-
-    public List<ParsedChunk> readChunksAround(
-            Path savePath,
-            WorldPosition center,
-            int radiusBlocks,
-            ReadDiagnostics diagnostics
-    ) {
-        return readChunksAround(
-                savePath,
-                center,
-                radiusBlocks,
-                diagnostics,
-                ProgressReporter.NONE
-        );
     }
 
     public ChunkStreamStats forEachChunkByPosition(
@@ -2901,54 +2871,6 @@ public class VcdbsReader {
     }
 
     public List<MapChunk> readMapChunksAround(
-            Path savePath,
-            WorldPosition center,
-            int radiusBlocks,
-            ReadDiagnostics diagnostics,
-            ProgressReporter progress
-    ) {
-        progress.start(
-                "Opening save read-only"
-        );
-
-        try (Connection connection =
-                     connectionFactory.openReadOnly(
-                             savePath
-                     )) {
-
-            progress.done(
-                    "Save opened read-only"
-            );
-
-            if (tableMissing(
-                    connection,
-                    SaveTable.MAPCHUNK.tableName()
-            )) {
-                diagnostics.missingTable(
-                        SaveTable.MAPCHUNK.tableName()
-                );
-
-                return List.of();
-            }
-
-            return readMapChunksAroundFromResultSet(
-                    connection,
-                    center,
-                    radiusBlocks,
-                    diagnostics,
-                    progress
-            );
-
-        } catch (SQLException exception) {
-            throw new CommandException(
-                    "Cannot read mapchunk table: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
-    }
-
-    public List<MapChunk> readMapChunksAround(
             SaveSession session,
             WorldPosition center,
             int radiusBlocks,
@@ -2986,54 +2908,6 @@ public class VcdbsReader {
         } catch (SQLException exception) {
             throw new CommandException(
                     "Cannot read mapchunk table: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
-    }
-
-    public List<ParsedChunk> readChunksAround(
-            Path savePath,
-            WorldPosition center,
-            int radiusBlocks,
-            ReadDiagnostics diagnostics,
-            ProgressReporter progress
-    ) {
-        progress.start(
-                "Opening save read-only"
-        );
-
-        try (Connection connection =
-                     connectionFactory.openReadOnly(
-                             savePath
-                     )) {
-
-            progress.done(
-                    "Save opened read-only"
-            );
-
-            if (tableMissing(
-                    connection,
-                    SaveTable.CHUNK.tableName()
-            )) {
-                diagnostics.missingTable(
-                        SaveTable.CHUNK.tableName()
-                );
-
-                return List.of();
-            }
-
-            return readChunksAroundFromResultSet(
-                    connection,
-                    center,
-                    radiusBlocks,
-                    diagnostics,
-                    progress
-            );
-
-        } catch (SQLException exception) {
-            throw new CommandException(
-                    "Cannot read chunk table: "
                             + exception.getMessage(),
                     exception
             );
@@ -3119,38 +2993,6 @@ public class VcdbsReader {
         } catch (SQLException exception) {
             throw new CommandException(
                     "Cannot read block registry: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
-    }
-
-    public List<ServerMapRegion> readMapRegions(
-            Path savePath,
-            ReadDiagnostics diagnostics,
-            ProgressReporter progress
-    ) {
-        Objects.requireNonNull(savePath, "savePath is required");
-        Objects.requireNonNull(diagnostics, "diagnostics is required");
-        Objects.requireNonNull(progress, "progress is required");
-        progress.start(
-                "Opening save read-only"
-        );
-
-        try (Connection connection =
-                     connectionFactory.openReadOnly(
-                             savePath
-                     )) {
-
-            progress.done(
-                    "Save opened read-only"
-            );
-
-            return readMapRegions(connection, diagnostics, progress);
-
-        } catch (SQLException exception) {
-            throw new CommandException(
-                    "Cannot read mapregion table: "
                             + exception.getMessage(),
                     exception
             );
