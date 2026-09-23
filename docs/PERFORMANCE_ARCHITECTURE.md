@@ -192,8 +192,9 @@ block loop performs indexed integer lookup and updates primitive boolean
 matched/unavailable state. The same decoded visit feeds the ROCK streaming
 session and all compatible ore observations. Results are assembled in the
 declared resource order with existing `OBSERVED`, `NOT_OBSERVED`, and
-`UNAVAILABLE` semantics. `AnalyzeProspectingAreaUseCase` reuses the fused
-provider when available and otherwise retains its compatibility path.
+`UNAVAILABLE` semantics. `AnalyzeProspectingAreaUseCase` depends on the fused
+provider contract, so ROCK evidence and ore observations share one canonical
+analysis path instead of maintaining a separate compatibility traversal.
 
 This avoids repeating a whole selective traversal once per requested resource
 without changing coordinate, missing-data, or diagnostic meaning.

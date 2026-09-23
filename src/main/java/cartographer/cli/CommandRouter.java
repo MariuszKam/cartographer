@@ -278,12 +278,6 @@ public class CommandRouter {
                             out,
                             new cartographer.application.AnalyzeProspectingAreaUseCase(
                                     reader,
-                                    new cartographer.application.RenderRockMapUseCase(
-                                            reader,
-                                            metadataReader,
-                                            new RockMapRenderer(),
-                                            renderDataCache
-                                    ),
                                     new ResourceAnalyzer(),
                                     cartographer.prospecting.OreRockCompatibilityProvider.unknown(),
                                     new SavedOreObservationProvider(

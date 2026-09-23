@@ -6,7 +6,7 @@ import cartographer.save.SaveSession;
 import java.nio.file.Path;
 import java.util.List;
 
-/** Capability implemented by providers that can share one decoded chunk stream. */
+/** Prospecting provider contract backed by one fused ROCK/resource analysis. */
 public interface FusedProspectingObservationProvider {
     FusedProspectingResult analyze(
             SaveSession session,

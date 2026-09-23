@@ -108,7 +108,6 @@ public class CartographerDesktopApp extends Application {
         AnalyzeProspectingAreaUseCase prospectingUseCase =
                 new AnalyzeProspectingAreaUseCase(
                         reader,
-                        rockUseCase,
                         new ResourceAnalyzer(),
                         OreRockCompatibilityProvider.unknown(),
                         new SavedOreObservationProvider(
