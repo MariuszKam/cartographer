@@ -1689,4 +1689,106 @@ class ChunkParserTest {
                 int index
         );
     }
+
+    private static final class SelectiveRecordingLayerDecoder
+            extends ChunkDataLayerDecoder {
+        private int paletteContainsCalls;
+        private int ownedDecodeCalls;
+        private byte[] probedPayload;
+        private byte[] decodedPayload;
+        private int probedOffset;
+        private int decodedOffset;
+        private int probedLength;
+        private int decodedLength;
+
+        @Override
+        boolean paletteContainsAny(
+                byte[] payload,
+                int sourceOffset,
+                int sourceLength,
+                int savedCompressionVersion,
+                int[] wantedBlockIds,
+                ChunkDecodeWorkspace workspace
+        ) {
+            paletteContainsCalls++;
+            probedPayload = payload;
+            probedOffset = sourceOffset;
+            probedLength = sourceLength;
+            return super.paletteContainsAny(
+                    payload,
+                    sourceOffset,
+                    sourceLength,
+                    savedCompressionVersion,
+                    wantedBlockIds,
+                    workspace
+            );
+        }
+
+        @Override
+        DecodedChunkLayer decodeOwned(
+                byte[] payload,
+                int sourceOffset,
+                int sourceLength,
+                int savedCompressionVersion,
+                ChunkDecodeWorkspace workspace
+        ) {
+            ownedDecodeCalls++;
+            decodedPayload = payload;
+            decodedOffset = sourceOffset;
+            decodedLength = sourceLength;
+            return super.decodeOwned(
+                    payload,
+                    sourceOffset,
+                    sourceLength,
+                    savedCompressionVersion,
+                    workspace
+            );
+        }
+    }
+
+    private static final class RecordingLayerDecoder
+            extends ChunkDataLayerDecoder {
+        private int ownedDecodeCalls;
+
+        @Override
+        public int[] decode(
+                byte[] payload,
+                int savedCompressionVersion
+        ) {
+            throw new AssertionError(
+                    "ChunkParser must use decodeOwned"
+            );
+        }
+
+        @Override
+        DecodedChunkLayer decodeOwned(
+                byte[] payload,
+                int savedCompressionVersion
+        ) {
+            ownedDecodeCalls++;
+            return super.decodeOwned(
+                    payload,
+                    savedCompressionVersion
+            );
+        }
+
+        @Override
+        DecodedChunkLayer decodeOwned(
+                byte[] payload,
+                int sourceOffset,
+                int sourceLength,
+                int savedCompressionVersion,
+                ChunkDecodeWorkspace workspace
+        ) {
+            ownedDecodeCalls++;
+            return super.decodeOwned(
+                    payload,
+                    sourceOffset,
+                    sourceLength,
+                    savedCompressionVersion,
+                    workspace
+            );
+        }
+    }
+
 }

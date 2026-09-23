@@ -268,15 +268,13 @@ class VcdbsReaderDirectChunkLookupTest {
         ChunkPosition first = new ChunkPosition(1, 0, 0, 0);
         ChunkPosition second = new ChunkPosition(2, 0, 0, 0);
         Path database = databaseWithRows(first, second);
-        AtomicReference<ChunkReadMetrics> observed = new AtomicReference<>();
 
         VcdbsReader reader = new VcdbsReader(
                 null,
                 null,
                 new StubChunkParser(),
                 null,
-                new CountingSqliteSaveConnection(),
-                observed::set
+                new CountingSqliteSaveConnection()
         );
         ChunkStreamStats stats = reader.forEachChunkByPositionAdaptive(
                 database,
@@ -285,7 +283,7 @@ class VcdbsReaderDirectChunkLookupTest {
                 ignored -> { }
         );
 
-        ChunkReadMetrics metrics = observed.get();
+        ChunkReadMetrics metrics = reader.lastChunkReadMetrics().orElseThrow();
         assertEquals(ChunkReadStrategy.EXACT_POSITION_BATCHES, metrics.strategy());
         assertEquals(stats.uniquePositionsRequested(), metrics.uniquePositionsRequested());
         assertEquals(stats.batchesExecuted(), metrics.batchesExecuted());
@@ -300,14 +298,12 @@ class VcdbsReaderDirectChunkLookupTest {
     void adaptiveTableStreamPublishesChosenStrategyMetrics() throws Exception {
         List<ChunkPosition> existing = spacedPositions(300);
         Path database = databaseWithRows(existing.toArray(ChunkPosition[]::new));
-        AtomicReference<ChunkReadMetrics> observed = new AtomicReference<>();
         VcdbsReader reader = new VcdbsReader(
                 null,
                 null,
                 new StubChunkParser(),
                 null,
-                new CountingSqliteSaveConnection(),
-                observed::set
+                new CountingSqliteSaveConnection()
         );
 
         ChunkStreamStats stats = reader.forEachChunkByPositionAdaptive(
@@ -317,7 +313,7 @@ class VcdbsReaderDirectChunkLookupTest {
                 ignored -> { }
         );
 
-        ChunkReadMetrics metrics = observed.get();
+        ChunkReadMetrics metrics = reader.lastChunkReadMetrics().orElseThrow();
         assertEquals(ChunkReadStrategy.TABLE_STREAM, metrics.strategy());
         assertEquals(320, metrics.uniquePositionsRequested());
         assertEquals(1, metrics.batchesExecuted());
@@ -326,49 +322,17 @@ class VcdbsReaderDirectChunkLookupTest {
     }
 
     @Test
-    void metricsProbeFailureCannotChangeReadCorrectness() throws Exception {
-        ChunkPosition first = new ChunkPosition(1, 0, 0, 0);
-        Path database = databaseWithRows(first);
-        VcdbsReader reader = new VcdbsReader(
-                null,
-                null,
-                new StubChunkParser(),
-                null,
-                new CountingSqliteSaveConnection(),
-                metrics -> {
-                    throw new IllegalStateException("probe failure");
-                }
-        );
-
-        ChunkStreamStats stats = reader.forEachChunkByPositionAdaptive(
-                database,
-                List.of(first),
-                new ReadDiagnostics(),
-                ignored -> { }
-        );
-
-        assertEquals(1, stats.rowsFound());
-        assertEquals(1, stats.parsedChunks());
-        assertEquals(
-                ChunkReadStrategy.EXACT_POSITION_BATCHES,
-                reader.lastChunkReadMetrics().orElseThrow().strategy()
-        );
-    }
-
-    @Test
     void adaptiveDenseRequestUsesPackedRangeRuns() throws Exception {
         List<ChunkPosition> requested = positions(1024);
         Path database = databaseWithRows(
                 requested.toArray(ChunkPosition[]::new)
         );
-        AtomicReference<ChunkReadMetrics> observed = new AtomicReference<>();
         VcdbsReader reader = new VcdbsReader(
                 null,
                 null,
                 new StubChunkParser(),
                 null,
-                new CountingSqliteSaveConnection(),
-                observed::set
+                new CountingSqliteSaveConnection()
         );
 
         ChunkStreamStats stats = reader.forEachChunkByPositionAdaptive(
@@ -383,10 +347,10 @@ class VcdbsReaderDirectChunkLookupTest {
         assertEquals(1, stats.batchesExecuted());
         assertEquals(
                 ChunkReadStrategy.RANGE_RUN_BATCHES,
-                observed.get().strategy()
+                reader.lastChunkReadMetrics().orElseThrow().strategy()
         );
-        assertEquals(1, observed.get().statementsPrepared());
-        assertEquals(1, observed.get().statementsExecuted());
+        assertEquals(1, reader.lastChunkReadMetrics().orElseThrow().statementsPrepared());
+        assertEquals(1, reader.lastChunkReadMetrics().orElseThrow().statementsExecuted());
     }
 
     @Test
@@ -398,14 +362,12 @@ class VcdbsReaderDirectChunkLookupTest {
                 allRows.toArray(ChunkPosition[]::new)
         );
         StubChunkParser parser = new StubChunkParser();
-        AtomicReference<ChunkReadMetrics> observed = new AtomicReference<>();
         VcdbsReader reader = new VcdbsReader(
                 null,
                 null,
                 parser,
                 null,
-                new CountingSqliteSaveConnection(),
-                observed::set
+                new CountingSqliteSaveConnection()
         );
 
         ChunkStreamStats stats = reader.forEachChunkByPositionAdaptive(
@@ -419,7 +381,7 @@ class VcdbsReaderDirectChunkLookupTest {
         assertEquals(511, stats.parsedChunks());
         assertEquals(
                 ChunkReadStrategy.RANGE_RUN_BATCHES,
-                observed.get().strategy()
+                reader.lastChunkReadMetrics().orElseThrow().strategy()
         );
         assertTrue(parser.xCoordinates().stream().noneMatch(x -> x == 256));
     }
@@ -431,14 +393,12 @@ class VcdbsReaderDirectChunkLookupTest {
         Path database = databaseWithRows(
                 requested.toArray(ChunkPosition[]::new)
         );
-        AtomicReference<ChunkReadMetrics> observed = new AtomicReference<>();
         VcdbsReader reader = new VcdbsReader(
                 null,
                 null,
                 new StubChunkParser(),
                 null,
-                new CountingSqliteSaveConnection(),
-                observed::set
+                new CountingSqliteSaveConnection()
         );
 
         ChunkStreamStats stats = reader.forEachChunkByPosition(
@@ -448,7 +408,7 @@ class VcdbsReaderDirectChunkLookupTest {
                 ignored -> { }
         );
 
-        ChunkReadMetrics metrics = observed.get();
+        ChunkReadMetrics metrics = reader.lastChunkReadMetrics().orElseThrow();
         assertEquals(3, stats.batchesExecuted());
         assertEquals(2, metrics.statementsPrepared());
         assertEquals(3, metrics.statementsExecuted());
