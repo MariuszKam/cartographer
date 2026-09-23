@@ -11,6 +11,7 @@ import cartographer.perf.RenderDataCacheStore;
 import cartographer.render.PngWriter;
 import cartographer.render.RockLegendEntry;
 import cartographer.render.RockMapRenderer;
+import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
 import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
@@ -28,8 +29,7 @@ public final class RockCommand implements Command {
     private static final Path DEFAULT_OUTPUT = Path.of("output", "rock-map.png");
 
     private final PrintStream out;
-    private final VcdbsReader reader;
-    private final WorldMetadataReader metadataReader;
+    private final SaveSessionFactory sessionFactory;
     private final RenderRockMapUseCase useCase;
     private final PngWriter pngWriter;
     private final String subcommand;
@@ -62,13 +62,13 @@ public final class RockCommand implements Command {
             RockMapRenderer renderer,
             PngWriter pngWriter,
             RenderDataCacheStore renderDataCacheStore,
+            SaveSessionFactory sessionFactory,
             String subcommand
     ) {
         this.out = Objects.requireNonNull(out, "out is required");
-        this.reader = Objects.requireNonNull(reader, "reader is required");
-        this.metadataReader = Objects.requireNonNull(
-                metadataReader,
-                "metadataReader is required"
+        this.sessionFactory = Objects.requireNonNull(
+                sessionFactory,
+                "sessionFactory is required"
         );
         this.useCase = renderer == null
                 ? null
@@ -76,6 +76,7 @@ public final class RockCommand implements Command {
                         reader,
                         metadataReader,
                         renderer,
+                        sessionFactory,
                         Objects.requireNonNull(
                                 renderDataCacheStore,
                                 "render data cache store is required"
@@ -98,8 +99,7 @@ public final class RockCommand implements Command {
             SaveSessionFactory sessionFactory
     ) {
         this.out = out;
-        this.reader = reader;
-        this.metadataReader = metadataReader;
+        this.sessionFactory = sessionFactory;
         this.useCase = renderer == null
                 ? null
                 : new RenderRockMapUseCase(
@@ -227,7 +227,16 @@ public final class RockCommand implements Command {
     }
 
     private RockCatalog catalog(Path savePath) {
-        return RockCatalog.from(reader.readBlockRegistry(savePath));
+        try (SaveSession session =
+                     sessionFactory.open(
+                             savePath
+                     )) {
+
+            return RockCatalog.from(
+                    session.snapshot()
+                            .blockRegistry()
+            );
+        }
     }
 
     private RockMapMode mode(String[] args) {

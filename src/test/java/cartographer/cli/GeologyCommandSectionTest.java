@@ -5,6 +5,7 @@ import cartographer.geology.crosssection.GeologyCrossSectionAnalyzer;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ParsedChunk;
+import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
@@ -13,14 +14,20 @@ import cartographer.parser.RegistryParser;
 import cartographer.render.GeologyCrossSectionRenderer;
 import cartographer.render.PngWriter;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
+import cartographer.save.WorldMetadataReader;
 import org.junit.jupiter.api.Test;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -69,6 +76,9 @@ class GeologyCommandSectionTest {
                 new GeologyCommand(
                         out,
                         reader,
+                        sessionFactory(
+                                reader
+                        ),
                         new GeologyAnalyzer(),
                         new GeologyCrossSectionAnalyzer(),
                         new GeologyCrossSectionRenderer(),
@@ -136,6 +146,16 @@ class GeologyCommandSectionTest {
                 output.contains(
                         "Player marker: column 1 at Y 111"
                 )
+        );
+    }
+
+    private static SaveSessionFactory sessionFactory(
+            FakeReader reader
+    ) {
+        return new SaveSessionFactory(
+                new TestConnectionFactory(),
+                reader,
+                new FakeMetadataReader()
         );
     }
 
@@ -211,7 +231,7 @@ class GeologyCommandSectionTest {
 
         @Override
         public List<ParsedChunk> readChunksAround(
-                Path savePath,
+                SaveSession session,
                 WorldPosition center,
                 int radiusBlocks,
                 ReadDiagnostics diagnostics,
@@ -221,22 +241,51 @@ class GeologyCommandSectionTest {
         }
 
         @Override
-        public Map<Integer, BlockInfo> readBlockRegistry(
-                Path savePath,
-                cartographer.application.ProgressReporter progress
+        protected Map<Integer, BlockInfo> readBlockRegistry(
+                Connection connection
         ) {
             return registry;
         }
 
         @Override
         public WorldPosition readPlayerPosition(
-                Path savePath,
+                SaveSession session,
                 cartographer.application.ProgressReporter progress
         ) {
             return new WorldPosition(
                     1.0,
                     111.0,
                     0.0
+            );
+        }
+    }
+    private static final class FakeMetadataReader
+            extends WorldMetadataReader {
+
+        @Override
+        protected WorldMetadata read(
+                Connection connection,
+                cartographer.application.ProgressReporter progress
+        ) {
+            return new WorldMetadata(
+                    1024,
+                    256,
+                    1024
+            );
+        }
+    }
+
+    private static final class TestConnectionFactory
+            extends SqliteSaveConnection {
+
+        @Override
+        public Connection openReadOnly(
+                Path savePath
+        ) {
+            return (Connection) Proxy.newProxyInstance(
+                    Connection.class.getClassLoader(),
+                    new Class<?>[]{Connection.class},
+                    (proxy, method, args) -> null
             );
         }
     }

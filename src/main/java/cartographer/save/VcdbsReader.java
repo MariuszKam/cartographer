@@ -83,21 +83,6 @@ public class VcdbsReader {
         );
     }
 
-    public List<MapChunk> readMapChunksAround(
-            Path savePath,
-            WorldPosition center,
-            int radiusBlocks,
-            ReadDiagnostics diagnostics
-    ) {
-        return readMapChunksAround(
-                savePath,
-                center,
-                radiusBlocks,
-                diagnostics,
-                ProgressReporter.NONE
-        );
-    }
-
     public MapChunkStreamStats forEachMapChunkByCoordinate(
             Path savePath,
             Collection<MapChunkCoordinate> coordinates,
@@ -148,21 +133,6 @@ public class VcdbsReader {
                     exception
             );
         }
-    }
-
-    public List<ParsedChunk> readChunksAround(
-            Path savePath,
-            WorldPosition center,
-            int radiusBlocks,
-            ReadDiagnostics diagnostics
-    ) {
-        return readChunksAround(
-                savePath,
-                center,
-                radiusBlocks,
-                diagnostics,
-                ProgressReporter.NONE
-        );
     }
 
     public ChunkStreamStats forEachChunkByPosition(
@@ -2585,17 +2555,6 @@ public class VcdbsReader {
         );
     }
 
-    public List<ServerMapRegion> readMapRegions(
-            Path savePath,
-            ReadDiagnostics diagnostics
-    ) {
-        return readMapRegions(
-                savePath,
-                diagnostics,
-                ProgressReporter.NONE
-        );
-    }
-
     public VcdbsReader(
             PlayerDataParser playerDataParser,
             MapChunkParser mapChunkParser,
@@ -2717,20 +2676,62 @@ public class VcdbsReader {
             SaveSession session,
             ProgressReporter progress
     ) {
-        Objects.requireNonNull(session, "session is required");
-        List<SaveRecord> records;
-        try {
-            records = readPlayerRecords(session.connection(), progress);
-        } catch (SQLException exception) {
-            throw new CommandException(
-                    "Cannot read playerdata: " + exception.getMessage(),
-                    exception
-            );
-        }
-        SaveRecord selected = selectDefaultPlayer(records)
-                .orElseThrow(() -> new CommandException(
-                        "Table playerdata exists but contains no selectable rows"));
-        return parsePlayerPosition(selected, progress);
+        List<SaveRecord> records =
+                readPlayerRecords(
+                        session,
+                        progress
+                );
+
+        SaveRecord selected =
+                selectDefaultPlayer(
+                        records
+                )
+                        .orElseThrow(
+                                () ->
+                                        new CommandException(
+                                                "Table playerdata exists but contains no selectable rows"
+                                        )
+                        );
+
+        return parsePlayerPosition(
+                selected,
+                progress
+        );
+    }
+
+    public WorldPosition readPlayerPosition(
+            SaveSession session,
+            String playerSelector,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(
+                playerSelector,
+                "playerSelector is required"
+        );
+
+        List<SaveRecord> records =
+                readPlayerRecords(
+                        session,
+                        progress
+                );
+
+        SaveRecord selected =
+                selectPlayer(
+                        records,
+                        playerSelector
+                )
+                        .orElseThrow(
+                                () ->
+                                        new CommandException(
+                                                "No playerdata row matched selector: "
+                                                        + playerSelector
+                                        )
+                        );
+
+        return parsePlayerPosition(
+                selected,
+                progress
+        );
     }
 
     public WorldPosition readPlayerPosition(
@@ -2766,6 +2767,30 @@ public class VcdbsReader {
                 selected,
                 progress
         );
+    }
+
+    private List<SaveRecord> readPlayerRecords(
+            SaveSession session,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(
+                session,
+                "session is required"
+        );
+
+        try {
+            return readPlayerRecords(
+                    session.connection(),
+                    progress
+            );
+
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot read playerdata: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
     }
 
     private List<SaveRecord> readPlayerRecords(
@@ -2846,24 +2871,20 @@ public class VcdbsReader {
     }
 
     public List<MapChunk> readMapChunksAround(
-            Path savePath,
+            SaveSession session,
             WorldPosition center,
             int radiusBlocks,
             ReadDiagnostics diagnostics,
             ProgressReporter progress
     ) {
-        progress.start(
-                "Opening save read-only"
-        );
+        Objects.requireNonNull(session, "session is required");
+        Objects.requireNonNull(center, "center is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(progress, "progress is required");
 
-        try (Connection connection =
-                     connectionFactory.openReadOnly(
-                             savePath
-                     )) {
-
-            progress.done(
-                    "Save opened read-only"
-            );
+        try {
+            Connection connection =
+                    session.connection();
 
             if (tableMissing(
                     connection,
@@ -2894,24 +2915,20 @@ public class VcdbsReader {
     }
 
     public List<ParsedChunk> readChunksAround(
-            Path savePath,
+            SaveSession session,
             WorldPosition center,
             int radiusBlocks,
             ReadDiagnostics diagnostics,
             ProgressReporter progress
     ) {
-        progress.start(
-                "Opening save read-only"
-        );
+        Objects.requireNonNull(session, "session is required");
+        Objects.requireNonNull(center, "center is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(progress, "progress is required");
 
-        try (Connection connection =
-                     connectionFactory.openReadOnly(
-                             savePath
-                     )) {
-
-            progress.done(
-                    "Save opened read-only"
-            );
+        try {
+            Connection connection =
+                    session.connection();
 
             if (tableMissing(
                     connection,
@@ -2976,38 +2993,6 @@ public class VcdbsReader {
         } catch (SQLException exception) {
             throw new CommandException(
                     "Cannot read block registry: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
-    }
-
-    public List<ServerMapRegion> readMapRegions(
-            Path savePath,
-            ReadDiagnostics diagnostics,
-            ProgressReporter progress
-    ) {
-        Objects.requireNonNull(savePath, "savePath is required");
-        Objects.requireNonNull(diagnostics, "diagnostics is required");
-        Objects.requireNonNull(progress, "progress is required");
-        progress.start(
-                "Opening save read-only"
-        );
-
-        try (Connection connection =
-                     connectionFactory.openReadOnly(
-                             savePath
-                     )) {
-
-            progress.done(
-                    "Save opened read-only"
-            );
-
-            return readMapRegions(connection, diagnostics, progress);
-
-        } catch (SQLException exception) {
-            throw new CommandException(
-                    "Cannot read mapregion table: "
                             + exception.getMessage(),
                     exception
             );

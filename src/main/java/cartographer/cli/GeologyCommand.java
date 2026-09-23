@@ -21,6 +21,8 @@ import cartographer.render.GeologySectionMarker;
 import cartographer.render.PngWriter;
 import cartographer.render.RenderStyle;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.application.PrepareMapDataRequest;
@@ -70,6 +72,7 @@ public class GeologyCommand implements Command {
 
     private final PrintStream out;
     private final VcdbsReader reader;
+    private final SaveSessionFactory sessionFactory;
     private final PrepareMapDataUseCase mapDataUseCase;
     private final GeologyAnalyzer geologyAnalyzer;
     private final GeologyCrossSectionAnalyzer crossSectionAnalyzer;
@@ -80,12 +83,14 @@ public class GeologyCommand implements Command {
     public GeologyCommand(
             PrintStream out,
             VcdbsReader reader,
+            SaveSessionFactory sessionFactory,
             GeologyAnalyzer geologyAnalyzer,
             String subcommand
     ) {
         this(
                 out,
                 reader,
+                sessionFactory,
                 geologyAnalyzer,
                 new GeologyCrossSectionAnalyzer(),
                 new GeologyCrossSectionRenderer(),
@@ -97,6 +102,7 @@ public class GeologyCommand implements Command {
     public GeologyCommand(
             PrintStream out,
             VcdbsReader reader,
+            SaveSessionFactory sessionFactory,
             GeologyAnalyzer geologyAnalyzer,
             GeologyCrossSectionAnalyzer crossSectionAnalyzer,
             GeologyCrossSectionRenderer crossSectionRenderer,
@@ -105,6 +111,7 @@ public class GeologyCommand implements Command {
     ) {
         this.out = out;
         this.reader = reader;
+        this.sessionFactory = sessionFactory;
         this.mapDataUseCase = new PrepareMapDataUseCase(
                 reader,
                 new WorldMetadataReader()
@@ -268,12 +275,20 @@ public class GeologyCommand implements Command {
         ReadDiagnostics diagnostics =
                 new ReadDiagnostics();
 
-        List<ServerMapRegion> regions =
-                reader.readMapRegions(
-                        savePath,
-                        diagnostics,
-                        progress
-                );
+        List<ServerMapRegion> regions;
+
+        try (SaveSession session =
+                     sessionFactory.open(
+                             savePath
+                     )) {
+
+            regions =
+                    reader.readMapRegions(
+                            session,
+                            diagnostics,
+                            progress
+                    );
+        }
 
         RockStrataAnalyzer strataAnalyzer =
                 new RockStrataAnalyzer();
@@ -422,101 +437,113 @@ public class GeologyCommand implements Command {
                         out
                 );
 
-        WorldPosition player =
-                reader.readPlayerPosition(
-                        savePath,
-                        progress
-                );
-
-        SectionRequest request =
-                manualSectionRequested(
-                        args
-                )
-                        ? manualSection(
-                        args
-                )
-                        : playerCenteredSection(
-                        args,
-                        player
-                );
-
-        long span =
-                sectionSpan(
-                        request.fromX(),
-                        request.fromZ(),
-                        request.toX(),
-                        request.toZ()
-                );
-
-        if (span > MAX_SECTION_SPAN) {
-            throw new CommandException(
-                    "Geology section span must not exceed "
-                            + MAX_SECTION_SPAN
-                            + " blocks"
-            );
-        }
-
-        int horizontalScale =
-                scaleOption(
-                        args,
-                        "--horizontal-scale",
-                        DEFAULT_HORIZONTAL_SCALE
-                );
-
-        int verticalScale =
-                scaleOption(
-                        args,
-                        "--vertical-scale",
-                        DEFAULT_VERTICAL_SCALE
-                );
-
-        Path output =
-                option(
-                        args,
-                        "--out"
-                )
-                        .map(
-                                Path::of
-                        )
-                        .orElse(
-                                DEFAULT_SECTION_OUTPUT
-                        );
-
-        WorldPosition center =
-                new WorldPosition(
-                        midpoint(
-                                request.fromX(),
-                                request.toX()
-                        ),
-                        0.0,
-                        midpoint(
-                                request.fromZ(),
-                                request.toZ()
-                        )
-                );
-
-        int readRadius =
-                sectionReadRadius(
-                        span
-                );
-
+        WorldPosition player;
+        SectionRequest request;
+        long span;
+        int horizontalScale;
+        int verticalScale;
+        Path output;
         ReadDiagnostics diagnostics =
                 new ReadDiagnostics();
+        List<ParsedChunk> chunks;
+        Map<Integer, BlockInfo> registry;
 
-        List<ParsedChunk> chunks =
-                reader.readChunksAround(
-                        savePath,
-                        center,
-                        readRadius,
-                        diagnostics,
-                        progress
-                );
+        try (SaveSession session =
+                     sessionFactory.open(
+                             savePath
+                     )) {
 
-        Map<Integer, BlockInfo> registry =
-                reader.readBlockRegistry(
-                        savePath,
-                        progress
+            player =
+                    reader.readPlayerPosition(
+                            session,
+                            progress
+                    );
+
+            request =
+                    manualSectionRequested(
+                            args
+                    )
+                            ? manualSection(
+                            args
+                    )
+                            : playerCenteredSection(
+                            args,
+                            player
+                    );
+
+            span =
+                    sectionSpan(
+                            request.fromX(),
+                            request.fromZ(),
+                            request.toX(),
+                            request.toZ()
+                    );
+
+            if (span > MAX_SECTION_SPAN) {
+                throw new CommandException(
+                        "Geology section span must not exceed "
+                                + MAX_SECTION_SPAN
+                                + " blocks"
                 );
+            }
+
+            horizontalScale =
+                    scaleOption(
+                            args,
+                            "--horizontal-scale",
+                            DEFAULT_HORIZONTAL_SCALE
+                    );
+
+            verticalScale =
+                    scaleOption(
+                            args,
+                            "--vertical-scale",
+                            DEFAULT_VERTICAL_SCALE
+                    );
+
+            output =
+                    option(
+                            args,
+                            "--out"
+                    )
+                            .map(
+                                    Path::of
+                            )
+                            .orElse(
+                                    DEFAULT_SECTION_OUTPUT
+                            );
+
+            WorldPosition center =
+                    new WorldPosition(
+                            midpoint(
+                                    request.fromX(),
+                                    request.toX()
+                            ),
+                            0.0,
+                            midpoint(
+                                    request.fromZ(),
+                                    request.toZ()
+                            )
+                    );
+
+            int readRadius =
+                    sectionReadRadius(
+                            span
+                    );
+
+            chunks =
+                    reader.readChunksAround(
+                            session,
+                            center,
+                            readRadius,
+                            diagnostics,
+                            progress
+                    );
+
+            registry =
+                    session.snapshot()
+                            .blockRegistry();
+        }
 
         progress.start(
                 "Analyzing geology cross-section"

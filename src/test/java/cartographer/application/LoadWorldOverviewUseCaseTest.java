@@ -67,7 +67,6 @@ class LoadWorldOverviewUseCaseTest {
         assertEquals(1, reader.connectionRegistryCalls);
         assertEquals(1, reader.sessionMapRegionCalls);
         assertEquals(1, reader.sessionPlayerCalls);
-        assertEquals(0, reader.pathMapRegionCalls);
         assertEquals(0, reader.pathPlayerCalls);
         assertEquals(0, reader.pathRegistryCalls);
     }
@@ -119,7 +118,6 @@ class LoadWorldOverviewUseCaseTest {
         private int connectionRegistryCalls;
         private int sessionMapRegionCalls;
         private int sessionPlayerCalls;
-        private int pathMapRegionCalls;
         private int pathPlayerCalls;
         private int pathRegistryCalls;
 
@@ -173,16 +171,6 @@ class LoadWorldOverviewUseCaseTest {
                 throw new IllegalStateException("player unavailable");
             }
             return new WorldPosition(600, 70, 900);
-        }
-
-        @Override
-        public List<ServerMapRegion> readMapRegions(
-                Path savePath,
-                ReadDiagnostics diagnostics,
-                ProgressReporter progress
-        ) {
-            pathMapRegionCalls++;
-            throw new AssertionError("path-based mapregion read must not be used");
         }
 
         @Override

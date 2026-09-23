@@ -5,8 +5,9 @@ import cartographer.model.HomeLocation;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
@@ -17,20 +18,20 @@ public class HomeCommand
 
     private final PrintStream out;
     private final VcdbsReader reader;
-    private final WorldMetadataReader metadataReader;
+    private final SaveSessionFactory sessionFactory;
     private final HomeStore homeStore;
     private final String subcommand;
 
     public HomeCommand(
             PrintStream out,
             VcdbsReader reader,
-            WorldMetadataReader metadataReader,
+            SaveSessionFactory sessionFactory,
             HomeStore homeStore,
             String subcommand
     ) {
         this.out = out;
         this.reader = reader;
-        this.metadataReader = metadataReader;
+        this.sessionFactory = sessionFactory;
         this.homeStore = homeStore;
         this.subcommand = subcommand;
     }
@@ -170,27 +171,31 @@ public class HomeCommand
                         out
                 );
 
-        WorldPosition absolute =
-                reader.readPlayerPosition(
-                        savePath,
-                        progress
-                );
+        try (SaveSession session =
+                     sessionFactory.open(
+                             savePath
+                     )) {
 
-        WorldMetadata metadata =
-                metadataReader.read(
-                        savePath,
-                        progress
-                );
+            WorldPosition absolute =
+                    reader.readPlayerPosition(
+                            session,
+                            progress
+                    );
 
-        DisplayPosition display =
-                metadata.toDisplay(
-                        absolute
-                );
+            WorldMetadata metadata =
+                    session.snapshot()
+                            .metadata();
 
-        return new HomeLocation(
-                display.x(),
-                display.z()
-        );
+            DisplayPosition display =
+                    metadata.toDisplay(
+                            absolute
+                    );
+
+            return new HomeLocation(
+                    display.x(),
+                    display.z()
+            );
+        }
     }
 
     private double parseDouble(

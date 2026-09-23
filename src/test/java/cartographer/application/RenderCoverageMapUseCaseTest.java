@@ -4,6 +4,7 @@ import cartographer.coverage.RegionCoverageAnalyzer;
 import cartographer.coverage.RegionCoverageRenderer;
 import cartographer.coverage.RegionCoverageRenderResult;
 import cartographer.coverage.RegionCoverageSummary;
+import cartographer.model.BlockInfo;
 import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
 import cartographer.model.MapRegionCoordinate;
@@ -17,14 +18,20 @@ import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.save.ReadDiagnostics;
+import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.awt.image.BufferedImage;
+import java.lang.reflect.Proxy;
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -88,14 +95,15 @@ class RenderCoverageMapUseCaseTest {
             CapturingRenderer renderer,
             HomeStore homeStore
     ) {
-        WorldMetadataReader metadataReader = new WorldMetadataReader() {
-            @Override
-            public WorldMetadata read(Path savePath, ProgressReporter progress) {
-                return new WorldMetadata(1024, 256, 1024);
-            }
-        };
-        return new RenderCoverageMapUseCase(reader, metadataReader, homeStore,
-                new RegionCoverageAnalyzer(), renderer);
+        return new RenderCoverageMapUseCase(
+                reader,
+                sessionFactory(
+                        reader
+                ),
+                homeStore,
+                new RegionCoverageAnalyzer(),
+                renderer
+        );
     }
 
     private ServerMapRegion region(int x, int z) {
@@ -113,16 +121,69 @@ class RenderCoverageMapUseCaseTest {
         }
 
         @Override
+        protected Map<Integer, BlockInfo> readBlockRegistry(
+                Connection connection
+        ) {
+            return Map.of();
+        }
+
+        @Override
         public List<ServerMapRegion> readMapRegions(
-                Path savePath, ReadDiagnostics diagnostics, ProgressReporter progress
+                SaveSession session,
+                ReadDiagnostics diagnostics,
+                ProgressReporter progress
         ) {
             diagnostics.recordParsed();
             return regions;
         }
 
         @Override
-        public WorldPosition readPlayerPosition(Path savePath, ProgressReporter progress) {
+        public WorldPosition readPlayerPosition(
+                SaveSession session,
+                ProgressReporter progress
+        ) {
             return new WorldPosition(100, 70, 200);
+        }
+    }
+
+    private SaveSessionFactory sessionFactory(
+            FakeReader reader
+    ) {
+        return new SaveSessionFactory(
+                new TestConnectionFactory(),
+                reader,
+                new FakeMetadataReader()
+        );
+    }
+
+    private static final class FakeMetadataReader
+            extends WorldMetadataReader {
+
+        @Override
+        protected WorldMetadata read(
+                Connection connection,
+                ProgressReporter progress
+        ) {
+            return new WorldMetadata(
+                    1024,
+                    256,
+                    1024
+            );
+        }
+    }
+
+    private static final class TestConnectionFactory
+            extends SqliteSaveConnection {
+
+        @Override
+        public Connection openReadOnly(
+                Path savePath
+        ) {
+            return (Connection) Proxy.newProxyInstance(
+                    Connection.class.getClassLoader(),
+                    new Class<?>[]{Connection.class},
+                    (proxy, method, args) -> null
+            );
         }
     }
 

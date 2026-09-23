@@ -24,6 +24,8 @@ import cartographer.render.RockMapRenderer;
 import cartographer.resource.ResourceAnalyzer;
 import cartographer.prospecting.SavedOreObservationProvider;
 import cartographer.save.SaveInspector;
+import cartographer.save.SaveSessionFactory;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 
@@ -117,6 +119,13 @@ public class CommandRouter {
         WorldMetadataReader metadataReader =
                 new WorldMetadataReader();
 
+        SaveSessionFactory sessionFactory =
+                new SaveSessionFactory(
+                        new SqliteSaveConnection(),
+                        reader,
+                        metadataReader
+                );
+
         Path configDirectory =
                 Path.of(
                         System.getProperty(
@@ -151,14 +160,14 @@ public class CommandRouter {
                     new WhereamiCommand(
                             out,
                             reader,
-                            metadataReader
+                            sessionFactory
                     );
 
             case "home" ->
                     new HomeCommand(
                             out,
                             reader,
-                            metadataReader,
+                            sessionFactory,
                             homeStore,
                             subcommand(
                                     args,
@@ -170,7 +179,7 @@ public class CommandRouter {
                     new NavCommand(
                             out,
                             reader,
-                            metadataReader,
+                            sessionFactory,
                             homeStore,
                             subcommand(
                                     args,
@@ -202,6 +211,7 @@ public class CommandRouter {
                     new MapRegionCommand(
                             out,
                             reader,
+                            sessionFactory,
                             subcommand(
                                     args,
                                     "mapregion"
@@ -212,6 +222,7 @@ public class CommandRouter {
                     new EnvironmentCommand(
                             out,
                             reader,
+                            sessionFactory,
                             new EnvironmentInterpreter(),
                             subcommand(
                                     args,
@@ -223,6 +234,7 @@ public class CommandRouter {
                     new ResourceCommand(
                             out,
                             reader,
+                            sessionFactory,
                             new ResourceAnalyzer(),
                             subcommand(
                                     args,
@@ -234,7 +246,7 @@ public class CommandRouter {
                     new CoverageCommand(
                             out,
                             reader,
-                            metadataReader,
+                            sessionFactory,
                             homeStore,
                             new RegionCoverageAnalyzer(),
                             new RegionCoverageRenderer(),
@@ -249,6 +261,7 @@ public class CommandRouter {
                     new ScanCommand(
                             out,
                             reader,
+                            sessionFactory,
                             new BlockScanner(),
                             subcommand(
                                     args,
@@ -260,6 +273,7 @@ public class CommandRouter {
                     new GeologyCommand(
                             out,
                             reader,
+                            sessionFactory,
                             new GeologyAnalyzer(),
                             subcommand(
                                     args,
@@ -275,6 +289,7 @@ public class CommandRouter {
                             new RockMapRenderer(),
                             new PngWriter(),
                             renderDataCache,
+                            sessionFactory,
                             subcommand(args, "rock")
                             );
 
@@ -300,7 +315,7 @@ public class CommandRouter {
                             out,
                             markerStore,
                             reader,
-                            metadataReader,
+                            sessionFactory,
                             subcommand(
                                     args,
                                     "markers"
@@ -325,7 +340,7 @@ public class CommandRouter {
                     new AtlasCommand(
                             out,
                             reader,
-                            metadataReader,
+                            sessionFactory,
                             homeStore,
                             new AtlasRenderer(
                                     new TilePyramid(),

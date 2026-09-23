@@ -1199,7 +1199,6 @@ class RenderActualOreMapUseCaseTest {
         );
 
         assertEquals(1, reader.sessionMapRegionCalls);
-        assertEquals(0, reader.pathMapRegionCalls);
         assertTrue(result.mapRegionOverlayState().isPresent());
         assertTrue(result.mapRegionOverlayState().orElseThrow().environmentPrepared());
         assertFalse(result.mapRegionOverlayState().orElseThrow().geologyPrepared());
@@ -1853,7 +1852,6 @@ class RenderActualOreMapUseCaseTest {
         private int pathAdaptiveSelectiveCalls;
         private int pathPlayerCalls;
         private int pathRegistryCalls;
-        private int pathMapRegionCalls;
         private int sessionMapRegionCalls;
         private int legacyMapChunkCalls;
         private int legacyChunkCalls;
@@ -2032,10 +2030,11 @@ class RenderActualOreMapUseCaseTest {
 
         @Override
         public List<MapChunk> readMapChunksAround(
-                Path savePath,
+                SaveSession session,
                 WorldPosition center,
                 int radius,
-                ReadDiagnostics diagnostics
+                ReadDiagnostics diagnostics,
+                ProgressReporter progress
         ) {
             legacyMapChunkCalls++;
             throw new AssertionError("legacy mapchunk lookup must not be used");
@@ -2043,10 +2042,11 @@ class RenderActualOreMapUseCaseTest {
 
         @Override
         public List<ParsedChunk> readChunksAround(
-                Path savePath,
+                SaveSession session,
                 WorldPosition center,
                 int radius,
-                ReadDiagnostics diagnostics
+                ReadDiagnostics diagnostics,
+                ProgressReporter progress
         ) {
             legacyChunkCalls++;
             throw new AssertionError("legacy chunk lookup must not be used");
@@ -2062,16 +2062,6 @@ class RenderActualOreMapUseCaseTest {
         protected Map<Integer, BlockInfo> readBlockRegistry(Connection connection) {
             registryCalls++;
             return registry;
-        }
-
-        @Override
-        public List<cartographer.model.ServerMapRegion> readMapRegions(
-                Path savePath,
-                ReadDiagnostics diagnostics,
-                ProgressReporter progress
-        ) {
-            pathMapRegionCalls++;
-            return List.of();
         }
 
         @Override
