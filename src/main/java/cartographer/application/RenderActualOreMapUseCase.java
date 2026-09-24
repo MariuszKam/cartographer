@@ -25,9 +25,7 @@ import cartographer.render.UserMarkerRenderer;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
-import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 import cartographer.perf.RenderDataCacheStore;
 import cartographer.snapshot.SnapshotMapRegionReader;
 import cartographer.snapshot.SnapshotResourceReader;
@@ -60,58 +58,6 @@ public class RenderActualOreMapUseCase {
     private final SystemMarkerOverlayRenderer systemMarkerOverlayRenderer = new SystemMarkerOverlayRenderer();
     private final Optional<SnapshotMapRegionReader> snapshotMapRegionReader;
     private final Optional<SnapshotResourceReader> snapshotResourceReader;
-
-    public RenderActualOreMapUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            ActualOreOverlayPainter actualOreOverlayPainter
-    ) {
-        this(
-                reader,
-                metadataReader,
-                homeStore,
-                markerStore,
-                renderer,
-                userMarkerRenderer,
-                actualOreOverlayPainter,
-                new MultiActualBlockMapScanner(),
-                new OreChunkPositionPlanner(),
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(), reader, metadataReader
-                )
-        );
-    }
-
-    public RenderActualOreMapUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            ActualOreOverlayPainter actualOreOverlayPainter,
-            RenderDataCacheStore renderDataCacheStore
-    ) {
-        this(
-                reader,
-                metadataReader,
-                homeStore,
-                markerStore,
-                renderer,
-                userMarkerRenderer,
-                actualOreOverlayPainter,
-                new MultiActualBlockMapScanner(),
-                new OreChunkPositionPlanner(),
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(), reader, metadataReader
-                ),
-                renderDataCacheStore
-        );
-    }
 
     public RenderActualOreMapUseCase(
             VcdbsReader reader,
@@ -192,96 +138,6 @@ public class RenderActualOreMapUseCase {
                         "render data cache store is required"
                 ))
         );
-    }
-
-    public RenderActualOreMapUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            ActualOreOverlayPainter actualOreOverlayPainter,
-            SaveSessionFactory sessionFactory,
-            RenderDataCacheStore renderDataCacheStore
-    ) {
-        this(
-                reader,
-                metadataReader,
-                homeStore,
-                markerStore,
-                renderer,
-                userMarkerRenderer,
-                actualOreOverlayPainter,
-                new MultiActualBlockMapScanner(),
-                new OreChunkPositionPlanner(),
-                sessionFactory,
-                renderDataCacheStore
-        );
-    }
-
-    public RenderActualOreMapUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            ActualOreOverlayPainter actualOreOverlayPainter,
-            MultiActualBlockMapScanner multiActualBlockMapScanner,
-            OreChunkPositionPlanner oreChunkPositionPlanner,
-            SaveSessionFactory sessionFactory
-    ) {
-        this(reader, metadataReader, homeStore, markerStore, renderer, userMarkerRenderer,
-                actualOreOverlayPainter, multiActualBlockMapScanner,
-                oreChunkPositionPlanner, sessionFactory, Optional.empty());
-    }
-
-    public RenderActualOreMapUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            ActualOreOverlayPainter actualOreOverlayPainter,
-            MultiActualBlockMapScanner multiActualBlockMapScanner,
-            OreChunkPositionPlanner oreChunkPositionPlanner,
-            SaveSessionFactory sessionFactory,
-            RenderDataCacheStore renderDataCacheStore
-    ) {
-        this(reader, metadataReader, homeStore, markerStore, renderer, userMarkerRenderer,
-                actualOreOverlayPainter, multiActualBlockMapScanner,
-                oreChunkPositionPlanner, sessionFactory,
-                Optional.of(Objects.requireNonNull(renderDataCacheStore, "render data cache store is required")));
-    }
-
-    private RenderActualOreMapUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            ActualOreOverlayPainter actualOreOverlayPainter,
-            MultiActualBlockMapScanner multiActualBlockMapScanner,
-            OreChunkPositionPlanner oreChunkPositionPlanner,
-            SaveSessionFactory sessionFactory,
-            Optional<RenderDataCacheStore> renderDataCacheStore
-    ) {
-        this(
-                reader,
-                homeStore,
-                markerStore,
-                renderer,
-                userMarkerRenderer,
-                actualOreOverlayPainter,
-                multiActualBlockMapScanner,
-                oreChunkPositionPlanner,
-                sessionFactory,
-                renderDataCacheStore
-        );
-        Objects.requireNonNull(metadataReader, "metadataReader is required");
     }
 
     private RenderActualOreMapUseCase(
