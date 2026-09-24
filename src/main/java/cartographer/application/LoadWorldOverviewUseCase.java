@@ -40,7 +40,7 @@ public final class LoadWorldOverviewUseCase {
         );
     }
 
-    LoadWorldOverviewUseCase(
+    public LoadWorldOverviewUseCase(
             VcdbsReader reader,
             ResourceAnalyzer resourceAnalyzer,
             SaveSessionFactory sessionFactory

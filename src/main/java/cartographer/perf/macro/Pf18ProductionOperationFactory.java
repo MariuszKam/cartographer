@@ -64,8 +64,11 @@ public final class Pf18ProductionOperationFactory implements Pf18MacroOperationF
             return () -> mapEvidence(useCase.execute(request));
         }
         if (workload.family() == WorkloadFamily.ROCK_UPPER) {
+            WorldMetadataReader metadataReader = new WorldMetadataReader();
+            SaveSessionFactory sessions = new SaveSessionFactory(
+                    new SqliteSaveConnection(), reader, metadataReader);
             RenderRockMapUseCase useCase = new RenderRockMapUseCase(
-                    reader, new WorldMetadataReader(), new RockMapRenderer());
+                    reader, metadataReader, new RockMapRenderer(), sessions);
             RenderRockMapRequest request = new RenderRockMapRequest(
                     save, RockMapMode.UPPER_ROCK, workload.radius().blocks(),
                     Optional.empty(), OptionalInt.empty(), OptionalInt.empty(), OptionalInt.empty());

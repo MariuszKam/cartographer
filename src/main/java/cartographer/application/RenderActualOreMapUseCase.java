@@ -121,6 +121,32 @@ public class RenderActualOreMapUseCase {
             MapRenderer renderer,
             UserMarkerRenderer userMarkerRenderer,
             ActualOreOverlayPainter actualOreOverlayPainter,
+            SaveSessionFactory sessionFactory,
+            RenderDataCacheStore renderDataCacheStore
+    ) {
+        this(
+                reader,
+                metadataReader,
+                homeStore,
+                markerStore,
+                renderer,
+                userMarkerRenderer,
+                actualOreOverlayPainter,
+                new MultiActualBlockMapScanner(),
+                new OreChunkPositionPlanner(),
+                sessionFactory,
+                renderDataCacheStore
+        );
+    }
+
+    public RenderActualOreMapUseCase(
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            HomeStore homeStore,
+            MarkerStore markerStore,
+            MapRenderer renderer,
+            UserMarkerRenderer userMarkerRenderer,
+            ActualOreOverlayPainter actualOreOverlayPainter,
             MultiActualBlockMapScanner multiActualBlockMapScanner,
             OreChunkPositionPlanner oreChunkPositionPlanner,
             SaveSessionFactory sessionFactory

@@ -100,6 +100,19 @@ public final class PrepareWorldSnapshotUseCase {
         );
     }
 
+    public PrepareWorldSnapshotUseCase(
+            VcdbsReader reader,
+            SaveSessionFactory sessionFactory,
+            RenderDataCacheStore cacheStore
+    ) {
+        this(
+                reader,
+                sessionFactory,
+                cacheStore,
+                new WorldIndexBatchPlanner()
+        );
+    }
+
     PrepareWorldSnapshotUseCase(
             VcdbsReader reader,
             SaveSessionFactory sessionFactory,

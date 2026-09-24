@@ -3,6 +3,8 @@ package cartographer.prospecting;
 import cartographer.model.WorldPosition;
 import cartographer.perf.RenderDataCacheStore;
 import cartographer.save.SaveSession;
+import cartographer.save.SaveSessionFactory;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.snapshot.SnapshotResourceReader;
 import cartographer.snapshot.SnapshotUpperRockReader;
 import cartographer.snapshot.SnapshotWorldHeaderReader;
@@ -47,17 +49,69 @@ public final class SavedOreObservationProvider implements FusedProspectingObserv
         );
     }
 
+    public SavedOreObservationProvider(
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            SaveSessionFactory sessionFactory
+    ) {
+        this(
+                reader,
+                metadataReader,
+                sessionFactory,
+                Optional.empty()
+        );
+    }
+
+    public SavedOreObservationProvider(
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            SaveSessionFactory sessionFactory,
+            RenderDataCacheStore renderDataCacheStore
+    ) {
+        this(
+                reader,
+                metadataReader,
+                sessionFactory,
+                Optional.of(Objects.requireNonNull(
+                        renderDataCacheStore,
+                        "render data cache store is required"
+                ))
+        );
+    }
+
     private SavedOreObservationProvider(
             VcdbsReader reader,
             WorldMetadataReader metadataReader,
             Optional<RenderDataCacheStore> renderDataCacheStore
     ) {
+        this(
+                reader,
+                metadataReader,
+                new SaveSessionFactory(
+                        new SqliteSaveConnection(),
+                        reader,
+                        metadataReader
+                ),
+                renderDataCacheStore
+        );
+    }
+
+    private SavedOreObservationProvider(
+            VcdbsReader reader,
+            WorldMetadataReader metadataReader,
+            SaveSessionFactory sessionFactory,
+            Optional<RenderDataCacheStore> renderDataCacheStore
+    ) {
         this.fusedEngine = new FusedProspectingEngine(
                 Objects.requireNonNull(reader, "reader is required"),
                 Objects.requireNonNull(
-                        metadataReader,
-                        "metadata reader is required"
+                        sessionFactory,
+                        "session factory is required"
                 )
+        );
+        Objects.requireNonNull(
+                metadataReader,
+                "metadata reader is required"
         );
         Optional<RenderDataCacheStore> cache = Objects.requireNonNull(
                 renderDataCacheStore,

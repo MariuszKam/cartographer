@@ -27,6 +27,7 @@ import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.save.SaveSessionFactory;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockYFilter;
@@ -74,10 +75,16 @@ public final class Pf28SnapshotValidationRunner {
         WorldMetadataReader metadataReader = new WorldMetadataReader();
         RenderDataCacheStore cacheStore =
                 new RenderDataCacheStore(cacheRoot);
+        SaveSessionFactory sourceSessionFactory =
+                new SaveSessionFactory(
+                        new SqliteSaveConnection(),
+                        reader,
+                        metadataReader
+                );
         PrepareWorldSnapshotUseCase prepare =
                 new PrepareWorldSnapshotUseCase(
                         reader,
-                        metadataReader,
+                        sourceSessionFactory,
                         cacheStore
                 );
 
@@ -131,7 +138,10 @@ public final class Pf28SnapshotValidationRunner {
                         markerStore,
                         new MapRenderer(),
                         new UserMarkerRenderer(),
-                        new ActualOreOverlayPainter()
+                        new ActualOreOverlayPainter(),
+                        new MultiActualBlockMapScanner(),
+                        new OreChunkPositionPlanner(),
+                        sourceSessionFactory
                 );
 
         List<Pf28WarmRenderSample> samples = new ArrayList<>();

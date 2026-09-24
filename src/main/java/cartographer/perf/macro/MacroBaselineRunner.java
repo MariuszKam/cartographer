@@ -20,6 +20,8 @@ import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.render.RockMapRenderer;
+import cartographer.save.SaveSessionFactory;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 
@@ -46,15 +48,23 @@ public final class MacroBaselineRunner {
     private final MacroBaselineRenderer renderer;
 
     public MacroBaselineRunner() {
+        VcdbsReader reader = new VcdbsReader(
+                new PlayerDataParser(),
+                new MapChunkParser(),
+                new ChunkParser(),
+                new RegistryParser()
+        );
+        WorldMetadataReader metadataReader = new WorldMetadataReader();
+        SaveSessionFactory sessionFactory = new SaveSessionFactory(
+                new SqliteSaveConnection(),
+                reader,
+                metadataReader
+        );
         RenderRockMapUseCase rockUseCase = new RenderRockMapUseCase(
-                new VcdbsReader(
-                        new PlayerDataParser(),
-                        new MapChunkParser(),
-                        new ChunkParser(),
-                        new RegistryParser()
-                ),
-                new WorldMetadataReader(),
-                new RockMapRenderer()
+                reader,
+                metadataReader,
+                new RockMapRenderer(),
+                sessionFactory
         );
         this.benchmarkExecutor = new BenchmarkRunner()::run;
         this.operationFactory = (savePath, workload) -> rockOperation(

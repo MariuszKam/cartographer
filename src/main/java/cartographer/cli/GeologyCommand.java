@@ -24,7 +24,6 @@ import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 import cartographer.application.PrepareMapDataRequest;
 import cartographer.application.PrepareMapDataUseCase;
 import cartographer.application.PreparedMapData;
@@ -114,7 +113,7 @@ public class GeologyCommand implements Command {
         this.sessionFactory = sessionFactory;
         this.mapDataUseCase = new PrepareMapDataUseCase(
                 reader,
-                new WorldMetadataReader()
+                sessionFactory
         );
         this.geologyAnalyzer = geologyAnalyzer;
         this.crossSectionAnalyzer = crossSectionAnalyzer;
