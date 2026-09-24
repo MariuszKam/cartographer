@@ -356,6 +356,14 @@ public final class DesktopUpdateController {
             UpdateInstallOutcome outcome
     ) {
         ApplicationVersion current = updateCheckService.currentVersion();
+        if (outcome.status()
+                == UpdateInstallOutcome.Status.RESTART_REQUIRED) {
+            uiDispatcher.accept(() ->
+                    view.showUpdateRestartRequired(outcome.version())
+            );
+            return;
+        }
+
         if (outcome.status() == UpdateInstallOutcome.Status.SUCCESS) {
             if (current.compareTo(outcome.version()) >= 0) {
                 uiDispatcher.accept(() ->
@@ -381,6 +389,8 @@ public final class DesktopUpdateController {
                     "Installer exited with code " + outcome.exitCode() + ".";
             case BOOTSTRAP_FAILED ->
                     "Update bootstrap failed before installation completed.";
+            case RESTART_REQUIRED ->
+                    "Windows restart is required to finish the update.";
             case SUCCESS ->
                     "Update installation failed.";
         };
