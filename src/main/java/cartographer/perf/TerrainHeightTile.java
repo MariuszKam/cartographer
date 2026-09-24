@@ -117,10 +117,6 @@ public final class TerrainHeightTile implements MapChunkHeightView {
         return effectiveHeightAvailable;
     }
 
-    public int[] effectiveHeights() {
-        return Arrays.copyOf(effectiveHeights, effectiveHeights.length);
-    }
-
     int[] effectiveHeightsView() {
         return effectiveHeights;
     }
