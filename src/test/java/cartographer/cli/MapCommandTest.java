@@ -3,6 +3,7 @@ package cartographer.cli;
 import cartographer.application.RenderActualOreMapRequest;
 import cartographer.application.RenderActualOreMapResult;
 import cartographer.application.RenderActualOreMapUseCase;
+import cartographer.application.RenderDataCacheReport;
 import cartographer.marker.MarkerStore;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
@@ -750,7 +751,11 @@ class MapCommandTest {
                     new ReadDiagnostics(),
                     new ReadDiagnostics(),
                     0,
-                    List.of()
+                    List.of(),
+                    RenderDataCacheReport.disabled("test"),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty()
             );
         }
 

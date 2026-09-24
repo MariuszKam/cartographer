@@ -114,7 +114,11 @@ class RenderActualOreMapUseCaseTest {
                 NullPointerException.class,
                 () -> new RenderActualOreMapResult(
                         null, null, null, null, null, null, null,
-                        null, null, null, null, 0, List.of()
+                        null, null, null, null, 0, List.of(),
+                        RenderDataCacheReport.disabled("test"),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()
                 )
         );
     }
