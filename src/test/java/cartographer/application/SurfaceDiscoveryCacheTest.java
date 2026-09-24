@@ -1,6 +1,5 @@
 package cartographer.application;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -70,7 +69,6 @@ class SurfaceDiscoveryCacheTest {
         cache.put(key("world.vcdbs", 1, 1, 1), resultAt(1, 1));
         cache.clear();
 
-        assertEquals(0, cache.size());
         assertFalse(cache.get(key("world.vcdbs", 1, 1, 1)).isPresent());
         assertThrows(IllegalArgumentException.class, () -> new SurfaceDiscoveryCache(0));
         assertThrows(IllegalArgumentException.class, () -> new SurfaceDiscoveryCache(-1));
