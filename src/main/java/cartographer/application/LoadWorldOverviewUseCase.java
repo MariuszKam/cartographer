@@ -7,9 +7,7 @@ import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
 import cartographer.save.SaveSnapshot;
-import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -23,22 +21,6 @@ public final class LoadWorldOverviewUseCase {
     private final VcdbsReader reader;
     private final ResourceAnalyzer resourceAnalyzer;
     private final SaveSessionFactory sessionFactory;
-
-    public LoadWorldOverviewUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            ResourceAnalyzer resourceAnalyzer
-    ) {
-        this(
-                reader,
-                resourceAnalyzer,
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(),
-                        reader,
-                        metadataReader
-                )
-        );
-    }
 
     public LoadWorldOverviewUseCase(
             VcdbsReader reader,

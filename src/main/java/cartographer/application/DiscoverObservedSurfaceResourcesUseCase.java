@@ -12,9 +12,7 @@ import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
 import cartographer.save.SelectiveChunkStreamStats;
-import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.SurfaceObjectCompactPlan;
 import cartographer.scanner.SurfaceObjectCompactPlanner;
 import cartographer.scanner.SurfaceObjectCompactScanResult;
@@ -35,20 +33,6 @@ public final class DiscoverObservedSurfaceResourcesUseCase {
             new SurfaceObjectCandidateCatalogBuilder();
     private final ObservedSurfaceResourceCatalogBuilder observedBuilder =
             new ObservedSurfaceResourceCatalogBuilder();
-
-    public DiscoverObservedSurfaceResourcesUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader
-    ) {
-        this(
-                reader,
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(),
-                        reader,
-                        metadataReader
-                )
-        );
-    }
 
     public DiscoverObservedSurfaceResourcesUseCase(
             VcdbsReader reader,
