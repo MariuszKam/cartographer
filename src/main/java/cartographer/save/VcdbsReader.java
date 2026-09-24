@@ -2303,6 +2303,25 @@ public class VcdbsReader {
             MapChunkParser mapChunkParser,
             ChunkParser chunkParser,
             RegistryParser registryParser,
+            int chunkDecodeWorkerCount,
+            int chunkDecodeMaxInFlight
+    ) {
+        this(
+                playerDataParser,
+                mapChunkParser,
+                chunkParser,
+                registryParser,
+                new SqliteSaveConnection(),
+                chunkDecodeWorkerCount,
+                chunkDecodeMaxInFlight
+        );
+    }
+
+    VcdbsReader(
+            PlayerDataParser playerDataParser,
+            MapChunkParser mapChunkParser,
+            ChunkParser chunkParser,
+            RegistryParser registryParser,
             SqliteSaveConnection connectionFactory,
             int chunkDecodeWorkerCount,
             int chunkDecodeMaxInFlight
