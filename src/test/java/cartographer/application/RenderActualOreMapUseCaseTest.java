@@ -1221,8 +1221,6 @@ class RenderActualOreMapUseCaseTest {
         assertTrue(hasSurfaceCode(result, "game:fire-clay-blue"));
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
-        assertEquals(0, reader.pathAdaptiveChunkCalls);
-        assertEquals(0, reader.pathAdaptiveSelectiveCalls);
     }
 
     @Test
@@ -1841,8 +1839,6 @@ class RenderActualOreMapUseCaseTest {
         private int exactChunkCalls;
         private int adaptiveExactChunkCalls;
         private int registryCalls;
-        private int pathAdaptiveChunkCalls;
-        private int pathAdaptiveSelectiveCalls;
         private int sessionMapRegionCalls;
         private int legacyMapChunkCalls;
         private int legacyChunkCalls;
@@ -1905,17 +1901,6 @@ class RenderActualOreMapUseCaseTest {
 
         @Override
         public ChunkStreamStats forEachChunkByPositionAdaptive(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-            java.util.function.Consumer<ParsedChunk> consumer
-        ) {
-            pathAdaptiveChunkCalls++;
-            return visitChunks(positions, consumer);
-        }
-
-        @Override
-        public ChunkStreamStats forEachChunkByPositionAdaptive(
                 SaveSession session,
                 java.util.Collection<ChunkPosition> positions,
                 ReadDiagnostics diagnostics,
@@ -1939,29 +1924,6 @@ class RenderActualOreMapUseCaseTest {
                     positions,
                     consumer
             );
-        }
-
-        @Override
-        public ChunkStreamStats forEachChunkByPositionAdaptive(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer,
-                ProgressReporter progress
-        ) {
-            return forEachChunkByPositionAdaptive(
-                    savePath, positions, diagnostics, consumer
-            );
-        }
-
-        @Override
-        public ChunkStreamStats forEachChunkByPosition(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer
-        ) {
-            return visitChunks(positions, consumer);
         }
 
         private ChunkStreamStats visitChunks(
@@ -2030,18 +1992,6 @@ class RenderActualOreMapUseCaseTest {
 
         @Override
         public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                int[] wantedBlockIds,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer
-        ) {
-            pathAdaptiveSelectiveCalls++;
-            return visitSelective(positions, wantedBlockIds, consumer);
-        }
-
-        @Override
-        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
                 SaveSession session,
                 java.util.Collection<ChunkPosition> positions,
                 int[] wantedBlockIds,
@@ -2050,31 +2000,6 @@ class RenderActualOreMapUseCaseTest {
                 ProgressReporter progress
         ) {
             adaptiveSelectiveCalls++;
-            return visitSelective(positions, wantedBlockIds, consumer);
-        }
-
-        @Override
-        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                int[] wantedBlockIds,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer,
-                ProgressReporter progress
-        ) {
-            return forEachChunkByPositionMatchingBlockIdsAdaptive(
-                    savePath, positions, wantedBlockIds, diagnostics, consumer
-            );
-        }
-
-        @Override
-        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIds(
-                Path savePath,
-                java.util.Collection<cartographer.model.ChunkPosition> positions,
-                int[] wantedBlockIds,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer
-        ) {
             return visitSelective(positions, wantedBlockIds, consumer);
         }
 
