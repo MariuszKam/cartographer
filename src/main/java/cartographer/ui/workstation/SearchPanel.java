@@ -2,6 +2,7 @@ package cartographer.ui.workstation;
 
 import cartographer.application.ActualOreOverlaySpec;
 import cartographer.application.SurfaceMaterialMatch;
+import cartographer.application.SurfaceMaterialPreset;
 import cartographer.geology.rock.RockIdentity;
 import cartographer.resource.ObservedSurfaceResource;
 import cartographer.resource.ObservedSurfaceResourceCatalog;
