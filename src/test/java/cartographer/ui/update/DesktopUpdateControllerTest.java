@@ -507,6 +507,44 @@ class DesktopUpdateControllerTest {
     }
 
     @Test
+    void previousRestartRequiredOutcomeIsSurfacedAtStartup() {
+        Instant now = Instant.parse("2026-09-20T10:00:00Z");
+        FakeView view = new FakeView();
+        UpdateCheckService service = new UpdateCheckService(
+                ApplicationVersion.parse("1.1.0"),
+                () -> validManifest("1.1.0"),
+                new UpdateManifestParser()
+        );
+        DesktopUpdateController controller = new DesktopUpdateController(
+                service,
+                successfulDownloadService(),
+                ready -> UpdateInstallLaunchResult.started(),
+                () -> Optional.of(new UpdateInstallOutcome(
+                        UpdateInstallOutcome.Status.RESTART_REQUIRED,
+                        ApplicationVersion.parse("1.1.0"),
+                        UpdateInstallOutcome.Reason.RESTART_REQUIRED,
+                        3010
+                )),
+                store(),
+                view,
+                Runnable::run,
+                Runnable::run,
+                ignored -> { },
+                () -> { },
+                Clock.fixed(now, ZoneOffset.UTC),
+                Duration.ofHours(24)
+        );
+
+        controller.showPreviousInstallOutcome();
+
+        assertEquals(
+                ApplicationVersion.parse("1.1.0"),
+                view.restartRequiredVersion
+        );
+        assertNull(view.previousInstallFailure);
+    }
+
+    @Test
     void previousInstallerFailureIsSurfacedWithoutBlockingStartup() {
         Instant now = Instant.parse("2026-09-20T10:00:00Z");
         FakeView view = new FakeView();
@@ -670,6 +708,7 @@ class DesktopUpdateControllerTest {
         private boolean installLaunching;
         private String installFailure;
         private ApplicationVersion installedVersion;
+        private ApplicationVersion restartRequiredVersion;
         private String previousInstallFailure;
         private Runnable checkAction = () -> { };
         private Runnable openAction = () -> { };
@@ -752,6 +791,12 @@ class DesktopUpdateControllerTest {
         @Override
         public void showUpdateInstalled(ApplicationVersion version) {
             installedVersion = version;
+            previousInstallFailure = null;
+        }
+
+        @Override
+        public void showUpdateRestartRequired(ApplicationVersion version) {
+            restartRequiredVersion = version;
             previousInstallFailure = null;
         }
 
