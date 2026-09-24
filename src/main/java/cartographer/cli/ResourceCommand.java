@@ -38,7 +38,6 @@ import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.SurfaceMapScanResult;
 
 import java.io.PrintStream;
@@ -74,7 +73,6 @@ public class ResourceCommand implements Command {
     private final VcdbsReader reader;
     private final SaveSessionFactory sessionFactory;
     private final ResourceAnalyzer analyzer;
-    private final WorldMetadataReader metadataReader;
     private final HomeStore homeStore;
     private final MapRenderer mapRenderer;
     private final ResourceOverlayRenderer overlayRenderer;
@@ -98,41 +96,14 @@ public class ResourceCommand implements Command {
             ResourceAnalyzer analyzer,
             String subcommand
     ) {
-        this(
-                out,
-                reader,
-                sessionFactory,
-                analyzer,
-                new WorldMetadataReader(),
-                defaultHomeStore(),
-                new MapRenderer(),
-                new ResourceOverlayRenderer(),
-                new PngWriter(),
-                subcommand
-        );
-    }
-
-    public ResourceCommand(
-            PrintStream out,
-            VcdbsReader reader,
-            SaveSessionFactory sessionFactory,
-            ResourceAnalyzer analyzer,
-            WorldMetadataReader metadataReader,
-            HomeStore homeStore,
-            MapRenderer mapRenderer,
-            ResourceOverlayRenderer overlayRenderer,
-            PngWriter pngWriter,
-            String subcommand
-    ) {
         this.out = out;
         this.reader = reader;
         this.sessionFactory = sessionFactory;
         this.analyzer = analyzer;
-        this.metadataReader = metadataReader;
-        this.homeStore = homeStore;
-        this.mapRenderer = mapRenderer;
-        this.overlayRenderer = overlayRenderer;
-        this.pngWriter = pngWriter;
+        this.homeStore = defaultHomeStore();
+        this.mapRenderer = new MapRenderer();
+        this.overlayRenderer = new ResourceOverlayRenderer();
+        this.pngWriter = new PngWriter();
         this.surfaceObjectInspectionUseCase = new InspectSurfaceObjectsUseCase(
                 reader,
                 sessionFactory
