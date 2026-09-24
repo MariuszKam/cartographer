@@ -245,6 +245,28 @@ public final class WorkstationWorldBar extends HBox {
         );
     }
 
+    public void showUpdateRestartRequired(
+            ApplicationVersion targetVersion
+    ) {
+        updateReady = false;
+        ApplicationVersion version = Objects.requireNonNull(
+                targetVersion,
+                "targetVersion is required"
+        );
+        updateAvailable.setVisible(false);
+        updateAvailable.setManaged(false);
+        downloadUpdate.setVisible(false);
+        downloadUpdate.setManaged(false);
+        checkUpdates.setDisable(true);
+        checkUpdates.setText("Restart required");
+        checkUpdates.setTooltip(
+                new Tooltip(
+                        "Update v" + version
+                                + " installed; restart Windows to finish"
+                )
+        );
+    }
+
     public void showPreviousUpdateInstallFailed(
             ApplicationVersion attemptedVersion,
             String message

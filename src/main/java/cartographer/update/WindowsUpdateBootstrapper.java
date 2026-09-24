@@ -111,7 +111,9 @@ public final class WindowsUpdateBootstrapper implements UpdateBootstrapper {
         Files.createDirectories(bootstrapDirectory);
         Path script = bootstrapDirectory.resolve(SCRIPT_FILE);
         Path outcome = outcomePath();
+        Path installerLog = installerLogPath(manifest.version());
         Files.deleteIfExists(outcome);
+        Files.deleteIfExists(installerLog);
         Files.writeString(
                 script,
                 bootstrapScript(),
@@ -143,6 +145,8 @@ public final class WindowsUpdateBootstrapper implements UpdateBootstrapper {
         command.add(Long.toString(pid));
         command.add("-InstallerPath");
         command.add(installer.toString());
+        command.add("-InstallerLogPath");
+        command.add(installerLog.toString());
         command.add("-RelaunchPath");
         command.add(launcher.toString());
         command.add("-ResultPath");
@@ -159,6 +163,15 @@ public final class WindowsUpdateBootstrapper implements UpdateBootstrapper {
 
     public Path outcomePath() {
         return bootstrapDirectory.resolve(OUTCOME_FILE);
+    }
+
+    Path installerLogPath(ApplicationVersion version) {
+        return bootstrapDirectory.resolve(
+                "install-" + Objects.requireNonNull(
+                        version,
+                        "version is required"
+                ) + ".log"
+        );
     }
 
     private void requireWindows() throws IOException {
@@ -196,6 +209,7 @@ public final class WindowsUpdateBootstrapper implements UpdateBootstrapper {
                 param(
                     [Parameter(Mandatory=$true)][Int64]$TargetPid,
                     [Parameter(Mandatory=$true)][string]$InstallerPath,
+                    [Parameter(Mandatory=$true)][string]$InstallerLogPath,
                     [Parameter(Mandatory=$true)][string]$RelaunchPath,
                     [Parameter(Mandatory=$true)][string]$ResultPath,
                     [Parameter(Mandatory=$true)][string]$TargetVersion,
@@ -253,11 +267,19 @@ public final class WindowsUpdateBootstrapper implements UpdateBootstrapper {
                         exit 2
                     }
 
-                    $installerProcess = Start-Process -FilePath $InstallerPath -PassThru -Wait
+                    $installerArguments = @(
+                        "/quiet",
+                        "/norestart",
+                        "/L*V",
+                        ('"{0}"' -f $InstallerLogPath)
+                    )
+                    $installerProcess = Start-Process -FilePath $InstallerPath -ArgumentList $installerArguments -PassThru -Wait
                     $installerExit = $installerProcess.ExitCode
 
-                    if ($installerExit -eq 0) {
-                        Write-Outcome "SUCCESS" "SUCCESS" 0
+                    if ($installerExit -eq 0 -or $installerExit -eq 1641) {
+                        Write-Outcome "SUCCESS" "SUCCESS" $installerExit
+                    } elseif ($installerExit -eq 3010) {
+                        Write-Outcome "RESTART_REQUIRED" "RESTART_REQUIRED" $installerExit
                     } else {
                         Write-Outcome "FAILED" "INSTALLER_FAILED" $installerExit
                     }

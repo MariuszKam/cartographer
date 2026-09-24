@@ -38,6 +38,8 @@ public interface UpdateCheckView {
 
     void showUpdateInstalled(ApplicationVersion version);
 
+    void showUpdateRestartRequired(ApplicationVersion version);
+
     void showPreviousUpdateInstallFailed(
             ApplicationVersion version,
             String message

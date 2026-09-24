@@ -24,11 +24,15 @@ class WindowsUpdateBootstrapperTest {
     void writesExternalBootstrapAndStartsHiddenPowerShell()
             throws Exception {
         byte[] bytes = "installer".getBytes();
-        Path installer = temporaryDirectory.resolve("installer.exe");
+        Path packagedDirectory = temporaryDirectory.resolve(
+                "package with spaces"
+        );
+        Files.createDirectories(packagedDirectory);
+        Path installer = packagedDirectory.resolve("installer.exe");
         Files.write(installer, bytes);
-        Path launcher = temporaryDirectory.resolve("VS Cartographer.exe");
+        Path launcher = packagedDirectory.resolve("VS Cartographer.exe");
         Files.writeString(launcher, "launcher");
-        Path updatesRoot = temporaryDirectory.resolve("updates");
+        Path updatesRoot = temporaryDirectory.resolve("updates with spaces");
         AtomicReference<List<String>> command = new AtomicReference<>();
 
         WindowsUpdateBootstrapper bootstrapper =
@@ -47,16 +51,22 @@ class WindowsUpdateBootstrapperTest {
                 bootstrapper.outcomePath(),
                 "stale=true\n"
         );
+        Path installerLog = bootstrapper.installerLogPath(
+                ApplicationVersion.parse("1.1.0")
+        );
+        Files.writeString(installerLog, "stale log");
 
         bootstrapper.launch(manifest(bytes), installer);
 
         assertFalse(Files.exists(bootstrapper.outcomePath()));
+        assertFalse(Files.exists(installerLog));
         List<String> launched = command.get();
         assertTrue(launched.contains("powershell.exe"));
         assertTrue(launched.contains("-WindowStyle"));
         assertTrue(launched.contains("Hidden"));
         assertTrue(launched.contains("4242"));
         assertTrue(launched.contains(installer.toAbsolutePath().toString()));
+        assertTrue(launched.contains(installerLog.toString()));
         assertTrue(launched.contains(launcher.toAbsolutePath().toString()));
 
         int fileArgument = launched.indexOf("-File");
@@ -64,7 +74,19 @@ class WindowsUpdateBootstrapperTest {
         String scriptText = Files.readString(script);
         assertTrue(scriptText.contains("$target | Wait-Process"));
         assertTrue(scriptText.contains("Get-FileHash"));
-        assertTrue(scriptText.contains("-PassThru -Wait"));
+        assertTrue(scriptText.contains("\"/quiet\""));
+        assertTrue(scriptText.contains("\"/norestart\""));
+        assertTrue(scriptText.contains("\"/L*V\""));
+        assertTrue(scriptText.contains("$InstallerLogPath"));
+        assertTrue(scriptText.contains("-ArgumentList $installerArguments"));
+        assertTrue(scriptText.contains("-PassThru"));
+        assertTrue(scriptText.contains("-Wait"));
+        assertTrue(scriptText.contains("$installerExit -eq 1641"));
+        assertTrue(scriptText.contains("$installerExit -eq 3010"));
+        assertTrue(scriptText.contains(
+                "Write-Outcome \"RESTART_REQUIRED\" "
+                        + "\"RESTART_REQUIRED\" $installerExit"
+        ));
         assertTrue(scriptText.contains("Restart-Cartographer"));
     }
 

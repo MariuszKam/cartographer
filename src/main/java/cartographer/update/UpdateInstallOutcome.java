@@ -11,11 +11,13 @@ public record UpdateInstallOutcome(
 
     public enum Status {
         SUCCESS,
+        RESTART_REQUIRED,
         FAILED
     }
 
     public enum Reason {
         SUCCESS,
+        RESTART_REQUIRED,
         INTEGRITY_CHECK_FAILED,
         INSTALLER_FAILED,
         BOOTSTRAP_FAILED
@@ -27,15 +29,24 @@ public record UpdateInstallOutcome(
         reason = Objects.requireNonNull(reason, "reason is required");
 
         if (status == Status.SUCCESS) {
-            if (reason != Reason.SUCCESS || exitCode != 0) {
+            if (reason != Reason.SUCCESS
+                    || (exitCode != 0 && exitCode != 1641)) {
                 throw new IllegalArgumentException(
                         "Successful update outcome requires SUCCESS reason "
-                                + "and exit code 0"
+                                + "and Windows Installer success exit code"
                 );
             }
-        } else if (reason == Reason.SUCCESS) {
+        } else if (status == Status.RESTART_REQUIRED) {
+            if (reason != Reason.RESTART_REQUIRED || exitCode != 3010) {
+                throw new IllegalArgumentException(
+                        "Restart-required update outcome requires "
+                                + "RESTART_REQUIRED reason and exit code 3010"
+                );
+            }
+        } else if (reason == Reason.SUCCESS
+                || reason == Reason.RESTART_REQUIRED) {
             throw new IllegalArgumentException(
-                    "Failed update outcome cannot use SUCCESS reason"
+                    "Failed update outcome cannot use a success reason"
             );
         }
     }
