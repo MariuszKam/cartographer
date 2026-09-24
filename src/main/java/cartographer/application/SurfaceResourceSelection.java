@@ -44,12 +44,6 @@ public record SurfaceResourceSelection(
         );
     }
 
-    public static SurfaceResourceSelection observed(
-            ObservedSurfaceResource resource
-    ) {
-        return observedResources(List.of(resource));
-    }
-
     public static SurfaceResourceSelection observedResources(
             List<ObservedSurfaceResource> resources
     ) {
