@@ -63,7 +63,6 @@ class RenderRockMapCancellationTest {
         };
         RenderRockMapUseCase useCase = new RenderRockMapUseCase(
                 reader,
-                metadata,
                 new RockMapRenderer(),
                 new SaveSessionFactory(
                         connections,

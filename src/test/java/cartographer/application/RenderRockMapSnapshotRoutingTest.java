@@ -60,7 +60,6 @@ class RenderRockMapSnapshotRoutingTest {
                 new TestConnectionFactory();
         RenderRockMapUseCase useCase = new RenderRockMapUseCase(
                 reader,
-                metadataReader,
                 new RockMapRenderer(),
                 new SaveSessionFactory(
                         connectionFactory,
@@ -93,7 +92,6 @@ class RenderRockMapSnapshotRoutingTest {
                 new TestConnectionFactory();
         RenderRockMapUseCase useCase = new RenderRockMapUseCase(
                 reader,
-                metadataReader,
                 new RockMapRenderer(),
                 new SaveSessionFactory(
                         connectionFactory,
@@ -127,7 +125,6 @@ class RenderRockMapSnapshotRoutingTest {
                 new TestConnectionFactory();
         RenderRockMapUseCase useCase = new RenderRockMapUseCase(
                 reader,
-                metadataReader,
                 new RockMapRenderer(),
                 new SaveSessionFactory(
                         connectionFactory,
@@ -158,7 +155,6 @@ class RenderRockMapSnapshotRoutingTest {
                 new TestConnectionFactory();
         RenderRockMapUseCase useCase = new RenderRockMapUseCase(
                 reader,
-                metadataReader,
                 new RockMapRenderer(),
                 new SaveSessionFactory(
                         connectionFactory,
