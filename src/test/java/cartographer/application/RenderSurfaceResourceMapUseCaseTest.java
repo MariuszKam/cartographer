@@ -277,9 +277,9 @@ class RenderSurfaceResourceMapUseCaseTest {
         ObservedSurfaceResource observed = new ObservedSurfaceResource(candidate, List.of(
                 new SurfaceObjectObservation(candidate, 16, 6, 16, 7)));
         RenderSurfaceResourceMapRequest request =
-                RenderSurfaceResourceMapRequest.forObservedResource(
+                RenderSurfaceResourceMapRequest.forObservedResources(
                         Path.of("save.vcdbs"), 1, 1, RenderStyle.TOPOGRAPHIC,
-                        EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE), observed,
+                        EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE), List.of(observed),
                         new WorldPosition(16, 100, 16));
 
         IllegalStateException failure = assertThrows(IllegalStateException.class,
