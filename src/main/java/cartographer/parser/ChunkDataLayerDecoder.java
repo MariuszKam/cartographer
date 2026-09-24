@@ -12,21 +12,6 @@ public class ChunkDataLayerDecoder {
     private static final int SLICE_COUNT = SIZE * SIZE;
     private static final int SUPPORTED_COMPRESSION_VERSION = 2;
 
-    public int[] decode(
-            byte[] payload,
-            int savedCompressionVersion
-    ) {
-        try (ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace()) {
-            return decodeOwned(
-                    payload,
-                    0,
-                    payloadLength(payload),
-                    savedCompressionVersion,
-                    workspace
-            ).toArray();
-        }
-    }
-
     DecodedChunkLayer decodeOwned(
             byte[] payload,
             int savedCompressionVersion

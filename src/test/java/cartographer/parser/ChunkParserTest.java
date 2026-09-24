@@ -179,21 +179,6 @@ class ChunkParserTest {
     }
 
     @Test
-    void publicDecoderStillReturnsIndependentArrays() {
-        byte[] payload = encodedLayer(
-                new int[]{0, 11},
-                index -> index == 0 ? 1 : 0
-        );
-        ChunkDataLayerDecoder decoder = new ChunkDataLayerDecoder();
-
-        int[] first = decoder.decode(payload, 2);
-        first[0] = 99;
-        int[] second = decoder.decode(payload, 2);
-
-        assertEquals(11, second[0]);
-    }
-
-    @Test
     void surfaceCompactParseMatchesMaterializedVoxelSemantics() {
         byte[] blocks =
                 encodedLayer(
@@ -1749,16 +1734,6 @@ class ChunkParserTest {
     private static final class RecordingLayerDecoder
             extends ChunkDataLayerDecoder {
         private int ownedDecodeCalls;
-
-        @Override
-        public int[] decode(
-                byte[] payload,
-                int savedCompressionVersion
-        ) {
-            throw new AssertionError(
-                    "ChunkParser must use decodeOwned"
-            );
-        }
 
         @Override
         DecodedChunkLayer decodeOwned(

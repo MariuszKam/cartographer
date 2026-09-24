@@ -14,9 +14,11 @@ class PackedPositionRunPlannerTest {
 
     @Test
     void compressesOnlyActuallyConsecutivePackedValues() {
-        List<PackedPositionRun> runs = planner.plan(
-                List.of(10L, 11L, 12L, 20L, 22L, 21L, 40L)
-        );
+        List<PackedPositionRun> runs = planner.planIfClearlyBetter(
+                List.of(10L, 11L, 12L, 20L, 22L, 21L, 40L),
+                1,
+                64
+        ).orElseThrow();
 
         assertEquals(
                 List.of(
@@ -32,33 +34,31 @@ class PackedPositionRunPlannerTest {
     void duplicatesDoNotInflateRunLength() {
         assertEquals(
                 List.of(new PackedPositionRun(5L, 7L, 3)),
-                planner.plan(List.of(5L, 6L, 6L, 7L, 5L))
+                planner.planIfClearlyBetter(
+                        List.of(5L, 6L, 6L, 7L, 5L),
+                        1,
+                        64
+                ).orElseThrow()
         );
     }
 
     @Test
     void requiresClearStatementReductionBeforeChoosingRangeStrategy() {
-        assertTrue(planner.rangeStrategyClearlyBetter(
-                4096,
-                List.of(
-                        new PackedPositionRun(0, 2047, 2048),
-                        new PackedPositionRun(4096, 6143, 2048)
-                ),
+        assertTrue(planner.planIfClearlyBetter(
+                java.util.stream.LongStream.range(0, 4096).boxed().toList(),
                 256,
                 64
-        ));
+        ).isPresent());
 
-        List<PackedPositionRun> sparse = java.util.stream.LongStream
+        List<Long> sparse = java.util.stream.LongStream
                 .range(0, 257)
-                .mapToObj(value ->
-                        new PackedPositionRun(value * 2, value * 2, 1)
-                )
+                .map(value -> value * 2)
+                .boxed()
                 .toList();
-        assertFalse(planner.rangeStrategyClearlyBetter(
-                257,
+        assertFalse(planner.planIfClearlyBetter(
                 sparse,
                 256,
                 64
-        ));
+        ).isPresent());
     }
 }

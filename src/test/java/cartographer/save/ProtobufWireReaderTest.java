@@ -31,13 +31,27 @@ class ProtobufWireReaderTest {
         assertEquals(field.length, range.length());
         assertEquals(
                 expectedOffset + field.length,
-                range.endExclusive()
+                range.offset() + range.length()
         );
-        assertArrayEquals(field, range.copyFrom(payload));
+        assertArrayEquals(
+                field,
+                java.util.Arrays.copyOfRange(
+                        payload,
+                        range.offset(),
+                        range.offset() + range.length()
+                )
+        );
 
         payload[range.offset()] = 99;
         assertEquals(99, payload[range.offset()]);
-        assertEquals(99, range.copyFrom(payload)[0]);
+        assertEquals(
+                99,
+                java.util.Arrays.copyOfRange(
+                        payload,
+                        range.offset(),
+                        range.offset() + range.length()
+                )[0]
+        );
     }
 
     @Test

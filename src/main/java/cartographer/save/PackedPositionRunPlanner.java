@@ -9,11 +9,6 @@ import java.util.Optional;
 
 final class PackedPositionRunPlanner {
 
-    List<PackedPositionRun> plan(Collection<Long> positions) {
-        long[] sorted = sortedUnique(positions);
-        return buildRuns(sorted);
-    }
-
     Optional<List<PackedPositionRun>> planIfClearlyBetter(
             Collection<Long> positions,
             int pointBatchSize,
@@ -33,24 +28,6 @@ final class PackedPositionRunPlanner {
             return Optional.empty();
         }
         return Optional.of(buildRuns(sorted));
-    }
-
-    boolean rangeStrategyClearlyBetter(
-            int uniquePositions,
-            List<PackedPositionRun> runs,
-            int pointBatchSize,
-            int runsPerStatement
-    ) {
-        if (uniquePositions <= 0
-                || pointBatchSize <= 0
-                || runsPerStatement <= 0
-                || runs == null
-                || runs.isEmpty()) {
-            return false;
-        }
-        int pointStatements = ceilDiv(uniquePositions, pointBatchSize);
-        int rangeStatements = ceilDiv(runs.size(), runsPerStatement);
-        return (long) rangeStatements * 2L <= pointStatements;
     }
 
     private long[] sortedUnique(Collection<Long> positions) {

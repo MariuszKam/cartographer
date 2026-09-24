@@ -212,7 +212,9 @@ class CoverageCommandTest {
                             Optional.empty(),
                             Optional.empty(),
                             Optional.empty(),
-                            Optional.empty()
+                            Optional.empty(),
+                            Map.of(),
+                            List.of()
                     )
             );
         }

@@ -64,23 +64,4 @@ public record ServerMapRegion(
                 );
     }
 
-    public ServerMapRegion(
-            MapRegionCoordinate coordinate,
-            Optional<IntDataMap2D> climateMap,
-            Optional<IntDataMap2D> forestMap,
-            Optional<IntDataMap2D> landformMap,
-            Optional<IntDataMap2D> geologicProvinceMap,
-            Optional<IntDataMap2D> oceanMap
-    ) {
-        this(
-                coordinate,
-                climateMap,
-                forestMap,
-                landformMap,
-                geologicProvinceMap,
-                oceanMap,
-                Map.of(),
-                List.of()
-        );
-    }
 }
