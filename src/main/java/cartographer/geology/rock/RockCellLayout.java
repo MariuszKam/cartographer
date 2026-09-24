@@ -3,7 +3,7 @@ package cartographer.geology.rock;
 import java.util.Objects;
 
 /** Checked packed layout for one compact ROCK cell. */
-public final class RockCellLayout {
+final class RockCellLayout {
     private static final int STATE_BITS = 2;
 
     private final int rockOrdinalBits;
@@ -54,7 +54,7 @@ public final class RockCellLayout {
         this.yMask = mask(yBits);
     }
 
-    public static RockCellLayout forCatalog(int rockCount, long yRangeHeight) {
+    static RockCellLayout forCatalog(int rockCount, long yRangeHeight) {
         if (rockCount < 0 || yRangeHeight <= 0) {
             throw new IllegalArgumentException("packed layout domain is invalid");
         }
@@ -63,31 +63,11 @@ public final class RockCellLayout {
         return new RockCellLayout(rockBits, yBits, rockCount, yRangeHeight);
     }
 
-    public int rockOrdinalBits() {
-        return rockOrdinalBits;
-    }
-
-    public int yBits() {
-        return yBits;
-    }
-
-    public int totalBits() {
-        return totalBits;
-    }
-
-    public int rockCount() {
-        return rockCount;
-    }
-
-    public long yRangeHeight() {
-        return yRangeHeight;
-    }
-
-    public boolean intBacked() {
+    boolean intBacked() {
         return intBacked;
     }
 
-    public long pack(RockColumnState state, int rockOrdinal, long yOffset) {
+    long pack(RockColumnState state, int rockOrdinal, long yOffset) {
         Objects.requireNonNull(state, "state is required");
         int stateCode = stateCode(state);
         if (state == RockColumnState.OBSERVED) {
@@ -104,7 +84,7 @@ public final class RockCellLayout {
         return intBacked ? packed & 0xFFFF_FFFFL : packed;
     }
 
-    public RockColumnState state(long packed) {
+    RockColumnState state(long packed) {
         return switch ((int) (packed & 0b11L)) {
             case 0 -> RockColumnState.UNAVAILABLE;
             case 1 -> RockColumnState.NO_ROCK;
@@ -113,15 +93,15 @@ public final class RockCellLayout {
         };
     }
 
-    public int rockOrdinal(long packed) {
+    int rockOrdinal(long packed) {
         return (int) ((packed >>> STATE_BITS) & rockMask);
     }
 
-    public long yOffset(long packed) {
+    long yOffset(long packed) {
         return (packed >>> (STATE_BITS + rockOrdinalBits)) & yMask;
     }
 
-    public void validate(long packed) {
+    void validate(long packed) {
         RockColumnState state = state(packed);
         int ordinal = rockOrdinal(packed);
         long yOffset = yOffset(packed);

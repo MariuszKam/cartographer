@@ -8,11 +8,21 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class RockCellLayoutTest {
     @Test
     void selectsIntOrLongAtEveryPackingBoundary() {
-        assertEquals(31, RockCellLayout.forCatalog((1 << 29) - 1, 1).totalBits());
-        assertEquals(32, RockCellLayout.forCatalog((1 << 30) - 1, 1).totalBits());
-        assertEquals(33, RockCellLayout.forCatalog(1 << 30, 1).totalBits());
-        assertEquals(63, RockCellLayout.forCatalog((1 << 30) - 1, 1L << 31).totalBits());
-        assertEquals(64, RockCellLayout.forCatalog((1 << 30) - 1, 1L << 32).totalBits());
+        org.junit.jupiter.api.Assertions.assertTrue(
+                RockCellLayout.forCatalog((1 << 29) - 1, 1).intBacked()
+        );
+        org.junit.jupiter.api.Assertions.assertTrue(
+                RockCellLayout.forCatalog((1 << 30) - 1, 1).intBacked()
+        );
+        org.junit.jupiter.api.Assertions.assertFalse(
+                RockCellLayout.forCatalog(1 << 30, 1).intBacked()
+        );
+        org.junit.jupiter.api.Assertions.assertFalse(
+                RockCellLayout.forCatalog((1 << 30) - 1, 1L << 31).intBacked()
+        );
+        org.junit.jupiter.api.Assertions.assertFalse(
+                RockCellLayout.forCatalog((1 << 30) - 1, 1L << 32).intBacked()
+        );
         assertThrows(
                 IllegalArgumentException.class,
                 () -> RockCellLayout.forCatalog((1 << 30) - 1, 1L << 33)

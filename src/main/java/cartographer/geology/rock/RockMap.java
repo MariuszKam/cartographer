@@ -85,7 +85,6 @@ public final class RockMap {
         return layout.rockOrdinal(packedAtIndex(index));
     }
     public RockColumnState stateAt(int worldX, int worldZ) { return layout.state(packedAt(worldX, worldZ)); }
-    public int rockOrdinalAt(int worldX, int worldZ) { return layout.rockOrdinal(packedAt(worldX, worldZ)); }
     public OptionalInt rockYAt(int worldX, int worldZ) {
         long packed = packedAt(worldX, worldZ);
         if (layout.state(packed) != RockColumnState.OBSERVED) return OptionalInt.empty();

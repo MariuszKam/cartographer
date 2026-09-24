@@ -14,7 +14,7 @@ public final class RockCircleGeometry {
     private final long[] rowOffset;
     private final long cellCount;
 
-    public RockCircleGeometry(int centerX, int centerZ, int radius) {
+    RockCircleGeometry(int centerX, int centerZ, int radius) {
         if (radius <= 0) {
             throw new IllegalArgumentException("radius must be positive");
         }
