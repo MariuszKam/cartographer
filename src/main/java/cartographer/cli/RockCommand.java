@@ -5,7 +5,6 @@ import cartographer.geology.rock.RockMapMode;
 import cartographer.application.RenderRockMapRequest;
 import cartographer.application.RenderRockMapResult;
 import cartographer.application.RenderRockMapUseCase;
-import cartographer.model.ChunkPosition;
 import cartographer.model.WorldPosition;
 import cartographer.perf.RenderDataCacheStore;
 import cartographer.render.PngWriter;
@@ -295,14 +294,6 @@ public final class RockCommand implements Command {
         } catch (NumberFormatException exception) {
             throw new CommandException("Invalid " + name + ": " + value);
         }
-    }
-
-    private int floor(double value) {
-        double result = Math.floor(value);
-        if (result < Integer.MIN_VALUE || result > Integer.MAX_VALUE) {
-            throw new CommandException("World center is outside the supported block range");
-        }
-        return (int) result;
     }
 
     private Optional<String> option(String[] args, String name) {

@@ -1,6 +1,5 @@
 package cartographer.cli;
 
-import cartographer.analysis.BlockMatch;
 import cartographer.analysis.BlockScanResult;
 import cartographer.analysis.BlockScanner;
 import cartographer.model.BlockInfo;
@@ -1069,19 +1068,6 @@ public class ScanCommand implements Command {
         int[] count = {0};
         result.map().forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> count[0]++);
         return count[0];
-    }
-
-    private void printBlockMatch(
-            BlockMatch match
-    ) {
-        out.printf(
-                "%d,%d,%d %s %s%n",
-                match.worldX(),
-                match.y(),
-                match.worldZ(),
-                match.blockInfo().code(),
-                match.blockInfo().materialType()
-        );
     }
 
     private void printTopUnknownSurfaceBlockCodes(
