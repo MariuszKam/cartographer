@@ -1,5 +1,6 @@
 package cartographer.cli;
 
+import cartographer.application.ProgressReporter;
 import cartographer.environment.ClimateSummary;
 import cartographer.environment.EnvironmentInterpreter;
 import cartographer.environment.EnvironmentProfile;
@@ -66,7 +67,7 @@ public class EnvironmentCommand implements Command {
                 new ReadDiagnostics();
 
         ProgressReporter progress =
-                new ProgressReporter(
+                new ConsoleProgressReporter(
                         out
                 );
 
