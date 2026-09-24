@@ -4,7 +4,7 @@ import cartographer.application.ProgressReporter;
 
 import java.io.PrintStream;
 
-public final class ConsoleProgressReporter extends ProgressReporter {
+public final class ConsoleProgressReporter implements ProgressReporter {
 
     private final PrintStream out;
     private String currentStage = "";
