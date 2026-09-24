@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class WorkloadContractsTest {
-@Test
+    @Test
     void resourceIdentityIsLocaleIndependentAndRejectsBlankValues() {
         assertEquals("native copper", ResourceIdentity.of("  NATIVE   COPPER  ").value());
         assertThrows(IllegalArgumentException.class, () -> ResourceIdentity.of("  "));
