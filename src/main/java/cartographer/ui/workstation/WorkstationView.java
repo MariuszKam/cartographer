@@ -184,6 +184,11 @@ public final class WorkstationView implements UpdateCheckView {
     }
 
     @Override
+    public void showUpdateRestartRequired(ApplicationVersion version) {
+        worldBar.showUpdateRestartRequired(version);
+    }
+
+    @Override
     public void showPreviousUpdateInstallFailed(
             ApplicationVersion version,
             String message
