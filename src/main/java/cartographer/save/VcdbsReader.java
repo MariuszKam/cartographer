@@ -909,6 +909,48 @@ public class VcdbsReader {
         );
     }
 
+    SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIds(
+            SaveSession session,
+            Collection<ChunkPosition> positions,
+            int[] wantedBlockIds,
+            ReadDiagnostics diagnostics,
+            Consumer<ParsedChunk> consumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(session, "session is required");
+        Objects.requireNonNull(positions, "positions is required");
+        Objects.requireNonNull(wantedBlockIds, "wantedBlockIds is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(consumer, "consumer is required");
+        Objects.requireNonNull(progress, "progress is required");
+
+        int[] uniqueWantedBlockIds = uniqueWantedBlockIds(wantedBlockIds);
+        if (uniqueWantedBlockIds.length == 0) {
+            throw new IllegalArgumentException("wantedBlockIds cannot be empty");
+        }
+        Set<Long> packedPositions = packedUniquePositions(positions);
+        if (packedPositions.isEmpty()) {
+            return new SelectiveChunkStreamStats(0, 0, 0, 0, 0, 0, 0, 0);
+        }
+
+        try {
+            return forEachChunkByPositionMatchingBlockIds(
+                    session.connection(),
+                    packedPositions,
+                    uniqueWantedBlockIds,
+                    diagnostics,
+                    consumer,
+                    progress
+            );
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot read chunk table selectively: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
     public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIds(
             Path savePath,
             Collection<ChunkPosition> positions,
@@ -1035,6 +1077,48 @@ public class VcdbsReader {
         } catch (SQLException exception) {
             throw new CommandException(
                     "Cannot scan chunk table for exact positions: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
+    SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsTableStream(
+            SaveSession session,
+            Collection<ChunkPosition> positions,
+            int[] wantedBlockIds,
+            ReadDiagnostics diagnostics,
+            Consumer<ParsedChunk> consumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(session, "session is required");
+        Objects.requireNonNull(positions, "positions is required");
+        Objects.requireNonNull(wantedBlockIds, "wantedBlockIds is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(consumer, "consumer is required");
+        Objects.requireNonNull(progress, "progress is required");
+
+        int[] uniqueWantedBlockIds = uniqueWantedBlockIds(wantedBlockIds);
+        if (uniqueWantedBlockIds.length == 0) {
+            throw new IllegalArgumentException("wantedBlockIds cannot be empty");
+        }
+        Set<Long> packedPositions = packedUniquePositions(positions);
+        if (packedPositions.isEmpty()) {
+            return new SelectiveChunkStreamStats(0, 0, 0, 0, 0, 0, 0, 0);
+        }
+
+        try {
+            return forEachChunkByPositionMatchingBlockIdsTableStream(
+                    session.connection(),
+                    packedPositions,
+                    uniqueWantedBlockIds,
+                    diagnostics,
+                    consumer,
+                    progress
+            );
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot scan chunk table selectively for exact positions: "
                             + exception.getMessage(),
                     exception
             );
