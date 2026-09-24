@@ -76,7 +76,13 @@ class ResourceChunkBatchIndexerTest {
                 ResourceChunkCoverageStatus.AVAILABLE,
                 decoded.coverageStatus()
         );
-        assertEquals(List.of(2, 3), decoded.blockIdsPresent());
+        assertEquals(
+                List.of(2, 3),
+                decoded.occurrences().stream()
+                        .map(ResourceOccurrence::blockId)
+                        .distinct()
+                        .toList()
+        );
         assertEquals(2, decoded.occurrences().size());
 
         ResourceOccurrence copper = decoded.occurrences().stream()
