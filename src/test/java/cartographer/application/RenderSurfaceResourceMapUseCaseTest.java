@@ -656,27 +656,6 @@ class RenderSurfaceResourceMapUseCaseTest {
 
         @Override
         public MapChunkStreamStats forEachMapChunkByCoordinate(
-                Path savePath,
-                java.util.Collection<MapChunkCoordinate> coordinates,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<MapChunk> consumer
-        ) {
-            directMapChunkCalls++;
-            directMapChunkRequests.add(List.copyOf(coordinates));
-            int delivered = 0;
-            for (MapChunkCoordinate coordinate : coordinates) {
-                MapChunk mapChunk = mapChunks.get(coordinate);
-                if (mapChunk != null) {
-                    delivered++;
-                    consumer.accept(mapChunk);
-                }
-            }
-            return new MapChunkStreamStats(coordinates.size(), coordinates.isEmpty() ? 0 : 1,
-                    delivered, delivered, 0, 0);
-        }
-
-        @Override
-        public MapChunkStreamStats forEachMapChunkByCoordinate(
                 SaveSession session,
                 java.util.Collection<MapChunkCoordinate> coordinates,
                 ReadDiagnostics diagnostics,
@@ -695,19 +674,6 @@ class RenderSurfaceResourceMapUseCaseTest {
             }
             return new MapChunkStreamStats(coordinates.size(), coordinates.isEmpty() ? 0 : 1,
                     delivered, delivered, 0, 0);
-        }
-
-        @Override
-        public MapChunkStreamStats forEachMapChunkByCoordinate(
-                Path savePath,
-                java.util.Collection<MapChunkCoordinate> coordinates,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<MapChunk> consumer,
-                ProgressReporter progress
-        ) {
-            return forEachMapChunkByCoordinate(
-                    savePath, coordinates, diagnostics, consumer
-            );
         }
 
         @Override

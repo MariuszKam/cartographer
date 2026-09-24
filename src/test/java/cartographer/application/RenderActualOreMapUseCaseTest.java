@@ -518,7 +518,6 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
         assertEquals(1, reader.registryCalls);
-        assertEquals(0, reader.pathMapChunkCalls);
     }
 
     @Test
@@ -1222,7 +1221,6 @@ class RenderActualOreMapUseCaseTest {
         assertTrue(hasSurfaceCode(result, "game:fire-clay-blue"));
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
-        assertEquals(0, reader.pathMapChunkCalls);
         assertEquals(0, reader.pathAdaptiveChunkCalls);
         assertEquals(0, reader.pathAdaptiveSelectiveCalls);
     }
@@ -1843,7 +1841,6 @@ class RenderActualOreMapUseCaseTest {
         private int exactChunkCalls;
         private int adaptiveExactChunkCalls;
         private int registryCalls;
-        private int pathMapChunkCalls;
         private int pathAdaptiveChunkCalls;
         private int pathAdaptiveSelectiveCalls;
         private int sessionMapRegionCalls;
@@ -1869,18 +1866,6 @@ class RenderActualOreMapUseCaseTest {
                 ProgressReporter progress
         ) {
             return new WorldPosition(64, 64, 64);
-        }
-
-        @Override
-        public MapChunkStreamStats forEachMapChunkByCoordinate(
-                Path savePath,
-                java.util.Collection<MapChunkCoordinate> coordinates,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<MapChunk> consumer
-        ) {
-            pathMapChunkCalls++;
-            directMapChunkRequests.add(List.copyOf(coordinates));
-            return visitMapChunks(coordinates, consumer);
         }
 
         private MapChunkStreamStats visitMapChunks(
@@ -1916,19 +1901,6 @@ class RenderActualOreMapUseCaseTest {
         ) {
             directMapChunkRequests.add(List.copyOf(coordinates));
             return visitMapChunks(coordinates, consumer);
-        }
-
-        @Override
-        public MapChunkStreamStats forEachMapChunkByCoordinate(
-                Path savePath,
-                java.util.Collection<MapChunkCoordinate> coordinates,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<MapChunk> consumer,
-                ProgressReporter progress
-        ) {
-            return forEachMapChunkByCoordinate(
-                    savePath, coordinates, diagnostics, consumer
-            );
         }
 
         @Override

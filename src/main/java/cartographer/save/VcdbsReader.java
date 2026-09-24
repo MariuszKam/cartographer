@@ -74,58 +74,11 @@ public class VcdbsReader {
     private final PackedPositionRunPlanner packedPositionRunPlanner =
             new PackedPositionRunPlanner();
 
-    public MapChunkStreamStats forEachMapChunkByCoordinate(
-            Path savePath,
-            Collection<MapChunkCoordinate> coordinates,
-            ReadDiagnostics diagnostics,
-            Consumer<MapChunk> consumer
-    ) {
-        return forEachMapChunkByCoordinate(
-                savePath,
-                coordinates,
-                diagnostics,
-                consumer,
-                ProgressReporter.NONE
-        );
-    }
-
     /**
      * Visits main-world mapchunks by exact INTEGER PRIMARY KEY lookup.
      * Each requested coordinate is packed as x, y=0, z, dimension=0.
      * SQLite result order is unspecified and must not be relied upon.
      */
-    public MapChunkStreamStats forEachMapChunkByCoordinate(
-            Path savePath,
-            Collection<MapChunkCoordinate> coordinates,
-            ReadDiagnostics diagnostics,
-            Consumer<MapChunk> consumer,
-            ProgressReporter progress
-    ) {
-        Objects.requireNonNull(savePath, "savePath is required");
-        Objects.requireNonNull(coordinates, "coordinates is required");
-        Objects.requireNonNull(diagnostics, "diagnostics is required");
-        Objects.requireNonNull(consumer, "consumer is required");
-        Objects.requireNonNull(progress, "progress is required");
-
-        Set<Long> packedPositions = packedMapChunkPositions(coordinates);
-
-        if (packedPositions.isEmpty()) {
-            return new MapChunkStreamStats(0, 0, 0, 0, 0, 0);
-        }
-
-        try (Connection connection = connectionFactory.openReadOnly(savePath)) {
-            return forEachMapChunkByCoordinate(
-                    connection, packedPositions, diagnostics, consumer, progress
-            );
-        } catch (SQLException exception) {
-            throw new CommandException(
-                    "Cannot read mapchunk table by exact position: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
-    }
-
     public ChunkStreamStats forEachChunkByPosition(
             Path savePath,
             Collection<ChunkPosition> positions,

@@ -470,10 +470,11 @@ class MapCommandTest {
 
         @Override
         public MapChunkStreamStats forEachMapChunkByCoordinate(
-                Path savePath,
+                SaveSession session,
                 java.util.Collection<cartographer.model.MapChunkCoordinate> coordinates,
                 ReadDiagnostics diagnostics,
-                java.util.function.Consumer<MapChunk> consumer
+                java.util.function.Consumer<MapChunk> consumer,
+                cartographer.application.ProgressReporter progress
         ) {
             return new MapChunkStreamStats(
                     coordinates.size(),
@@ -482,32 +483,6 @@ class MapCommandTest {
                     0,
                     0,
                     0
-            );
-        }
-
-        @Override
-        public MapChunkStreamStats forEachMapChunkByCoordinate(
-                SaveSession session,
-                java.util.Collection<cartographer.model.MapChunkCoordinate> coordinates,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<MapChunk> consumer,
-                cartographer.application.ProgressReporter progress
-        ) {
-            return forEachMapChunkByCoordinate(
-                    (Path) null, coordinates, diagnostics, consumer, progress
-            );
-        }
-
-        @Override
-        public MapChunkStreamStats forEachMapChunkByCoordinate(
-                Path savePath,
-                java.util.Collection<cartographer.model.MapChunkCoordinate> coordinates,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<MapChunk> consumer,
-                cartographer.application.ProgressReporter progress
-        ) {
-            return forEachMapChunkByCoordinate(
-                    savePath, coordinates, diagnostics, consumer
             );
         }
 

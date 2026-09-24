@@ -5,12 +5,14 @@ import cartographer.cli.ProgressReporter;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParseResult;
+import cartographer.model.WorldMetadata;
 import cartographer.parser.MapChunkParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -18,6 +20,7 @@ import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -174,15 +177,18 @@ class VcdbsReaderDirectMapChunkLookupTest {
         createDatabase(database, "");
         RecordingProgressReporter progress = new RecordingProgressReporter();
 
-        MapChunkStreamStats stats = new VcdbsReader(
-                null, new StubMapChunkParser(), null, null
-        ).forEachMapChunkByCoordinate(
-                database,
-                List.of(new MapChunkCoordinate(1, 2)),
-                new ReadDiagnostics(),
-                ignored -> { },
-                progress
-        );
+        MapChunkStreamStats stats;
+        try (SaveSession session = openSession(database)) {
+            stats = new VcdbsReader(
+                    null, new StubMapChunkParser(), null, null
+            ).forEachMapChunkByCoordinate(
+                    session,
+                    List.of(new MapChunkCoordinate(1, 2)),
+                    new ReadDiagnostics(),
+                    ignored -> { },
+                    progress
+            );
+        }
 
         assertEquals(new MapChunkStreamStats(1, 0, 0, 0, 0, 0), stats);
         assertEquals(List.of("start", "done"), progress.events);
@@ -194,13 +200,52 @@ class VcdbsReaderDirectMapChunkLookupTest {
             List<MapChunkCoordinate> coordinates,
             List<MapChunk> delivered
     ) {
-        return new VcdbsReader(
-                null, parser, null, null
-        ).forEachMapChunkByCoordinate(
+        if (coordinates.isEmpty()) {
+            try (SaveSession session = emptySession(database)) {
+                return new VcdbsReader(
+                        null, parser, null, null
+                ).forEachMapChunkByCoordinate(
+                        session,
+                        coordinates,
+                        new ReadDiagnostics(),
+                        delivered::add
+                );
+            }
+        }
+        try (SaveSession session = openSession(database)) {
+            return new VcdbsReader(
+                    null, parser, null, null
+            ).forEachMapChunkByCoordinate(
+                    session,
+                    coordinates,
+                    new ReadDiagnostics(),
+                    delivered::add
+            );
+        }
+    }
+
+    private SaveSession openSession(Path database) {
+        return new SaveSession(
                 database,
-                coordinates,
-                new ReadDiagnostics(),
-                delivered::add
+                new SqliteSaveConnection().openReadOnly(database),
+                snapshot(database)
+        );
+    }
+
+    private SaveSession emptySession(Path database) {
+        Connection connection = (Connection) Proxy.newProxyInstance(
+                Connection.class.getClassLoader(),
+                new Class<?>[]{Connection.class},
+                (proxy, method, args) -> null
+        );
+        return new SaveSession(database, connection, snapshot(database));
+    }
+
+    private SaveSnapshot snapshot(Path database) {
+        return new SaveSnapshot(
+                database,
+                new WorldMetadata(1, 1, 1),
+                Map.of()
         );
     }
 
