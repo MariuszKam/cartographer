@@ -76,8 +76,9 @@ results as if they were static tile data.
 read-only immutable mode, enables query-only access through the source
 connection implementation, and loads stable metadata and the block registry
 into an immutable `SaveSnapshot`. `SaveSnapshot` owns no JDBC resources and
-contains the normalized save identity, `WorldMetadata`, and an immutable copy
-of the registry.
+contains `WorldMetadata` plus an immutable copy of the registry. The normalized
+save identity belongs to the operation-scoped `SaveSession` alongside the
+borrowable source connection and snapshot.
 
 Integrated heavy operations normally open one `SaveSession` for the operation
 and close it at the operation boundary. `SaveSession` owns the connection;
@@ -86,11 +87,14 @@ is idempotent. Failed session initialization closes an already-open connection
 before propagating the failure. There is no application-wide JDBC pool,
 global session, or public connection escape hatch.
 
-Path-based APIs may own a session internally. Session-based APIs validate that
-the requested normalized path is the same save before reading. `VcdbsReader`
-session-aware paths therefore share the operation's source connection across
-metadata, mapchunk, server-chunk, registry, and related reads. Decode workers
-do not use the JDBC connection and no decoded chunk belongs in `SaveSession`.
+Path-bearing application requests are resolved to one `SaveSession` at the
+use-case boundary. Low-level `VcdbsReader` and `WorldMetadataReader` APIs do
+not own source connections or Path-based read lifecycles; session-aware reader
+methods borrow the operation's source connection across metadata, mapchunk,
+server-chunk, registry, and related reads. Request-scoped code that carries a
+save path can use `SaveSession.requireSameSave(...)` for identity validation.
+Decode workers do not use the JDBC connection and no decoded chunk belongs in
+`SaveSession`.
 
 This separation keeps connection lifetime short and observable, prevents one
 connection per individual read, and makes source-save safety a property of a
