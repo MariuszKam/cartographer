@@ -6,12 +6,14 @@ import cartographer.cli.ProgressReporter;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
 import cartographer.model.ParsedChunk;
+import cartographer.model.WorldMetadata;
 import cartographer.parser.ChunkDecodeWorkspace;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.SelectiveChunkParseResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -159,18 +161,13 @@ class VcdbsReaderSelectiveChunkLookupTest {
         RecordingProgressReporter progress = new RecordingProgressReporter();
         ReadDiagnostics diagnostics = new ReadDiagnostics();
 
-        SelectiveChunkStreamStats stats = new VcdbsReader(
-                null,
-                null,
-                parserWithPalette(99),
-                null
-        ).forEachChunkByPositionMatchingBlockIds(
+        SelectiveChunkStreamStats stats = direct(
+                new VcdbsReader(null, null, parserWithPalette(99), null),
                 database,
                 List.of(new ChunkPosition(1, 0, 2, 0)),
                 new int[]{99},
                 diagnostics,
-                chunk -> {
-                },
+                chunk -> { },
                 progress
         );
 
@@ -203,7 +200,8 @@ class VcdbsReaderSelectiveChunkLookupTest {
         Thread caller = Thread.ofPlatform().start(() -> {
             callerThread.set(Thread.currentThread());
             try {
-                reader.forEachChunkByPositionMatchingBlockIds(
+                direct(
+                        reader,
                         database,
                         List.of(first, second),
                         new int[]{99},
@@ -238,9 +236,8 @@ class VcdbsReaderSelectiveChunkLookupTest {
         RecordingChunkParser parser = parserWithPalette(99);
         List<SelectiveChunkVisit> visits = new ArrayList<>();
 
-        SelectiveChunkStreamStats stats = new VcdbsReader(
-                null, null, parser, null
-        ).forEachChunkByPositionMatchingBlockIdsWithCoverage(
+        SelectiveChunkStreamStats stats = coverage(
+                new VcdbsReader(null, null, parser, null),
                 database,
                 List.of(missing, existing),
                 new int[]{99},
@@ -271,9 +268,8 @@ class VcdbsReaderSelectiveChunkLookupTest {
         RecordingChunkParser parser = parserWithPalette(99);
         List<SelectiveChunkVisit> visits = new ArrayList<>();
 
-        SelectiveChunkStreamStats stats = new VcdbsReader(
-                null, null, parser, null
-        ).forEachChunkByPositionMatchingBlockIdsWithCoverage(
+        SelectiveChunkStreamStats stats = coverage(
+                new VcdbsReader(null, null, parser, null),
                 database,
                 List.of(position, position),
                 new int[]{99},
@@ -294,14 +290,14 @@ class VcdbsReaderSelectiveChunkLookupTest {
         List<SelectiveChunkVisit> visits = new ArrayList<>();
         ReadDiagnostics diagnostics = new ReadDiagnostics();
 
-        new VcdbsReader(null, null, parserWithPalette(99), null)
-                .forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                        database,
-                        List.of(position),
-                        new int[]{99},
-                        diagnostics,
-                        visits::add
-                );
+        coverage(
+                new VcdbsReader(null, null, parserWithPalette(99), null),
+                database,
+                List.of(position),
+                new int[]{99},
+                diagnostics,
+                visits::add
+        );
 
         assertEquals(1, visits.size());
         assertEquals(SelectiveChunkVisitStatus.FAILED, visits.get(0).status());
@@ -320,14 +316,14 @@ class VcdbsReaderSelectiveChunkLookupTest {
         RecordingChunkParser parser = parserWithPalette(1, 2, 3);
         List<SelectiveChunkVisit> visits = new ArrayList<>();
 
-        new VcdbsReader(null, null, parser, null)
-                .forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                        database,
-                        List.of(position),
-                        new int[]{99},
-                        new ReadDiagnostics(),
-                        visits::add
-                );
+        coverage(
+                new VcdbsReader(null, null, parser, null),
+                database,
+                List.of(position),
+                new int[]{99},
+                new ReadDiagnostics(),
+                visits::add
+        );
 
         assertEquals(1, visits.size());
         assertEquals(SelectiveChunkVisitStatus.PALETTE_REJECTED,
@@ -342,14 +338,14 @@ class VcdbsReaderSelectiveChunkLookupTest {
         parser.decodeFailure = "malformed palette";
         List<SelectiveChunkVisit> visits = new ArrayList<>();
 
-        new VcdbsReader(null, null, parser, null)
-                .forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                        database,
-                        List.of(position),
-                        new int[]{99},
-                        new ReadDiagnostics(),
-                        visits::add
-                );
+        coverage(
+                new VcdbsReader(null, null, parser, null),
+                database,
+                List.of(position),
+                new int[]{99},
+                new ReadDiagnostics(),
+                visits::add
+        );
 
         assertEquals(1, visits.size());
         assertEquals(SelectiveChunkVisitStatus.FAILED, visits.get(0).status());
@@ -373,14 +369,14 @@ class VcdbsReaderSelectiveChunkLookupTest {
         parser.decodeFailure = "decode failed";
         List<SelectiveChunkVisit> visits = new ArrayList<>();
 
-        new VcdbsReader(null, null, parser, null)
-                .forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                        database,
-                        List.of(decodePosition, palettePosition),
-                        new int[]{99},
-                        new ReadDiagnostics(),
-                        visits::add
-                );
+        coverage(
+                new VcdbsReader(null, null, parser, null),
+                database,
+                List.of(decodePosition, palettePosition),
+                new int[]{99},
+                new ReadDiagnostics(),
+                visits::add
+        );
 
         assertEquals(2, visits.size());
         assertTrue(visits.stream().allMatch(visit ->
@@ -397,9 +393,8 @@ class VcdbsReaderSelectiveChunkLookupTest {
         List<SelectiveChunkVisit> visits = new ArrayList<>();
         ReadDiagnostics diagnostics = new ReadDiagnostics();
 
-        SelectiveChunkStreamStats stats = new VcdbsReader(
-                null, null, parserWithPalette(99), null
-        ).forEachChunkByPositionMatchingBlockIdsWithCoverage(
+        SelectiveChunkStreamStats stats = coverage(
+                new VcdbsReader(null, null, parserWithPalette(99), null),
                 database,
                 List.of(position),
                 new int[]{99},
@@ -416,18 +411,13 @@ class VcdbsReaderSelectiveChunkLookupTest {
 
     @Test
     void emptyPositionsReturnZeroStats() {
-        SelectiveChunkStreamStats stats = new VcdbsReader(
-                null,
-                null,
-                parserWithPalette(99),
-                null
-        ).forEachChunkByPositionMatchingBlockIds(
+        SelectiveChunkStreamStats stats = direct(
+                new VcdbsReader(null, null, parserWithPalette(99), null),
                 temporaryDirectory.resolve("does-not-exist.vcdbs"),
                 List.of(),
                 new int[]{99},
                 new ReadDiagnostics(),
-                chunk -> {
-                },
+                chunk -> { },
                 ProgressReporter.NONE
         );
 
@@ -442,9 +432,8 @@ class VcdbsReaderSelectiveChunkLookupTest {
         Path database = databaseWithRows(300);
         RecordingChunkParser parser = parserWithPalette(99);
 
-        SelectiveChunkStreamStats stats = new VcdbsReader(
-                null, null, parser, null
-        ).forEachChunkByPositionMatchingBlockIdsAdaptive(
+        SelectiveChunkStreamStats stats = adaptive(
+                new VcdbsReader(null, null, parser, null),
                 database,
                 positions(320),
                 new int[]{99},
@@ -468,9 +457,8 @@ class VcdbsReaderSelectiveChunkLookupTest {
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new VcdbsReader(
-                        null, null, parserWithPalette(99), null, connections
-                ).forEachChunkByPositionMatchingBlockIdsAdaptive(
+                () -> adaptive(
+                        new VcdbsReader(null, null, parserWithPalette(99), null, connections),
                         temporaryDirectory.resolve("missing.vcdbs"),
                         List.of(new ChunkPosition(1, 0, 2, 0)),
                         new int[0],
@@ -500,9 +488,8 @@ class VcdbsReaderSelectiveChunkLookupTest {
         SelectiveChunkStreamStats direct = read(
                 database, directParser, List.of(requested), new int[]{99}
         );
-        SelectiveChunkStreamStats table = new VcdbsReader(
-                null, null, tableParser, null
-        ).forEachChunkByPositionMatchingBlockIdsTableStream(
+        SelectiveChunkStreamStats table = tableStream(
+                new VcdbsReader(null, null, tableParser, null),
                 database,
                 List.of(requested),
                 new int[]{99},
@@ -535,15 +522,15 @@ class VcdbsReaderSelectiveChunkLookupTest {
         }
         RecordingChunkParser parser = parserWithPalette(99);
 
-        new VcdbsReader(null, null, parser, null)
-                .forEachChunkByPositionMatchingBlockIdsTableStream(
-                        database,
-                        List.of(requested),
-                        new int[]{99},
-                        new ReadDiagnostics(),
-                        parser.delivered::add,
-                        new ProgressReporter(null)
-                );
+        tableStream(
+                new VcdbsReader(null, null, parser, null),
+                database,
+                List.of(requested),
+                new int[]{99},
+                new ReadDiagnostics(),
+                parser.delivered::add,
+                new ProgressReporter(null)
+        );
 
         assertEquals(1, parser.selectiveCalls.get());
     }
@@ -554,18 +541,110 @@ class VcdbsReaderSelectiveChunkLookupTest {
             List<ChunkPosition> positions,
             int[] wantedBlockIds
     ) {
-        return new VcdbsReader(
-                null,
-                null,
-                parser,
-                null
-        ).forEachChunkByPositionMatchingBlockIds(
+        return direct(
+                new VcdbsReader(null, null, parser, null),
                 database,
                 positions,
                 wantedBlockIds,
                 new ReadDiagnostics(),
-                parser.delivered::add
+                parser.delivered::add,
+                ProgressReporter.NONE
         );
+    }
+
+    private SelectiveChunkStreamStats direct(
+            VcdbsReader reader,
+            Path database,
+            List<ChunkPosition> positions,
+            int[] wantedBlockIds,
+            ReadDiagnostics diagnostics,
+            java.util.function.Consumer<ParsedChunk> consumer,
+            ProgressReporter progress
+    ) {
+        try (SaveSession session = testSession(database, positions, wantedBlockIds)) {
+            return reader.forEachChunkByPositionMatchingBlockIds(
+                    session, positions, wantedBlockIds, diagnostics, consumer, progress
+            );
+        }
+    }
+
+    private SelectiveChunkStreamStats adaptive(
+            VcdbsReader reader,
+            Path database,
+            List<ChunkPosition> positions,
+            int[] wantedBlockIds,
+            ReadDiagnostics diagnostics,
+            java.util.function.Consumer<ParsedChunk> consumer,
+            ProgressReporter progress
+    ) {
+        try (SaveSession session = testSession(database, positions, wantedBlockIds)) {
+            return reader.forEachChunkByPositionMatchingBlockIdsAdaptive(
+                    session, positions, wantedBlockIds, diagnostics, consumer, progress
+            );
+        }
+    }
+
+    private SelectiveChunkStreamStats coverage(
+            VcdbsReader reader,
+            Path database,
+            List<ChunkPosition> positions,
+            int[] wantedBlockIds,
+            ReadDiagnostics diagnostics,
+            java.util.function.Consumer<SelectiveChunkVisit> consumer
+    ) {
+        try (SaveSession session = openSession(database)) {
+            return reader.forEachChunkByPositionMatchingBlockIdsWithCoverage(
+                    session, positions, wantedBlockIds, diagnostics, consumer
+            );
+        }
+    }
+
+    private SelectiveChunkStreamStats tableStream(
+            VcdbsReader reader,
+            Path database,
+            List<ChunkPosition> positions,
+            int[] wantedBlockIds,
+            ReadDiagnostics diagnostics,
+            java.util.function.Consumer<ParsedChunk> consumer,
+            ProgressReporter progress
+    ) {
+        try (SaveSession session = openSession(database)) {
+            return reader.forEachChunkByPositionMatchingBlockIdsTableStream(
+                    session, positions, wantedBlockIds, diagnostics, consumer, progress
+            );
+        }
+    }
+
+    private SaveSession testSession(
+            Path database,
+            List<ChunkPosition> positions,
+            int[] wantedBlockIds
+    ) {
+        if (positions.isEmpty() || wantedBlockIds.length == 0) {
+            return emptySession(database);
+        }
+        return openSession(database);
+    }
+
+    private SaveSession openSession(Path database) {
+        return new SaveSession(
+                database,
+                new SqliteSaveConnection().openReadOnly(database),
+                snapshot(database)
+        );
+    }
+
+    private SaveSession emptySession(Path database) {
+        Connection connection = (Connection) Proxy.newProxyInstance(
+                Connection.class.getClassLoader(),
+                new Class<?>[]{Connection.class},
+                (proxy, method, args) -> null
+        );
+        return new SaveSession(database, connection, snapshot(database));
+    }
+
+    private SaveSnapshot snapshot(Path database) {
+        return new SaveSnapshot(database, new WorldMetadata(1, 1, 1), Map.of());
     }
 
     private RecordingChunkParser parserWithPalette(int... blockIds) {
