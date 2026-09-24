@@ -43,8 +43,9 @@ class SurfaceTileLayoutTest {
 
         assertTrue(layout.contains(34, 34));
         assertFalse(layout.contains(35, 34));
-        assertEquals(3, layout.tileWidth(layout.lastTileX()));
-        assertEquals(3, layout.tileHeight(layout.lastTileZ()));
+        int lastTile = layout.tileCount() - 1;
+        assertEquals(3, layout.tileWidth(layout.tileXAt(lastTile)));
+        assertEquals(3, layout.tileHeight(layout.tileZAt(lastTile)));
         assertEquals(4, layout.tileCount());
     }
 
@@ -84,8 +85,11 @@ class SurfaceTileLayoutTest {
                 new WorldMetadata(96, 256, 64)
         );
 
-        assertEquals(3, layout.tileWidthCount());
-        assertEquals(1, layout.tileHeightCount());
+        assertEquals(3, layout.tileCount());
+        assertEquals(0, layout.tileXAt(0));
+        assertEquals(0, layout.tileZAt(0));
+        assertEquals(2, layout.tileXAt(2));
+        assertEquals(0, layout.tileZAt(2));
         assertTrue(layout.isActive(0, 0));
         assertTrue(layout.isActive(31, 31));
         assertFalse(layout.isActive(32, 0));

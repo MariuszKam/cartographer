@@ -116,7 +116,7 @@ public final class SurfaceObjectStreamingScanner {
                     Arrays.copyOf(observationY, observationCount),
                     Arrays.copyOf(observationZ, observationCount),
                     Arrays.copyOf(observationBlockIds, observationCount),
-                    plan.plannedTargetCount(), unavailable, observedTargets, notObserved);
+                    unavailable, observedTargets, notObserved);
         }
 
         private void consumeDecoded(int positionIndex, ParsedChunk chunk) {

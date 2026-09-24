@@ -136,7 +136,7 @@ class SurfaceObjectCompactDiscoveryTest {
 
         assertEquals(1, result.observedTargets());
         assertEquals(0, result.unavailablePositions());
-        assertEquals(1, result.observedObjects());
+        assertEquals(1, observationCount(result));
     }
 
     @Test
@@ -181,7 +181,7 @@ class SurfaceObjectCompactDiscoveryTest {
         });
 
         assertEquals(1, result.observedTargets());
-        assertEquals(2, result.observedObjects());
+        assertEquals(2, observationCount(result));
         assertEquals(List.of(10, 11), observedY);
     }
 
@@ -213,12 +213,12 @@ class SurfaceObjectCompactDiscoveryTest {
         SurfaceObjectCompactScanResult first = scanWithDecodedOrder(plan, false);
         SurfaceObjectCompactScanResult second = scanWithDecodedOrder(plan, true);
 
-        assertEquals(first.positionsInspected(), second.positionsInspected());
+        assertEquals(inspectedTargets(first), inspectedTargets(second));
         assertEquals(first.unavailablePositions(), second.unavailablePositions());
         assertEquals(first.observedTargets(), second.observedTargets());
         assertEquals(first.notObservedTargets(), second.notObservedTargets());
-        assertEquals(first.observedObjects(), second.observedObjects());
-        assertTrue(first.observedObjects() > 0);
+        assertEquals(observationCount(first), observationCount(second));
+        assertTrue(observationCount(first) > 0);
         assertEquals(observationFingerprint(first), observationFingerprint(second));
     }
 
@@ -430,6 +430,22 @@ class SurfaceObjectCompactDiscoveryTest {
             session.accept(SelectiveChunkVisit.decoded(position(upper), upper));
         }
         return session.finish();
+    }
+
+    private int inspectedTargets(SurfaceObjectCompactScanResult result) {
+        return Math.addExact(
+                result.unavailablePositions(),
+                Math.addExact(
+                        result.observedTargets(),
+                        result.notObservedTargets()
+                )
+        );
+    }
+
+    private int observationCount(SurfaceObjectCompactScanResult result) {
+        int[] count = {0};
+        result.forEachObservation((worldX, worldY, worldZ, blockId) -> count[0]++);
+        return count[0];
     }
 
     private List<String> observationFingerprint(SurfaceObjectCompactScanResult result) {
