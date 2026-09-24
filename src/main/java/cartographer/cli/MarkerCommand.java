@@ -1,5 +1,6 @@
 package cartographer.cli;
 
+import cartographer.application.ProgressReporter;
 import cartographer.marker.MarkerStore;
 import cartographer.marker.UserMarker;
 import cartographer.model.DisplayPosition;
@@ -274,7 +275,7 @@ public class MarkerCommand implements Command {
                 );
 
         ProgressReporter progress =
-                new ProgressReporter(
+                new ConsoleProgressReporter(
                         out
                 );
 
