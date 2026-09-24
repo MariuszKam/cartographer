@@ -169,7 +169,7 @@ class SurfaceObjectCompactDiscoveryTest {
         int z = 16;
         blocks[(10 * ChunkCoordinate.SIZE_BLOCKS + z) * ChunkCoordinate.SIZE_BLOCKS + x] = 7;
         blocks[(11 * ChunkCoordinate.SIZE_BLOCKS + z) * ChunkCoordinate.SIZE_BLOCKS + x] = 7;
-        ParsedChunk chunk = new ParsedChunk(new ChunkCoordinate(0, 0, 0), 0,
+        ParsedChunk chunk = cartographer.model.ParsedChunkFixtures.create(new ChunkCoordinate(0, 0, 0), 0,
                 ChunkCoordinate.SIZE_BLOCKS, ChunkCoordinate.SIZE_BLOCKS,
                 ChunkCoordinate.SIZE_BLOCKS, blocks);
         session.accept(SelectiveChunkVisit.decoded(position(chunk), chunk));
@@ -334,7 +334,7 @@ class SurfaceObjectCompactDiscoveryTest {
         int[] blocks = new int[ChunkCoordinate.SIZE_BLOCKS * ChunkCoordinate.SIZE_BLOCKS
                 * ChunkCoordinate.SIZE_BLOCKS];
         Arrays.fill(blocks, 7);
-        ParsedChunk chunk = new ParsedChunk(
+        ParsedChunk chunk = cartographer.model.ParsedChunkFixtures.create(
                 new ChunkCoordinate(0, 0, 0), 0,
                 ChunkCoordinate.SIZE_BLOCKS, ChunkCoordinate.SIZE_BLOCKS,
                 ChunkCoordinate.SIZE_BLOCKS, blocks);
@@ -445,7 +445,7 @@ class SurfaceObjectCompactDiscoveryTest {
         int index = (localY * ChunkCoordinate.SIZE_BLOCKS + worldZ % ChunkCoordinate.SIZE_BLOCKS)
                 * ChunkCoordinate.SIZE_BLOCKS + worldX % ChunkCoordinate.SIZE_BLOCKS;
         blocks[index] = blockId;
-        return new ParsedChunk(
+        return cartographer.model.ParsedChunkFixtures.create(
                 new ChunkCoordinate(0, chunkY, 0),
                 chunkY * ChunkCoordinate.SIZE_BLOCKS,
                 ChunkCoordinate.SIZE_BLOCKS,

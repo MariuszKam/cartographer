@@ -261,7 +261,7 @@ class SurfaceStreamingSessionTest {
     private ParsedChunk chunkFilledAt(int chunkX, int sectionY, int worldY, int blockId) {
         int[] blocks = new int[32 * 32 * 32];
         Arrays.fill(blocks, blockId);
-        return new ParsedChunk(
+        return cartographer.model.ParsedChunkFixtures.create(
                 new ChunkCoordinate(chunkX, sectionY, 0),
                 sectionY * ChunkCoordinate.SIZE_BLOCKS,
                 32, 32, 32, blocks
@@ -269,7 +269,7 @@ class SurfaceStreamingSessionTest {
     }
 
     private ParsedChunk airChunk(int sectionY) {
-        return new ParsedChunk(
+        return cartographer.model.ParsedChunkFixtures.create(
                 new ChunkCoordinate(0, sectionY, 0),
                 sectionY * ChunkCoordinate.SIZE_BLOCKS,
                 32, 32, 32, new int[32 * 32 * 32]
@@ -284,7 +284,7 @@ class SurfaceStreamingSessionTest {
                 blocks[(localY * 32 + localZ) * 32 + localX] = blockId;
             }
         }
-        return new ParsedChunk(
+        return cartographer.model.ParsedChunkFixtures.create(
                 new ChunkCoordinate(0, sectionY, 0),
                 sectionY * ChunkCoordinate.SIZE_BLOCKS,
                 32, 32, 32, blocks
@@ -292,7 +292,7 @@ class SurfaceStreamingSessionTest {
     }
 
     private ParsedChunk unavailableChunk(int sectionY) {
-        return new ParsedChunk(
+        return cartographer.model.ParsedChunkFixtures.create(
                 new ChunkCoordinate(0, sectionY, 0),
                 sectionY * ChunkCoordinate.SIZE_BLOCKS,
                 32, 32, 32,

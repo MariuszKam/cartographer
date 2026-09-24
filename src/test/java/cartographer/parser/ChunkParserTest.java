@@ -78,7 +78,7 @@ class ChunkParserTest {
         assertEquals(legacy.coordinate(), explicit.coordinate());
         assertEquals(legacy.minY(), explicit.minY());
         assertArrayEquals(legacy.blockIds(), explicit.blockIds());
-        assertArrayEquals(legacy.liquidIds(), explicit.liquidIds());
+        assertArrayEquals(cartographer.model.ParsedChunkFixtures.liquidIds(legacy), cartographer.model.ParsedChunkFixtures.liquidIds(explicit));
         assertEquals(legacy.liquidLayerAvailable(), explicit.liquidLayerAvailable());
     }
 
@@ -232,8 +232,8 @@ class ChunkParserTest {
                 compact.blockIds()
         );
         assertArrayEquals(
-                full.liquidIds(),
-                compact.liquidIds()
+                cartographer.model.ParsedChunkFixtures.liquidIds(full),
+                cartographer.model.ParsedChunkFixtures.liquidIds(compact)
         );
         assertEquals(
                 full.liquidLayerAvailable(),
@@ -711,7 +711,7 @@ class ChunkParserTest {
         ParsedChunk chunk = result.value().orElseThrow();
         assertTrue(chunk.liquidLayerAvailable());
         assertEquals(0, chunk.liquidIdAt(7, 0, 0));
-        assertEquals(ChunkDataLayerDecoder.VALUE_COUNT, chunk.liquidIds().length);
+        assertEquals(ChunkDataLayerDecoder.VALUE_COUNT, cartographer.model.ParsedChunkFixtures.liquidIds(chunk).length);
     }
 
     @Test

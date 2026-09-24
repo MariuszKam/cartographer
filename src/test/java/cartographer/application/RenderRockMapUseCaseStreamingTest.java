@@ -89,7 +89,7 @@ class RenderRockMapUseCaseStreamingTest {
             for (ChunkPosition position : positions) {
                 int[] blocks = new int[size * size * size];
                 java.util.Arrays.fill(blocks, 1);
-                consumer.accept(SelectiveChunkVisit.decoded(position, new ParsedChunk(
+                consumer.accept(SelectiveChunkVisit.decoded(position, cartographer.model.ParsedChunkFixtures.create(
                         new ChunkCoordinate(position.x(), position.y(), position.z()),
                         position.y() * size, size, size, size, blocks)));
             }

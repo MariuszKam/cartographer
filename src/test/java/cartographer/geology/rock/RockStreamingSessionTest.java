@@ -408,7 +408,7 @@ class RockStreamingSessionTest {
         int size = ChunkCoordinate.SIZE_BLOCKS;
         int[] blocks = new int[size * size * size];
         blocks[(localY * size) * size] = blockId;
-        return new ParsedChunk(new ChunkCoordinate(chunkX, chunkY, chunkZ), chunkY * size,
+        return cartographer.model.ParsedChunkFixtures.create(new ChunkCoordinate(chunkX, chunkY, chunkZ), chunkY * size,
                 size, size, size, blocks);
     }
 

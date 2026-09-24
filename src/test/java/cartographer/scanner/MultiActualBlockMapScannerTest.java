@@ -281,7 +281,7 @@ class MultiActualBlockMapScannerTest {
         for (BlockAt block : blocksAt) {
             blocks[(block.y() * size + block.z()) * size + block.x()] = block.id();
         }
-        return new ParsedChunk(
+        return cartographer.model.ParsedChunkFixtures.create(
                 new ChunkCoordinate(0, 0, 0),
                 0,
                 size,

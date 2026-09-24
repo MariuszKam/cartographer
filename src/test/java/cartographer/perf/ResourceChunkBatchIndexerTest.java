@@ -150,7 +150,7 @@ class ResourceChunkBatchIndexerTest {
         indexer.accept(
                 SelectiveChunkVisit.decoded(
                         position,
-                        new ParsedChunk(
+                        cartographer.model.ParsedChunkFixtures.create(
                                 new ChunkCoordinate(1, 1, 1),
                                 32,
                                 size,
@@ -182,7 +182,7 @@ class ResourceChunkBatchIndexerTest {
         set(blocks, size, 2, 4, 3, 2);
         set(blocks, size, 5, 31, 6, 3);
 
-        return new ParsedChunk(
+        return cartographer.model.ParsedChunkFixtures.create(
                 new ChunkCoordinate(
                         position.x(),
                         position.y(),

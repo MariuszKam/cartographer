@@ -517,7 +517,7 @@ class GeologyCrossSectionAnalyzerTest {
                     override.blockId();
         }
 
-        return new ParsedChunk(
+        return cartographer.model.ParsedChunkFixtures.create(
                 new ChunkCoordinate(
                         chunkX,
                         chunkY,

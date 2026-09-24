@@ -14,78 +14,6 @@ public final class ParsedChunk {
     private final boolean liquidLayerAvailable;
     private final String liquidDecodeError;
 
-    public ParsedChunk(
-            ChunkCoordinate coordinate,
-            int minY,
-            int sizeX,
-            int sizeY,
-            int sizeZ,
-            int[] blockIds
-    ) {
-        this(
-                coordinate,
-                minY,
-                sizeX,
-                sizeY,
-                sizeZ,
-                blockIds,
-                new int[sizeX * sizeY * sizeZ],
-                0,
-                true,
-                ""
-        );
-    }
-
-    public ParsedChunk(
-            ChunkCoordinate coordinate,
-            int minY,
-            int sizeX,
-            int sizeY,
-            int sizeZ,
-            int[] blockIds,
-            int[] liquidIds,
-            int savedCompressionVersion
-    ) {
-        this(
-                coordinate,
-                minY,
-                sizeX,
-                sizeY,
-                sizeZ,
-                blockIds,
-                liquidIds,
-                savedCompressionVersion,
-                true,
-                ""
-        );
-    }
-
-    public ParsedChunk(
-            ChunkCoordinate coordinate,
-            int minY,
-            int sizeX,
-            int sizeY,
-            int sizeZ,
-            int[] blockIds,
-            int[] liquidIds,
-            int savedCompressionVersion,
-            boolean liquidLayerAvailable,
-            String liquidDecodeError
-    ) {
-        this(
-                coordinate,
-                minY,
-                sizeX,
-                sizeY,
-                sizeZ,
-                DecodedChunkLayer.copyOf(blockIds),
-                layerFromArray(liquidIds, liquidLayerAvailable),
-                savedCompressionVersion,
-                liquidLayerAvailable,
-                liquidDecodeError
-        );
-    }
-
     private ParsedChunk(
             ChunkCoordinate coordinate,
             int minY,
@@ -230,11 +158,6 @@ public final class ParsedChunk {
         return blockLayer.toArray();
     }
 
-    public int[] liquidIds() {
-        requireLiquidLayerAvailable();
-        return liquidLayer.toArray();
-    }
-
     private int indexAt(int x, int y, int z) {
         if (x < 0
                 || x >= sizeX
@@ -259,18 +182,6 @@ public final class ParsedChunk {
 
     private static int expectedLayerLength(int sizeX, int sizeY, int sizeZ) {
         return sizeX * sizeY * sizeZ;
-    }
-
-    private static DecodedChunkLayer layerFromArray(
-            int[] values,
-            boolean available
-    ) {
-        if (!available && values != null) {
-            throw new IllegalArgumentException(
-                    "unavailable liquid layer must not contain liquid values"
-            );
-        }
-        return available ? DecodedChunkLayer.copyOf(values) : null;
     }
 
     @Override

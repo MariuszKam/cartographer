@@ -84,7 +84,7 @@ class FusedProspectingEngineSaveSessionTest {
             for (ChunkPosition position : positions) {
                 visits++;
                 decodedChunks++;
-                consumer.accept(SelectiveChunkVisit.decoded(position, new ParsedChunk(
+                consumer.accept(SelectiveChunkVisit.decoded(position, cartographer.model.ParsedChunkFixtures.create(
                         new ChunkCoordinate(position.x(), position.y(), position.z()), 0,
                         size, size, size, blocks)));
             }

@@ -18,7 +18,7 @@ class ParsedChunkTest {
 
         assertTrue(empty.liquidLayerAvailable());
         assertEquals(0, empty.liquidIdAt(0, 0, 0));
-        assertEquals(1, empty.liquidIds().length);
+        assertEquals(1, ParsedChunkFixtures.liquidIds(empty).length);
 
         assertThrows(
                 IllegalStateException.class,
@@ -26,7 +26,7 @@ class ParsedChunkTest {
         );
         assertThrows(
                 IllegalStateException.class,
-                unavailable::liquidIds
+                () -> ParsedChunkFixtures.liquidIds(unavailable)
         );
     }
 
@@ -66,11 +66,11 @@ class ParsedChunkTest {
         assertEquals(3, chunk.liquidIdAt(0, 0, 0));
 
         int[] returnedBlocks = chunk.blockIds();
-        int[] returnedLiquids = chunk.liquidIds();
+        int[] returnedLiquids = ParsedChunkFixtures.liquidIds(chunk);
         returnedBlocks[0] = 9;
         returnedLiquids[0] = 5;
         assertArrayEquals(new int[]{7}, chunk.blockIds());
-        assertArrayEquals(new int[]{3}, chunk.liquidIds());
+        assertArrayEquals(new int[]{3}, ParsedChunkFixtures.liquidIds(chunk));
     }
 
     @Test
@@ -163,7 +163,7 @@ class ParsedChunkTest {
             boolean available,
             String error
     ) {
-        return new ParsedChunk(
+        return cartographer.model.ParsedChunkFixtures.create(
                 new ChunkCoordinate(0, 0, 0),
                 0,
                 1,

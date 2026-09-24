@@ -249,7 +249,7 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
         private ParsedChunk chunkWithBlock(int worldX, int worldY, int blockId) {
             int[] blocks = new int[32 * 32 * 32];
             blocks[(worldY * 32 + 16) * 32 + worldX] = blockId;
-            return new ParsedChunk(
+            return cartographer.model.ParsedChunkFixtures.create(
                     new ChunkCoordinate(0, 0, 0), 0, 32, 32, 32, blocks
             );
         }

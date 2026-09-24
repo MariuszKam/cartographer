@@ -189,7 +189,7 @@ class SurfaceRainHeightFastPathTest {
         if (liquids != null && blockId == 3) {
             Arrays.fill(liquids, 3);
         }
-        return new ParsedChunk(
+        return cartographer.model.ParsedChunkFixtures.create(
                 new ChunkCoordinate(0, sectionY, 0), sectionY * ChunkCoordinate.SIZE_BLOCKS,
                 32, 32, 32,
                 blocks, liquids, 0, liquidAvailable,
