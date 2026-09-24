@@ -488,39 +488,24 @@ class MapCommandTest {
 
         @Override
         public ChunkStreamStats forEachChunkByPositionAdaptive(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer
-        ) {
-            return forEachChunkByPosition(
-                    savePath, positions, diagnostics, consumer
-            );
-        }
-
-        @Override
-        public ChunkStreamStats forEachChunkByPositionAdaptive(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer,
-                cartographer.application.ProgressReporter progress
-        ) {
-            return forEachChunkByPositionAdaptive(
-                    savePath, positions, diagnostics, consumer
-            );
-        }
-
-        @Override
-        public ChunkStreamStats forEachChunkByPositionAdaptive(
                 SaveSession session,
                 java.util.Collection<ChunkPosition> positions,
                 ReadDiagnostics diagnostics,
                 java.util.function.Consumer<ParsedChunk> consumer,
                 cartographer.application.ProgressReporter progress
         ) {
-            return forEachChunkByPositionAdaptive(
-                    (Path) null, positions, diagnostics, consumer, progress
+            if (positions.isEmpty()) {
+                return new ChunkStreamStats(0, 0, 0, 0, 0, 0);
+            }
+
+            consumer.accept(oreChunk());
+            return new ChunkStreamStats(
+                    positions.size(),
+                    1,
+                    1,
+                    1,
+                    0,
+                    0
             );
         }
 
@@ -533,57 +518,7 @@ class MapCommandTest {
                 cartographer.application.ProgressReporter progress
         ) {
             return forEachChunkByPositionAdaptive(
-                    (Path) null, positions, diagnostics, consumer, progress
-            );
-        }
-
-        @Override
-        public ChunkStreamStats forEachChunkByPosition(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer
-        ) {
-            if (positions.isEmpty()) {
-                return new ChunkStreamStats(0, 0, 0, 0, 0, 0);
-            }
-
-            ParsedChunk chunk = oreChunk();
-            consumer.accept(chunk);
-            return new ChunkStreamStats(
-                    positions.size(),
-                    1,
-                    1,
-                    1,
-                    0,
-                    0
-            );
-        }
-
-        @Override
-        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
-                Path savePath,
-                java.util.Collection<cartographer.model.ChunkPosition> positions,
-                int[] wantedBlockIds,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer
-        ) {
-            return forEachChunkByPositionMatchingBlockIds(
-                    savePath, positions, wantedBlockIds, diagnostics, consumer
-            );
-        }
-
-        @Override
-        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
-                Path savePath,
-                java.util.Collection<cartographer.model.ChunkPosition> positions,
-                int[] wantedBlockIds,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer,
-                cartographer.application.ProgressReporter progress
-        ) {
-            return forEachChunkByPositionMatchingBlockIdsAdaptive(
-                    savePath, positions, wantedBlockIds, diagnostics, consumer
+                    session, positions, diagnostics, consumer, progress
             );
         }
 
@@ -596,29 +531,9 @@ class MapCommandTest {
                 java.util.function.Consumer<ParsedChunk> consumer,
                 cartographer.application.ProgressReporter progress
         ) {
-            return forEachChunkByPositionMatchingBlockIdsAdaptive(
-                    (Path) null, positions, wantedBlockIds, diagnostics, consumer, progress
-            );
-        }
-
-        @Override
-        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIds(
-                Path savePath,
-                java.util.Collection<cartographer.model.ChunkPosition> positions,
-                int[] wantedBlockIds,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer
-        ) {
             if (positions.isEmpty()) {
                 return new SelectiveChunkStreamStats(
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0
+                        0, 0, 0, 0, 0, 0, 0, 0
                 );
             }
 
@@ -632,27 +547,13 @@ class MapCommandTest {
 
             if (!wanted) {
                 return new SelectiveChunkStreamStats(
-                        positions.size(),
-                        1,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0
+                        positions.size(), 1, 0, 0, 0, 0, 0, 0
                 );
             }
 
             consumer.accept(oreChunk());
             return new SelectiveChunkStreamStats(
-                    positions.size(),
-                    1,
-                    1,
-                    1,
-                    0,
-                    1,
-                    0,
-                    1
+                    positions.size(), 1, 1, 1, 0, 1, 0, 1
             );
         }
 
