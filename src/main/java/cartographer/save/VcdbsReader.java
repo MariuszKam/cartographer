@@ -968,6 +968,43 @@ public class VcdbsReader {
     }
 
     ChunkStreamStats forEachChunkByPositionTableStream(
+            SaveSession session,
+            Collection<ChunkPosition> positions,
+            ReadDiagnostics diagnostics,
+            Consumer<ParsedChunk> consumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(session, "session is required");
+        Objects.requireNonNull(positions, "positions is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(consumer, "consumer is required");
+        Objects.requireNonNull(progress, "progress is required");
+
+        Set<Long> packedPositions = packedUniquePositions(positions);
+        if (packedPositions.isEmpty()) {
+            return new ChunkStreamStats(0, 0, 0, 0, 0, 0);
+        }
+
+        try {
+            return forEachChunkByPositionTableStream(
+                    session.connection(),
+                    packedPositions,
+                    diagnostics,
+                    consumer,
+                    progress,
+                    0L,
+                    ChunkDecodeMode.FULL
+            );
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot scan chunk table for exact positions: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
+    ChunkStreamStats forEachChunkByPositionTableStream(
             Path savePath,
             Collection<ChunkPosition> positions,
             ReadDiagnostics diagnostics,
@@ -1046,6 +1083,43 @@ public class VcdbsReader {
      * Visits chunks found by exact packed primary-key lookup. SQL result order
      * is unspecified and must not be treated as request order.
      */
+    ChunkStreamStats forEachChunkByPosition(
+            SaveSession session,
+            Collection<ChunkPosition> positions,
+            ReadDiagnostics diagnostics,
+            Consumer<ParsedChunk> consumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(session, "session is required");
+        Objects.requireNonNull(positions, "positions is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(consumer, "consumer is required");
+        Objects.requireNonNull(progress, "progress is required");
+
+        Set<Long> packedPositions = packedUniquePositions(positions);
+        if (packedPositions.isEmpty()) {
+            return new ChunkStreamStats(0, 0, 0, 0, 0, 0);
+        }
+
+        try {
+            return forEachChunkByPosition(
+                    session.connection(),
+                    packedPositions,
+                    diagnostics,
+                    consumer,
+                    progress,
+                    0L,
+                    ChunkDecodeMode.FULL
+            );
+        } catch (SQLException exception) {
+            throw new CommandException(
+                    "Cannot read chunk table by exact position: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
     public ChunkStreamStats forEachChunkByPosition(
             Path savePath,
             Collection<ChunkPosition> positions,
