@@ -33,8 +33,7 @@ public final class SurfaceObjectCompactScanResult {
                 || this.worldX.length != this.blockIds.length
                 || unavailablePositions < 0
                 || observedTargets < 0
-                || notObservedTargets < 0
-) {
+                || notObservedTargets < 0) {
             throw new IllegalArgumentException("invalid compact object scan result");
         }
     }
