@@ -1442,8 +1442,8 @@ class RenderActualOreMapUseCaseTest {
                 .renderData();
         for (int y = 0; y < renderData.rasterSize(); y++) {
             for (int x = 0; x < renderData.rasterSize(); x++) {
-                if (renderData.hasSurfaceAt(x, y)
-                        && renderData.surfaceWorldXAt(x, y) < bound) {
+                if (cartographer.render.SurfaceRenderDataTestAccess.hasSurfaceAt(renderData, x, y)
+                        && cartographer.render.SurfaceRenderDataTestAccess.surfaceWorldXAt(renderData, x, y) < bound) {
                     return true;
                 }
             }
@@ -1461,8 +1461,8 @@ class RenderActualOreMapUseCaseTest {
                 .renderData();
         for (int y = 0; y < renderData.rasterSize(); y++) {
             for (int x = 0; x < renderData.rasterSize(); x++) {
-                if (renderData.hasSurfaceAt(x, y)
-                        && renderData.surfaceWorldXAt(x, y) >= bound) {
+                if (cartographer.render.SurfaceRenderDataTestAccess.hasSurfaceAt(renderData, x, y)
+                        && cartographer.render.SurfaceRenderDataTestAccess.surfaceWorldXAt(renderData, x, y) >= bound) {
                     return true;
                 }
             }

@@ -81,7 +81,7 @@ public final class SurfaceRenderData {
         return rasterSize;
     }
 
-    public boolean hasSurfaceAt(int imageX, int imageY) {
+    boolean hasSurfaceAt(int imageX, int imageY) {
         int index = pixelIndex(imageX, imageY);
         return surfaceSourceByPixel.length != 0
                 && surfacePresent.get(index);
@@ -92,12 +92,12 @@ public final class SurfaceRenderData {
                 || surfacePresent.isEmpty();
     }
 
-    public int surfaceWorldXAt(int imageX, int imageY) {
+    int surfaceWorldXAt(int imageX, int imageY) {
         long packed = requiredSource(pixelIndex(imageX, imageY));
         return (int) (packed >> 32);
     }
 
-    public int surfaceWorldZAt(int imageX, int imageY) {
+    int surfaceWorldZAt(int imageX, int imageY) {
         long packed = requiredSource(pixelIndex(imageX, imageY));
         return (int) packed;
     }
