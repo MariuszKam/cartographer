@@ -127,7 +127,7 @@ class DesktopUpdateControllerTest {
                 },
                 new UpdateManifestParser()
         );
-        DesktopUpdateController controller = new DesktopUpdateController(
+        DesktopUpdateController controller = nonInstallingController(
                 service,
                 successfulDownloadService(),
                 store,
@@ -160,7 +160,7 @@ class DesktopUpdateControllerTest {
                 },
                 new UpdateManifestParser()
         );
-        DesktopUpdateController controller = new DesktopUpdateController(
+        DesktopUpdateController controller = nonInstallingController(
                 service,
                 successfulDownloadService(),
                 store(),
@@ -275,7 +275,7 @@ class DesktopUpdateControllerTest {
                     ));
                 }
         );
-        DesktopUpdateController controller = new DesktopUpdateController(
+        DesktopUpdateController controller = nonInstallingController(
                 service,
                 downloadService,
                 store(),
@@ -556,7 +556,7 @@ class DesktopUpdateControllerTest {
                 },
                 new UpdateManifestParser()
         );
-        DesktopUpdateController controller = new DesktopUpdateController(
+        DesktopUpdateController controller = nonInstallingController(
                 service,
                 downloadService,
                 store,
@@ -568,6 +568,35 @@ class DesktopUpdateControllerTest {
                 Duration.ofHours(24)
         );
         return new TestHarness(controller, view);
+    }
+
+    private DesktopUpdateController nonInstallingController(
+            UpdateCheckService updateCheckService,
+            UpdateDownloadService updateDownloadService,
+            UpdatePreferencesStore preferencesStore,
+            UpdateCheckView view,
+            java.util.concurrent.Executor backgroundExecutor,
+            java.util.function.Consumer<Runnable> uiDispatcher,
+            java.util.function.Consumer<URI> releaseOpener,
+            Clock clock,
+            Duration automaticCheckInterval
+    ) {
+        return new DesktopUpdateController(
+                updateCheckService,
+                updateDownloadService,
+                ignored -> UpdateInstallLaunchResult.failed(
+                        "Update installation is not configured"
+                ),
+                Optional::empty,
+                preferencesStore,
+                view,
+                backgroundExecutor,
+                uiDispatcher,
+                releaseOpener,
+                () -> { },
+                clock,
+                automaticCheckInterval
+        );
     }
 
     private UpdateDownloadService successfulDownloadService() {

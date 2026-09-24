@@ -115,40 +115,6 @@ public final class DesktopUpdateController {
         view.setOnInstallUpdate(this::installReadyUpdate);
     }
 
-    /**
-     * Backwards-compatible Stage 2/3 constructor used by focused tests and
-     * non-installing compositions. Stage 4 production wiring uses the full
-     * constructor above.
-     */
-    public DesktopUpdateController(
-            UpdateCheckService updateCheckService,
-            UpdateDownloadService updateDownloadService,
-            UpdatePreferencesStore preferencesStore,
-            UpdateCheckView view,
-            Executor backgroundExecutor,
-            Consumer<Runnable> uiDispatcher,
-            Consumer<URI> releaseOpener,
-            Clock clock,
-            Duration automaticCheckInterval
-    ) {
-        this(
-                updateCheckService,
-                updateDownloadService,
-                ignored -> UpdateInstallLaunchResult.failed(
-                        "Update installation is not configured"
-                ),
-                Optional::empty,
-                preferencesStore,
-                view,
-                backgroundExecutor,
-                uiDispatcher,
-                releaseOpener,
-                () -> { },
-                clock,
-                automaticCheckInterval
-        );
-    }
-
     public void showPreviousInstallOutcome() {
         Optional<UpdateInstallOutcome> outcome;
         try {
