@@ -1,5 +1,6 @@
 package cartographer.cli;
 
+import cartographer.application.ProgressReporter;
 import cartographer.model.DisplayPosition;
 import cartographer.model.HomeLocation;
 import cartographer.model.WorldMetadata;
@@ -66,7 +67,7 @@ public class NavCommand
                 );
 
         ProgressReporter progress =
-                new ProgressReporter(
+                new ConsoleProgressReporter(
                         out
                 );
 
