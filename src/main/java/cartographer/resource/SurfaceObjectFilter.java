@@ -25,16 +25,6 @@ public final class SurfaceObjectFilter {
                 .toList();
     }
 
-    public static boolean matches(
-            ObservedSurfaceResource resource,
-            String searchText,
-            Set<SurfaceObjectFamily> enabledFamilies
-    ) {
-        Objects.requireNonNull(resource, "resource is required");
-        Objects.requireNonNull(enabledFamilies, "enabled families are required");
-        return matchesNormalized(resource, normalize(searchText), enabledFamilies);
-    }
-
     private static boolean matchesNormalized(
             ObservedSurfaceResource resource,
             String query,
@@ -49,7 +39,7 @@ public final class SurfaceObjectFilter {
         return textMatches && familyMatches;
     }
 
-    public static String normalize(String value) {
+    private static String normalize(String value) {
         return value == null
                 ? ""
                 : value.trim().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");

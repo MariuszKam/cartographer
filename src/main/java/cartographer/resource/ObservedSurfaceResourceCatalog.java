@@ -33,15 +33,4 @@ public final class ObservedSurfaceResourceCatalog {
         return Optional.ofNullable(resourcesByKey.get(qualifiedResourceKey));
     }
 
-    public List<SurfaceObjectObservation> observations() {
-        return resources.stream()
-                .flatMap(resource -> resource.observations().stream())
-                .toList();
-    }
-
-    public List<String> observedQualifiedResourceKeys() {
-        return resources.stream()
-                .map(resource -> resource.candidate().qualifiedResourceKey())
-                .toList();
-    }
 }

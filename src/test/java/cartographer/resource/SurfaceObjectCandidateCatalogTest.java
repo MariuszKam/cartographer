@@ -80,8 +80,12 @@ class SurfaceObjectCandidateCatalogTest {
 
         assertEquals(Set.of(6), catalog.candidateBlockIds());
         assertTrue(catalog.findByBlockId(1).isEmpty());
-        assertTrue(catalog.findByQualifiedResourceKey("game:rock").isEmpty());
-        assertTrue(catalog.findByQualifiedResourceKey(null).isEmpty());
+        assertEquals(
+                List.of("game:obsidian"),
+                catalog.candidates().stream()
+                        .map(SurfaceObjectCandidate::qualifiedResourceKey)
+                        .toList()
+        );
     }
 
     @Test

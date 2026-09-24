@@ -6,20 +6,15 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
 public final class SurfaceObjectCandidateCatalogBuilder {
-    private final SurfaceObjectClassifier classifier;
+    private final SurfaceObjectClassifier classifier =
+            new SurfaceObjectClassifier();
 
     public SurfaceObjectCandidateCatalogBuilder() {
-        this(new SurfaceObjectClassifier());
-    }
-
-    public SurfaceObjectCandidateCatalogBuilder(SurfaceObjectClassifier classifier) {
-        this.classifier = Objects.requireNonNull(classifier, "classifier is required");
     }
 
     public SurfaceObjectCandidateCatalog build(Map<Integer, BlockInfo> registry) {

@@ -12,15 +12,12 @@ import java.util.TreeSet;
 public final class SurfaceObjectCandidateCatalog {
     private final List<SurfaceObjectCandidate> candidates;
     private final Map<Integer, SurfaceObjectCandidate> candidatesByBlockId;
-    private final Map<String, SurfaceObjectCandidate> candidatesByQualifiedKey;
 
     SurfaceObjectCandidateCatalog(List<SurfaceObjectCandidate> candidates) {
         this.candidates = List.copyOf(candidates);
 
         Map<Integer, SurfaceObjectCandidate> byBlockId = new TreeMap<>();
-        Map<String, SurfaceObjectCandidate> byQualifiedKey = new TreeMap<>();
         for (SurfaceObjectCandidate candidate : this.candidates) {
-            byQualifiedKey.put(candidate.qualifiedResourceKey(), candidate);
             for (int blockId : candidate.blockIds()) {
                 SurfaceObjectCandidate previous = byBlockId.put(blockId, candidate);
                 if (previous != null && previous != candidate) {
@@ -31,7 +28,6 @@ public final class SurfaceObjectCandidateCatalog {
             }
         }
         candidatesByBlockId = Collections.unmodifiableMap(byBlockId);
-        candidatesByQualifiedKey = Collections.unmodifiableMap(byQualifiedKey);
     }
 
     public List<SurfaceObjectCandidate> candidates() {
@@ -46,10 +42,4 @@ public final class SurfaceObjectCandidateCatalog {
         return Optional.ofNullable(candidatesByBlockId.get(blockId));
     }
 
-    public Optional<SurfaceObjectCandidate> findByQualifiedResourceKey(String qualifiedResourceKey) {
-        if (qualifiedResourceKey == null || qualifiedResourceKey.isBlank()) {
-            return Optional.empty();
-        }
-        return Optional.ofNullable(candidatesByQualifiedKey.get(qualifiedResourceKey));
-    }
 }

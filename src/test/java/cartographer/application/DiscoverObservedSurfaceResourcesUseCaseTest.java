@@ -57,8 +57,12 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
 
         assertEquals(1, reader.selectiveScanCalls);
         assertArrayEquals(new int[] {1, 2}, reader.lastWantedIds);
-        assertEquals(List.of("game:nativecopper"),
-                result.observedResources().observedQualifiedResourceKeys());
+        assertEquals(
+                List.of("game:nativecopper"),
+                result.observedResources().resources().stream()
+                        .map(resource -> resource.candidate().qualifiedResourceKey())
+                        .toList()
+        );
     }
 
     @Test

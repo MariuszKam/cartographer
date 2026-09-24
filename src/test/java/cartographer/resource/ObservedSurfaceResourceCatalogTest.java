@@ -38,9 +38,13 @@ class ObservedSurfaceResourceCatalogTest {
         );
 
         assertEquals(List.of("game:obsidian"),
-                observed.observedQualifiedResourceKeys());
+                observed.resources().stream()
+                        .map(resource -> resource.candidate().qualifiedResourceKey())
+                        .toList());
         assertEquals(3, observed.resources().getFirst().observedCount());
-        assertEquals(List.of(11, 10, 12), observed.observations().stream()
+        assertEquals(List.of(11, 10, 12), observed.resources().stream()
+                        .flatMap(resource -> resource.observations().stream())
+                        .toList().stream()
                 .map(SurfaceObjectObservation::blockId)
                 .toList());
     }
@@ -65,7 +69,9 @@ class ObservedSurfaceResourceCatalogTest {
         );
 
         assertEquals(List.of("game:obsidian", "game:something", "somemod:something"),
-                observed.observedQualifiedResourceKeys());
+                observed.resources().stream()
+                        .map(resource -> resource.candidate().qualifiedResourceKey())
+                        .toList());
         assertEquals("game:something", observed.resources().get(1)
                 .candidate().qualifiedResourceKey());
         assertEquals("somemod:something", observed.resources().get(2)
@@ -88,8 +94,12 @@ class ObservedSurfaceResourceCatalogTest {
         );
 
         assertEquals(List.of(), observed.resources());
-        assertEquals(List.of(), empty.observations());
-        assertEquals(List.of(), empty.observedQualifiedResourceKeys());
+        assertEquals(List.of(), empty.resources().stream()
+                        .flatMap(resource -> resource.observations().stream())
+                        .toList());
+        assertEquals(List.of(), empty.resources().stream()
+                        .map(resource -> resource.candidate().qualifiedResourceKey())
+                        .toList());
     }
 
     @Test
@@ -104,8 +114,6 @@ class ObservedSurfaceResourceCatalogTest {
 
         assertThrows(UnsupportedOperationException.class,
                 () -> observed.resources().clear());
-        assertThrows(UnsupportedOperationException.class,
-                () -> observed.observations().clear());
         assertThrows(UnsupportedOperationException.class,
                 () -> observed.resources().getFirst().observations().clear());
     }
