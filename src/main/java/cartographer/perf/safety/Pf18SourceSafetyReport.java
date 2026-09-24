@@ -55,8 +55,5 @@ public record Pf18SourceSafetyReport(
                     .toList();
         }
 
-        public boolean cacheArtifactsProduced() {
-            return !artifactPaths.isEmpty();
-        }
     }
 }

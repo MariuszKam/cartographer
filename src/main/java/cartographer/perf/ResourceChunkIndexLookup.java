@@ -1,7 +1,6 @@
 package cartographer.perf;
 
 import java.util.Objects;
-import java.util.Optional;
 
 /** Lookup state for one revision-scoped PF-2.5 resource chunk entry. */
 public record ResourceChunkIndexLookup(
@@ -48,7 +47,4 @@ public record ResourceChunkIndexLookup(
         return new ResourceChunkIndexLookup(Status.CORRUPT, null);
     }
 
-    public Optional<ResourceChunkCoverageStatus> coverageStatusOptional() {
-        return Optional.ofNullable(coverageStatus);
-    }
 }

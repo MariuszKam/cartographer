@@ -75,8 +75,7 @@ public final class ReferenceBaselineFactory {
             samples.add(new ReferenceBaselineSample(
                     iteration.iterationIndex(),
                     iteration.wallClockNanoseconds(),
-                    fingerprint,
-                    iteration.instrumentation()
+                    fingerprint
             ));
         }
 

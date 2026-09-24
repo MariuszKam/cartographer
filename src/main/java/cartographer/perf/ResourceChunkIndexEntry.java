@@ -92,10 +92,4 @@ public record ResourceChunkIndexEntry(
         );
     }
 
-    public List<Integer> blockIdsPresent() {
-        return occurrences.stream()
-                .map(ResourceOccurrence::blockId)
-                .distinct()
-                .toList();
-    }
 }

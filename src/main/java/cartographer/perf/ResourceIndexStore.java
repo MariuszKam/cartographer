@@ -21,15 +21,14 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 /**
- * Revision-scoped PF-2.5 resource membership/occurrence index.
+ * Revision-scoped PF-2.5 resource occurrence index.
  *
  * <p>The database is derived data below the external cache namespace. One
  * coverage row is stored for every indexed source chunk position, including
  * authoritative MISSING and FAILED states. AVAILABLE rows may own compact ore
- * membership and exact local-Y occurrence masks.</p>
+ * exact local-Y occurrence masks.</p>
  */
 public final class ResourceIndexStore {
     private static final String DATABASE_FILE = "resource-index-v1.sqlite";
@@ -214,62 +213,6 @@ public final class ResourceIndexStore {
         }
     }
 
-    public Set<ChunkPosition> positionsContainingAny(
-            Collection<ChunkPosition> positions,
-            Collection<Integer> blockIds
-    ) {
-        List<ChunkPosition> requested = uniquePositions(positions);
-        List<Integer> ids = uniqueBlockIds(blockIds);
-        if (requested.isEmpty()
-                || ids.isEmpty()
-                || !compatibleStoreAvailable()) {
-            return Set.of();
-        }
-
-        LinkedHashSet<ChunkPosition> result = new LinkedHashSet<>();
-        try (Connection connection = openDatabase(false)) {
-            ensureSchema(connection);
-            Map<Long, ChunkPosition> requestedByPacked =
-                    byPackedPosition(requested);
-            for (int positionStart = 0;
-                 positionStart < requested.size();
-                 positionStart += POSITION_BATCH_SIZE) {
-                List<ChunkPosition> positionBatch = requested.subList(
-                        positionStart,
-                        Math.min(
-                                positionStart + POSITION_BATCH_SIZE,
-                                requested.size()
-                        )
-                );
-                for (int idStart = 0;
-                     idStart < ids.size();
-                     idStart += BLOCK_ID_BATCH_SIZE) {
-                    List<Integer> idBatch = ids.subList(
-                            idStart,
-                            Math.min(
-                                    idStart + BLOCK_ID_BATCH_SIZE,
-                                    ids.size()
-                            )
-                    );
-                    readMembershipBatch(
-                            connection,
-                            positionBatch,
-                            idBatch,
-                            requestedByPacked,
-                            result
-                    );
-                }
-            }
-            return Set.copyOf(result);
-        } catch (SQLException exception) {
-            throw new CommandException(
-                    "Cannot query PF-2.5 resource membership: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
-    }
-
     public List<ResourceOccurrence> readOccurrences(
             Collection<ChunkPosition> positions,
             Collection<Integer> blockIds
@@ -370,12 +313,7 @@ public final class ResourceIndexStore {
             try (Connection connection = openDatabase(true)) {
                 ensureSchema(connection);
                 connection.setAutoCommit(false);
-                try (PreparedStatement deleteMembership =
-                             connection.prepareStatement(
-                                     "DELETE FROM resource_membership "
-                                             + "WHERE packed_position = ?"
-                             );
-                     PreparedStatement deleteOccurrence =
+                try (PreparedStatement deleteOccurrence =
                              connection.prepareStatement(
                                      "DELETE FROM resource_occurrence "
                                              + "WHERE packed_position = ?"
@@ -388,12 +326,6 @@ public final class ResourceIndexStore {
                                              + "ON CONFLICT(packed_position) "
                                              + "DO UPDATE SET status = excluded.status"
                              );
-                     PreparedStatement insertMembership =
-                             connection.prepareStatement(
-                                     "INSERT OR REPLACE INTO resource_membership "
-                                             + "(packed_position, block_id) "
-                                             + "VALUES (?, ?)"
-                             );
                      PreparedStatement insertOccurrence =
                              connection.prepareStatement(
                                      "INSERT OR REPLACE INTO resource_occurrence "
@@ -404,8 +336,6 @@ public final class ResourceIndexStore {
                     for (ResourceChunkIndexEntry entry : safe) {
                         long packed = ChunkPosEncoder.encode(entry.position());
 
-                        deleteMembership.setLong(1, packed);
-                        deleteMembership.addBatch();
                         deleteOccurrence.setLong(1, packed);
                         deleteOccurrence.addBatch();
 
@@ -418,11 +348,6 @@ public final class ResourceIndexStore {
 
                         if (entry.coverageStatus()
                                 == ResourceChunkCoverageStatus.AVAILABLE) {
-                            for (int blockId : entry.blockIdsPresent()) {
-                                insertMembership.setLong(1, packed);
-                                insertMembership.setInt(2, blockId);
-                                insertMembership.addBatch();
-                            }
                             for (ResourceOccurrence occurrence :
                                     entry.occurrences()) {
                                 insertOccurrence.setLong(1, packed);
@@ -447,10 +372,8 @@ public final class ResourceIndexStore {
                         }
                     }
 
-                    deleteMembership.executeBatch();
                     deleteOccurrence.executeBatch();
                     upsertCoverage.executeBatch();
-                    insertMembership.executeBatch();
                     insertOccurrence.executeBatch();
                     connection.commit();
                 } catch (SQLException | RuntimeException failure) {
@@ -528,36 +451,6 @@ public final class ResourceIndexStore {
                                 requested,
                                 ResourceChunkIndexLookup.corrupt()
                         );
-                    }
-                }
-            }
-        }
-    }
-
-    private void readMembershipBatch(
-            Connection connection,
-            List<ChunkPosition> positions,
-            List<Integer> blockIds,
-            Map<Long, ChunkPosition> requestedByPacked,
-            Set<ChunkPosition> result
-    ) throws SQLException {
-        String sql = "SELECT DISTINCT packed_position "
-                + "FROM resource_membership WHERE packed_position IN ("
-                + placeholders(positions.size())
-                + ") AND block_id IN ("
-                + placeholders(blockIds.size())
-                + ")";
-        try (PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
-            int parameter = bindPositions(statement, positions, 1);
-            bindBlockIds(statement, blockIds, parameter);
-            try (ResultSet rows = statement.executeQuery()) {
-                while (rows.next()) {
-                    ChunkPosition position = requestedByPacked.get(
-                            rows.getLong("packed_position")
-                    );
-                    if (position != null) {
-                        result.add(position);
                     }
                 }
             }
@@ -686,17 +579,6 @@ public final class ResourceIndexStore {
                             + "packed_position INTEGER PRIMARY KEY,"
                             + "status TEXT NOT NULL"
                             + ")"
-            );
-            statement.executeUpdate(
-                    "CREATE TABLE IF NOT EXISTS resource_membership ("
-                            + "packed_position INTEGER NOT NULL,"
-                            + "block_id INTEGER NOT NULL,"
-                            + "PRIMARY KEY (packed_position, block_id)"
-                            + ")"
-            );
-            statement.executeUpdate(
-                    "CREATE INDEX IF NOT EXISTS resource_membership_block_idx "
-                            + "ON resource_membership(block_id, packed_position)"
             );
             statement.executeUpdate(
                     "CREATE TABLE IF NOT EXISTS resource_occurrence ("

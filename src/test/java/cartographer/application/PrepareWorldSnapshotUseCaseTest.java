@@ -137,7 +137,7 @@ class PrepareWorldSnapshotUseCaseTest {
                 resourceStore.blockCatalog()
         );
         assertTrue(
-                resourceStore.positionsContainingAny(
+                resourceStore.readOccurrences(
                         List.of(
                                 new ChunkPosition(0, 0, 0, 0),
                                 new ChunkPosition(0, 1, 0, 0),
@@ -146,7 +146,7 @@ class PrepareWorldSnapshotUseCaseTest {
                         ),
                         List.of(2)
                 ).isEmpty(),
-                "registry catalog must not fabricate occurrence membership"
+                "registry catalog must not fabricate resource occurrences"
         );
 
         PrepareWorldSnapshotResult second =

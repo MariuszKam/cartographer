@@ -17,14 +17,12 @@ class FingerprintTest {
                 .writeInt(7)
                 .writeLong(9L)
                 .writeBoolean(true)
-                .writeString("café")
-                .writeEnum(TestKind.ALPHA));
+                .writeString("café"));
         ResultFingerprint second = fingerprint(writer -> writer
                 .writeInt(7)
                 .writeLong(9L)
                 .writeBoolean(true)
-                .writeString("café")
-                .writeEnum(TestKind.ALPHA));
+                .writeString("café"));
 
         assertEquals(first, second);
         assertEquals(64, first.sha256Hex().length());
@@ -101,10 +99,6 @@ class FingerprintTest {
             writer.writeSequenceStart(sorted.size());
             sorted.forEach(writer::writeString);
         });
-    }
-
-    private enum TestKind {
-        ALPHA
     }
 
     private static final class TrackingImage extends BufferedImage {

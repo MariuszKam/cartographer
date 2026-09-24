@@ -1,7 +1,6 @@
 package cartographer.perf;
 
 import java.util.Objects;
-import java.util.Optional;
 
 /** Result of reading one optional terrain artifact. */
 public record TerrainTileLookup(Status status, TerrainHeightTile tile) {
@@ -33,7 +32,4 @@ public record TerrainTileLookup(Status status, TerrainHeightTile tile) {
         return new TerrainTileLookup(Status.CORRUPT, null);
     }
 
-    public Optional<TerrainHeightTile> tileOptional() {
-        return Optional.ofNullable(tile);
-    }
 }

@@ -145,6 +145,6 @@ class MacroBaselineRunnerTest {
             int index, long duration, ResultFingerprint fingerprint
     ) {
         return new BenchmarkIterationResult(index, duration, Optional.of(fingerprint),
-                Optional.empty(), Optional.empty());
+                Optional.empty());
     }
 }

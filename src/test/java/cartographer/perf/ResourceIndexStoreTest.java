@@ -142,13 +142,6 @@ class ResourceIndexStoreTest {
         );
 
         assertEquals(
-                Set.of(observed),
-                store.positionsContainingAny(
-                        List.of(observed, empty, missing, failed),
-                        List.of(2)
-                )
-        );
-        assertEquals(
                 List.of(copper),
                 store.readOccurrences(
                         List.of(observed, empty, missing, failed),

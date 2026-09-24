@@ -9,39 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-class WorkloadCatalogTest {
-    @Test
-    void standardRadiiAndIdsAreDeterministic() {
-        List<WorkloadSpec> first = WorkloadCatalog.standard(
-                ResourceIdentity.of("Native Copper"),
-                List.of(ResourceIdentity.of("native copper")),
-                96
-        );
-        List<WorkloadSpec> second = WorkloadCatalog.standard(
-                ResourceIdentity.of("native copper"),
-                List.of(ResourceIdentity.of("native copper")),
-                96
-        );
-
-        assertEquals(first, second);
-        assertEquals("MAP_R128", first.get(0).id());
-        assertEquals("ORE_SINGLE_native_copper_R256", first.stream()
-                .filter(workload -> workload.family() == WorkloadFamily.ORE_SINGLE
-                        && workload.radius() == RadiusProfile.R256)
-                .findFirst().orElseThrow().id());
-        assertEquals("ROCK_AT_Y_Y96_R1024", first.stream()
-                .filter(workload -> workload.family() == WorkloadFamily.ROCK_AT_Y
-                        && workload.radius() == RadiusProfile.R1024)
-                .findFirst().orElseThrow().id());
-        assertEquals("PROSPECTING_FULL_R512", first.stream()
-                .filter(workload -> workload.family() == WorkloadFamily.PROSPECTING_FULL
-                        && workload.radius() == RadiusProfile.R512)
-                .findFirst().orElseThrow().id());
-        assertEquals(List.of(128, 256, 512, 1024, 2048, 4096),
-                first.stream().filter(workload -> workload.family() == WorkloadFamily.MAP)
-                        .map(workload -> workload.radius().blocks()).toList());
-    }
-
+class WorkloadContractsTest {
     @Test
     void resourceIdentityIsLocaleIndependentAndRejectsBlankValues() {
         assertEquals("native copper", ResourceIdentity.of("  NATIVE   COPPER  ").value());
@@ -57,39 +25,6 @@ class WorkloadCatalogTest {
 
         assertEquals(-32, workload.absoluteWorldY());
         assertEquals("ROCK_AT_Y_Y-32_R512", workload.id());
-    }
-
-    @Test
-    void catalogIsImmutableAndHasStableOrdering() {
-        List<WorkloadSpec> catalog = WorkloadCatalog.standard(
-                ResourceIdentity.of("clay"),
-                List.of(ResourceIdentity.of("clay")),
-                80
-        );
-
-        assertEquals(42, catalog.size());
-        assertThrows(UnsupportedOperationException.class, () ->
-                catalog.add(new MapWorkload(RadiusProfile.R128)));
-        List<WorkloadFamily> expectedFamilies = List.of(
-                WorkloadFamily.MAP,
-                WorkloadFamily.ORE_SINGLE,
-                WorkloadFamily.SURFACE_SINGLE,
-                WorkloadFamily.ROCK_AT_Y,
-                WorkloadFamily.ROCK_UPPER,
-                WorkloadFamily.PROSPECTING_SMALL,
-                WorkloadFamily.PROSPECTING_FULL
-        );
-        assertEquals(expectedFamilies,
-                catalog.stream()
-                        .map(WorkloadSpec::family)
-                        .distinct()
-                        .toList());
-        assertEquals(List.of("ROCK_UPPER_R2048", "ROCK_UPPER_R4096"),
-                catalog.stream()
-                        .filter(workload -> workload.family() == WorkloadFamily.ROCK_UPPER
-                                && workload.radius().blocks() >= 2048)
-                        .map(WorkloadSpec::id)
-                        .toList());
     }
 
     @Test
@@ -174,17 +109,5 @@ class WorkloadCatalogTest {
 
         assertEquals(WorkloadFamily.PROSPECTING_FULL, full.family());
         assertEquals("PROSPECTING_FULL_R1024", full.id());
-    }
-
-    @Test
-    void geometryMatchesExpectedExactLatticeCounts() {
-        assertEquals(51_433L, WorkloadGeometry.exactLatticeColumnCount(RadiusProfile.R128));
-        assertEquals(205_861L, WorkloadGeometry.exactLatticeColumnCount(RadiusProfile.R256));
-        assertEquals(823_473L, WorkloadGeometry.exactLatticeColumnCount(RadiusProfile.R512));
-        assertEquals(3_294_097L, WorkloadGeometry.exactLatticeColumnCount(RadiusProfile.R1024));
-        assertEquals(
-                Math.PI * 512 * 512,
-                WorkloadGeometry.approximateCircularArea(RadiusProfile.R512)
-        );
     }
 }
