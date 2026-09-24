@@ -90,7 +90,7 @@ class AnalyzeProspectingAreaUseCaseTest {
                 Path.of("world.vcdbs"),
                 Optional.of(new WorldPosition(16, 0, 16)),
                 16,
-                Optional.empty()
+                List.of()
         ));
 
         assertEquals(List.of("tin", "copper"), result.assessments().stream()

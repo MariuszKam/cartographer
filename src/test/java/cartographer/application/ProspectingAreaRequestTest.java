@@ -25,7 +25,6 @@ class ProspectingAreaRequestTest {
 
         assertEquals(List.of("copper", "tin"), request.resources());
         assertFalse(request.allResources());
-        assertTrue(request.resource().isEmpty());
     }
 
     @Test
@@ -38,20 +37,6 @@ class ProspectingAreaRequestTest {
         );
 
         assertTrue(request.allResources());
-        assertTrue(request.resource().isEmpty());
-    }
-
-    @Test
-    void compatibilitySingleResourceConstructorStillWorks() {
-        ProspectingAreaRequest request = new ProspectingAreaRequest(
-                Path.of("world.vcdbs"),
-                Optional.empty(),
-                128,
-                Optional.of("tin")
-        );
-
-        assertEquals(List.of("tin"), request.resources());
-        assertEquals(Optional.of("tin"), request.resource());
     }
 
     @Test

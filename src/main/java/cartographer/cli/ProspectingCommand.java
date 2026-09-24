@@ -3,12 +3,12 @@ package cartographer.cli;
 import cartographer.application.AnalyzeProspectingAreaUseCase;
 import cartographer.application.ProspectingAreaRequest;
 import cartographer.application.ProspectingAreaResult;
-import cartographer.render.RockMapRenderer;
 import cartographer.model.WorldPosition;
 import cartographer.prospecting.ProspectingAssessment;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -90,7 +90,7 @@ public final class ProspectingCommand implements Command {
                 savePath,
                 center,
                 intOption(args, "--radius", DEFAULT_RADIUS, MAX_RADIUS),
-                resource
+                resource.map(List::of).orElseGet(List::of)
         );
     }
 
