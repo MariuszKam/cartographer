@@ -27,6 +27,8 @@ import cartographer.render.SurfaceResourceOverlayRenderer;
 import cartographer.render.UserMarkerRenderer;
 import cartographer.resource.ResourceAnalyzer;
 import cartographer.resource.SurfaceMaterialAnalyzer;
+import cartographer.save.SaveSessionFactory;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.ui.update.DesktopUpdateController;
@@ -64,6 +66,11 @@ public class CartographerDesktopApp extends Application {
     public void start(Stage stage) {
         VcdbsReader reader = createReader();
         WorldMetadataReader metadataReader = new WorldMetadataReader();
+        SaveSessionFactory sessionFactory = new SaveSessionFactory(
+                new SqliteSaveConnection(),
+                reader,
+                metadataReader
+        );
         Path config = Path.of(
                 System.getProperty("user.home"),
                 ".vs-cartographer"
@@ -76,28 +83,31 @@ public class CartographerDesktopApp extends Application {
         RenderActualOreMapUseCase mapUseCase = createUseCase(
                 reader,
                 metadataReader,
+                sessionFactory,
                 renderDataCacheStore
         );
-        RenderCoverageMapUseCase coverageUseCase = createCoverageUseCase(reader, metadataReader);
+        RenderCoverageMapUseCase coverageUseCase = createCoverageUseCase(reader, sessionFactory);
         RenderSurfaceResourceMapUseCase surfaceUseCase =
                 createSurfaceUseCase(
                         reader,
                         metadataReader,
+                        sessionFactory,
                         renderDataCacheStore
                 );
         DiscoverObservedSurfaceResourcesUseCase surfaceDiscoveryUseCase =
-                new DiscoverObservedSurfaceResourcesUseCase(reader, metadataReader);
+                new DiscoverObservedSurfaceResourcesUseCase(reader, sessionFactory);
         RenderRockMapUseCase rockUseCase =
                 new RenderRockMapUseCase(
                         reader,
                         metadataReader,
                         new RockMapRenderer(),
+                        sessionFactory,
                         renderDataCacheStore
                 );
         PrepareWorldSnapshotUseCase prepareWorldSnapshotUseCase =
                 new PrepareWorldSnapshotUseCase(
                         reader,
-                        metadataReader,
+                        sessionFactory,
                         renderDataCacheStore
                 );
         InspectWorldSnapshotStatusUseCase snapshotStatusUseCase =
@@ -113,8 +123,10 @@ public class CartographerDesktopApp extends Application {
                         new SavedOreObservationProvider(
                                 reader,
                                 metadataReader,
+                                sessionFactory,
                                 renderDataCacheStore
                         ),
+                        sessionFactory,
                         renderDataCacheStore
                 );
 
@@ -128,8 +140,8 @@ public class CartographerDesktopApp extends Application {
                 prospectingUseCase,
                 new LoadWorldOverviewUseCase(
                         reader,
-                        metadataReader,
-                        new ResourceAnalyzer()
+                        new ResourceAnalyzer(),
+                        sessionFactory
                 ),
                 prepareWorldSnapshotUseCase,
                 snapshotStatusUseCase
@@ -256,6 +268,7 @@ public class CartographerDesktopApp extends Application {
     private RenderActualOreMapUseCase createUseCase(
             VcdbsReader reader,
             WorldMetadataReader metadataReader,
+            SaveSessionFactory sessionFactory,
             RenderDataCacheStore renderDataCacheStore
     ) {
         Path config = Path.of(System.getProperty("user.home"), ".vs-cartographer");
@@ -267,6 +280,7 @@ public class CartographerDesktopApp extends Application {
                 new MapRenderer(),
                 new UserMarkerRenderer(),
                 new ActualOreOverlayPainter(),
+                sessionFactory,
                 renderDataCacheStore
         );
     }
@@ -274,12 +288,14 @@ public class CartographerDesktopApp extends Application {
     private RenderSurfaceResourceMapUseCase createSurfaceUseCase(
             VcdbsReader reader,
             WorldMetadataReader metadataReader,
+            SaveSessionFactory sessionFactory,
             RenderDataCacheStore renderDataCacheStore
     ) {
         Path config = Path.of(System.getProperty("user.home"), ".vs-cartographer");
         return new RenderSurfaceResourceMapUseCase(
                 reader,
                 metadataReader,
+                sessionFactory,
                 new HomeStore(config.resolve("home.properties")),
                 new MarkerStore(config),
                 new MapRenderer(),
@@ -292,12 +308,12 @@ public class CartographerDesktopApp extends Application {
 
     private RenderCoverageMapUseCase createCoverageUseCase(
             VcdbsReader reader,
-            WorldMetadataReader metadataReader
+            SaveSessionFactory sessionFactory
     ) {
         Path config = Path.of(System.getProperty("user.home"), ".vs-cartographer");
         return new RenderCoverageMapUseCase(
                 reader,
-                metadataReader,
+                sessionFactory,
                 new HomeStore(config.resolve("home.properties")),
                 new RegionCoverageAnalyzer(),
                 new RegionCoverageRenderer()
