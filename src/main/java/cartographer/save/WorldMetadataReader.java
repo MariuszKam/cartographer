@@ -6,7 +6,6 @@ import cartographer.model.ParseResult;
 import cartographer.model.WorldMetadata;
 import cartographer.parser.SaveGameParser;
 
-import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -14,56 +13,10 @@ import java.sql.Statement;
 
 public class WorldMetadataReader {
 
-    private final SqliteSaveConnection connectionFactory;
     private final SaveGameParser parser;
 
     public WorldMetadataReader() {
-        this(
-                new SqliteSaveConnection(),
-                new SaveGameParser()
-        );
-    }
-
-    public WorldMetadataReader(
-            SqliteSaveConnection connectionFactory,
-            SaveGameParser parser
-    ) {
-        this.connectionFactory =
-                connectionFactory;
-
-        this.parser =
-                parser;
-    }
-
-    public WorldMetadata read(
-            Path savePath
-    ) {
-        return read(
-                savePath,
-                ProgressReporter.NONE
-        );
-    }
-
-    public WorldMetadata read(
-            Path savePath,
-            ProgressReporter progress
-    ) {
-        progress.start(
-                "Reading world metadata"
-        );
-
-        try (Connection connection =
-                     connectionFactory.openReadOnly(
-                             savePath
-                     )) {
-            return read(connection, progress);
-        } catch (SQLException exception) {
-            throw new CommandException(
-                    "Cannot read gamedata: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
+        this.parser = new SaveGameParser();
     }
 
     /** Reads metadata from an already-open session-owned read-only connection. */
