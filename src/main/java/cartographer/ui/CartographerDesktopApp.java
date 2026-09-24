@@ -99,7 +99,6 @@ public class CartographerDesktopApp extends Application {
         RenderRockMapUseCase rockUseCase =
                 new RenderRockMapUseCase(
                         reader,
-                        metadataReader,
                         new RockMapRenderer(),
                         sessionFactory,
                         renderDataCacheStore

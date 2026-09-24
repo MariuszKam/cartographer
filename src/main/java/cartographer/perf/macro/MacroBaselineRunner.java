@@ -62,7 +62,6 @@ public final class MacroBaselineRunner {
         );
         RenderRockMapUseCase rockUseCase = new RenderRockMapUseCase(
                 reader,
-                metadataReader,
                 new RockMapRenderer(),
                 sessionFactory
         );

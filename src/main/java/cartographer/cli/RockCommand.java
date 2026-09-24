@@ -74,7 +74,6 @@ public final class RockCommand implements Command {
                 ? null
                 : new RenderRockMapUseCase(
                         reader,
-                        metadataReader,
                         renderer,
                         sessionFactory,
                         Objects.requireNonNull(
@@ -104,7 +103,6 @@ public final class RockCommand implements Command {
                 ? null
                 : new RenderRockMapUseCase(
                         reader,
-                        metadataReader,
                         renderer,
                         sessionFactory
                 );
