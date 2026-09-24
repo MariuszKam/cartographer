@@ -12,9 +12,7 @@ import cartographer.render.RockLegendEntry;
 import cartographer.render.RockMapRenderer;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
-import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
@@ -36,28 +34,6 @@ public final class RockCommand implements Command {
     public RockCommand(
             PrintStream out,
             VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            RockMapRenderer renderer,
-            PngWriter pngWriter,
-            String subcommand
-    ) {
-        this(
-                out,
-                reader,
-                metadataReader,
-                renderer,
-                pngWriter,
-                subcommand,
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(), reader, metadataReader
-                )
-        );
-    }
-
-    public RockCommand(
-            PrintStream out,
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
             RockMapRenderer renderer,
             PngWriter pngWriter,
             RenderDataCacheStore renderDataCacheStore,
@@ -90,7 +66,6 @@ public final class RockCommand implements Command {
     RockCommand(
             PrintStream out,
             VcdbsReader reader,
-            WorldMetadataReader metadataReader,
             RockMapRenderer renderer,
             PngWriter pngWriter,
             String subcommand,

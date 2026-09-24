@@ -46,7 +46,6 @@ class RockCommandTest {
         new RockCommand(
                 new PrintStream(output),
                 reader,
-                new FakeMetadataReader(),
                 null,
                 new PngWriter(),
                 "list",
@@ -74,7 +73,6 @@ class RockCommandTest {
         new RockCommand(
                 new PrintStream(output),
                 reader,
-                new FakeMetadataReader(),
                 new cartographer.render.RockMapRenderer(),
                 pngWriter,
                 "render",
@@ -97,15 +95,23 @@ class RockCommandTest {
 
     @Test
     void atYModeRequiresY() {
+        FakeReader reader = new FakeReader();
+        FakeMetadataReader metadataReader = new FakeMetadataReader();
+        SaveSessionFactory sessionFactory = new SaveSessionFactory(
+                new TestConnectionFactory(),
+                reader,
+                metadataReader
+        );
+
         assertThrows(
                 CommandException.class,
                 () -> new RockCommand(
                         new PrintStream(new ByteArrayOutputStream()),
-                        new FakeReader(),
-                        new FakeMetadataReader(),
+                        reader,
                         new cartographer.render.RockMapRenderer(),
                         new PngWriter(),
-                        "render"
+                        "render",
+                        sessionFactory
                 ).run(new String[]{
                         "world.vcdbs",
                         "--mode", "at-y",

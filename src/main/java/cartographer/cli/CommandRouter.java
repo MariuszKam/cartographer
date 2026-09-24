@@ -285,7 +285,6 @@ public class CommandRouter {
                     new RockCommand(
                             out,
                             reader,
-                            metadataReader,
                             new RockMapRenderer(),
                             new PngWriter(),
                             renderDataCache,
