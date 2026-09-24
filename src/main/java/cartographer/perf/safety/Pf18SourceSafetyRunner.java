@@ -161,7 +161,7 @@ public final class Pf18SourceSafetyRunner {
     private static void runProductionWorkload(Path savePath, Path cacheRoot) {
         VcdbsReader reader = new VcdbsReader(
                 new PlayerDataParser(), new MapChunkParser(), new ChunkParser(),
-                new RegistryParser(), new SqliteSaveConnection());
+                new RegistryParser());
         WorldMetadataReader metadataReader = new WorldMetadataReader();
         RenderActualOreMapUseCase useCase = new RenderActualOreMapUseCase(
                 reader,

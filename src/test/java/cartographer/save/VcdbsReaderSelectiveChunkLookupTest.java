@@ -192,7 +192,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
 
         BlockingSelectiveParser parser = new BlockingSelectiveParser();
         VcdbsReader reader = new VcdbsReader(
-                null, null, parser, null, new SqliteSaveConnection(), 2, 4
+                null, null, parser, null, 2, 4
         );
         AtomicReference<Thread> callerThread = new AtomicReference<>();
         AtomicReference<Thread> consumerThread = new AtomicReference<>();
@@ -453,12 +453,10 @@ class VcdbsReaderSelectiveChunkLookupTest {
 
     @Test
     void selectiveAdaptiveRejectsEmptyWantedIdsBeforeDatabaseAccess() {
-        CountingSqliteSaveConnection connections = new CountingSqliteSaveConnection();
-
         assertThrows(
                 IllegalArgumentException.class,
                 () -> adaptive(
-                        new VcdbsReader(null, null, parserWithPalette(99), null, connections),
+                        new VcdbsReader(null, null, parserWithPalette(99), null),
                         temporaryDirectory.resolve("missing.vcdbs"),
                         List.of(new ChunkPosition(1, 0, 2, 0)),
                         new int[0],
@@ -467,7 +465,6 @@ class VcdbsReaderSelectiveChunkLookupTest {
                         ProgressReporter.NONE
                 )
         );
-        assertEquals(0, connections.openCount());
     }
 
     @Test
@@ -638,7 +635,12 @@ class VcdbsReaderSelectiveChunkLookupTest {
         Connection connection = (Connection) Proxy.newProxyInstance(
                 Connection.class.getClassLoader(),
                 new Class<?>[]{Connection.class},
-                (proxy, method, args) -> null
+                (proxy, method, args) -> {
+                    if ("close".equals(method.getName())) {
+                        return null;
+                    }
+                    throw new AssertionError("database connection must not be used");
+                }
         );
         return new SaveSession(database, connection, snapshot(database));
     }
@@ -825,21 +827,6 @@ class VcdbsReaderSelectiveChunkLookupTest {
                             new int[]{1}
                     )
             );
-        }
-    }
-
-    private static final class CountingSqliteSaveConnection
-            extends SqliteSaveConnection {
-        private final AtomicInteger opens = new AtomicInteger();
-
-        @Override
-        public Connection openReadOnly(Path savePath) {
-            opens.incrementAndGet();
-            return super.openReadOnly(savePath);
-        }
-
-        private int openCount() {
-            return opens.get();
         }
     }
 

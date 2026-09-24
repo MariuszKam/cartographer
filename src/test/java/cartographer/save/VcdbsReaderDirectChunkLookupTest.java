@@ -405,8 +405,7 @@ class VcdbsReaderDirectChunkLookupTest {
                 null,
                 null,
                 new StubChunkParser(),
-                null,
-                new CountingSqliteSaveConnection()
+                null
         );
 
         ChunkStreamStats stats = direct(
@@ -528,7 +527,7 @@ class VcdbsReaderDirectChunkLookupTest {
         Path database = databaseWithRows(first, second);
         BlockingChunkParser parser = new BlockingChunkParser();
         VcdbsReader reader = new VcdbsReader(
-                null, null, parser, null, new SqliteSaveConnection(), 2, 4
+                null, null, parser, null, 2, 4
         );
         AtomicReference<Thread> callerThread = new AtomicReference<>();
         AtomicReference<Thread> consumerThread = new AtomicReference<>();
@@ -573,7 +572,7 @@ class VcdbsReaderDirectChunkLookupTest {
         Path database = databaseWithRows(first, second);
         BlockingChunkParser parser = new BlockingChunkParser();
         VcdbsReader reader = new VcdbsReader(
-                null, null, parser, null, new SqliteSaveConnection(), 2, 4
+                null, null, parser, null, 2, 4
         );
         AtomicReference<Thread> callerThread = new AtomicReference<>();
         AtomicReference<Thread> consumerThread = new AtomicReference<>();
