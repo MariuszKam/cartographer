@@ -13,7 +13,6 @@ public final class CanonicalWriter {
     private static final byte LONG = 2;
     private static final byte BOOLEAN = 3;
     private static final byte STRING = 4;
-    private static final byte ENUM = 5;
     private static final byte BYTES = 6;
     private static final byte SEQUENCE = 7;
 
@@ -49,14 +48,6 @@ public final class CanonicalWriter {
         writeByte(STRING);
         writeRawInt(encoded.length);
         writeRawBytes(encoded);
-        return this;
-    }
-
-    public CanonicalWriter writeEnum(Enum<?> value) {
-        Objects.requireNonNull(value, "enum value is required");
-        writeByte(ENUM);
-        writeString(value.getDeclaringClass().getName());
-        writeString(value.name());
         return this;
     }
 

@@ -1,7 +1,6 @@
 package cartographer.perf;
 
 import java.util.Objects;
-import java.util.Optional;
 
 /** Result of reading one optional Surface cache artifact. */
 public record SurfaceTileLookup(Status status, SurfaceCacheTile tile) {
@@ -19,5 +18,4 @@ public record SurfaceTileLookup(Status status, SurfaceCacheTile tile) {
 
     public static SurfaceTileLookup miss() { return new SurfaceTileLookup(Status.MISS, null); }
     public static SurfaceTileLookup corrupt() { return new SurfaceTileLookup(Status.CORRUPT, null); }
-    public Optional<SurfaceCacheTile> tileOptional() { return Optional.ofNullable(tile); }
 }

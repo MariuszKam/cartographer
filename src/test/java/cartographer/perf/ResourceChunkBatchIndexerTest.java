@@ -92,9 +92,9 @@ class ResourceChunkBatchIndexerTest {
         assertEquals(2, copper.localX());
         assertEquals(3, copper.localZ());
         assertEquals((1L << 1) | (1L << 4), copper.localYMask());
-        assertEquals(2, copper.count());
-        assertEquals(1, copper.minLocalY());
-        assertEquals(4, copper.maxLocalY());
+        assertEquals(2, Long.bitCount(copper.localYMask()));
+        assertEquals(1, Long.numberOfTrailingZeros(copper.localYMask()));
+        assertEquals(4, 63 - Long.numberOfLeadingZeros(copper.localYMask()));
 
         ResourceOccurrence tin = decoded.occurrences().stream()
                 .filter(occurrence -> occurrence.blockId() == 3)
@@ -103,7 +103,7 @@ class ResourceChunkBatchIndexerTest {
         assertEquals(5, tin.localX());
         assertEquals(6, tin.localZ());
         assertEquals(1L << 31, tin.localYMask());
-        assertEquals(31, tin.maxLocalY());
+        assertEquals(31, 63 - Long.numberOfLeadingZeros(tin.localYMask()));
 
         assertEquals(
                 ResourceChunkCoverageStatus.AVAILABLE,

@@ -42,22 +42,4 @@ public record ResourceOccurrence(
         }
     }
 
-    public int count() {
-        return Long.bitCount(localYMask);
-    }
-
-    public boolean containsLocalY(int localY) {
-        if (localY < 0 || localY >= 32) {
-            return false;
-        }
-        return (localYMask & (1L << localY)) != 0L;
-    }
-
-    public int minLocalY() {
-        return Long.numberOfTrailingZeros(localYMask);
-    }
-
-    public int maxLocalY() {
-        return 63 - Long.numberOfLeadingZeros(localYMask);
-    }
 }

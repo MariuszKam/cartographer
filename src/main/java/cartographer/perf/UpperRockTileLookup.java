@@ -1,7 +1,6 @@
 package cartographer.perf;
 
 import java.util.Objects;
-import java.util.Optional;
 
 /** Result of reading one optional PF-2.4 UPPER_ROCK tile. */
 public record UpperRockTileLookup(Status status, UpperRockTile tile) {
@@ -38,7 +37,4 @@ public record UpperRockTileLookup(Status status, UpperRockTile tile) {
         return new UpperRockTileLookup(Status.CORRUPT, null);
     }
 
-    public Optional<UpperRockTile> tileOptional() {
-        return Optional.ofNullable(tile);
-    }
 }
