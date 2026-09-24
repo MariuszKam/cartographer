@@ -17,7 +17,6 @@ import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMapScanner;
 import cartographer.scanner.ActualBlockYFilter;
@@ -101,7 +100,7 @@ public class ScanCommand implements Command {
         this.sessionFactory = sessionFactory;
         this.mapDataUseCase = new PrepareMapDataUseCase(
                 reader,
-                new WorldMetadataReader()
+                sessionFactory
         );
         this.blockScanner = blockScanner;
         this.actualBlockMapScanner = actualBlockMapScanner;
