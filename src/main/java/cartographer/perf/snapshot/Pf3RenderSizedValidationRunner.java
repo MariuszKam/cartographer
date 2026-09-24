@@ -92,7 +92,6 @@ public final class Pf3RenderSizedValidationRunner {
         RenderRockMapUseCase warmRockUseCase =
                 new RenderRockMapUseCase(
                         reader,
-                        metadataReader,
                         renderer,
                         warmSessionFactory,
                         cacheStore

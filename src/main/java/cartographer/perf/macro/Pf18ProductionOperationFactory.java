@@ -68,7 +68,7 @@ public final class Pf18ProductionOperationFactory implements Pf18MacroOperationF
             SaveSessionFactory sessions = new SaveSessionFactory(
                     new SqliteSaveConnection(), reader, metadataReader);
             RenderRockMapUseCase useCase = new RenderRockMapUseCase(
-                    reader, metadataReader, new RockMapRenderer(), sessions);
+                    reader, new RockMapRenderer(), sessions);
             RenderRockMapRequest request = new RenderRockMapRequest(
                     save, RockMapMode.UPPER_ROCK, workload.radius().blocks(),
                     Optional.empty(), OptionalInt.empty(), OptionalInt.empty(), OptionalInt.empty());
