@@ -309,7 +309,7 @@ class VcdbsReaderDirectMapChunkLookupTest {
         }
     }
 
-    private static final class RecordingProgressReporter extends ProgressReporter {
+    private static final class RecordingProgressReporter implements ProgressReporter {
         private final List<String> events = new ArrayList<>();
 
         @Override
