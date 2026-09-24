@@ -84,6 +84,27 @@ public final class AnalyzeProspectingAreaUseCase {
         );
     }
 
+    public AnalyzeProspectingAreaUseCase(
+            VcdbsReader reader,
+            ResourceAnalyzer resourceAnalyzer,
+            OreRockCompatibilityProvider compatibilityProvider,
+            FusedProspectingObservationProvider prospectingProvider,
+            SaveSessionFactory sessionFactory,
+            RenderDataCacheStore renderDataCacheStore
+    ) {
+        this(
+                reader,
+                resourceAnalyzer,
+                compatibilityProvider,
+                prospectingProvider,
+                sessionFactory,
+                Optional.of(Objects.requireNonNull(
+                        renderDataCacheStore,
+                        "render data cache store is required"
+                ))
+        );
+    }
+
     AnalyzeProspectingAreaUseCase(
             VcdbsReader reader,
             ResourceAnalyzer resourceAnalyzer,
