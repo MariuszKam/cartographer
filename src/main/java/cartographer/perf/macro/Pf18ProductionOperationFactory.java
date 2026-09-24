@@ -111,12 +111,12 @@ public final class Pf18ProductionOperationFactory implements Pf18MacroOperationF
         SaveSessionFactory sessions = new SaveSessionFactory(
                 new SqliteSaveConnection(), reader, metadataReader);
         if (cacheRoot == null) {
-            return new RenderActualOreMapUseCase(reader, metadataReader, home, markers,
+            return new RenderActualOreMapUseCase(reader, home, markers,
                     new MapRenderer(), new UserMarkerRenderer(),
                     new ActualOreOverlayPainter(), new MultiActualBlockMapScanner(),
                     new OreChunkPositionPlanner(), sessions);
         }
-        return new RenderActualOreMapUseCase(reader, metadataReader, home, markers,
+        return new RenderActualOreMapUseCase(reader, home, markers,
                 new MapRenderer(), new UserMarkerRenderer(),
                 new ActualOreOverlayPainter(), new MultiActualBlockMapScanner(),
                 new OreChunkPositionPlanner(), sessions, new RenderDataCacheStore(cacheRoot));

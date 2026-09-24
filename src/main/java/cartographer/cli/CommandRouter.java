@@ -193,7 +193,6 @@ public class CommandRouter {
                             new PngWriter(),
                             new RenderActualOreMapUseCase(
                                     reader,
-                                    metadataReader,
                                     homeStore,
                                     markerStore,
                                     new MapRenderer(),

@@ -273,7 +273,6 @@ public class CartographerDesktopApp extends Application {
         Path config = Path.of(System.getProperty("user.home"), ".vs-cartographer");
         return new RenderActualOreMapUseCase(
                 reader,
-                metadataReader,
                 new HomeStore(config.resolve("home.properties")),
                 new MarkerStore(config),
                 new MapRenderer(),

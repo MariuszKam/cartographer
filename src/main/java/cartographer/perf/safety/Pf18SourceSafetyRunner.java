@@ -165,7 +165,6 @@ public final class Pf18SourceSafetyRunner {
         WorldMetadataReader metadataReader = new WorldMetadataReader();
         RenderActualOreMapUseCase useCase = new RenderActualOreMapUseCase(
                 reader,
-                metadataReader,
                 new HomeStore(cacheRoot.resolve("pf18-state").resolve("home.properties")),
                 new MarkerStore(cacheRoot.resolve("pf18-state")),
                 new MapRenderer(),
