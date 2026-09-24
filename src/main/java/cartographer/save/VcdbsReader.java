@@ -65,7 +65,6 @@ public class VcdbsReader {
     private final ChunkParser chunkParser;
     private final RegistryParser registryParser;
     private final ServerMapRegionParser serverMapRegionParser;
-    private final SqliteSaveConnection connectionFactory;
     private final int chunkDecodeWorkerCount;
     private final int chunkDecodeMaxInFlight;
     private final AtomicReference<ChunkReadMetrics> lastChunkReadMetrics =
@@ -2276,23 +2275,6 @@ public class VcdbsReader {
                 mapChunkParser,
                 chunkParser,
                 registryParser,
-                new SqliteSaveConnection()
-        );
-    }
-
-    public VcdbsReader(
-            PlayerDataParser playerDataParser,
-            MapChunkParser mapChunkParser,
-            ChunkParser chunkParser,
-            RegistryParser registryParser,
-            SqliteSaveConnection connectionFactory
-    ) {
-        this(
-                playerDataParser,
-                mapChunkParser,
-                chunkParser,
-                registryParser,
-                connectionFactory,
                 defaultChunkDecodeWorkerCount(),
                 defaultChunkDecodeMaxInFlight(defaultChunkDecodeWorkerCount())
         );
@@ -2303,26 +2285,6 @@ public class VcdbsReader {
             MapChunkParser mapChunkParser,
             ChunkParser chunkParser,
             RegistryParser registryParser,
-            int chunkDecodeWorkerCount,
-            int chunkDecodeMaxInFlight
-    ) {
-        this(
-                playerDataParser,
-                mapChunkParser,
-                chunkParser,
-                registryParser,
-                new SqliteSaveConnection(),
-                chunkDecodeWorkerCount,
-                chunkDecodeMaxInFlight
-        );
-    }
-
-    VcdbsReader(
-            PlayerDataParser playerDataParser,
-            MapChunkParser mapChunkParser,
-            ChunkParser chunkParser,
-            RegistryParser registryParser,
-            SqliteSaveConnection connectionFactory,
             int chunkDecodeWorkerCount,
             int chunkDecodeMaxInFlight
     ) {
@@ -2350,9 +2312,6 @@ public class VcdbsReader {
 
         this.serverMapRegionParser =
                 new ServerMapRegionParser();
-
-        this.connectionFactory =
-                connectionFactory;
 
         this.chunkDecodeWorkerCount = chunkDecodeWorkerCount;
         this.chunkDecodeMaxInFlight = chunkDecodeMaxInFlight;
