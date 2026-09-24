@@ -366,7 +366,7 @@ packaged launcher:
 VS Cartographer.exe
 ```
 
-Development runs through `java.exe` / Gradle `runGui` therefore fail safely
+Development runs through `java.exe` / Gradle `run` therefore fail safely
 instead of attempting to update an arbitrary Java process.
 
 ### S4.3 Wait for the application process

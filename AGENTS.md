@@ -2,7 +2,7 @@
 
 ## Project purpose
 
-VS Cartographer is a Java/JavaFX desktop application with CLI tooling for offline analysis of Vintage Story `.vcdbs` save files.
+VS Cartographer is a Java/JavaFX desktop application for offline analysis of Vintage Story `.vcdbs` save files.
 
 The project reads Vintage Story saves in SQLite read-only mode and turns stored world data into useful navigation, mapping, terrain, environment, geology, resource and marker information.
 
@@ -68,26 +68,10 @@ Never silently mix DISPLAY and ABSOLUTE coordinate spaces.
 ```text
 src/main/java/cartographer/
 
-├── cli/
-│   ├── CommandRouter
-│   ├── WhereamiCommand
-│   ├── HomeCommand
-│   ├── NavCommand
-│   ├── MapCommand
-│   ├── MapRegionCommand
-│   ├── EnvironmentCommand
-│   ├── ResourceCommand
-│   ├── ScanCommand
-│   ├── GeologyCommand
-│   ├── MarkerCommand
-│   ├── AtlasCommand
-│   └── ConsoleProgressReporter
-│
 ├── save/
 │   ├── SqliteSaveConnection
 │   ├── VcdbsReader
-│   ├── WorldMetadataReader
-│   └── SaveInspector
+│   └── WorldMetadataReader
 │
 ├── parser/
 │   ├── PlayerDataParser
@@ -106,12 +90,10 @@ src/main/java/cartographer/
 ├── render/
 │   ├── MapRenderer
 │   ├── UserMarkerRenderer
-│   ├── ResourceOverlayRenderer
 │   ├── SurfaceResourceOverlayRenderer
 │   ├── RenderLayer
 │   ├── RenderOptions
-│   ├── RenderStyle
-│   └── PngWriter
+│   └── RenderStyle
 │
 ├── environment/
 │   ├── EnvironmentInterpreter
@@ -138,10 +120,6 @@ src/main/java/cartographer/
 │
 ├── navigation/
 │   └── HomeStore
-│
-├── atlas/
-│   ├── AtlasRenderer
-│   └── TilePyramid
 │
 └── perf/
     ├── RenderDataCacheStore
@@ -424,13 +402,6 @@ Goal:
 
 Build a real spatial index of explored mapregions and summarize the explored world footprint.
 
-Desired CLI:
-
-```text
-coverage inspect <save.vcdbs>
-coverage render <save.vcdbs> --out <coverage.png>
-```
-
 Desired analysis:
 
 ```text
@@ -456,8 +427,8 @@ This milestone is considered complete only after:
 
 ```text
 unit tests
-real-save CLI validation
-PNG inspection
+real-save desktop validation
+visual inspection
 ```
 
 Once 1.0a is complete:
@@ -543,75 +514,11 @@ optional lightweight HTML viewer
 
 ---
 
-# CLI snapshot
-
-Current major commands include:
-
-```text
-whereami
-
-home set
-home show
-
-nav home
-
-map render
-
-mapregion inspect
-
-environment inspect
-
-resource list
-resource inspect
-resource search
-resource render
-resource surface-search
-resource surface-render
-
-scan surface
-scan blocks
-
-geology surface
-geology strata
-
-markers add
-markers update
-markers here
-markers list
-markers remove
-markers clear
-
-
-
-atlas render
-
-inspect```
-
----
-
 # Marker contract
 
-Examples:
-
-```text
-markers add world.vcdbs RED CLAY -834 259
-markers update world.vcdbs RED CLAY -800 300
-markers here world.vcdbs BASE
-markers remove world.vcdbs RED CLAY
-```
-
-For `add` and `update`:
-
-```text
-last two arguments = DISPLAY X and Z
-everything between save path and coordinates = marker name
-```
-
-For `here` and `remove`:
-
-```text
-everything after save path = marker name
-```
+User-facing markers are stored in DISPLAY coordinates. Marker names are unique
+per save, case-insensitively. Renderers convert DISPLAY coordinates back to
+absolute coordinates through `WorldMetadata`; never silently mix the two spaces.
 
 ---
 
@@ -749,9 +656,9 @@ Tests, benchmarks, and real-save validation were not run; they are left to the r
 Before marking a milestone DONE:
 
 1. Compile/test suite must be green.
-2. Relevant CLI command must be run against the real save.
+2. Relevant desktop workflow must be exercised against the real save when runtime behavior is affected.
 3. Output must be manually inspected.
-4. PNG output must be visually inspected when rendering is involved.
+4. Rendered output must be visually inspected when rendering is involved.
 5. No unrelated files should be changed in the implementation commit.
 
 ## Test authoring rules
