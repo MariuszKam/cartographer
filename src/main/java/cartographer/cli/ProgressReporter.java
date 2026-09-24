@@ -4,6 +4,11 @@ import java.io.PrintStream;
 
 public class ProgressReporter extends cartographer.application.ProgressReporter {
 
+    public static final ProgressReporter NONE =
+            new ProgressReporter(
+                    null
+            );
+
     private final PrintStream out;
 
     private String currentStage =
