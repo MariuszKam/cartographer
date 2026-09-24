@@ -173,16 +173,8 @@ public final class SearchPanel extends VBox {
         prospectingPane.setResources(List.of());
     }
 
-    public Optional<ObservedSurfaceResource> selectedObservedSurfaceResource() {
-        return surfacePane.selectedObservedSurfaceResource();
-    }
-
     public List<ObservedSurfaceResource> selectedObservedSurfaceResources() {
         return surfacePane.selectedObservedSurfaceResources();
-    }
-
-    public void setObservedSurfaceResources(ObservedSurfaceResourceCatalog catalog) {
-        surfacePane.setObservedSurfaceResources(catalog);
     }
 
     public void setObservedSurfaceResources(
@@ -190,13 +182,6 @@ public final class SearchPanel extends VBox {
             Set<String> previousKeys
     ) {
         surfacePane.setObservedSurfaceResources(catalog, previousKeys);
-    }
-
-    public void setObservedSurfaceResources(
-            ObservedSurfaceResourceCatalog catalog,
-            String previousKey
-    ) {
-        surfacePane.setObservedSurfaceResources(catalog, previousKey);
     }
 
     public void clearObservedSurfaceResources() {

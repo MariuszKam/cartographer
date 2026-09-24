@@ -381,32 +381,14 @@ public final class WorkstationView implements UpdateCheckView {
     }
 
     public void setObservedSurfaceResources(
-            ObservedSurfaceResourceCatalog catalog
-    ) {
-        searchPanel.setObservedSurfaceResources(catalog);
-    }
-
-    public void setObservedSurfaceResources(
             ObservedSurfaceResourceCatalog catalog,
             java.util.Set<String> previousKeys
     ) {
         searchPanel.setObservedSurfaceResources(catalog, previousKeys);
     }
 
-    public void setObservedSurfaceResources(
-            ObservedSurfaceResourceCatalog catalog,
-            String previousKey
-    ) {
-        searchPanel.setObservedSurfaceResources(catalog, previousKey);
-    }
-
     public void clearObservedSurfaceResources() {
         searchPanel.clearObservedSurfaceResources();
-    }
-
-    public java.util.Optional<cartographer.resource.ObservedSurfaceResource>
-    selectedObservedSurfaceResource() {
-        return searchPanel.selectedObservedSurfaceResource();
     }
 
     public java.util.List<cartographer.resource.ObservedSurfaceResource>
