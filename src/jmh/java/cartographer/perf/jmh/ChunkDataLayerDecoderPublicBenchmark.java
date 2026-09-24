@@ -1,6 +1,7 @@
 package cartographer.perf.jmh;
 
 import cartographer.parser.ChunkDataLayerDecoder;
+import cartographer.parser.ChunkDataLayerDecoderJmhAccess;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -18,8 +19,9 @@ import org.openjdk.jmh.annotations.Warmup;
 import java.util.concurrent.TimeUnit;
 
 /**
- * In-memory decoder microbenchmark with no SQLite or save I/O. The public
- * method is intended for cross-SHA comparison; it is not macro evidence.
+ * In-memory decoder microbenchmark with no SQLite or save I/O. The historical
+ * benchmark identity is retained for cross-SHA comparison, while JMH reaches
+ * the canonical owned decoder through a JMH-only package bridge.
  */
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
@@ -49,6 +51,8 @@ public class ChunkDataLayerDecoderPublicBenchmark {
 
     @Benchmark
     public int[] decodePublicApi() {
-        return decoder.decode(payload, 2);
+        return ChunkDataLayerDecoderJmhAccess
+                .decodeOwned(decoder, payload, 2)
+                .toArray();
     }
 }
