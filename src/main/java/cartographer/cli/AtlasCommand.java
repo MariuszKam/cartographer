@@ -1,5 +1,6 @@
 package cartographer.cli;
 
+import cartographer.application.ProgressReporter;
 import cartographer.atlas.AtlasRenderer;
 import cartographer.model.DisplayPosition;
 import cartographer.model.HomeLocation;
@@ -73,7 +74,7 @@ public class AtlasCommand implements Command {
                 );
 
         ProgressReporter progress =
-                new ProgressReporter(
+                new ConsoleProgressReporter(
                         out
                 );
 
