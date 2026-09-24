@@ -615,8 +615,8 @@ class MapCommandTest {
             extends WorldMetadataReader {
 
         @Override
-        public WorldMetadata read(
-                Path savePath,
+        protected WorldMetadata read(
+                Connection connection,
                 cartographer.application.ProgressReporter progress
         ) {
             return new WorldMetadata(
@@ -624,14 +624,6 @@ class MapCommandTest {
                     256,
                     1024
             );
-        }
-
-        @Override
-        protected WorldMetadata read(
-                Connection connection,
-                cartographer.application.ProgressReporter progress
-        ) {
-            return read((Path) null, progress);
         }
     }
 

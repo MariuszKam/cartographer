@@ -1533,11 +1533,6 @@ class RenderActualOreMapUseCaseTest {
     ) {
         WorldMetadataReader metadataReader = new WorldMetadataReader() {
             @Override
-            public WorldMetadata read(Path savePath) {
-                return metadata;
-            }
-
-            @Override
             protected WorldMetadata read(Connection connection, ProgressReporter progress) {
                 return metadata;
             }
@@ -1564,11 +1559,6 @@ class RenderActualOreMapUseCaseTest {
             RenderDataCacheStore renderDataCacheStore
     ) {
         WorldMetadataReader metadataReader = new WorldMetadataReader() {
-            @Override
-            public WorldMetadata read(Path savePath) {
-                return metadata;
-            }
-
             @Override
             protected WorldMetadata read(Connection connection, ProgressReporter progress) {
                 return metadata;
@@ -1597,11 +1587,6 @@ class RenderActualOreMapUseCaseTest {
             TestConnectionFactory connections
     ) {
         WorldMetadataReader metadataReader = new WorldMetadataReader() {
-            @Override
-            public WorldMetadata read(Path savePath) {
-                return metadata;
-            }
-
             @Override
             protected WorldMetadata read(Connection connection, ProgressReporter progress) {
                 return metadata;

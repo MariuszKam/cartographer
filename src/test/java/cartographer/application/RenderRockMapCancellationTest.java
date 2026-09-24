@@ -52,7 +52,7 @@ class RenderRockMapCancellationTest {
                 scanStarted,
                 scanInterrupted
         );
-        WorldMetadataReader metadata = new WorldMetadataReader(null, null) {
+        WorldMetadataReader metadata = new WorldMetadataReader() {
             @Override
             protected WorldMetadata read(
                     Connection connection,

@@ -525,16 +525,12 @@ class RenderSurfaceResourceMapUseCaseTest {
     }
 
     private WorldMetadataReader metadataReader(WorldMetadata metadata) {
-        return new WorldMetadataReader(null, null) {
+        return new WorldMetadataReader() {
             @Override
             protected WorldMetadata read(Connection connection, ProgressReporter progress) {
                 return metadata;
             }
 
-            @Override
-            public WorldMetadata read(Path savePath) {
-                return metadata;
-            }
         };
     }
 

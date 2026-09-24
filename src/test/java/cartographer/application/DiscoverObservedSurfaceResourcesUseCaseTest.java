@@ -164,7 +164,7 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
     }
 
     private WorldMetadataReader metadataReader() {
-        return new WorldMetadataReader(null, null) {
+        return new WorldMetadataReader() {
             @Override
             protected WorldMetadata read(
                     Connection connection,
