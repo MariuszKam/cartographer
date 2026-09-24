@@ -826,7 +826,7 @@ class VcdbsReaderDirectChunkLookupTest {
         return new SaveSession(
                 database,
                 new SqliteSaveConnection().openReadOnly(database),
-                snapshot(database)
+                snapshot()
         );
     }
 
@@ -836,7 +836,7 @@ class VcdbsReaderDirectChunkLookupTest {
                 new Class<?>[]{Connection.class},
                 (proxy, method, args) -> null
         );
-        return new SaveSession(database, connection, snapshot(database));
+        return new SaveSession(database, connection, snapshot());
     }
 
     private SaveSnapshot snapshot() {
