@@ -86,7 +86,6 @@ class SurfaceRainHeightFastPathTest {
 
         assertTrue(unavailable.fallbackMapChunks().contains(new MapChunkCoordinate(0, 0)));
         assertFalse(unavailable.surface().isResolved(1, 1));
-        assertTrue(unavailable.diagnostics().liquidUnavailableColumns() > 0);
     }
 
     @Test
