@@ -146,13 +146,13 @@ public final class RenderRockMapUseCase {
             SaveSessionFactory sessionFactory,
             Optional<RenderDataCacheStore> renderDataCacheStore
     ) {
-        Objects.requireNonNull(metadataReader, "metadata reader is required");
         this(
                 reader,
                 renderer,
                 sessionFactory,
                 renderDataCacheStore
         );
+        Objects.requireNonNull(metadataReader, "metadata reader is required");
     }
 
     RenderRockMapUseCase(
