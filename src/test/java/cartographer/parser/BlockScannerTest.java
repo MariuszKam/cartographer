@@ -2,7 +2,7 @@ package cartographer.parser;
 
 import cartographer.analysis.BlockScanResult;
 import cartographer.analysis.BlockScanner;
-import cartographer.cli.ProgressReporter;
+import cartographer.application.ProgressReporter;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ParsedChunk;
