@@ -156,7 +156,7 @@ dependencies {
 }
 
 application {
-    mainClass = "cartographer.Main"
+    mainClass = packagingDesktopMainClass
     applicationDefaultJvmArgs = listOf("--enable-native-access=ALL-UNNAMED")
 }
 
@@ -437,14 +437,6 @@ tasks.register<JavaExec>("pf3RenderSizedValidation") {
             ?: throw GradleException("pf3RenderSizedValidation requires -PoutputRoot=<fresh-evidence-directory>")
         args(save, gitSha, outputRoot)
     }
-}
-
-tasks.register<JavaExec>("runGui") {
-    group = "application"
-    description = "Launches the VS Cartographer desktop UI"
-    classpath = sourceSets["main"].runtimeClasspath
-    mainClass.set(packagingDesktopMainClass)
-    jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
 
 tasks.register<Sync>("prepareJpackageInput") {

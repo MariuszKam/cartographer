@@ -1,6 +1,5 @@
 package cartographer.perf;
 
-import cartographer.cli.CommandException;
 import cartographer.model.MapChunkCoordinate;
 
 import java.nio.file.Files;
@@ -182,7 +181,7 @@ public final class SurfaceTileStore {
                 }
             }
         } catch (SQLException | java.io.IOException exception) {
-            throw new CommandException("Cannot publish Surface cache tiles: " + exception.getMessage(), exception);
+            throw new IllegalStateException("Cannot publish Surface cache tiles: " + exception.getMessage(), exception);
         }
     }
 

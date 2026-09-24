@@ -1,8 +1,7 @@
 package cartographer.perf;
 
-import cartographer.cli.CommandException;
-
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
@@ -39,7 +38,7 @@ public record RenderDataCacheRevision(
                     compatibilityVersion
             );
         } catch (IOException exception) {
-            throw new CommandException(
+            throw new UncheckedIOException(
                     "Cannot inspect save revision: " + exception.getMessage(),
                     exception
             );

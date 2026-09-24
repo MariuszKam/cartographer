@@ -1,6 +1,5 @@
 package cartographer.perf;
 
-import cartographer.cli.CommandException;
 import cartographer.model.MapRegionCoordinate;
 
 import java.nio.file.Files;
@@ -100,7 +99,7 @@ public final class MapRegionSnapshotStore {
                     corrupt
             );
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot read mapregion snapshot: "
                             + exception.getMessage(),
                     exception
@@ -146,7 +145,7 @@ public final class MapRegionSnapshotStore {
                 }
             }
         } catch (SQLException | java.io.IOException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot publish mapregion snapshot: "
                             + exception.getMessage(),
                     exception
@@ -174,7 +173,7 @@ public final class MapRegionSnapshotStore {
                 statement.executeUpdate("DELETE FROM mapregion_snapshot");
             }
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot clear mapregion snapshot entries: "
                             + exception.getMessage(),
                     exception
@@ -207,7 +206,7 @@ public final class MapRegionSnapshotStore {
                 }
             }
         } catch (SQLException | java.io.IOException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot update mapregion snapshot metadata: "
                             + exception.getMessage(),
                     exception

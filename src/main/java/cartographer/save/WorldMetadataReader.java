@@ -1,6 +1,5 @@
 package cartographer.save;
 
-import cartographer.cli.CommandException;
 import cartographer.application.ProgressReporter;
 import cartographer.model.ParseResult;
 import cartographer.model.WorldMetadata;
@@ -35,7 +34,7 @@ public class WorldMetadataReader {
              )) {
 
             if (!resultSet.next()) {
-                throw new CommandException(
+                throw new IllegalStateException(
                         "Save contains no gamedata row"
                 );
             }
@@ -54,7 +53,7 @@ public class WorldMetadataReader {
                     result.value()
                             .orElseThrow(
                                     () ->
-                                            new CommandException(
+                                            new IllegalStateException(
                                                     result.error()
                                                             .orElse(
                                                                     "Unable to read world metadata"
@@ -69,7 +68,7 @@ public class WorldMetadataReader {
             return metadata;
 
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot read gamedata: "
                             + exception.getMessage(),
                     exception

@@ -1,6 +1,5 @@
 package cartographer.perf;
 
-import cartographer.cli.CommandException;
 import cartographer.model.MapChunkCoordinate;
 
 import java.nio.file.Files;
@@ -212,7 +211,7 @@ public final class TerrainTileStore {
                 }
             }
         } catch (SQLException | java.io.IOException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot publish terrain cache tiles: " + exception.getMessage(),
                     exception
             );
