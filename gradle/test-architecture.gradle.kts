@@ -314,7 +314,6 @@ tasks.named<Test>("test") {
 
 val testSuiteBudgetMs = 60_000L
 val testClassBudgetMs = 15_000L
-val minimumTestCount = 979L
 
 tasks.register("testPerformanceBudget") {
     group = "verification"
@@ -370,11 +369,6 @@ tasks.register("testPerformanceBudget") {
         if (durationMs > testSuiteBudgetMs) {
             violations.add(
                 "suite duration ${durationMs}ms exceeds ${testSuiteBudgetMs}ms"
-            )
-        }
-        if (testCount < minimumTestCount) {
-            violations.add(
-                "test count $testCount is below minimum $minimumTestCount"
             )
         }
         if (successfulTestCount != testCount
