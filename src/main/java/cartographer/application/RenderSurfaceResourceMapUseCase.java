@@ -108,6 +108,56 @@ public class RenderSurfaceResourceMapUseCase {
 
     public RenderSurfaceResourceMapUseCase(
             VcdbsReader reader,
+            SaveSessionFactory sessionFactory,
+            HomeStore homeStore,
+            MarkerStore markerStore,
+            MapRenderer renderer,
+            UserMarkerRenderer userMarkerRenderer,
+            SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
+            SurfaceResourceOverlayRenderer overlayRenderer
+    ) {
+        this(
+                reader,
+                sessionFactory,
+                homeStore,
+                markerStore,
+                renderer,
+                userMarkerRenderer,
+                surfaceMaterialAnalyzer,
+                overlayRenderer,
+                Optional.empty()
+        );
+    }
+
+    public RenderSurfaceResourceMapUseCase(
+            VcdbsReader reader,
+            SaveSessionFactory sessionFactory,
+            HomeStore homeStore,
+            MarkerStore markerStore,
+            MapRenderer renderer,
+            UserMarkerRenderer userMarkerRenderer,
+            SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
+            SurfaceResourceOverlayRenderer overlayRenderer,
+            RenderDataCacheStore renderDataCacheStore
+    ) {
+        this(
+                reader,
+                sessionFactory,
+                homeStore,
+                markerStore,
+                renderer,
+                userMarkerRenderer,
+                surfaceMaterialAnalyzer,
+                overlayRenderer,
+                Optional.of(Objects.requireNonNull(
+                        renderDataCacheStore,
+                        "render data cache store is required"
+                ))
+        );
+    }
+
+    public RenderSurfaceResourceMapUseCase(
+            VcdbsReader reader,
             WorldMetadataReader metadataReader,
             SaveSessionFactory sessionFactory,
             HomeStore homeStore,
@@ -172,8 +222,32 @@ public class RenderSurfaceResourceMapUseCase {
             SurfaceResourceOverlayRenderer overlayRenderer,
             Optional<RenderDataCacheStore> renderDataCacheStore
     ) {
-        this.reader = Objects.requireNonNull(reader, "reader is required");
+        this(
+                reader,
+                sessionFactory,
+                homeStore,
+                markerStore,
+                renderer,
+                userMarkerRenderer,
+                surfaceMaterialAnalyzer,
+                overlayRenderer,
+                renderDataCacheStore
+        );
         Objects.requireNonNull(metadataReader, "metadataReader is required");
+    }
+
+    private RenderSurfaceResourceMapUseCase(
+            VcdbsReader reader,
+            SaveSessionFactory sessionFactory,
+            HomeStore homeStore,
+            MarkerStore markerStore,
+            MapRenderer renderer,
+            UserMarkerRenderer userMarkerRenderer,
+            SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
+            SurfaceResourceOverlayRenderer overlayRenderer,
+            Optional<RenderDataCacheStore> renderDataCacheStore
+    ) {
+        this.reader = Objects.requireNonNull(reader, "reader is required");
         this.sessionFactory = Objects.requireNonNull(sessionFactory, "sessionFactory is required");
         this.homeStore = Objects.requireNonNull(homeStore, "homeStore is required");
         this.markerStore = Objects.requireNonNull(markerStore, "markerStore is required");
