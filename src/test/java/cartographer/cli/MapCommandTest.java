@@ -407,7 +407,6 @@ class MapCommandTest {
     ) {
         RenderActualOreMapUseCase useCase = new RenderActualOreMapUseCase(
                 reader,
-                metadataReader,
                 homeStore,
                 markerStore,
                 renderer,

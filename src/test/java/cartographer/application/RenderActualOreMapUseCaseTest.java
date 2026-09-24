@@ -1539,7 +1539,6 @@ class RenderActualOreMapUseCaseTest {
         };
         return new RenderActualOreMapUseCase(
                 reader,
-                metadataReader,
                 new HomeStore(homePath),
                 new MarkerStore(markerPath),
                 new MapRenderer(),
@@ -1566,7 +1565,6 @@ class RenderActualOreMapUseCaseTest {
         };
         return new RenderActualOreMapUseCase(
                 reader,
-                metadataReader,
                 new HomeStore(homePath),
                 new MarkerStore(markerPath),
                 new MapRenderer(),
@@ -1593,7 +1591,7 @@ class RenderActualOreMapUseCaseTest {
             }
         };
         return new RenderActualOreMapUseCase(
-                reader, metadataReader, new HomeStore(homePath), new MarkerStore(markerPath),
+                reader, new HomeStore(homePath), new MarkerStore(markerPath),
                 new MapRenderer(), new UserMarkerRenderer(),
                 new ActualOreOverlayPainter(), new cartographer.scanner.MultiActualBlockMapScanner(),
                 new OreChunkPositionPlanner(),

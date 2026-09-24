@@ -80,7 +80,6 @@ class SnapshotBackedMapRoutingTest {
         RenderActualOreMapUseCase useCase =
                 new RenderActualOreMapUseCase(
                         reader,
-                        metadataReader,
                         new HomeStore(root.resolve("home.properties")),
                         new MarkerStore(root.resolve("markers.csv")),
                         new MapRenderer(),
