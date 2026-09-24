@@ -1,8 +1,11 @@
 package cartographer.cli;
 
+import cartographer.environment.ClimateSummary;
 import cartographer.environment.EnvironmentInterpreter;
 import cartographer.environment.EnvironmentProfile;
+import cartographer.environment.ForestSummary;
 import cartographer.environment.IdMapSummary;
+import cartographer.environment.OceanSummary;
 import cartographer.model.ServerMapRegion;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
@@ -191,6 +194,43 @@ public class EnvironmentCommand implements Command {
         out.println(
                 "Derived Cartographer labels: "
                         + profile.labels()
+        );
+    }
+
+    private void printClimate(
+            ClimateSummary summary
+    ) {
+        out.printf(
+                "Climate: samples=%d avgTemperatureIndex=%.2f avgRainfallIndex=%.2f rawSample=%s%n",
+                summary.samples(),
+                summary.averageTemperatureIndex(),
+                summary.averageRainfallIndex(),
+                summary.rawSample()
+        );
+    }
+
+    private void printForest(
+            ForestSummary summary
+    ) {
+        out.printf(
+                "Forest: samples=%d rawMin=%d rawMax=%d avgNormalizedDensity=%.3f cartographerClass=%s%n",
+                summary.samples(),
+                summary.rawMin(),
+                summary.rawMax(),
+                summary.averageNormalizedDensity(),
+                summary.averageDensityClass()
+        );
+    }
+
+    private void printOcean(
+            OceanSummary summary
+    ) {
+        out.printf(
+                "Ocean: samples=%d rawMin=%d rawMax=%d avgRaw=%.2f%n",
+                summary.samples(),
+                summary.rawMin(),
+                summary.rawMax(),
+                summary.averageRawValue()
         );
     }
 
