@@ -86,8 +86,8 @@ class SurfaceObjectClassifierTest {
                 "game:looseores-nativecopper-free"
         ).forEach(code -> assertFalse(classifier.classify(new BlockInfo(1, code)).isPresent(), code));
 
-        assertTrue(classifier.classify((String) null).isEmpty());
-        assertTrue(classifier.classify("game:loosestones--free").isEmpty());
+        assertTrue(classifier.classify(new BlockInfo(1, null)).isEmpty());
+        assertTrue(classifier.classify(new BlockInfo(1, "game:loosestones--free")).isEmpty());
     }
 
     @Test
@@ -102,6 +102,6 @@ class SurfaceObjectClassifierTest {
     }
 
     private SurfaceObjectIdentity classify(String code) {
-        return classifier.classify(code).orElseThrow();
+        return classifier.classify(new BlockInfo(1, code)).orElseThrow();
     }
 }

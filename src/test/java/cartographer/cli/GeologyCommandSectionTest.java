@@ -172,7 +172,7 @@ class GeologyCommandSectionTest {
                 1
         );
 
-        return new ParsedChunk(
+        return cartographer.model.ParsedChunkFixtures.create(
                 new ChunkCoordinate(
                         0,
                         0,

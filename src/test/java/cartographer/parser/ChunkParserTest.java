@@ -78,7 +78,7 @@ class ChunkParserTest {
         assertEquals(legacy.coordinate(), explicit.coordinate());
         assertEquals(legacy.minY(), explicit.minY());
         assertArrayEquals(legacy.blockIds(), explicit.blockIds());
-        assertArrayEquals(legacy.liquidIds(), explicit.liquidIds());
+        assertArrayEquals(cartographer.model.ParsedChunkFixtures.liquidIds(legacy), cartographer.model.ParsedChunkFixtures.liquidIds(explicit));
         assertEquals(legacy.liquidLayerAvailable(), explicit.liquidLayerAvailable());
     }
 
@@ -179,21 +179,6 @@ class ChunkParserTest {
     }
 
     @Test
-    void publicDecoderStillReturnsIndependentArrays() {
-        byte[] payload = encodedLayer(
-                new int[]{0, 11},
-                index -> index == 0 ? 1 : 0
-        );
-        ChunkDataLayerDecoder decoder = new ChunkDataLayerDecoder();
-
-        int[] first = decoder.decode(payload, 2);
-        first[0] = 99;
-        int[] second = decoder.decode(payload, 2);
-
-        assertEquals(11, second[0]);
-    }
-
-    @Test
     void surfaceCompactParseMatchesMaterializedVoxelSemantics() {
         byte[] blocks =
                 encodedLayer(
@@ -247,8 +232,8 @@ class ChunkParserTest {
                 compact.blockIds()
         );
         assertArrayEquals(
-                full.liquidIds(),
-                compact.liquidIds()
+                cartographer.model.ParsedChunkFixtures.liquidIds(full),
+                cartographer.model.ParsedChunkFixtures.liquidIds(compact)
         );
         assertEquals(
                 full.liquidLayerAvailable(),
@@ -291,7 +276,7 @@ class ChunkParserTest {
         );
         assertThrows(
                 IllegalStateException.class,
-                chunk::liquidIds
+                () -> cartographer.model.ParsedChunkFixtures.liquidIds(chunk)
         );
     }
 
@@ -726,7 +711,7 @@ class ChunkParserTest {
         ParsedChunk chunk = result.value().orElseThrow();
         assertTrue(chunk.liquidLayerAvailable());
         assertEquals(0, chunk.liquidIdAt(7, 0, 0));
-        assertEquals(ChunkDataLayerDecoder.VALUE_COUNT, chunk.liquidIds().length);
+        assertEquals(ChunkDataLayerDecoder.VALUE_COUNT, cartographer.model.ParsedChunkFixtures.liquidIds(chunk).length);
     }
 
     @Test
@@ -988,7 +973,7 @@ class ChunkParserTest {
         );
         assertThrows(
                 IllegalStateException.class,
-                chunk::liquidIds
+                () -> cartographer.model.ParsedChunkFixtures.liquidIds(chunk)
         );
     }
 
@@ -1749,16 +1734,6 @@ class ChunkParserTest {
     private static final class RecordingLayerDecoder
             extends ChunkDataLayerDecoder {
         private int ownedDecodeCalls;
-
-        @Override
-        public int[] decode(
-                byte[] payload,
-                int savedCompressionVersion
-        ) {
-            throw new AssertionError(
-                    "ChunkParser must use decodeOwned"
-            );
-        }
 
         @Override
         DecodedChunkLayer decodeOwned(

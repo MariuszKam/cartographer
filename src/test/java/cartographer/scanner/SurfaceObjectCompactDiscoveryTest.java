@@ -136,7 +136,7 @@ class SurfaceObjectCompactDiscoveryTest {
 
         assertEquals(1, result.observedTargets());
         assertEquals(0, result.unavailablePositions());
-        assertEquals(1, result.observedObjects());
+        assertEquals(1, observationCount(result));
     }
 
     @Test
@@ -169,7 +169,7 @@ class SurfaceObjectCompactDiscoveryTest {
         int z = 16;
         blocks[(10 * ChunkCoordinate.SIZE_BLOCKS + z) * ChunkCoordinate.SIZE_BLOCKS + x] = 7;
         blocks[(11 * ChunkCoordinate.SIZE_BLOCKS + z) * ChunkCoordinate.SIZE_BLOCKS + x] = 7;
-        ParsedChunk chunk = new ParsedChunk(new ChunkCoordinate(0, 0, 0), 0,
+        ParsedChunk chunk = cartographer.model.ParsedChunkFixtures.create(new ChunkCoordinate(0, 0, 0), 0,
                 ChunkCoordinate.SIZE_BLOCKS, ChunkCoordinate.SIZE_BLOCKS,
                 ChunkCoordinate.SIZE_BLOCKS, blocks);
         session.accept(SelectiveChunkVisit.decoded(position(chunk), chunk));
@@ -181,7 +181,7 @@ class SurfaceObjectCompactDiscoveryTest {
         });
 
         assertEquals(1, result.observedTargets());
-        assertEquals(2, result.observedObjects());
+        assertEquals(2, observationCount(result));
         assertEquals(List.of(10, 11), observedY);
     }
 
@@ -213,12 +213,12 @@ class SurfaceObjectCompactDiscoveryTest {
         SurfaceObjectCompactScanResult first = scanWithDecodedOrder(plan, false);
         SurfaceObjectCompactScanResult second = scanWithDecodedOrder(plan, true);
 
-        assertEquals(first.positionsInspected(), second.positionsInspected());
+        assertEquals(inspectedTargets(first), inspectedTargets(second));
         assertEquals(first.unavailablePositions(), second.unavailablePositions());
         assertEquals(first.observedTargets(), second.observedTargets());
         assertEquals(first.notObservedTargets(), second.notObservedTargets());
-        assertEquals(first.observedObjects(), second.observedObjects());
-        assertTrue(first.observedObjects() > 0);
+        assertEquals(observationCount(first), observationCount(second));
+        assertTrue(observationCount(first) > 0);
         assertEquals(observationFingerprint(first), observationFingerprint(second));
     }
 
@@ -334,7 +334,7 @@ class SurfaceObjectCompactDiscoveryTest {
         int[] blocks = new int[ChunkCoordinate.SIZE_BLOCKS * ChunkCoordinate.SIZE_BLOCKS
                 * ChunkCoordinate.SIZE_BLOCKS];
         Arrays.fill(blocks, 7);
-        ParsedChunk chunk = new ParsedChunk(
+        ParsedChunk chunk = cartographer.model.ParsedChunkFixtures.create(
                 new ChunkCoordinate(0, 0, 0), 0,
                 ChunkCoordinate.SIZE_BLOCKS, ChunkCoordinate.SIZE_BLOCKS,
                 ChunkCoordinate.SIZE_BLOCKS, blocks);
@@ -432,6 +432,22 @@ class SurfaceObjectCompactDiscoveryTest {
         return session.finish();
     }
 
+    private int inspectedTargets(SurfaceObjectCompactScanResult result) {
+        return Math.addExact(
+                result.unavailablePositions(),
+                Math.addExact(
+                        result.observedTargets(),
+                        result.notObservedTargets()
+                )
+        );
+    }
+
+    private int observationCount(SurfaceObjectCompactScanResult result) {
+        int[] count = {0};
+        result.forEachObservation((worldX, worldY, worldZ, blockId) -> count[0]++);
+        return count[0];
+    }
+
     private List<String> observationFingerprint(SurfaceObjectCompactScanResult result) {
         List<String> fingerprint = new ArrayList<>();
         result.forEachObservation((x, y, z, id) -> fingerprint.add(x + ":" + y + ":" + z + ":" + id));
@@ -445,7 +461,7 @@ class SurfaceObjectCompactDiscoveryTest {
         int index = (localY * ChunkCoordinate.SIZE_BLOCKS + worldZ % ChunkCoordinate.SIZE_BLOCKS)
                 * ChunkCoordinate.SIZE_BLOCKS + worldX % ChunkCoordinate.SIZE_BLOCKS;
         blocks[index] = blockId;
-        return new ParsedChunk(
+        return cartographer.model.ParsedChunkFixtures.create(
                 new ChunkCoordinate(0, chunkY, 0),
                 chunkY * ChunkCoordinate.SIZE_BLOCKS,
                 ChunkCoordinate.SIZE_BLOCKS,

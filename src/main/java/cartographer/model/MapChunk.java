@@ -109,16 +109,6 @@ public record MapChunk(
                 ];
     }
 
-    public int terrainHeightAt(
-            int localX,
-            int localZ
-    ) {
-        return heightAt(
-                localX,
-                localZ
-        );
-    }
-
     private static int[] copyHeightMap(
             int[] values
     ) {

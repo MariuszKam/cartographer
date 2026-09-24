@@ -43,11 +43,11 @@ class TerrainTileStoreTest {
         );
 
         assertTrue(rainTile.rainHeightAvailable());
-        assertArrayEquals(rain, rainTile.effectiveHeights());
+        assertArrayEquals(rain, effectiveHeights(rainTile));
         assertFalse(worldgenTile.rainHeightAvailable());
-        assertArrayEquals(worldgen, worldgenTile.effectiveHeights());
+        assertArrayEquals(worldgen, effectiveHeights(worldgenTile));
         assertFalse(emptyTile.effectiveHeightAvailable());
-        assertEquals(0, emptyTile.effectiveHeights().length);
+        assertEquals(0, effectiveHeights(emptyTile).length);
     }
 
     @Test
@@ -60,7 +60,7 @@ class TerrainTileStoreTest {
         TerrainHeightTile decoded = TerrainHeightTileCodec.decode(encoded);
         assertEquals(tile.coordinate(), decoded.coordinate());
         assertTrue(decoded.rainHeightAvailable());
-        assertArrayEquals(tile.effectiveHeights(), decoded.effectiveHeights());
+        assertArrayEquals(effectiveHeights(tile), effectiveHeights(decoded));
 
         byte[] wrongMagic = encoded.clone();
         wrongMagic[0] = 0;
@@ -88,7 +88,7 @@ class TerrainTileStoreTest {
         );
 
         assertEquals(TerrainTileLookup.Status.HIT, result.get(tile.coordinate()).status());
-        assertArrayEquals(tile.effectiveHeights(), result.get(tile.coordinate()).tile().effectiveHeights());
+        assertArrayEquals(effectiveHeights(tile), effectiveHeights(result.get(tile.coordinate()).tile()));
         assertEquals(
                 TerrainTileLookup.Status.MISS,
                 result.get(new MapChunkCoordinate(8, 9)).status()
@@ -202,6 +202,20 @@ class TerrainTileStoreTest {
                 TerrainTileLookup.Status.MISS,
                 stores.second.read(List.of(coordinate)).get(coordinate).status()
         );
+    }
+
+    private static int[] effectiveHeights(TerrainHeightTile tile) {
+        if (!tile.effectiveHeightAvailable()) {
+            return new int[0];
+        }
+        int[] values = new int[MapChunk.HEIGHT_VALUE_COUNT];
+        int index = 0;
+        for (int localZ = 0; localZ < MapChunk.SIZE; localZ++) {
+            for (int localX = 0; localX < MapChunk.SIZE; localX++) {
+                values[index++] = tile.effectiveHeightAt(localX, localZ);
+            }
+        }
+        return values;
     }
 
     private static int[] filled(int value) {

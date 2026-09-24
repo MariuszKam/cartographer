@@ -256,7 +256,7 @@ class SavedOreObservationProviderSnapshotTest {
                 }
                 consumer.accept(SelectiveChunkVisit.decoded(
                         position,
-                        new ParsedChunk(
+                        cartographer.model.ParsedChunkFixtures.create(
                                 new ChunkCoordinate(
                                         position.x(),
                                         position.y(),

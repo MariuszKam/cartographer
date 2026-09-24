@@ -976,7 +976,7 @@ class VcdbsReaderDirectChunkLookupTest {
                     && java.util.Arrays.equals(failurePayload, payload)) {
                 return ParseResult.failure("intentional test failure");
             }
-            ParsedChunk parsed = new ParsedChunk(
+            ParsedChunk parsed = cartographer.model.ParsedChunkFixtures.create(
                     coordinate,
                     coordinate.y(),
                     1,
@@ -1054,7 +1054,7 @@ class VcdbsReaderDirectChunkLookupTest {
                 Thread.currentThread().interrupt();
                 return ParseResult.failure("interrupted");
             }
-            return ParseResult.success(new ParsedChunk(
+            return ParseResult.success(cartographer.model.ParsedChunkFixtures.create(
                     coordinate, coordinate.y(), 1, 1, 1, new int[]{1}
             ));
         }

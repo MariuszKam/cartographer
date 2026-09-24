@@ -638,7 +638,7 @@ class PrepareWorldSnapshotUseCaseTest {
             int[] blocks = new int[cells];
             int[] liquids = new int[cells];
             Arrays.fill(blocks, 1);
-            return new ParsedChunk(
+            return cartographer.model.ParsedChunkFixtures.create(
                     new ChunkCoordinate(
                             position.x(),
                             position.y(),

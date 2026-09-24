@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BlockScannerTest {
     @Test
     void findsBlocksByCodePatternAndHonorsLimit() {
-        ParsedChunk chunk = new ParsedChunk(new ChunkCoordinate(0, 0), 0, 2, 1, 2, new int[]{1, 2, 2, 3});
+        ParsedChunk chunk = cartographer.model.ParsedChunkFixtures.create(new ChunkCoordinate(0, 0), 0, 2, 1, 2, new int[]{1, 2, 2, 3});
         Map<Integer, BlockInfo> registry = Map.of(
                 1, new BlockInfo(1, "game:rock-granite"),
                 2, new BlockInfo(2, "game:ore-copper"),

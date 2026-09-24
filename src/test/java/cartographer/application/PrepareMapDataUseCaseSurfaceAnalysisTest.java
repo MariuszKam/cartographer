@@ -255,7 +255,7 @@ class PrepareMapDataUseCaseSurfaceAnalysisTest {
 
         private ParsedChunk unavailableChunk() {
             int size = ChunkCoordinate.SIZE_BLOCKS;
-            return new ParsedChunk(
+            return cartographer.model.ParsedChunkFixtures.create(
                     new ChunkCoordinate(0, 0, 0),
                     0,
                     size,
@@ -273,7 +273,7 @@ class PrepareMapDataUseCaseSurfaceAnalysisTest {
             int size = ChunkCoordinate.SIZE_BLOCKS;
             int[] blocks = new int[size * size * size];
             Arrays.fill(blocks, blockId);
-            return new ParsedChunk(
+            return cartographer.model.ParsedChunkFixtures.create(
                     new ChunkCoordinate(0, 0, 0),
                     0,
                     size,

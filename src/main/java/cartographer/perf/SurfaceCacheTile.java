@@ -152,11 +152,6 @@ public final class SurfaceCacheTile implements CachedSurfaceTileView {
     @Override
     public int height() { return height; }
     public int cellCount() { return state.length; }
-    public byte[] state() { return state.clone(); }
-    public int[] surfaceY() { return surfaceY.clone(); }
-    public int[] blockIds() { return blockIds.clone(); }
-    public int[] liquidBlockIds() { return liquidBlockIds.clone(); }
-    public byte[] surfaceClassCodes() { return surfaceClassCodes.clone(); }
     public SourceMode sourceMode() { return sourceMode; }
     @Override
     public boolean fallbackMode() { return sourceMode == SourceMode.FALLBACK; }

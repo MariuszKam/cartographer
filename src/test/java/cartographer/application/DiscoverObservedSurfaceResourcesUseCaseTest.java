@@ -57,8 +57,12 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
 
         assertEquals(1, reader.selectiveScanCalls);
         assertArrayEquals(new int[] {1, 2}, reader.lastWantedIds);
-        assertEquals(List.of("game:nativecopper"),
-                result.observedResources().observedQualifiedResourceKeys());
+        assertEquals(
+                List.of("game:nativecopper"),
+                result.observedResources().resources().stream()
+                        .map(resource -> resource.candidate().qualifiedResourceKey())
+                        .toList()
+        );
     }
 
     @Test
@@ -249,7 +253,7 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
         private ParsedChunk chunkWithBlock(int worldX, int worldY, int blockId) {
             int[] blocks = new int[32 * 32 * 32];
             blocks[(worldY * 32 + 16) * 32 + worldX] = blockId;
-            return new ParsedChunk(
+            return cartographer.model.ParsedChunkFixtures.create(
                     new ChunkCoordinate(0, 0, 0), 0, 32, 32, 32, blocks
             );
         }

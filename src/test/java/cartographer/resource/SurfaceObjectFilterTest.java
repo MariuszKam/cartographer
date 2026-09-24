@@ -84,19 +84,6 @@ class SurfaceObjectFilterTest {
         assertTrue(SurfaceObjectDiscoveryState.READY.allowsRender(false, !selectedAfter.isEmpty()));
     }
 
-    @Test
-    void resettingFiltersLeavesSelectionStateUntouched() {
-        SurfaceObjectFilterState before = new SurfaceObjectFilterState(
-                "  copper  ", Set.of(SurfaceObjectFamily.ORE_BITS));
-        Set<String> selected = Set.of("game:nativecopper", "game:obsidian");
-        SurfaceObjectFilterState after = before.reset();
-        Set<String> selectedAfter = SurfaceObjectSelectionActions.selectVisible(selected, List.of());
-
-        assertEquals("", after.searchText());
-        assertEquals(Set.of(), after.enabledFamilies());
-        assertEquals(selected, selectedAfter);
-    }
-
     private List<ObservedSurfaceResource> visible(String search, Set<SurfaceObjectFamily> families) {
         return SurfaceObjectFilter.visibleResources(resources(), search, families);
     }

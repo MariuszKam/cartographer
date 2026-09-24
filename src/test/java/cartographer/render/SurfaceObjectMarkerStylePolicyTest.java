@@ -2,6 +2,7 @@ package cartographer.render;
 
 import cartographer.resource.SurfaceObjectFamily;
 import cartographer.resource.SurfaceObjectAnalysis;
+import cartographer.resource.SurfaceObjectSelectionAnalysis;
 import cartographer.resource.SurfaceResourcePoint;
 import org.junit.jupiter.api.Test;
 
@@ -60,9 +61,15 @@ class SurfaceObjectMarkerStylePolicyTest {
                         new SurfaceResourcePoint(0, 61, 0, "game:loose-obsidian")),
                 new TreeSet<>(Set.of(SurfaceObjectFamily.LOOSE_STONE)));
 
-        int drawn = new SurfaceResourceOverlayRenderer().drawObject(
+        int drawn = new SurfaceResourceOverlayRenderer().drawObjects(
                 new BufferedImage(300, 120, BufferedImage.TYPE_INT_ARGB),
-                new WorldPosition(0, 0, 0), 10, analysis, null, HomeState.absent());
+                new WorldPosition(0, 0, 0),
+                10,
+                new SurfaceObjectSelectionAnalysis(List.of(analysis)),
+                null,
+                HomeState.absent(),
+                true
+        );
 
         assertEquals(2, drawn);
         assertEquals(2, analysis.occurrenceCount());

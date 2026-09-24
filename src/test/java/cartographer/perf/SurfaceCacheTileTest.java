@@ -19,7 +19,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -54,8 +53,11 @@ class SurfaceCacheTileTest {
         assertFalse(tile.matchesWorld(new WorldMetadata(65, 256, 96)));
         state[0] = 0;
         heights[0] = 0;
-        assertEquals((byte) (SurfaceCacheTile.CONSIDERED | SurfaceCacheTile.RESOLVED), tile.state()[0]);
-        assertEquals(42, tile.surfaceY()[0]);
+        assertEquals(
+                (byte) (SurfaceCacheTile.CONSIDERED | SurfaceCacheTile.RESOLVED),
+                tile.stateAtIndex(0)
+        );
+        assertEquals(42, tile.surfaceYAtIndex(0));
 
         SurfaceCacheTile edgeTile = new SurfaceCacheTile(
                 new MapChunkCoordinate(1, 1), 34, 34, resolvedState(4),
@@ -105,8 +107,20 @@ class SurfaceCacheTileTest {
         assertEquals(tile.worldSizeZ(), decoded.worldSizeZ());
         assertEquals(tile.sourceMode(), decoded.sourceMode());
         assertEquals(4, decoded.diagnosticColumnsScanned());
-        assertArrayEquals(tile.state(), decoded.state());
-        assertArrayEquals(tile.surfaceY(), decoded.surfaceY());
+        assertEquals(tile.cellCount(), decoded.cellCount());
+        for (int index = 0; index < tile.cellCount(); index++) {
+            assertEquals(tile.stateAtIndex(index), decoded.stateAtIndex(index));
+            assertEquals(tile.surfaceYAtIndex(index), decoded.surfaceYAtIndex(index));
+            assertEquals(tile.blockIdAtIndex(index), decoded.blockIdAtIndex(index));
+            assertEquals(
+                    tile.liquidBlockIdAtIndex(index),
+                    decoded.liquidBlockIdAtIndex(index)
+            );
+            assertEquals(
+                    tile.surfaceClassCodeAtIndex(index),
+                    decoded.surfaceClassCodeAtIndex(index)
+            );
+        }
 
         byte[] wrongMagic = encoded.clone();
         wrongMagic[0] = 0;

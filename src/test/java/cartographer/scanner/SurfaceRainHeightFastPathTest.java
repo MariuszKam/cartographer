@@ -86,7 +86,6 @@ class SurfaceRainHeightFastPathTest {
 
         assertTrue(unavailable.fallbackMapChunks().contains(new MapChunkCoordinate(0, 0)));
         assertFalse(unavailable.surface().isResolved(1, 1));
-        assertTrue(unavailable.liquidUnavailableColumns() > 0);
     }
 
     @Test
@@ -114,12 +113,12 @@ class SurfaceRainHeightFastPathTest {
         SurfaceRainHeightScanResult onceResult = once.finish();
         SurfaceRainHeightScanResult twiceResult = twice.finish();
 
-        assertEquals(onceResult.resolvedColumns(), twiceResult.resolvedColumns());
+        assertEquals(onceResult.diagnostics(), twiceResult.diagnostics());
         assertEquals(onceResult.fallbackMapChunks(), twiceResult.fallbackMapChunks());
         assertEquals(
                 SurfaceSemanticOracle.fingerprint(onceResult.surface()),
                 SurfaceSemanticOracle.fingerprint(twiceResult.surface()));
-        assertTrue(onceResult.resolvedColumns() > 0);
+        assertTrue(onceResult.surface().isResolved(1, 1));
     }
 
     @Test
@@ -189,7 +188,7 @@ class SurfaceRainHeightFastPathTest {
         if (liquids != null && blockId == 3) {
             Arrays.fill(liquids, 3);
         }
-        return new ParsedChunk(
+        return cartographer.model.ParsedChunkFixtures.create(
                 new ChunkCoordinate(0, sectionY, 0), sectionY * ChunkCoordinate.SIZE_BLOCKS,
                 32, 32, 32,
                 blocks, liquids, 0, liquidAvailable,

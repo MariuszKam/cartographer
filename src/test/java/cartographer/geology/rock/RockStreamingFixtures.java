@@ -26,7 +26,7 @@ final class RockStreamingFixtures {
         for (BlockAt entry : entries) {
             blocks[(entry.y() * size + entry.z()) * size + entry.x()] = entry.id();
         }
-        return new ParsedChunk(
+        return cartographer.model.ParsedChunkFixtures.create(
                 coordinate,
                 coordinate.y() * size,
                 size,

@@ -28,14 +28,4 @@ public record SurfaceOverlayLegend(
         );
     }
 
-    public static SurfaceOverlayLegend forObject(SurfaceObjectAnalysis object) {
-        return new SurfaceOverlayLegend(
-                "Surface object: " + object.displayName(),
-                List.of(SurfaceObjectPresentation.familyMetricLabel(object.families()) + ": "
-                                + SurfaceObjectPresentation.analysisFamilyText(object),
-                        "Occurrences: " + object.occurrenceCount(),
-                        "Variants: " + object.registryVariantCount()),
-                false
-        );
-    }
 }

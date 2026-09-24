@@ -29,7 +29,7 @@ public final class SurfaceObjectClassifier {
      * ambiguous, so they are intentionally not inferred beyond this
      * contract.
      */
-    public Optional<SurfaceObjectIdentity> classify(String code) {
+    private Optional<SurfaceObjectIdentity> classify(String code) {
         if (code == null || code.isBlank()) {
             return Optional.empty();
         }

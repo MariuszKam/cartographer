@@ -93,10 +93,10 @@ class SoilFertilityClassifierTest {
         assertEquals("soil-medium-normal", unqualified.normalizedPath());
         assertEquals("GAME:SOIL-MEDIUM-NORMAL", qualified.originalCode());
         assertEquals("soil-medium-normal", qualified.normalizedPath());
-        assertTrue(classifier.classify("somemod:soil-high-normal").isEmpty());
-        assertTrue(classifier.classify(":soil-medium-normal").isEmpty());
-        assertTrue(classifier.classify("game:").isEmpty());
-        assertTrue(classifier.classify("game:foo:soil-medium-normal").isEmpty());
+        assertTrue(classifyOptional("somemod:soil-high-normal").isEmpty());
+        assertTrue(classifyOptional(":soil-medium-normal").isEmpty());
+        assertTrue(classifyOptional("game:").isEmpty());
+        assertTrue(classifyOptional("game:foo:soil-medium-normal").isEmpty());
     }
 
     @Test
@@ -142,10 +142,10 @@ class SoilFertilityClassifierTest {
                         "saltwater-still-7",
                         "somemod:soil-high-normal"
                 )
-                .forEach(code -> assertTrue(classifier.classify(code).isEmpty(), code));
+                .forEach(code -> assertTrue(classifyOptional(code).isEmpty(), code));
 
-        assertTrue(classifier.classify((String) null).isEmpty());
-        assertTrue(classifier.classify("   ").isEmpty());
+        assertTrue(classifyOptional(null).isEmpty());
+        assertTrue(classifyOptional("   ").isEmpty());
         assertTrue(classifier.classify((BlockInfo) null).isEmpty());
     }
 
@@ -160,8 +160,12 @@ class SoilFertilityClassifierTest {
         assertEquals(expectedTier.fertilityPercent(), classification.tier().fertilityPercent());
     }
 
+    private Optional<SoilFertilityClassification> classifyOptional(String code) {
+        return classifier.classify(new BlockInfo(1, code));
+    }
+
     private SoilFertilityClassification classify(String code) {
-        Optional<SoilFertilityClassification> result = classifier.classify(code);
+        Optional<SoilFertilityClassification> result = classifyOptional(code);
         return result.orElseThrow(() -> new AssertionError("Expected classification: " + code));
     }
 }

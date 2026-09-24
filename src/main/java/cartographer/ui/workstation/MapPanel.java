@@ -137,7 +137,6 @@ public final class MapPanel extends BorderPane {
         updateCenterPlayerAvailability();
     }
 
-    public double zoomFactor() { return zoomFactor; }
     public void setOnZoomChanged(Consumer<Double> listener) { zoomListener = listener == null ? ignored -> { } : listener; zoomListener.accept(zoomFactor); }
     public void setOnCursorPositionChanged(Consumer<Optional<MapCursorPosition>> listener) {
         cursorListener = listener == null ? ignored -> { } : listener;

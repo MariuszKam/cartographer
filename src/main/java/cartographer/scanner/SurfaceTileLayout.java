@@ -268,10 +268,6 @@ public final class SurfaceTileLayout {
         return radius;
     }
 
-    public long radiusSquared() {
-        return radiusSquared;
-    }
-
     public int worldSizeX() {
         return worldSizeX;
     }
@@ -280,36 +276,12 @@ public final class SurfaceTileLayout {
         return worldSizeZ;
     }
 
-    public int tileWidthCount() {
-        return tileWidthCount;
-    }
-
-    public int tileHeightCount() {
-        return tileHeightCount;
-    }
-
     public int tileCount() {
         return tileCount;
     }
 
     public long cellCount() {
         return cellCount;
-    }
-
-    public int firstTileX() {
-        return firstTileX;
-    }
-
-    public int lastTileX() {
-        return lastTileX;
-    }
-
-    public int firstTileZ() {
-        return firstTileZ;
-    }
-
-    public int lastTileZ() {
-        return lastTileZ;
     }
 
     /** Returns true when the coordinate is in world bounds and the active domain. */

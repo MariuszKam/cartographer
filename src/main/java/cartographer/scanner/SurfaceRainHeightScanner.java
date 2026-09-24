@@ -46,9 +46,6 @@ public final class SurfaceRainHeightScanner {
         private final Set<MapChunkCoordinate> cachedTiles = new HashSet<>();
         private final boolean[] promoted;
         private boolean finished;
-        private int resolved;
-        private int unresolved;
-        private int liquidUnavailable;
         private int cachedColumns;
         private int cachedEmptyColumns;
         private int cachedLiquidUnavailable;
@@ -116,9 +113,7 @@ public final class SurfaceRainHeightScanner {
                     continue;
                 }
                 if (requireLiquidLayer && !chunk.liquidLayerAvailable()) {
-                    if (accumulator.markLiquidUnavailable(worldX, worldZ)) {
-                        liquidUnavailable++;
-                    }
+                    accumulator.markLiquidUnavailable(worldX, worldZ);
                     promote(tileIndex);
                     continue;
                 }
@@ -133,7 +128,6 @@ public final class SurfaceRainHeightScanner {
                 }
                 accumulator.recordSurface(
                         worldX, worldZ, worldY, blockId, liquidId, surfaceClass);
-                resolved++;
             }
         }
 
@@ -170,9 +164,8 @@ public final class SurfaceRainHeightScanner {
                     boolean active = plan.layout().isActive(worldX, worldZ);
                     if (active) {
                         accumulator.consider(worldX, worldZ);
-                        if (!chunk.liquidLayerAvailable()
-                                && accumulator.markLiquidUnavailable(worldX, worldZ)) {
-                            liquidUnavailable++;
+                        if (!chunk.liquidLayerAvailable()) {
+                            accumulator.markLiquidUnavailable(worldX, worldZ);
                         }
                     }
                     for (int localY = chunk.sizeY() - 1; localY >= 0; localY--) {
@@ -234,9 +227,8 @@ public final class SurfaceRainHeightScanner {
                     if ((cellState & SurfaceTile.CONSIDERED) != 0) {
                         accumulator.consider(worldX, worldZ);
                     }
-                    if ((cellState & SurfaceTile.LIQUID_UNAVAILABLE) != 0
-                            && accumulator.markLiquidUnavailable(worldX, worldZ)) {
-                        liquidUnavailable++;
+                    if ((cellState & SurfaceTile.LIQUID_UNAVAILABLE) != 0) {
+                        accumulator.markLiquidUnavailable(worldX, worldZ);
                     }
                     if ((cellState & SurfaceTile.RESOLVED) != 0) {
                         accumulator.recordSurface(
@@ -329,7 +321,7 @@ public final class SurfaceRainHeightScanner {
             SurfaceFallbackDiagnosticState.Summary fallbackSummary = fallbackDiagnostics.summary();
             int healthyFast = healthyFastColumns();
             return new SurfaceRainHeightScanResult(
-                    accumulator.finish(), fallback, resolved, unresolved, liquidUnavailable,
+                    accumulator.finish(), fallback,
                     new SurfaceRainHeightDiagnosticCounters(
                             Math.addExact(Math.addExact(healthyFast, fallbackSummary.consideredColumns()),
                                     cachedColumns),
@@ -361,7 +353,6 @@ public final class SurfaceRainHeightScanner {
                         plan.layout().tileXAt(tileIndex),
                         plan.layout().tileZAt(tileIndex)
                 );
-                unresolved++;
             }
         }
 

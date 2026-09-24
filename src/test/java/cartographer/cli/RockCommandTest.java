@@ -150,7 +150,7 @@ class RockCommandTest {
             int size = ChunkCoordinate.SIZE_BLOCKS;
             int[] blocks = new int[size * size * size];
             blocks[(1 * size + 1) * size + 1] = 7;
-            ParsedChunk chunk = new ParsedChunk(
+            ParsedChunk chunk = cartographer.model.ParsedChunkFixtures.create(
                     new ChunkCoordinate(0, 0, 0),
                     0,
                     size,

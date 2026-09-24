@@ -1442,8 +1442,8 @@ class RenderActualOreMapUseCaseTest {
                 .renderData();
         for (int y = 0; y < renderData.rasterSize(); y++) {
             for (int x = 0; x < renderData.rasterSize(); x++) {
-                if (renderData.hasSurfaceAt(x, y)
-                        && renderData.surfaceWorldXAt(x, y) < bound) {
+                if (cartographer.render.SurfaceRenderDataTestAccess.hasSurfaceAt(renderData, x, y)
+                        && cartographer.render.SurfaceRenderDataTestAccess.surfaceWorldXAt(renderData, x, y) < bound) {
                     return true;
                 }
             }
@@ -1461,8 +1461,8 @@ class RenderActualOreMapUseCaseTest {
                 .renderData();
         for (int y = 0; y < renderData.rasterSize(); y++) {
             for (int x = 0; x < renderData.rasterSize(); x++) {
-                if (renderData.hasSurfaceAt(x, y)
-                        && renderData.surfaceWorldXAt(x, y) >= bound) {
+                if (cartographer.render.SurfaceRenderDataTestAccess.hasSurfaceAt(renderData, x, y)
+                        && cartographer.render.SurfaceRenderDataTestAccess.surfaceWorldXAt(renderData, x, y) >= bound) {
                     return true;
                 }
             }
@@ -1791,7 +1791,7 @@ class RenderActualOreMapUseCaseTest {
                 blocks[(5 * size + z) * size + x] = 1;
             }
         }
-        return new ParsedChunk(coordinate, 0, size, size, size, blocks, liquids,
+        return cartographer.model.ParsedChunkFixtures.create(coordinate, 0, size, size, size, blocks, liquids,
                 0, liquidAvailable, liquidDecodeError);
     }
 
@@ -2000,7 +2000,7 @@ class RenderActualOreMapUseCaseTest {
             lastPositions = List.copyOf(positions);
             if (contains(wantedBlockIds, fakeBlockId)) {
                 int[] blocks = new int[]{fakeBlockId};
-                consumer.accept(new ParsedChunk(
+                consumer.accept(cartographer.model.ParsedChunkFixtures.create(
                         new ChunkCoordinate(2, 0, 2),
                         5,
                         1,

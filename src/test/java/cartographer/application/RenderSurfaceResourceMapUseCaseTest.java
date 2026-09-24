@@ -563,9 +563,9 @@ class RenderSurfaceResourceMapUseCaseTest {
         ParsedChunk base = surfaceChunk(new ChunkCoordinate(0, 0, 0));
         int[] blocks = base.blockIds();
         blocks[(6 * 32 + 16) * 32 + 16] = 7;
-        return new ParsedChunk(
+        return cartographer.model.ParsedChunkFixtures.create(
                 base.coordinate(), base.minY(), base.sizeX(), base.sizeY(), base.sizeZ(),
-                blocks, base.liquidIds(), 0, true, ""
+                blocks, cartographer.model.ParsedChunkFixtures.liquidIds(base), 0, true, ""
         );
     }
 
@@ -584,7 +584,7 @@ class RenderSurfaceResourceMapUseCaseTest {
                 blocks[(5 * size + z) * size + x] = 1;
             }
         }
-        return new ParsedChunk(
+        return cartographer.model.ParsedChunkFixtures.create(
                 coordinate,
                 0,
                 size,
@@ -604,7 +604,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         ParsedChunk base = surfaceChunk(coordinate);
         int[] blocks = base.blockIds();
         blocks[(5 * 32 + 16) * 32 + 16] = 2;
-        return new ParsedChunk(coordinate, 0, 32, 32, 32, blocks, base.liquidIds(), 0, true, "");
+        return cartographer.model.ParsedChunkFixtures.create(coordinate, 0, 32, 32, 32, blocks, cartographer.model.ParsedChunkFixtures.liquidIds(base), 0, true, "");
     }
 
     private ChunkCoordinate coordinateToChunk(ChunkPosition position) {

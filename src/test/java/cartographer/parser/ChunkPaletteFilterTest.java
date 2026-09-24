@@ -74,7 +74,7 @@ class ChunkPaletteFilterTest {
         assertTrue(contains(payload, 2, 22));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new ChunkDataLayerDecoder().decode(payload, 2)
+                () -> new ChunkDataLayerDecoder().decodeOwned(payload, 2)
         );
     }
 

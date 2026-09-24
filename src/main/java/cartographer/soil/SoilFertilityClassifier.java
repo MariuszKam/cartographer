@@ -10,7 +10,7 @@ public final class SoilFertilityClassifier {
         return block == null ? Optional.empty() : classify(block.code());
     }
 
-    public Optional<SoilFertilityClassification> classify(String code) {
+    private Optional<SoilFertilityClassification> classify(String code) {
         if (code == null || code.isBlank()) {
             return Optional.empty();
         }

@@ -175,7 +175,7 @@ class MapChunkParserTest {
 
         assertEquals(
                 80,
-                chunk.terrainHeightAt(
+                chunk.heightAt(
                         0,
                         0
                 )
@@ -183,7 +183,7 @@ class MapChunkParserTest {
 
         assertEquals(
                 1103,
-                chunk.terrainHeightAt(
+                chunk.heightAt(
                         31,
                         31
                 )

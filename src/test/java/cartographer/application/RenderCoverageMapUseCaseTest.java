@@ -109,7 +109,7 @@ class RenderCoverageMapUseCaseTest {
     private ServerMapRegion region(int x, int z) {
         return new ServerMapRegion(new MapRegionCoordinate(x, z),
                 Optional.empty(), Optional.empty(), Optional.empty(),
-                Optional.empty(), Optional.empty());
+                Optional.empty(), Optional.empty(), Map.of(), List.of());
     }
 
     private static final class FakeReader extends VcdbsReader {

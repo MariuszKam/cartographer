@@ -8,7 +8,6 @@ public final class SurfaceObjectCompactScanResult {
     private final int[] worldY;
     private final int[] worldZ;
     private final int[] blockIds;
-    private final int positionsInspected;
     private final int unavailablePositions;
     private final int observedTargets;
     private final int notObservedTargets;
@@ -18,7 +17,6 @@ public final class SurfaceObjectCompactScanResult {
             int[] worldY,
             int[] worldZ,
             int[] blockIds,
-            int positionsInspected,
             int unavailablePositions,
             int observedTargets,
             int notObservedTargets
@@ -27,33 +25,26 @@ public final class SurfaceObjectCompactScanResult {
         this.worldY = worldY.clone();
         this.worldZ = worldZ.clone();
         this.blockIds = blockIds.clone();
-        this.positionsInspected = positionsInspected;
         this.unavailablePositions = unavailablePositions;
         this.observedTargets = observedTargets;
         this.notObservedTargets = notObservedTargets;
         if (this.worldX.length != this.worldY.length
                 || this.worldX.length != this.worldZ.length
                 || this.worldX.length != this.blockIds.length
-                || positionsInspected < 0
                 || unavailablePositions < 0
                 || observedTargets < 0
-                || notObservedTargets < 0
-                || unavailablePositions > positionsInspected
-                || observedTargets + notObservedTargets + unavailablePositions
-                != positionsInspected) {
+                || notObservedTargets < 0) {
             throw new IllegalArgumentException("invalid compact object scan result");
         }
     }
 
-    public int positionsInspected() { return positionsInspected; }
     public int unavailablePositions() { return unavailablePositions; }
     public int observedTargets() { return observedTargets; }
     public int notObservedTargets() { return notObservedTargets; }
-    public int observedObjects() { return worldX.length; }
 
     public static SurfaceObjectCompactScanResult empty() {
         return new SurfaceObjectCompactScanResult(
-                new int[0], new int[0], new int[0], new int[0], 0, 0, 0, 0);
+                new int[0], new int[0], new int[0], new int[0], 0, 0, 0);
     }
 
     public void forEachObservation(ObservationConsumer consumer) {

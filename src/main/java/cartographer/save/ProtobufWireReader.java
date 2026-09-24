@@ -432,24 +432,6 @@ public final class ProtobufWireReader {
             }
         }
 
-        public int endExclusive() {
-            return Math.addExact(offset, length);
-        }
-
-        public byte[] copyFrom(byte[] source) {
-            if (source == null) {
-                throw new IllegalArgumentException(
-                        "protobuf source is required"
-                );
-            }
-            int end = endExclusive();
-            if (end > source.length) {
-                throw new IllegalArgumentException(
-                        "protobuf field range exceeds source length"
-                );
-            }
-            return Arrays.copyOfRange(source, offset, end);
-        }
     }
 
     private static final class Cursor {

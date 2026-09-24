@@ -119,7 +119,4 @@ public final class WorldDataSnapshot {
         return preparationSummaryStore;
     }
 
-    public RenderDataCacheStore cacheStore() {
-        return cacheStore;
-    }
 }

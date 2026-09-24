@@ -10,12 +10,6 @@ import java.util.Objects;
 public record SurfaceRainHeightScanResult(
         SurfaceMap surface,
         List<MapChunkCoordinate> fallbackMapChunks,
-        /** Transitional fast-observation count; use {@link #diagnostics()} for final counters. */
-        int resolvedColumns,
-        /** Transitional fast-observation count; use {@link #diagnostics()} for final counters. */
-        int unresolvedColumns,
-        /** Transitional fast missing-liquid count; use {@link #diagnostics()} for final counters. */
-        int liquidUnavailableColumns,
         SurfaceRainHeightDiagnosticCounters diagnostics,
         Map<MapChunkCoordinate, SurfaceTileDiagnosticSummary> fallbackDiagnosticsByMapChunk,
         int sourceMapChunksLoaded
@@ -27,9 +21,6 @@ public record SurfaceRainHeightScanResult(
         Objects.requireNonNull(diagnostics, "diagnostics are required");
         fallbackDiagnosticsByMapChunk = Map.copyOf(Objects.requireNonNull(
                 fallbackDiagnosticsByMapChunk, "fallback diagnostics are required"));
-        if (resolvedColumns < 0 || unresolvedColumns < 0 || liquidUnavailableColumns < 0) {
-            throw new IllegalArgumentException("scan counters cannot be negative");
-        }
         if (sourceMapChunksLoaded < 0) {
             throw new IllegalArgumentException("source mapchunk count cannot be negative");
         }

@@ -34,7 +34,6 @@ public final class SurfaceObjectCompactFixtures {
                 worldY,
                 worldZ,
                 blockIds,
-                count,
                 0,
                 count,
                 0

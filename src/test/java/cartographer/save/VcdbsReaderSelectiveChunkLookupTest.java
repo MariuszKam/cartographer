@@ -784,7 +784,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
             }
 
             return SelectiveChunkParseResult.decoded(
-                    new ParsedChunk(
+                    cartographer.model.ParsedChunkFixtures.create(
                             coordinate,
                             coordinate.y(),
                             1,
@@ -818,7 +818,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
                 return SelectiveChunkParseResult.payloadFailure("interrupted");
             }
             return SelectiveChunkParseResult.decoded(
-                    new ParsedChunk(
+                    cartographer.model.ParsedChunkFixtures.create(
                             coordinate,
                             coordinate.y(),
                             1,
