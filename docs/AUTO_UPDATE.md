@@ -388,7 +388,22 @@ closed.
 ### S4.4 Installer execution and result
 
 After the process exit and the second integrity check, PowerShell starts the
-verified jpackage EXE with `-PassThru -Wait`.
+verified jpackage EXE with Windows Installer arguments:
+
+```text
+/quiet
+/norestart
+/L*V <installer-log>
+```
+
+The Java 25 jpackage EXE wrapper forwards these arguments to its embedded MSI,
+so the update runs without the installer wizard while Windows Installer remains
+the authority for replacing the installed product. A per-version verbose log
+is written under:
+
+```text
+~/.vs-cartographer/updates/bootstrap/install-<version>.log
+```
 
 The bootstrap records the installer result under:
 
@@ -400,14 +415,17 @@ The result distinguishes:
 
 ```text
 SUCCESS
+RESTART_REQUIRED
 INTEGRITY_CHECK_FAILED
 INSTALLER_FAILED
 BOOTSTRAP_FAILED
 ```
 
-and includes the target application version and installer exit code. The next
-Cartographer launch consumes this small result once; malformed/stale result
-data never blocks application startup.
+and includes the target application version and installer exit code. Windows
+Installer codes `0` and `1641` are successful outcomes; `3010` is recorded
+as `RESTART_REQUIRED` instead of being misreported as an installation failure.
+The next Cartographer launch consumes this small result once; malformed/stale
+result data never blocks application startup.
 
 ### S4.5 Relaunch
 
@@ -419,6 +437,9 @@ application version is at least the recorded target version. If the installer
 reported success but the old version is still running, the application reports
 the mismatch instead of pretending the upgrade succeeded.
 
+A `3010` outcome is surfaced separately as `Restart required`. The World Bar
+does not label that Windows Installer success code as a failed update.
+
 ### S4.6 Desktop UX and failure behavior
 
 Stage 3 `Ready <version>` becomes an explicit user action:
@@ -427,7 +448,9 @@ Stage 3 `Ready <version>` becomes an explicit user action:
 Restart & update
 ```
 
-The application does not silently install in the background.
+The application does not install in the background without an explicit user
+action. After `Restart & update` is chosen, the native installer UI is
+suppressed and the upgrade proceeds unattended.
 
 Before shutdown the UI shows a preparing state. If bootstrap startup fails, the
 verified installer remains retryable. If the installer is no longer valid, the
@@ -446,7 +469,6 @@ overwrite installed application files directly
 modify Vintage Story .vcdbs saves
 delete Cartographer user configuration
 force an update
-perform silent installation
 implement automatic rollback
 support beta/prerelease channels
 support delta patching
@@ -465,10 +487,10 @@ following are checked on the exact final Stage 4 candidate:
 3. packaged Windows launch detects and securely downloads a controlled newer
    stable release;
 4. `Restart & update` closes the old process, runs the installer only after
-   process exit, and relaunches the application;
+   process exit with no native installer wizard, and relaunches the application;
 5. the relaunched application reports the new runtime version;
-6. installer cancellation/failure does not claim success and remains
-   recoverable on the next launch;
+6. Windows Installer failure and restart-required outcomes are reported
+   accurately and do not falsely claim an ordinary successful completion;
 7. tampering with the staged installer between Ready and execution is rejected;
 8. Cartographer-owned configuration remains present across the upgrade.
 
@@ -538,7 +560,7 @@ Required reviewer scenarios include:
 
 ```text
 tampered staged installer
-installer cancellation/failure
+silent installer failure/restart-required outcome
 GitHub/network unavailable
 ```
 
