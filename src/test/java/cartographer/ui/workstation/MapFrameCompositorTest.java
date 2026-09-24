@@ -41,7 +41,7 @@ class MapFrameCompositorTest {
                 Path.of("world.vcdbs"),
                 geometry,
                 prepared,
-                new MapDecorationState(HomeState.absent(), List.of())
+                new MapDecorationState(HomeState.absent(), List.of(), true)
         );
         MapFrameCompositor compositor = new MapFrameCompositor();
 
