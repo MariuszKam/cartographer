@@ -134,7 +134,7 @@ class RockCommandTest {
 
         @Override
         public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                Path savePath,
+                SaveSession session,
                 java.util.Collection<ChunkPosition> positions,
                 int[] wantedBlockIds,
                 ReadDiagnostics diagnostics,
@@ -158,20 +158,8 @@ class RockCommandTest {
                             chunk
                     )
             );
-            return new SelectiveChunkStreamStats(positions.size(), 1, 1, 1, 0, 1, 0, 1);
-        }
-
-        @Override
-        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                SaveSession session,
-                java.util.Collection<ChunkPosition> positions,
-                int[] wantedBlockIds,
-                ReadDiagnostics diagnostics,
-                Consumer<SelectiveChunkVisit> consumer,
-                cartographer.application.ProgressReporter progress
-        ) {
-            return forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                    (Path) null, positions, wantedBlockIds, diagnostics, consumer, progress
+            return new SelectiveChunkStreamStats(
+                    positions.size(), 1, 1, 1, 0, 1, 0, 1
             );
         }
     }
