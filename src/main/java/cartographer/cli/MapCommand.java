@@ -1,5 +1,6 @@
 package cartographer.cli;
 
+import cartographer.application.ProgressReporter;
 import cartographer.application.RenderActualOreMapRequest;
 import cartographer.application.RenderActualOreMapResult;
 import cartographer.application.RenderActualOreMapUseCase;
@@ -125,7 +126,7 @@ public class MapCommand implements Command {
         );
         RenderActualOreMapResult result = renderActualOreMapUseCase.execute(request);
 
-        ProgressReporter progress = new ProgressReporter(out);
+        ProgressReporter progress = new ConsoleProgressReporter(out);
 
         progress.start(
                 "Writing PNG"
