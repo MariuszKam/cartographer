@@ -100,7 +100,6 @@ class VcdbsReaderDirectChunkLookupTest {
                 );
         SaveSnapshot snapshot =
                 new SaveSnapshot(
-                        database,
                         new WorldMetadata(
                                 64,
                                 256,
@@ -771,7 +770,7 @@ class VcdbsReaderDirectChunkLookupTest {
         try (SaveSession session = new SaveSession(
                 database,
                 connections.openReadOnly(database),
-                snapshot(database)
+                snapshot()
         )) {
             return reader.forEachChunkByPositionAdaptive(
                     session,
@@ -840,9 +839,8 @@ class VcdbsReaderDirectChunkLookupTest {
         return new SaveSession(database, connection, snapshot(database));
     }
 
-    private SaveSnapshot snapshot(Path database) {
+    private SaveSnapshot snapshot() {
         return new SaveSnapshot(
-                database,
                 new WorldMetadata(1, 1, 1),
                 Map.of()
         );

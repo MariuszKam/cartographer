@@ -7,7 +7,9 @@ import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
 import cartographer.save.SaveSessionFactory;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
+import cartographer.save.WorldMetadataReader;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -230,13 +232,18 @@ class MarkerCommandTest {
             MarkerStore store,
             String subcommand
     ) {
+        VcdbsReader reader = reader();
         return new MarkerCommand(
                 new PrintStream(
                         new ByteArrayOutputStream()
                 ),
                 store,
-                reader(),
-                new SaveSessionFactory(),
+                reader,
+                new SaveSessionFactory(
+                        new SqliteSaveConnection(),
+                        reader,
+                        new WorldMetadataReader()
+                ),
                 subcommand
         );
     }

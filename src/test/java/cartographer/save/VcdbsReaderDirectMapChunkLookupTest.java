@@ -228,7 +228,7 @@ class VcdbsReaderDirectMapChunkLookupTest {
         return new SaveSession(
                 database,
                 new SqliteSaveConnection().openReadOnly(database),
-                snapshot(database)
+                snapshot()
         );
     }
 
@@ -238,12 +238,11 @@ class VcdbsReaderDirectMapChunkLookupTest {
                 new Class<?>[]{Connection.class},
                 (proxy, method, args) -> null
         );
-        return new SaveSession(database, connection, snapshot(database));
+        return new SaveSession(database, connection, snapshot());
     }
 
-    private SaveSnapshot snapshot(Path database) {
+    private SaveSnapshot snapshot() {
         return new SaveSnapshot(
-                database,
                 new WorldMetadata(1, 1, 1),
                 Map.of()
         );

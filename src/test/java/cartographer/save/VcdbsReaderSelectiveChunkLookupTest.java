@@ -627,7 +627,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
         return new SaveSession(
                 database,
                 new SqliteSaveConnection().openReadOnly(database),
-                snapshot(database)
+                snapshot()
         );
     }
 
@@ -642,11 +642,11 @@ class VcdbsReaderSelectiveChunkLookupTest {
                     throw new AssertionError("database connection must not be used");
                 }
         );
-        return new SaveSession(database, connection, snapshot(database));
+        return new SaveSession(database, connection, snapshot());
     }
 
-    private SaveSnapshot snapshot(Path database) {
-        return new SaveSnapshot(database, new WorldMetadata(1, 1, 1), Map.of());
+    private SaveSnapshot snapshot() {
+        return new SaveSnapshot(new WorldMetadata(1, 1, 1), Map.of());
     }
 
     private RecordingChunkParser parserWithPalette(int... blockIds) {

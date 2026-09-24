@@ -48,7 +48,7 @@ public final class SaveSessionFactory {
         try {
             WorldMetadata metadata = metadataReader.read(connection, cartographer.application.ProgressReporter.NONE);
             Map<Integer, BlockInfo> registry = reader.readBlockRegistry(connection);
-            SaveSnapshot snapshot = new SaveSnapshot(normalized, metadata, registry);
+            SaveSnapshot snapshot = new SaveSnapshot(metadata, registry);
             return new SaveSession(normalized, connection, snapshot);
         } catch (RuntimeException exception) {
             closeAfterFailedOpen(connection, exception);

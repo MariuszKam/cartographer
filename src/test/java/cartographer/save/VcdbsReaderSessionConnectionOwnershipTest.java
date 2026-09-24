@@ -37,7 +37,7 @@ class VcdbsReaderSessionConnectionOwnershipTest {
             SaveSession session = new SaveSession(
                     save,
                     connection,
-                    new SaveSnapshot(save, new WorldMetadata(128, 256, 128), Map.of())
+                    new SaveSnapshot(new WorldMetadata(128, 256, 128), Map.of())
             );
             VcdbsReader reader = new VcdbsReader(
                     null, new FixtureMapChunkParser(), null, null
