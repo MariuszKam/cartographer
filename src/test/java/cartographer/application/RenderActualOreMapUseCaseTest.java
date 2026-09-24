@@ -518,9 +518,7 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
         assertEquals(1, reader.registryCalls);
-        assertEquals(0, reader.pathPlayerCalls);
         assertEquals(0, reader.pathMapChunkCalls);
-        assertEquals(0, reader.pathRegistryCalls);
     }
 
     @Test
@@ -1224,11 +1222,9 @@ class RenderActualOreMapUseCaseTest {
         assertTrue(hasSurfaceCode(result, "game:fire-clay-blue"));
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
-        assertEquals(0, reader.pathPlayerCalls);
         assertEquals(0, reader.pathMapChunkCalls);
         assertEquals(0, reader.pathAdaptiveChunkCalls);
         assertEquals(0, reader.pathAdaptiveSelectiveCalls);
-        assertEquals(0, reader.pathRegistryCalls);
     }
 
     @Test
@@ -1850,8 +1846,6 @@ class RenderActualOreMapUseCaseTest {
         private int pathMapChunkCalls;
         private int pathAdaptiveChunkCalls;
         private int pathAdaptiveSelectiveCalls;
-        private int pathPlayerCalls;
-        private int pathRegistryCalls;
         private int sessionMapRegionCalls;
         private int legacyMapChunkCalls;
         private int legacyChunkCalls;
@@ -1867,12 +1861,6 @@ class RenderActualOreMapUseCaseTest {
             super(null, null, null, null);
             this.registry = registry;
             this.fakeBlockId = fakeBlockId;
-        }
-
-        @Override
-        public WorldPosition readPlayerPosition(Path savePath) {
-            pathPlayerCalls++;
-            return new WorldPosition(64, 64, 64);
         }
 
         @Override
@@ -2050,12 +2038,6 @@ class RenderActualOreMapUseCaseTest {
         ) {
             legacyChunkCalls++;
             throw new AssertionError("legacy chunk lookup must not be used");
-        }
-
-        @Override
-        public Map<Integer, BlockInfo> readBlockRegistry(Path savePath) {
-            pathRegistryCalls++;
-            return registry;
         }
 
         @Override

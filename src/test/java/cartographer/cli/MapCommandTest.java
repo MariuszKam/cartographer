@@ -434,7 +434,7 @@ class MapCommandTest {
 
         @Override
         public WorldPosition readPlayerPosition(
-                Path savePath,
+                SaveSession session,
                 cartographer.application.ProgressReporter progress
         ) {
             return new WorldPosition(
@@ -442,14 +442,6 @@ class MapCommandTest {
                     100.0,
                     512.0
             );
-        }
-
-        @Override
-        public WorldPosition readPlayerPosition(
-                SaveSession session,
-                cartographer.application.ProgressReporter progress
-        ) {
-            return readPlayerPosition((Path) null, progress);
         }
 
         @Override
@@ -690,10 +682,7 @@ class MapCommandTest {
         }
 
         @Override
-        public Map<Integer, BlockInfo> readBlockRegistry(
-                Path savePath,
-                cartographer.application.ProgressReporter progress
-        ) {
+        protected Map<Integer, BlockInfo> readBlockRegistry(Connection connection) {
             return Map.of(
                     1,
                     new BlockInfo(
@@ -706,11 +695,6 @@ class MapCommandTest {
                             "rock-granite"
                     )
             );
-        }
-
-        @Override
-        protected Map<Integer, BlockInfo> readBlockRegistry(Connection connection) {
-            return readBlockRegistry((Path) null, cartographer.application.ProgressReporter.NONE);
         }
     }
 

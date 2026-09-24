@@ -74,15 +74,6 @@ public class VcdbsReader {
     private final PackedPositionRunPlanner packedPositionRunPlanner =
             new PackedPositionRunPlanner();
 
-    public WorldPosition readPlayerPosition(
-            Path savePath
-    ) {
-        return readPlayerPosition(
-                savePath,
-                ProgressReporter.NONE
-        );
-    }
-
     public MapChunkStreamStats forEachMapChunkByCoordinate(
             Path savePath,
             Collection<MapChunkCoordinate> coordinates,
@@ -2546,15 +2537,6 @@ public class VcdbsReader {
         }
     }
 
-    public Map<Integer, BlockInfo> readBlockRegistry(
-            Path savePath
-    ) {
-        return readBlockRegistry(
-                savePath,
-                ProgressReporter.NONE
-        );
-    }
-
     public VcdbsReader(
             PlayerDataParser playerDataParser,
             MapChunkParser mapChunkParser,
@@ -2646,33 +2628,6 @@ public class VcdbsReader {
     }
 
     public WorldPosition readPlayerPosition(
-            Path savePath,
-            ProgressReporter progress
-    ) {
-        List<SaveRecord> records =
-                readPlayerRecords(
-                        savePath,
-                        progress
-                );
-
-        SaveRecord selected =
-                selectDefaultPlayer(
-                        records
-                )
-                        .orElseThrow(
-                                () ->
-                                        new CommandException(
-                                                "Table playerdata exists but contains no selectable rows"
-                                        )
-                        );
-
-        return parsePlayerPosition(
-                selected,
-                progress
-        );
-    }
-
-    public WorldPosition readPlayerPosition(
             SaveSession session,
             ProgressReporter progress
     ) {
@@ -2712,41 +2667,6 @@ public class VcdbsReader {
         List<SaveRecord> records =
                 readPlayerRecords(
                         session,
-                        progress
-                );
-
-        SaveRecord selected =
-                selectPlayer(
-                        records,
-                        playerSelector
-                )
-                        .orElseThrow(
-                                () ->
-                                        new CommandException(
-                                                "No playerdata row matched selector: "
-                                                        + playerSelector
-                                        )
-                        );
-
-        return parsePlayerPosition(
-                selected,
-                progress
-        );
-    }
-
-    public WorldPosition readPlayerPosition(
-            Path savePath,
-            String playerSelector,
-            ProgressReporter progress
-    ) {
-        Objects.requireNonNull(
-                playerSelector,
-                "playerSelector is required"
-        );
-
-        List<SaveRecord> records =
-                readPlayerRecords(
-                        savePath,
                         progress
                 );
 
@@ -2783,34 +2703,6 @@ public class VcdbsReader {
                     session.connection(),
                     progress
             );
-
-        } catch (SQLException exception) {
-            throw new CommandException(
-                    "Cannot read playerdata: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
-    }
-
-    private List<SaveRecord> readPlayerRecords(
-            Path savePath,
-            ProgressReporter progress
-    ) {
-        progress.start(
-                "Opening save read-only"
-        );
-
-        try (Connection connection =
-                     connectionFactory.openReadOnly(
-                             savePath
-                     )) {
-
-            progress.done(
-                    "Save opened read-only"
-            );
-
-            return readPlayerRecords(connection, progress);
 
         } catch (SQLException exception) {
             throw new CommandException(
@@ -2952,47 +2844,6 @@ public class VcdbsReader {
         } catch (SQLException exception) {
             throw new CommandException(
                     "Cannot read chunk table: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
-    }
-
-    public Map<Integer, BlockInfo> readBlockRegistry(
-            Path savePath,
-            ProgressReporter progress
-    ) {
-        progress.start(
-                "Opening save read-only"
-        );
-
-        try (Connection connection =
-                     connectionFactory.openReadOnly(
-                             savePath
-                     )) {
-
-            progress.done(
-                    "Save opened read-only"
-            );
-
-            progress.start(
-                    "Reading block registry"
-            );
-
-            Map<Integer, BlockInfo> registry =
-                    readBlockRegistry(
-                            connection
-                    );
-
-            progress.done(
-                    "Block registry read"
-            );
-
-            return registry;
-
-        } catch (SQLException exception) {
-            throw new CommandException(
-                    "Cannot read block registry: "
                             + exception.getMessage(),
                     exception
             );

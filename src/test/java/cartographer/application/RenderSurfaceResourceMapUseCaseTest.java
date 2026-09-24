@@ -650,11 +650,6 @@ class RenderSurfaceResourceMapUseCaseTest {
         }
 
         @Override
-        public WorldPosition readPlayerPosition(Path savePath) {
-            return new WorldPosition(16, 100, 16);
-        }
-
-        @Override
         public WorldPosition readPlayerPosition(SaveSession session, ProgressReporter progress) {
             return new WorldPosition(16, 100, 16);
         }
@@ -883,11 +878,6 @@ class RenderSurfaceResourceMapUseCaseTest {
         ) {
             legacyChunkCalls++;
             throw new AssertionError("legacy chunk reader must not be used");
-        }
-
-        @Override
-        public Map<Integer, BlockInfo> readBlockRegistry(Path savePath) {
-            return registry;
         }
 
         @Override
