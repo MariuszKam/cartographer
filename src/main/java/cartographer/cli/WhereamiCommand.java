@@ -1,5 +1,6 @@
 package cartographer.cli;
 
+import cartographer.application.ProgressReporter;
 import cartographer.model.DisplayPosition;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
@@ -51,7 +52,7 @@ public class WhereamiCommand
                 );
 
         ProgressReporter progress =
-                new ProgressReporter(
+                new ConsoleProgressReporter(
                         out
                 );
 
