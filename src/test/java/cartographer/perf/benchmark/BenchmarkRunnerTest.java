@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -58,8 +57,7 @@ class BenchmarkRunnerTest {
                     calls.add(call);
                     return call == 2
                             ? BenchmarkOperationResult.failure(
-                            new BenchmarkFailure("ExampleFailure", "bad", "decode"),
-                            Optional.empty()
+                            new BenchmarkFailure("ExampleFailure", "bad", "decode")
                     )
                             : BenchmarkOperationResult.success(FIRST);
                 }
@@ -117,8 +115,7 @@ class BenchmarkRunnerTest {
                 workload -> {
                     calls[0]++;
                     return BenchmarkOperationResult.failure(
-                            new BenchmarkFailure("WarmupFailure", "failed", "warmup"),
-                            Optional.empty()
+                            new BenchmarkFailure("WarmupFailure", "failed", "warmup")
                     );
                 }
         );
@@ -187,7 +184,7 @@ class BenchmarkRunnerTest {
     }
 
     @Test
-    void negativeTimeDeltaIsRejectedAndUnknownInstrumentationStaysAbsent() {
+    void negativeTimeDeltaIsRejected() {
         ManualTime time = new ManualTime(10, 9);
         BenchmarkRunner runner = new BenchmarkRunner(time);
 
@@ -195,12 +192,6 @@ class BenchmarkRunnerTest {
                 new BenchmarkPlan(WORKLOAD, ExecutionMode.JVM_WARM, 0, 1),
                 workload -> BenchmarkOperationResult.success(FIRST)
         ));
-
-        BenchmarkRunResult result = new BenchmarkRunner(new ManualTime(0, 3)).run(
-                new BenchmarkPlan(WORKLOAD, ExecutionMode.JVM_WARM, 0, 1),
-                workload -> BenchmarkOperationResult.success(FIRST)
-        );
-        assertTrue(result.measuredIterations().get(0).instrumentation().isEmpty());
     }
 
     @Test

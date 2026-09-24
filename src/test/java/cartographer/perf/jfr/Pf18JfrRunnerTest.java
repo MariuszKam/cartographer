@@ -283,7 +283,7 @@ class Pf18JfrRunnerTest {
         AtomicInteger analyzerCalls = new AtomicInteger();
         Pf18JfrProfilerInvoker profiler = (recordingPlan, plan, operation) -> {
             BenchmarkIterationResult missing = new BenchmarkIterationResult(
-                    0, 1, Optional.empty(), Optional.empty(),
+                    0, 1, Optional.empty(),
                     Optional.of(new BenchmarkFailure("MissingFingerprint", "missing", "test")));
             List<BenchmarkIterationResult> measured = List.of(missing,
                     consistentIteration(1), consistentIteration(2),
@@ -374,9 +374,9 @@ class Pf18JfrRunnerTest {
         try {
             BenchmarkOperationResult result = operation.execute(plan.workload());
             return new BenchmarkIterationResult(index, 1, result.fingerprint(),
-                    result.instrumentation(), result.failure());
+                    result.failure());
         } catch (RuntimeException failure) {
-            return new BenchmarkIterationResult(index, 1, Optional.empty(), Optional.empty(),
+            return new BenchmarkIterationResult(index, 1, Optional.empty(),
                     Optional.of(BenchmarkFailure.from(failure, "test profiler")));
         }
     }
@@ -397,17 +397,17 @@ class Pf18JfrRunnerTest {
     private static BenchmarkIterationResult successfulIteration(int index) {
         return new BenchmarkIterationResult(index, 1,
                 Optional.of(new ResultFingerprint(Integer.toHexString(index).repeat(64).substring(0, 64))),
-                Optional.empty(), Optional.empty());
+                Optional.empty());
     }
 
     private static BenchmarkIterationResult consistentIteration(int index) {
         return new BenchmarkIterationResult(index, 1,
                 Optional.of(new ResultFingerprint("d".repeat(64))),
-                Optional.empty(), Optional.empty());
+                Optional.empty());
     }
 
     private static BenchmarkIterationResult failedIteration(int index) {
-        return new BenchmarkIterationResult(index, 1, Optional.empty(), Optional.empty(),
+        return new BenchmarkIterationResult(index, 1, Optional.empty(),
                 Optional.of(new BenchmarkFailure("TestFailure", "failure", "test")));
     }
 

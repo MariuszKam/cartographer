@@ -1,8 +1,6 @@
 package cartographer.perf.benchmark;
 
 import cartographer.perf.fingerprint.ResultFingerprint;
-import cartographer.perf.instrumentation.PerformanceInstrumentationSnapshot;
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -11,7 +9,6 @@ public record BenchmarkIterationResult(
         int iterationIndex,
         long wallClockNanoseconds,
         Optional<ResultFingerprint> fingerprint,
-        Optional<PerformanceInstrumentationSnapshot> instrumentation,
         Optional<BenchmarkFailure> failure
 ) {
     public BenchmarkIterationResult {
@@ -22,7 +19,6 @@ public record BenchmarkIterationResult(
             throw new IllegalArgumentException("wallClockNanoseconds must not be negative");
         }
         Objects.requireNonNull(fingerprint, "fingerprint is required");
-        Objects.requireNonNull(instrumentation, "instrumentation is required");
         Objects.requireNonNull(failure, "failure is required");
         if (fingerprint.isPresent() == failure.isPresent()) {
             throw new IllegalArgumentException(

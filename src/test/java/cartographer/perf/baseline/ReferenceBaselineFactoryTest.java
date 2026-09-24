@@ -5,18 +5,14 @@ import cartographer.perf.benchmark.BenchmarkIterationResult;
 import cartographer.perf.benchmark.BenchmarkPlan;
 import cartographer.perf.benchmark.BenchmarkRunResult;
 import cartographer.perf.fingerprint.ResultFingerprint;
-import cartographer.perf.instrumentation.PerformanceInstrumentationSnapshot;
 import cartographer.perf.metrics.ExecutionMode;
-import cartographer.perf.metrics.PerformanceCounters;
 import cartographer.perf.metrics.PerformanceEnvironment;
-import cartographer.perf.metrics.PerformanceStageMetrics;
 import cartographer.perf.workload.MapWorkload;
 import cartographer.perf.workload.RadiusProfile;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -54,25 +50,6 @@ class ReferenceBaselineFactoryTest {
         assertEquals(20L, baseline.summary().p50WallClockNanoseconds());
         assertEquals(99L, baseline.summary().p95WallClockNanoseconds());
         assertEquals(99L, baseline.summary().maxWallClockNanoseconds());
-    }
-
-    @Test
-    void instrumentationPresenceIsRetainedAndAbsenceStaysAbsent() {
-        PerformanceInstrumentationSnapshot snapshot = new PerformanceInstrumentationSnapshot(
-                new PerformanceStageMetrics(Map.of()),
-                new PerformanceCounters(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-        );
-        BenchmarkIterationResult withInstrumentation = new BenchmarkIterationResult(
-                0, 7, Optional.of(FINGERPRINT), Optional.of(snapshot), Optional.empty()
-        );
-        BenchmarkIterationResult withoutInstrumentation = sample(1, 8);
-
-        ReferenceBaseline baseline = create(run(
-                0, List.of(), List.of(withInstrumentation, withoutInstrumentation),
-                BenchmarkExecutionStatus.SUCCESS));
-
-        assertEquals(Optional.of(snapshot), baseline.samples().get(0).instrumentation());
-        assertEquals(Optional.empty(), baseline.samples().get(1).instrumentation());
     }
 
     @Test
@@ -214,7 +191,6 @@ class ReferenceBaselineFactoryTest {
                 index,
                 duration,
                 Optional.of(fingerprint),
-                Optional.empty(),
                 Optional.empty()
         );
     }

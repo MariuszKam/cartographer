@@ -82,8 +82,7 @@ public final class BenchmarkRunner {
             );
         } catch (RuntimeException failure) {
             operationResult = BenchmarkOperationResult.failure(
-                    BenchmarkFailure.from(failure, "benchmark operation"),
-                    java.util.Optional.empty()
+                    BenchmarkFailure.from(failure, "benchmark operation")
             );
         }
         long elapsed = elapsedSince(startedAt);
@@ -91,7 +90,6 @@ public final class BenchmarkRunner {
                 iterationIndex,
                 elapsed,
                 operationResult.fingerprint(),
-                operationResult.instrumentation(),
                 operationResult.failure()
         );
     }
