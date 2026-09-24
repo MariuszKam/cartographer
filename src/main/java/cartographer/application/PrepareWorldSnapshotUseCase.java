@@ -36,9 +36,7 @@ import cartographer.save.MapRegionStreamStats;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
-import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.SurfaceFallbackChunkPlanner;
 import cartographer.scanner.SurfaceRainHeightPlan;
 import cartographer.scanner.SurfaceRainHeightScanResult;
@@ -82,23 +80,6 @@ public final class PrepareWorldSnapshotUseCase {
             new EnvironmentInterpreter();
     private final GeologicProvinceInterpreter geologicProvinceInterpreter =
             new GeologicProvinceInterpreter();
-
-    public PrepareWorldSnapshotUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            RenderDataCacheStore cacheStore
-    ) {
-        this(
-                reader,
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(),
-                        reader,
-                        metadataReader
-                ),
-                cacheStore,
-                new WorldIndexBatchPlanner()
-        );
-    }
 
     public PrepareWorldSnapshotUseCase(
             VcdbsReader reader,
