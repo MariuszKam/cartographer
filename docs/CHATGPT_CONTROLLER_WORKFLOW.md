@@ -44,9 +44,10 @@ Before planning substantial work, ChatGPT should:
 7. inspect recent history and existing changes before deciding scope.
 
 Discover relevant documentation; do not assume today's documentation list is
-complete. Known files such as `docs/WINDOWS_RELEASE.md` and
-`docs/WORKSTATION_V1_HANDOFF.md` are examples to read when they are relevant,
-not a permanent exhaustive list.
+complete. Durable examples include `docs/PERFORMANCE_ARCHITECTURE.md`,
+`docs/TESTING_ARCHITECTURE.md`, and `docs/WINDOWS_RELEASE.md`. Read only the
+documents relevant to the current task rather than relying on historical
+milestone handoffs.
 
 Never infer local repository state from remote GitHub state. A repository
 connector may show remote refs and commits, but that does not prove which

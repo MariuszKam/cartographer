@@ -596,17 +596,12 @@ At documentation-cleanup time:
 - JFR review remains pending; and
 - manual PNG validation remains pending.
 
-The overall performance foundation remains `VALIDATION PENDING`. This
-documentation-only cleanup does not create new runtime evidence and does not
-mark PF-1.6, PF-1.7, PF-1.8, or the performance foundation `VALIDATED` or
-`DONE`.
+The overall performance foundation remains `VALIDATION PENDING` until the
+remaining reviewer-controlled evidence is complete.
 
-## 13a. PF-2 World Snapshot direction
+## 13a. PF-2 World Snapshot architecture
 
-The next performance generation is documented in
-[`docs/PF2_WORLD_SNAPSHOT_ARCHITECTURE.md`](PF2_WORLD_SNAPSHOT_ARCHITECTURE.md).
-
-PF-2 shifts the target from repeatedly optimizing every source-backed render to
+PF-2 shifted the target from repeatedly optimizing every source-backed render to
 building revision-scoped compact derived world data once and rendering many
 times from that snapshot. PF-2.0 reuses the existing PF-1.7 Terrain/Surface
 stores through a `WorldDataSnapshot` facade and adds exact-position traversal
@@ -753,6 +748,19 @@ correctness gates.
 
 Runtime execution remains reviewer-controlled. Implementation alone does not
 mark PF-2.8 DONE.
+
+The current PF-2.8 real-save validation entry point is:
+
+```powershell
+.\gradlew.bat pf28SnapshotValidation `
+  -Psave="C:\path\world.vcdbs" `
+  -PgitSha=<full-40-character-sha> `
+  -PoutputRoot="C:\path\fresh-pf28-evidence"
+```
+
+The task depends on the full unit-test suite. The evidence root must be outside
+the source-save directory and new or empty so previous artifacts cannot
+contaminate cold-ingest evidence.
 
 ## 14. Explicit non-goals and current boundaries
 
