@@ -38,7 +38,7 @@ public class InspectCommand implements Command {
                         Path.of(
                                 args[0]
                         ),
-                        new ProgressReporter(
+                        new ConsoleProgressReporter(
                                 out
                         )
                 );
