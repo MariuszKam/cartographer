@@ -78,7 +78,6 @@ class RenderSurfaceResourceMapUseCaseTest {
         );
         RenderSurfaceResourceMapUseCase useCase = new RenderSurfaceResourceMapUseCase(
                 reader,
-                metadataReader,
                 new SaveSessionFactory(new TestConnectionFactory(), reader, metadataReader),
                 new HomeStore(temporaryDirectory.resolve("surface-cache-home.properties")),
                 new MarkerStore(temporaryDirectory.resolve("surface-cache-markers.csv")),
@@ -504,7 +503,6 @@ class RenderSurfaceResourceMapUseCaseTest {
         WorldMetadataReader metadataReader = metadataReader(metadata);
         return new RenderSurfaceResourceMapUseCase(
                 reader,
-                metadataReader,
                 new SaveSessionFactory(new TestConnectionFactory(), reader, metadataReader),
                 new HomeStore(Path.of("build", "surface-test-home.properties")),
                 new MarkerStore(Path.of("build", "surface-test-markers.csv")),
