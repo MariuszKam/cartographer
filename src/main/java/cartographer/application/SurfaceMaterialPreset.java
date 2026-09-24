@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
-/** The supported surface-material vocabulary shared by UI and CLI. */
+/** The supported surface-material vocabulary used by the application and UI. */
 public enum SurfaceMaterialPreset {
     FIRE_CLAY("Fire Clay", List.of("fire", "clay"), List.of("fireclay", "fire clay")),
     CLAY("Clay", List.of("clay"), List.of("clay")),

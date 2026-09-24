@@ -4,7 +4,6 @@ import cartographer.model.ParseResult;
 import cartographer.model.WorldPosition;
 import cartographer.save.ProtobufWireReader;
 
-import java.util.List;
 import java.util.Optional;
 
 public final class PlayerDataParser {
@@ -57,39 +56,5 @@ public final class PlayerDataParser {
                             + exception.getMessage()
             );
         }
-    }
-
-    /*
-     * SaveInspector currently calls this method.
-     *
-     * We keep it for compatibility, but unlike the previous
-     * implementation it no longer scans random doubles/floats
-     * in the payload.
-     */
-    public List<PlayerPositionCandidate> findCandidates(
-            byte[] payload,
-            int limit
-    ) {
-        if (limit <= 0) {
-            return List.of();
-        }
-
-        ParseResult<WorldPosition> result = parse(payload);
-
-        if (!result.isSuccess()) {
-            return List.of();
-        }
-
-        WorldPosition position =
-                result.value().orElseThrow();
-
-        return List.of(
-                new PlayerPositionCandidate(
-                        -1,
-                        "ServerWorldPlayerData.EntityPlayerSerialized",
-                        position,
-                        Double.POSITIVE_INFINITY
-                )
-        );
     }
 }
