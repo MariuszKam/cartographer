@@ -136,7 +136,7 @@ public class ResourceCommand implements Command {
         this.pngWriter = pngWriter;
         this.surfaceObjectInspectionUseCase = new InspectSurfaceObjectsUseCase(
                 reader,
-                metadataReader
+                sessionFactory
         );
         this.mapDataUseCase = new PrepareMapDataUseCase(
                 reader,
