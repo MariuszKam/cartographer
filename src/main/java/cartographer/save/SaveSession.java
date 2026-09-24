@@ -20,7 +20,7 @@ public final class SaveSession implements AutoCloseable {
     private boolean closed;
 
     SaveSession(Path savePath, Connection connection, SaveSnapshot snapshot) {
-        this.savePath = normalizeSavePath(savePath);
+        this.savePath = SavePathIdentity.normalize(savePath);
         this.connection = Objects.requireNonNull(connection, "connection is required");
         this.snapshot = Objects.requireNonNull(snapshot, "snapshot is required");
     }
@@ -35,7 +35,7 @@ public final class SaveSession implements AutoCloseable {
      */
     public void requireSameSave(Path requestedSavePath) {
         ensureOpen();
-        Path normalized = normalizeSavePath(requestedSavePath);
+        Path normalized = SavePathIdentity.normalize(requestedSavePath);
         if (!savePath.equals(normalized)) {
             throw new IllegalArgumentException(
                     "Save session path does not match requested save path: "
@@ -44,17 +44,9 @@ public final class SaveSession implements AutoCloseable {
         }
     }
 
-    static Path normalizeSavePath(Path savePath) {
-        return SavePathIdentity.normalize(savePath);
-    }
-
     public SaveSnapshot snapshot() {
         ensureOpen();
         return snapshot;
-    }
-
-    public boolean isClosed() {
-        return closed;
     }
 
     /**

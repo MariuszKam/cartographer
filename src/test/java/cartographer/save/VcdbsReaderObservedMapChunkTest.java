@@ -69,7 +69,6 @@ class VcdbsReaderObservedMapChunkTest {
                 database,
                 connection,
                 new SaveSnapshot(
-                        database,
                         new WorldMetadata(1024, 256, 1024),
                         Map.of()
                 )
@@ -121,7 +120,6 @@ class VcdbsReaderObservedMapChunkTest {
                 database,
                 connection,
                 new SaveSnapshot(
-                        database,
                         new WorldMetadata(1024, 256, 1024),
                         Map.of()
                 )

@@ -525,16 +525,12 @@ class RenderSurfaceResourceMapUseCaseTest {
     }
 
     private WorldMetadataReader metadataReader(WorldMetadata metadata) {
-        return new WorldMetadataReader(null, null) {
+        return new WorldMetadataReader() {
             @Override
             protected WorldMetadata read(Connection connection, ProgressReporter progress) {
                 return metadata;
             }
 
-            @Override
-            public WorldMetadata read(Path savePath) {
-                return metadata;
-            }
         };
     }
 
@@ -650,34 +646,8 @@ class RenderSurfaceResourceMapUseCaseTest {
         }
 
         @Override
-        public WorldPosition readPlayerPosition(Path savePath) {
-            return new WorldPosition(16, 100, 16);
-        }
-
-        @Override
         public WorldPosition readPlayerPosition(SaveSession session, ProgressReporter progress) {
             return new WorldPosition(16, 100, 16);
-        }
-
-        @Override
-        public MapChunkStreamStats forEachMapChunkByCoordinate(
-                Path savePath,
-                java.util.Collection<MapChunkCoordinate> coordinates,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<MapChunk> consumer
-        ) {
-            directMapChunkCalls++;
-            directMapChunkRequests.add(List.copyOf(coordinates));
-            int delivered = 0;
-            for (MapChunkCoordinate coordinate : coordinates) {
-                MapChunk mapChunk = mapChunks.get(coordinate);
-                if (mapChunk != null) {
-                    delivered++;
-                    consumer.accept(mapChunk);
-                }
-            }
-            return new MapChunkStreamStats(coordinates.size(), coordinates.isEmpty() ? 0 : 1,
-                    delivered, delivered, 0, 0);
         }
 
         @Override
@@ -700,32 +670,6 @@ class RenderSurfaceResourceMapUseCaseTest {
             }
             return new MapChunkStreamStats(coordinates.size(), coordinates.isEmpty() ? 0 : 1,
                     delivered, delivered, 0, 0);
-        }
-
-        @Override
-        public MapChunkStreamStats forEachMapChunkByCoordinate(
-                Path savePath,
-                java.util.Collection<MapChunkCoordinate> coordinates,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<MapChunk> consumer,
-                ProgressReporter progress
-        ) {
-            return forEachMapChunkByCoordinate(
-                    savePath, coordinates, diagnostics, consumer
-            );
-        }
-
-        @Override
-        public ChunkStreamStats forEachChunkByPositionAdaptive(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-            java.util.function.Consumer<ParsedChunk> consumer
-        ) {
-            adaptiveExactChunkCalls++;
-            return forEachChunkByPosition(
-                    savePath, positions, diagnostics, consumer
-            );
         }
 
         @Override
@@ -761,31 +705,6 @@ class RenderSurfaceResourceMapUseCaseTest {
             );
         }
 
-        @Override
-        public ChunkStreamStats forEachChunkByPositionAdaptive(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer,
-                ProgressReporter progress
-        ) {
-            return forEachChunkByPositionAdaptive(
-                    savePath, positions, diagnostics, consumer
-            );
-        }
-
-        @Override
-        public ChunkStreamStats forEachChunkByPosition(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer
-        ) {
-            exactChunkCalls++;
-            exactRequests.add(List.copyOf(positions));
-            return deliverChunks(positions, consumer);
-        }
-
         private ChunkStreamStats deliverChunks(
                 java.util.Collection<ChunkPosition> positions,
                 java.util.function.Consumer<ParsedChunk> consumer
@@ -805,7 +724,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         @Override
         public cartographer.save.SelectiveChunkStreamStats
         forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                Path savePath,
+                SaveSession session,
                 java.util.Collection<ChunkPosition> positions,
                 int[] wantedBlockIds,
                 ReadDiagnostics diagnostics,
@@ -847,21 +766,6 @@ class RenderSurfaceResourceMapUseCaseTest {
         }
 
         @Override
-        public cartographer.save.SelectiveChunkStreamStats
-        forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                int[] wantedBlockIds,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<cartographer.save.SelectiveChunkVisit> consumer,
-                ProgressReporter progress
-        ) {
-            return forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                    savePath, positions, wantedBlockIds, diagnostics, consumer
-            );
-        }
-
-        @Override
         public List<MapChunk> readMapChunksAround(
                 SaveSession session,
                 WorldPosition center,
@@ -883,11 +787,6 @@ class RenderSurfaceResourceMapUseCaseTest {
         ) {
             legacyChunkCalls++;
             throw new AssertionError("legacy chunk reader must not be used");
-        }
-
-        @Override
-        public Map<Integer, BlockInfo> readBlockRegistry(Path savePath) {
-            return registry;
         }
 
         @Override

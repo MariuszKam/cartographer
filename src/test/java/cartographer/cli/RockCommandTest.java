@@ -134,7 +134,7 @@ class RockCommandTest {
 
         @Override
         public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                Path savePath,
+                SaveSession session,
                 java.util.Collection<ChunkPosition> positions,
                 int[] wantedBlockIds,
                 ReadDiagnostics diagnostics,
@@ -158,36 +158,19 @@ class RockCommandTest {
                             chunk
                     )
             );
-            return new SelectiveChunkStreamStats(positions.size(), 1, 1, 1, 0, 1, 0, 1);
-        }
-
-        @Override
-        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                SaveSession session,
-                java.util.Collection<ChunkPosition> positions,
-                int[] wantedBlockIds,
-                ReadDiagnostics diagnostics,
-                Consumer<SelectiveChunkVisit> consumer,
-                cartographer.application.ProgressReporter progress
-        ) {
-            return forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                    (Path) null, positions, wantedBlockIds, diagnostics, consumer, progress
+            return new SelectiveChunkStreamStats(
+                    positions.size(), 1, 1, 1, 0, 1, 0, 1
             );
         }
     }
 
     private static final class FakeMetadataReader extends WorldMetadataReader {
         @Override
-        public WorldMetadata read(Path savePath, cartographer.application.ProgressReporter progress) {
-            return new WorldMetadata(32, 32, 32);
-        }
-
-        @Override
         protected WorldMetadata read(
                 Connection connection,
                 cartographer.application.ProgressReporter progress
         ) {
-            return read((Path) null, progress);
+            return new WorldMetadata(32, 32, 32);
         }
     }
 

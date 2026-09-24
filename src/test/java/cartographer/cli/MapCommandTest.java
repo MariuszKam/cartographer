@@ -434,7 +434,7 @@ class MapCommandTest {
 
         @Override
         public WorldPosition readPlayerPosition(
-                Path savePath,
+                SaveSession session,
                 cartographer.application.ProgressReporter progress
         ) {
             return new WorldPosition(
@@ -442,14 +442,6 @@ class MapCommandTest {
                     100.0,
                     512.0
             );
-        }
-
-        @Override
-        public WorldPosition readPlayerPosition(
-                SaveSession session,
-                cartographer.application.ProgressReporter progress
-        ) {
-            return readPlayerPosition((Path) null, progress);
         }
 
         @Override
@@ -478,10 +470,11 @@ class MapCommandTest {
 
         @Override
         public MapChunkStreamStats forEachMapChunkByCoordinate(
-                Path savePath,
+                SaveSession session,
                 java.util.Collection<cartographer.model.MapChunkCoordinate> coordinates,
                 ReadDiagnostics diagnostics,
-                java.util.function.Consumer<MapChunk> consumer
+                java.util.function.Consumer<MapChunk> consumer,
+                cartographer.application.ProgressReporter progress
         ) {
             return new MapChunkStreamStats(
                     coordinates.size(),
@@ -494,57 +487,6 @@ class MapCommandTest {
         }
 
         @Override
-        public MapChunkStreamStats forEachMapChunkByCoordinate(
-                SaveSession session,
-                java.util.Collection<cartographer.model.MapChunkCoordinate> coordinates,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<MapChunk> consumer,
-                cartographer.application.ProgressReporter progress
-        ) {
-            return forEachMapChunkByCoordinate(
-                    (Path) null, coordinates, diagnostics, consumer, progress
-            );
-        }
-
-        @Override
-        public MapChunkStreamStats forEachMapChunkByCoordinate(
-                Path savePath,
-                java.util.Collection<cartographer.model.MapChunkCoordinate> coordinates,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<MapChunk> consumer,
-                cartographer.application.ProgressReporter progress
-        ) {
-            return forEachMapChunkByCoordinate(
-                    savePath, coordinates, diagnostics, consumer
-            );
-        }
-
-        @Override
-        public ChunkStreamStats forEachChunkByPositionAdaptive(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer
-        ) {
-            return forEachChunkByPosition(
-                    savePath, positions, diagnostics, consumer
-            );
-        }
-
-        @Override
-        public ChunkStreamStats forEachChunkByPositionAdaptive(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer,
-                cartographer.application.ProgressReporter progress
-        ) {
-            return forEachChunkByPositionAdaptive(
-                    savePath, positions, diagnostics, consumer
-            );
-        }
-
-        @Override
         public ChunkStreamStats forEachChunkByPositionAdaptive(
                 SaveSession session,
                 java.util.Collection<ChunkPosition> positions,
@@ -552,8 +494,18 @@ class MapCommandTest {
                 java.util.function.Consumer<ParsedChunk> consumer,
                 cartographer.application.ProgressReporter progress
         ) {
-            return forEachChunkByPositionAdaptive(
-                    (Path) null, positions, diagnostics, consumer, progress
+            if (positions.isEmpty()) {
+                return new ChunkStreamStats(0, 0, 0, 0, 0, 0);
+            }
+
+            consumer.accept(oreChunk());
+            return new ChunkStreamStats(
+                    positions.size(),
+                    1,
+                    1,
+                    1,
+                    0,
+                    0
             );
         }
 
@@ -566,57 +518,7 @@ class MapCommandTest {
                 cartographer.application.ProgressReporter progress
         ) {
             return forEachChunkByPositionAdaptive(
-                    (Path) null, positions, diagnostics, consumer, progress
-            );
-        }
-
-        @Override
-        public ChunkStreamStats forEachChunkByPosition(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer
-        ) {
-            if (positions.isEmpty()) {
-                return new ChunkStreamStats(0, 0, 0, 0, 0, 0);
-            }
-
-            ParsedChunk chunk = oreChunk();
-            consumer.accept(chunk);
-            return new ChunkStreamStats(
-                    positions.size(),
-                    1,
-                    1,
-                    1,
-                    0,
-                    0
-            );
-        }
-
-        @Override
-        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
-                Path savePath,
-                java.util.Collection<cartographer.model.ChunkPosition> positions,
-                int[] wantedBlockIds,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer
-        ) {
-            return forEachChunkByPositionMatchingBlockIds(
-                    savePath, positions, wantedBlockIds, diagnostics, consumer
-            );
-        }
-
-        @Override
-        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
-                Path savePath,
-                java.util.Collection<cartographer.model.ChunkPosition> positions,
-                int[] wantedBlockIds,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer,
-                cartographer.application.ProgressReporter progress
-        ) {
-            return forEachChunkByPositionMatchingBlockIdsAdaptive(
-                    savePath, positions, wantedBlockIds, diagnostics, consumer
+                    session, positions, diagnostics, consumer, progress
             );
         }
 
@@ -629,29 +531,9 @@ class MapCommandTest {
                 java.util.function.Consumer<ParsedChunk> consumer,
                 cartographer.application.ProgressReporter progress
         ) {
-            return forEachChunkByPositionMatchingBlockIdsAdaptive(
-                    (Path) null, positions, wantedBlockIds, diagnostics, consumer, progress
-            );
-        }
-
-        @Override
-        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIds(
-                Path savePath,
-                java.util.Collection<cartographer.model.ChunkPosition> positions,
-                int[] wantedBlockIds,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer
-        ) {
             if (positions.isEmpty()) {
                 return new SelectiveChunkStreamStats(
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0
+                        0, 0, 0, 0, 0, 0, 0, 0
                 );
             }
 
@@ -665,35 +547,18 @@ class MapCommandTest {
 
             if (!wanted) {
                 return new SelectiveChunkStreamStats(
-                        positions.size(),
-                        1,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0
+                        positions.size(), 1, 0, 0, 0, 0, 0, 0
                 );
             }
 
             consumer.accept(oreChunk());
             return new SelectiveChunkStreamStats(
-                    positions.size(),
-                    1,
-                    1,
-                    1,
-                    0,
-                    1,
-                    0,
-                    1
+                    positions.size(), 1, 1, 1, 0, 1, 0, 1
             );
         }
 
         @Override
-        public Map<Integer, BlockInfo> readBlockRegistry(
-                Path savePath,
-                cartographer.application.ProgressReporter progress
-        ) {
+        protected Map<Integer, BlockInfo> readBlockRegistry(Connection connection) {
             return Map.of(
                     1,
                     new BlockInfo(
@@ -706,11 +571,6 @@ class MapCommandTest {
                             "rock-granite"
                     )
             );
-        }
-
-        @Override
-        protected Map<Integer, BlockInfo> readBlockRegistry(Connection connection) {
-            return readBlockRegistry((Path) null, cartographer.application.ProgressReporter.NONE);
         }
     }
 
@@ -755,8 +615,8 @@ class MapCommandTest {
             extends WorldMetadataReader {
 
         @Override
-        public WorldMetadata read(
-                Path savePath,
+        protected WorldMetadata read(
+                Connection connection,
                 cartographer.application.ProgressReporter progress
         ) {
             return new WorldMetadata(
@@ -764,14 +624,6 @@ class MapCommandTest {
                     256,
                     1024
             );
-        }
-
-        @Override
-        protected WorldMetadata read(
-                Connection connection,
-                cartographer.application.ProgressReporter progress
-        ) {
-            return read((Path) null, progress);
         }
     }
 

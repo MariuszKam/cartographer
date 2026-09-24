@@ -518,9 +518,6 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
         assertEquals(1, reader.registryCalls);
-        assertEquals(0, reader.pathPlayerCalls);
-        assertEquals(0, reader.pathMapChunkCalls);
-        assertEquals(0, reader.pathRegistryCalls);
     }
 
     @Test
@@ -1224,11 +1221,6 @@ class RenderActualOreMapUseCaseTest {
         assertTrue(hasSurfaceCode(result, "game:fire-clay-blue"));
         assertEquals(0, reader.legacyMapChunkCalls);
         assertEquals(0, reader.legacyChunkCalls);
-        assertEquals(0, reader.pathPlayerCalls);
-        assertEquals(0, reader.pathMapChunkCalls);
-        assertEquals(0, reader.pathAdaptiveChunkCalls);
-        assertEquals(0, reader.pathAdaptiveSelectiveCalls);
-        assertEquals(0, reader.pathRegistryCalls);
     }
 
     @Test
@@ -1541,11 +1533,6 @@ class RenderActualOreMapUseCaseTest {
     ) {
         WorldMetadataReader metadataReader = new WorldMetadataReader() {
             @Override
-            public WorldMetadata read(Path savePath) {
-                return metadata;
-            }
-
-            @Override
             protected WorldMetadata read(Connection connection, ProgressReporter progress) {
                 return metadata;
             }
@@ -1572,11 +1559,6 @@ class RenderActualOreMapUseCaseTest {
             RenderDataCacheStore renderDataCacheStore
     ) {
         WorldMetadataReader metadataReader = new WorldMetadataReader() {
-            @Override
-            public WorldMetadata read(Path savePath) {
-                return metadata;
-            }
-
             @Override
             protected WorldMetadata read(Connection connection, ProgressReporter progress) {
                 return metadata;
@@ -1605,11 +1587,6 @@ class RenderActualOreMapUseCaseTest {
             TestConnectionFactory connections
     ) {
         WorldMetadataReader metadataReader = new WorldMetadataReader() {
-            @Override
-            public WorldMetadata read(Path savePath) {
-                return metadata;
-            }
-
             @Override
             protected WorldMetadata read(Connection connection, ProgressReporter progress) {
                 return metadata;
@@ -1847,11 +1824,6 @@ class RenderActualOreMapUseCaseTest {
         private int exactChunkCalls;
         private int adaptiveExactChunkCalls;
         private int registryCalls;
-        private int pathMapChunkCalls;
-        private int pathAdaptiveChunkCalls;
-        private int pathAdaptiveSelectiveCalls;
-        private int pathPlayerCalls;
-        private int pathRegistryCalls;
         private int sessionMapRegionCalls;
         private int legacyMapChunkCalls;
         private int legacyChunkCalls;
@@ -1870,29 +1842,11 @@ class RenderActualOreMapUseCaseTest {
         }
 
         @Override
-        public WorldPosition readPlayerPosition(Path savePath) {
-            pathPlayerCalls++;
-            return new WorldPosition(64, 64, 64);
-        }
-
-        @Override
         public WorldPosition readPlayerPosition(
                 SaveSession session,
                 ProgressReporter progress
         ) {
             return new WorldPosition(64, 64, 64);
-        }
-
-        @Override
-        public MapChunkStreamStats forEachMapChunkByCoordinate(
-                Path savePath,
-                java.util.Collection<MapChunkCoordinate> coordinates,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<MapChunk> consumer
-        ) {
-            pathMapChunkCalls++;
-            directMapChunkRequests.add(List.copyOf(coordinates));
-            return visitMapChunks(coordinates, consumer);
         }
 
         private MapChunkStreamStats visitMapChunks(
@@ -1931,30 +1885,6 @@ class RenderActualOreMapUseCaseTest {
         }
 
         @Override
-        public MapChunkStreamStats forEachMapChunkByCoordinate(
-                Path savePath,
-                java.util.Collection<MapChunkCoordinate> coordinates,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<MapChunk> consumer,
-                ProgressReporter progress
-        ) {
-            return forEachMapChunkByCoordinate(
-                    savePath, coordinates, diagnostics, consumer
-            );
-        }
-
-        @Override
-        public ChunkStreamStats forEachChunkByPositionAdaptive(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-            java.util.function.Consumer<ParsedChunk> consumer
-        ) {
-            pathAdaptiveChunkCalls++;
-            return visitChunks(positions, consumer);
-        }
-
-        @Override
         public ChunkStreamStats forEachChunkByPositionAdaptive(
                 SaveSession session,
                 java.util.Collection<ChunkPosition> positions,
@@ -1979,29 +1909,6 @@ class RenderActualOreMapUseCaseTest {
                     positions,
                     consumer
             );
-        }
-
-        @Override
-        public ChunkStreamStats forEachChunkByPositionAdaptive(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer,
-                ProgressReporter progress
-        ) {
-            return forEachChunkByPositionAdaptive(
-                    savePath, positions, diagnostics, consumer
-            );
-        }
-
-        @Override
-        public ChunkStreamStats forEachChunkByPosition(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer
-        ) {
-            return visitChunks(positions, consumer);
         }
 
         private ChunkStreamStats visitChunks(
@@ -2053,12 +1960,6 @@ class RenderActualOreMapUseCaseTest {
         }
 
         @Override
-        public Map<Integer, BlockInfo> readBlockRegistry(Path savePath) {
-            pathRegistryCalls++;
-            return registry;
-        }
-
-        @Override
         protected Map<Integer, BlockInfo> readBlockRegistry(Connection connection) {
             registryCalls++;
             return registry;
@@ -2076,18 +1977,6 @@ class RenderActualOreMapUseCaseTest {
 
         @Override
         public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                int[] wantedBlockIds,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer
-        ) {
-            pathAdaptiveSelectiveCalls++;
-            return visitSelective(positions, wantedBlockIds, consumer);
-        }
-
-        @Override
-        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
                 SaveSession session,
                 java.util.Collection<ChunkPosition> positions,
                 int[] wantedBlockIds,
@@ -2096,31 +1985,6 @@ class RenderActualOreMapUseCaseTest {
                 ProgressReporter progress
         ) {
             adaptiveSelectiveCalls++;
-            return visitSelective(positions, wantedBlockIds, consumer);
-        }
-
-        @Override
-        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                int[] wantedBlockIds,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer,
-                ProgressReporter progress
-        ) {
-            return forEachChunkByPositionMatchingBlockIdsAdaptive(
-                    savePath, positions, wantedBlockIds, diagnostics, consumer
-            );
-        }
-
-        @Override
-        public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIds(
-                Path savePath,
-                java.util.Collection<cartographer.model.ChunkPosition> positions,
-                int[] wantedBlockIds,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer
-        ) {
             return visitSelective(positions, wantedBlockIds, consumer);
         }
 

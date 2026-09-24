@@ -22,7 +22,6 @@ import cartographer.parser.RegistryParser;
 import cartographer.parser.ServerMapRegionParser;
 import cartographer.parser.SelectiveChunkParseResult;
 
-import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -66,7 +65,6 @@ public class VcdbsReader {
     private final ChunkParser chunkParser;
     private final RegistryParser registryParser;
     private final ServerMapRegionParser serverMapRegionParser;
-    private final SqliteSaveConnection connectionFactory;
     private final int chunkDecodeWorkerCount;
     private final int chunkDecodeMaxInFlight;
     private final AtomicReference<ChunkReadMetrics> lastChunkReadMetrics =
@@ -74,150 +72,11 @@ public class VcdbsReader {
     private final PackedPositionRunPlanner packedPositionRunPlanner =
             new PackedPositionRunPlanner();
 
-    public WorldPosition readPlayerPosition(
-            Path savePath
-    ) {
-        return readPlayerPosition(
-                savePath,
-                ProgressReporter.NONE
-        );
-    }
-
-    public MapChunkStreamStats forEachMapChunkByCoordinate(
-            Path savePath,
-            Collection<MapChunkCoordinate> coordinates,
-            ReadDiagnostics diagnostics,
-            Consumer<MapChunk> consumer
-    ) {
-        return forEachMapChunkByCoordinate(
-                savePath,
-                coordinates,
-                diagnostics,
-                consumer,
-                ProgressReporter.NONE
-        );
-    }
-
     /**
      * Visits main-world mapchunks by exact INTEGER PRIMARY KEY lookup.
      * Each requested coordinate is packed as x, y=0, z, dimension=0.
      * SQLite result order is unspecified and must not be relied upon.
      */
-    public MapChunkStreamStats forEachMapChunkByCoordinate(
-            Path savePath,
-            Collection<MapChunkCoordinate> coordinates,
-            ReadDiagnostics diagnostics,
-            Consumer<MapChunk> consumer,
-            ProgressReporter progress
-    ) {
-        Objects.requireNonNull(savePath, "savePath is required");
-        Objects.requireNonNull(coordinates, "coordinates is required");
-        Objects.requireNonNull(diagnostics, "diagnostics is required");
-        Objects.requireNonNull(consumer, "consumer is required");
-        Objects.requireNonNull(progress, "progress is required");
-
-        Set<Long> packedPositions = packedMapChunkPositions(coordinates);
-
-        if (packedPositions.isEmpty()) {
-            return new MapChunkStreamStats(0, 0, 0, 0, 0, 0);
-        }
-
-        try (Connection connection = connectionFactory.openReadOnly(savePath)) {
-            return forEachMapChunkByCoordinate(
-                    connection, packedPositions, diagnostics, consumer, progress
-            );
-        } catch (SQLException exception) {
-            throw new CommandException(
-                    "Cannot read mapchunk table by exact position: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
-    }
-
-    public ChunkStreamStats forEachChunkByPosition(
-            Path savePath,
-            Collection<ChunkPosition> positions,
-            ReadDiagnostics diagnostics,
-            Consumer<ParsedChunk> consumer
-    ) {
-        return forEachChunkByPosition(
-                savePath,
-                positions,
-                diagnostics,
-                consumer,
-                ProgressReporter.NONE
-        );
-    }
-
-    public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIds(
-            Path savePath,
-            Collection<ChunkPosition> positions,
-            int[] wantedBlockIds,
-            ReadDiagnostics diagnostics,
-            Consumer<ParsedChunk> consumer
-    ) {
-        return forEachChunkByPositionMatchingBlockIds(
-                savePath,
-                positions,
-                wantedBlockIds,
-                diagnostics,
-                consumer,
-                ProgressReporter.NONE
-        );
-    }
-
-    public ChunkStreamStats forEachChunkByPositionAdaptive(
-            Path savePath,
-            Collection<ChunkPosition> positions,
-            ReadDiagnostics diagnostics,
-            Consumer<ParsedChunk> consumer
-    ) {
-        return forEachChunkByPositionAdaptive(
-                savePath,
-                positions,
-                diagnostics,
-                consumer,
-                ProgressReporter.NONE
-        );
-    }
-
-    public ChunkStreamStats forEachChunkByPositionAdaptive(
-            Path savePath,
-            Collection<ChunkPosition> positions,
-            ReadDiagnostics diagnostics,
-            Consumer<ParsedChunk> consumer,
-            ProgressReporter progress
-    ) {
-        Objects.requireNonNull(savePath, "savePath is required");
-        Objects.requireNonNull(positions, "positions is required");
-        Objects.requireNonNull(diagnostics, "diagnostics is required");
-        Objects.requireNonNull(consumer, "consumer is required");
-        Objects.requireNonNull(progress, "progress is required");
-
-        Set<Long> packedPositions = packedUniquePositions(positions);
-        if (packedPositions.isEmpty()) {
-            return new ChunkStreamStats(0, 0, 0, 0, 0, 0);
-        }
-
-        try (Connection connection = connectionFactory.openReadOnly(savePath)) {
-            return forEachChunkByPositionAdaptive(
-                    connection,
-                    packedPositions,
-                    diagnostics,
-                    consumer,
-                    progress,
-                    ChunkDecodeMode.FULL
-            );
-        } catch (SQLException exception) {
-            throw new CommandException(
-                    "Cannot open save for adaptive chunk traversal: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
-    }
-
     public ChunkStreamStats forEachChunkByPositionAdaptive(
             SaveSession session,
             Collection<ChunkPosition> positions,
@@ -423,66 +282,6 @@ public class VcdbsReader {
     }
 
     public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
-            Path savePath,
-            Collection<ChunkPosition> positions,
-            int[] wantedBlockIds,
-            ReadDiagnostics diagnostics,
-            Consumer<ParsedChunk> consumer
-    ) {
-        return forEachChunkByPositionMatchingBlockIdsAdaptive(
-                savePath,
-                positions,
-                wantedBlockIds,
-                diagnostics,
-                consumer,
-                ProgressReporter.NONE
-        );
-    }
-
-    public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
-            Path savePath,
-            Collection<ChunkPosition> positions,
-            int[] wantedBlockIds,
-            ReadDiagnostics diagnostics,
-            Consumer<ParsedChunk> consumer,
-            ProgressReporter progress
-    ) {
-        Objects.requireNonNull(savePath, "savePath is required");
-        Objects.requireNonNull(positions, "positions is required");
-        Objects.requireNonNull(wantedBlockIds, "wantedBlockIds is required");
-        Objects.requireNonNull(diagnostics, "diagnostics is required");
-        Objects.requireNonNull(consumer, "consumer is required");
-        Objects.requireNonNull(progress, "progress is required");
-
-        int[] uniqueWantedBlockIds = uniqueWantedBlockIds(wantedBlockIds);
-        if (uniqueWantedBlockIds.length == 0) {
-            throw new IllegalArgumentException("wantedBlockIds cannot be empty");
-        }
-
-        Set<Long> packedPositions = packedUniquePositions(positions);
-        if (packedPositions.isEmpty()) {
-            return new SelectiveChunkStreamStats(0, 0, 0, 0, 0, 0, 0, 0);
-        }
-
-        try (Connection connection = connectionFactory.openReadOnly(savePath)) {
-            return forEachChunkByPositionMatchingBlockIdsAdaptive(
-                    connection,
-                    packedPositions,
-                    uniqueWantedBlockIds,
-                    diagnostics,
-                    consumer,
-                    progress
-            );
-        } catch (SQLException exception) {
-            throw new CommandException(
-                    "Cannot open save for adaptive selective chunk traversal: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
-    }
-
-    public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
             SaveSession session,
             Collection<ChunkPosition> positions,
             int[] wantedBlockIds,
@@ -563,42 +362,6 @@ public class VcdbsReader {
      * Visits exact chunk positions with the selective decoder and reports
      * availability independently from whether a ParsedChunk was delivered.
      */
-    public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
-            Path savePath,
-            Collection<ChunkPosition> positions,
-            int[] wantedBlockIds,
-            ReadDiagnostics diagnostics,
-            Consumer<SelectiveChunkVisit> consumer,
-            ProgressReporter progress
-    ) {
-        Objects.requireNonNull(savePath, "savePath is required");
-        Objects.requireNonNull(positions, "positions is required");
-        Objects.requireNonNull(wantedBlockIds, "wantedBlockIds is required");
-        Objects.requireNonNull(diagnostics, "diagnostics is required");
-        Objects.requireNonNull(consumer, "consumer is required");
-        Objects.requireNonNull(progress, "progress is required");
-        int[] uniqueWantedBlockIds = uniqueWantedBlockIds(wantedBlockIds);
-        if (uniqueWantedBlockIds.length == 0) {
-            throw new IllegalArgumentException("wantedBlockIds cannot be empty");
-        }
-        try (Connection connection = connectionFactory.openReadOnly(savePath)) {
-            return forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                    connection,
-                    positions,
-                    uniqueWantedBlockIds,
-                    diagnostics,
-                    consumer,
-                    progress
-            );
-        } catch (SQLException exception) {
-            throw new CommandException(
-                    "Cannot open save for selective chunk coverage: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
-    }
-
     /**
      * Streams every observed main-world mapchunk from the authoritative save.
      *
@@ -948,66 +711,33 @@ public class VcdbsReader {
         );
     }
 
-    public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
-            Path savePath,
-            Collection<ChunkPosition> positions,
-            int[] wantedBlockIds,
-            ReadDiagnostics diagnostics,
-            Consumer<SelectiveChunkVisit> consumer
-    ) {
-        return forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                savePath,
-                positions,
-                wantedBlockIds,
-                diagnostics,
-                consumer,
-                ProgressReporter.NONE
-        );
-    }
-
-    public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIds(
-            Path savePath,
+    SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIds(
+            SaveSession session,
             Collection<ChunkPosition> positions,
             int[] wantedBlockIds,
             ReadDiagnostics diagnostics,
             Consumer<ParsedChunk> consumer,
             ProgressReporter progress
     ) {
-        Objects.requireNonNull(savePath, "savePath is required");
+        Objects.requireNonNull(session, "session is required");
         Objects.requireNonNull(positions, "positions is required");
         Objects.requireNonNull(wantedBlockIds, "wantedBlockIds is required");
         Objects.requireNonNull(diagnostics, "diagnostics is required");
         Objects.requireNonNull(consumer, "consumer is required");
         Objects.requireNonNull(progress, "progress is required");
 
-        int[] uniqueWantedBlockIds =
-                uniqueWantedBlockIds(wantedBlockIds);
-
+        int[] uniqueWantedBlockIds = uniqueWantedBlockIds(wantedBlockIds);
         if (uniqueWantedBlockIds.length == 0) {
-            throw new IllegalArgumentException(
-                    "wantedBlockIds cannot be empty"
-            );
+            throw new IllegalArgumentException("wantedBlockIds cannot be empty");
         }
-
-        Set<Long> packedPositions =
-                packedUniquePositions(positions);
-
+        Set<Long> packedPositions = packedUniquePositions(positions);
         if (packedPositions.isEmpty()) {
-            return new SelectiveChunkStreamStats(
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0
-            );
+            return new SelectiveChunkStreamStats(0, 0, 0, 0, 0, 0, 0, 0);
         }
 
-        try (Connection connection = connectionFactory.openReadOnly(savePath)) {
+        try {
             return forEachChunkByPositionMatchingBlockIds(
-                    connection,
+                    session.connection(),
                     packedPositions,
                     uniqueWantedBlockIds,
                     diagnostics,
@@ -1024,13 +754,13 @@ public class VcdbsReader {
     }
 
     ChunkStreamStats forEachChunkByPositionTableStream(
-            Path savePath,
+            SaveSession session,
             Collection<ChunkPosition> positions,
             ReadDiagnostics diagnostics,
             Consumer<ParsedChunk> consumer,
             ProgressReporter progress
     ) {
-        Objects.requireNonNull(savePath, "savePath is required");
+        Objects.requireNonNull(session, "session is required");
         Objects.requireNonNull(positions, "positions is required");
         Objects.requireNonNull(diagnostics, "diagnostics is required");
         Objects.requireNonNull(consumer, "consumer is required");
@@ -1041,9 +771,9 @@ public class VcdbsReader {
             return new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         }
 
-        try (Connection connection = connectionFactory.openReadOnly(savePath)) {
+        try {
             return forEachChunkByPositionTableStream(
-                    connection,
+                    session.connection(),
                     packedPositions,
                     diagnostics,
                     consumer,
@@ -1061,14 +791,14 @@ public class VcdbsReader {
     }
 
     SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsTableStream(
-            Path savePath,
+            SaveSession session,
             Collection<ChunkPosition> positions,
             int[] wantedBlockIds,
             ReadDiagnostics diagnostics,
             Consumer<ParsedChunk> consumer,
             ProgressReporter progress
     ) {
-        Objects.requireNonNull(savePath, "savePath is required");
+        Objects.requireNonNull(session, "session is required");
         Objects.requireNonNull(positions, "positions is required");
         Objects.requireNonNull(wantedBlockIds, "wantedBlockIds is required");
         Objects.requireNonNull(diagnostics, "diagnostics is required");
@@ -1084,10 +814,14 @@ public class VcdbsReader {
             return new SelectiveChunkStreamStats(0, 0, 0, 0, 0, 0, 0, 0);
         }
 
-        try (Connection connection = connectionFactory.openReadOnly(savePath)) {
+        try {
             return forEachChunkByPositionMatchingBlockIdsTableStream(
-                    connection, packedPositions, uniqueWantedBlockIds,
-                    diagnostics, consumer, progress
+                    session.connection(),
+                    packedPositions,
+                    uniqueWantedBlockIds,
+                    diagnostics,
+                    consumer,
+                    progress
             );
         } catch (SQLException exception) {
             throw new CommandException(
@@ -1102,28 +836,27 @@ public class VcdbsReader {
      * Visits chunks found by exact packed primary-key lookup. SQL result order
      * is unspecified and must not be treated as request order.
      */
-    public ChunkStreamStats forEachChunkByPosition(
-            Path savePath,
+    ChunkStreamStats forEachChunkByPosition(
+            SaveSession session,
             Collection<ChunkPosition> positions,
             ReadDiagnostics diagnostics,
             Consumer<ParsedChunk> consumer,
             ProgressReporter progress
     ) {
-        Objects.requireNonNull(savePath, "savePath is required");
+        Objects.requireNonNull(session, "session is required");
         Objects.requireNonNull(positions, "positions is required");
         Objects.requireNonNull(diagnostics, "diagnostics is required");
         Objects.requireNonNull(consumer, "consumer is required");
         Objects.requireNonNull(progress, "progress is required");
 
-        Set<Long> packedPositions =
-                packedUniquePositions(positions);
-
+        Set<Long> packedPositions = packedUniquePositions(positions);
         if (packedPositions.isEmpty()) {
             return new ChunkStreamStats(0, 0, 0, 0, 0, 0);
         }
-        try (Connection connection = connectionFactory.openReadOnly(savePath)) {
+
+        try {
             return forEachChunkByPosition(
-                    connection,
+                    session.connection(),
                     packedPositions,
                     diagnostics,
                     consumer,
@@ -1133,7 +866,7 @@ public class VcdbsReader {
             );
         } catch (SQLException exception) {
             throw new CommandException(
-                    "Cannot open save for exact chunk traversal: "
+                    "Cannot read chunk table by exact position: "
                             + exception.getMessage(),
                     exception
             );
@@ -1630,21 +1363,6 @@ public class VcdbsReader {
                 elapsedNanos(totalStart)
         ));
         return stats;
-    }
-
-    private boolean shouldUseChunkTableStream(
-            Path savePath,
-            int uniqueRequestedPositions
-    ) {
-        if (uniqueRequestedPositions <= DIRECT_CHUNK_BATCH_SIZE) {
-            return false;
-        }
-
-        try (Connection connection = connectionFactory.openReadOnly(savePath)) {
-            return shouldUseChunkTableStream(connection, uniqueRequestedPositions);
-        } catch (SQLException exception) {
-            return false;
-        }
     }
 
     private boolean shouldUseChunkTableStream(
@@ -2546,15 +2264,6 @@ public class VcdbsReader {
         }
     }
 
-    public Map<Integer, BlockInfo> readBlockRegistry(
-            Path savePath
-    ) {
-        return readBlockRegistry(
-                savePath,
-                ProgressReporter.NONE
-        );
-    }
-
     public VcdbsReader(
             PlayerDataParser playerDataParser,
             MapChunkParser mapChunkParser,
@@ -2566,23 +2275,6 @@ public class VcdbsReader {
                 mapChunkParser,
                 chunkParser,
                 registryParser,
-                new SqliteSaveConnection()
-        );
-    }
-
-    public VcdbsReader(
-            PlayerDataParser playerDataParser,
-            MapChunkParser mapChunkParser,
-            ChunkParser chunkParser,
-            RegistryParser registryParser,
-            SqliteSaveConnection connectionFactory
-    ) {
-        this(
-                playerDataParser,
-                mapChunkParser,
-                chunkParser,
-                registryParser,
-                connectionFactory,
                 defaultChunkDecodeWorkerCount(),
                 defaultChunkDecodeMaxInFlight(defaultChunkDecodeWorkerCount())
         );
@@ -2593,7 +2285,6 @@ public class VcdbsReader {
             MapChunkParser mapChunkParser,
             ChunkParser chunkParser,
             RegistryParser registryParser,
-            SqliteSaveConnection connectionFactory,
             int chunkDecodeWorkerCount,
             int chunkDecodeMaxInFlight
     ) {
@@ -2622,9 +2313,6 @@ public class VcdbsReader {
         this.serverMapRegionParser =
                 new ServerMapRegionParser();
 
-        this.connectionFactory =
-                connectionFactory;
-
         this.chunkDecodeWorkerCount = chunkDecodeWorkerCount;
         this.chunkDecodeMaxInFlight = chunkDecodeMaxInFlight;
     }
@@ -2646,33 +2334,6 @@ public class VcdbsReader {
     }
 
     public WorldPosition readPlayerPosition(
-            Path savePath,
-            ProgressReporter progress
-    ) {
-        List<SaveRecord> records =
-                readPlayerRecords(
-                        savePath,
-                        progress
-                );
-
-        SaveRecord selected =
-                selectDefaultPlayer(
-                        records
-                )
-                        .orElseThrow(
-                                () ->
-                                        new CommandException(
-                                                "Table playerdata exists but contains no selectable rows"
-                                        )
-                        );
-
-        return parsePlayerPosition(
-                selected,
-                progress
-        );
-    }
-
-    public WorldPosition readPlayerPosition(
             SaveSession session,
             ProgressReporter progress
     ) {
@@ -2712,41 +2373,6 @@ public class VcdbsReader {
         List<SaveRecord> records =
                 readPlayerRecords(
                         session,
-                        progress
-                );
-
-        SaveRecord selected =
-                selectPlayer(
-                        records,
-                        playerSelector
-                )
-                        .orElseThrow(
-                                () ->
-                                        new CommandException(
-                                                "No playerdata row matched selector: "
-                                                        + playerSelector
-                                        )
-                        );
-
-        return parsePlayerPosition(
-                selected,
-                progress
-        );
-    }
-
-    public WorldPosition readPlayerPosition(
-            Path savePath,
-            String playerSelector,
-            ProgressReporter progress
-    ) {
-        Objects.requireNonNull(
-                playerSelector,
-                "playerSelector is required"
-        );
-
-        List<SaveRecord> records =
-                readPlayerRecords(
-                        savePath,
                         progress
                 );
 
@@ -2783,34 +2409,6 @@ public class VcdbsReader {
                     session.connection(),
                     progress
             );
-
-        } catch (SQLException exception) {
-            throw new CommandException(
-                    "Cannot read playerdata: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
-    }
-
-    private List<SaveRecord> readPlayerRecords(
-            Path savePath,
-            ProgressReporter progress
-    ) {
-        progress.start(
-                "Opening save read-only"
-        );
-
-        try (Connection connection =
-                     connectionFactory.openReadOnly(
-                             savePath
-                     )) {
-
-            progress.done(
-                    "Save opened read-only"
-            );
-
-            return readPlayerRecords(connection, progress);
 
         } catch (SQLException exception) {
             throw new CommandException(
@@ -2952,47 +2550,6 @@ public class VcdbsReader {
         } catch (SQLException exception) {
             throw new CommandException(
                     "Cannot read chunk table: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
-    }
-
-    public Map<Integer, BlockInfo> readBlockRegistry(
-            Path savePath,
-            ProgressReporter progress
-    ) {
-        progress.start(
-                "Opening save read-only"
-        );
-
-        try (Connection connection =
-                     connectionFactory.openReadOnly(
-                             savePath
-                     )) {
-
-            progress.done(
-                    "Save opened read-only"
-            );
-
-            progress.start(
-                    "Reading block registry"
-            );
-
-            Map<Integer, BlockInfo> registry =
-                    readBlockRegistry(
-                            connection
-                    );
-
-            progress.done(
-                    "Block registry read"
-            );
-
-            return registry;
-
-        } catch (SQLException exception) {
-            throw new CommandException(
-                    "Cannot read block registry: "
                             + exception.getMessage(),
                     exception
             );

@@ -67,8 +67,6 @@ class LoadWorldOverviewUseCaseTest {
         assertEquals(1, reader.connectionRegistryCalls);
         assertEquals(1, reader.sessionMapRegionCalls);
         assertEquals(1, reader.sessionPlayerCalls);
-        assertEquals(0, reader.pathPlayerCalls);
-        assertEquals(0, reader.pathRegistryCalls);
     }
 
     @Test
@@ -118,8 +116,6 @@ class LoadWorldOverviewUseCaseTest {
         private int connectionRegistryCalls;
         private int sessionMapRegionCalls;
         private int sessionPlayerCalls;
-        private int pathPlayerCalls;
-        private int pathRegistryCalls;
 
         private FakeReader(
                 Map<Integer, BlockInfo> registry,
@@ -173,17 +169,6 @@ class LoadWorldOverviewUseCaseTest {
             return new WorldPosition(600, 70, 900);
         }
 
-        @Override
-        public WorldPosition readPlayerPosition(Path savePath) {
-            pathPlayerCalls++;
-            throw new AssertionError("path-based player read must not be used");
-        }
-
-        @Override
-        public Map<Integer, BlockInfo> readBlockRegistry(Path savePath) {
-            pathRegistryCalls++;
-            throw new AssertionError("path-based registry read must not be used");
-        }
     }
 
     private static final class TrackingConnectionFactory extends SqliteSaveConnection {
