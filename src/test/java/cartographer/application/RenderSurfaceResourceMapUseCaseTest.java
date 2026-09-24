@@ -678,19 +678,6 @@ class RenderSurfaceResourceMapUseCaseTest {
 
         @Override
         public ChunkStreamStats forEachChunkByPositionAdaptive(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-            java.util.function.Consumer<ParsedChunk> consumer
-        ) {
-            adaptiveExactChunkCalls++;
-            return forEachChunkByPosition(
-                    savePath, positions, diagnostics, consumer
-            );
-        }
-
-        @Override
-        public ChunkStreamStats forEachChunkByPositionAdaptive(
                 SaveSession session,
                 java.util.Collection<ChunkPosition> positions,
                 ReadDiagnostics diagnostics,
@@ -722,31 +709,6 @@ class RenderSurfaceResourceMapUseCaseTest {
             );
         }
 
-        @Override
-        public ChunkStreamStats forEachChunkByPositionAdaptive(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer,
-                ProgressReporter progress
-        ) {
-            return forEachChunkByPositionAdaptive(
-                    savePath, positions, diagnostics, consumer
-            );
-        }
-
-        @Override
-        public ChunkStreamStats forEachChunkByPosition(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer
-        ) {
-            exactChunkCalls++;
-            exactRequests.add(List.copyOf(positions));
-            return deliverChunks(positions, consumer);
-        }
-
         private ChunkStreamStats deliverChunks(
                 java.util.Collection<ChunkPosition> positions,
                 java.util.function.Consumer<ParsedChunk> consumer
@@ -766,7 +728,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         @Override
         public cartographer.save.SelectiveChunkStreamStats
         forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                Path savePath,
+                SaveSession session,
                 java.util.Collection<ChunkPosition> positions,
                 int[] wantedBlockIds,
                 ReadDiagnostics diagnostics,
@@ -804,21 +766,6 @@ class RenderSurfaceResourceMapUseCaseTest {
             return new cartographer.save.SelectiveChunkStreamStats(
                     positions.size(), positions.isEmpty() ? 0 : 1,
                     decoded + rejected, decoded, rejected, decoded, 0, 0
-            );
-        }
-
-        @Override
-        public cartographer.save.SelectiveChunkStreamStats
-        forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                Path savePath,
-                java.util.Collection<ChunkPosition> positions,
-                int[] wantedBlockIds,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<cartographer.save.SelectiveChunkVisit> consumer,
-                ProgressReporter progress
-        ) {
-            return forEachChunkByPositionMatchingBlockIdsWithCoverage(
-                    savePath, positions, wantedBlockIds, diagnostics, consumer
             );
         }
 
