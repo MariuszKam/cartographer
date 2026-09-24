@@ -77,6 +77,36 @@ public final class RenderRockMapUseCase {
 
     public RenderRockMapUseCase(
             VcdbsReader reader,
+            RockMapRenderer renderer,
+            SaveSessionFactory sessionFactory,
+            RenderDataCacheStore renderDataCacheStore
+    ) {
+        this(
+                reader,
+                renderer,
+                sessionFactory,
+                Optional.of(Objects.requireNonNull(
+                        renderDataCacheStore,
+                        "render data cache store is required"
+                ))
+        );
+    }
+
+    public RenderRockMapUseCase(
+            VcdbsReader reader,
+            RockMapRenderer renderer,
+            SaveSessionFactory sessionFactory
+    ) {
+        this(
+                reader,
+                renderer,
+                sessionFactory,
+                Optional.empty()
+        );
+    }
+
+    public RenderRockMapUseCase(
+            VcdbsReader reader,
             WorldMetadataReader metadataReader,
             RockMapRenderer renderer,
             SaveSessionFactory sessionFactory,
@@ -116,8 +146,22 @@ public final class RenderRockMapUseCase {
             SaveSessionFactory sessionFactory,
             Optional<RenderDataCacheStore> renderDataCacheStore
     ) {
-        this.reader = Objects.requireNonNull(reader, "reader is required");
         Objects.requireNonNull(metadataReader, "metadata reader is required");
+        this(
+                reader,
+                renderer,
+                sessionFactory,
+                renderDataCacheStore
+        );
+    }
+
+    RenderRockMapUseCase(
+            VcdbsReader reader,
+            RockMapRenderer renderer,
+            SaveSessionFactory sessionFactory,
+            Optional<RenderDataCacheStore> renderDataCacheStore
+    ) {
+        this.reader = Objects.requireNonNull(reader, "reader is required");
         this.sessionFactory = Objects.requireNonNull(
                 sessionFactory,
                 "sessionFactory is required"
