@@ -243,64 +243,6 @@ public class SurfaceResourceOverlayRenderer {
         return drawnBlocks;
     }
 
-    public int drawObject(
-            BufferedImage image,
-            WorldPosition center,
-            int radiusBlocks,
-            SurfaceObjectAnalysis analysis,
-            WorldPosition player,
-            HomeState home
-    ) {
-        return drawObjects(
-                image,
-                center,
-                radiusBlocks,
-                new SurfaceObjectSelectionAnalysis(List.of(analysis)),
-                player,
-                home,
-                true
-        );
-    }
-
-    public int drawObject(
-            BufferedImage image,
-            WorldPosition center,
-            int radiusBlocks,
-            SurfaceObjectAnalysis analysis,
-            WorldPosition player,
-            HomeState home,
-            boolean drawSystemMarkers
-    ) {
-        return drawObjects(
-                image,
-                center,
-                radiusBlocks,
-                new SurfaceObjectSelectionAnalysis(List.of(analysis)),
-                player,
-                home,
-                drawSystemMarkers
-        );
-    }
-
-    public int drawObjects(
-            BufferedImage image,
-            WorldPosition center,
-            int radiusBlocks,
-            SurfaceObjectSelectionAnalysis analysis,
-            WorldPosition player,
-            HomeState home
-    ) {
-        return drawObjects(
-                image,
-                center,
-                radiusBlocks,
-                analysis,
-                player,
-                home,
-                true
-        );
-    }
-
     public int drawObjects(
             BufferedImage image,
             WorldPosition center,

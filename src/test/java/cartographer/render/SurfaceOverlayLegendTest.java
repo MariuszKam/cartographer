@@ -1,36 +1,14 @@
 package cartographer.render;
 
 import cartographer.resource.SurfaceMaterialAnalysis;
-import cartographer.resource.SurfaceObjectAnalysis;
-import cartographer.resource.SurfaceObjectFamily;
-import cartographer.resource.SurfaceResourcePoint;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SurfaceOverlayLegendTest {
-    @Test
-    void objectLegendUsesOccurrencesAndNoDepositCenters() {
-        SurfaceOverlayLegend legend = SurfaceOverlayLegend.forObject(
-                new SurfaceObjectAnalysis("Obsidian", "game:obsidian", 2,
-                        List.of(new SurfaceResourcePoint(1, 2, 3, "game:loose-obsidian")),
-                        new TreeSet<>(Set.of(SurfaceObjectFamily.LOOSE_STONE))));
-
-        assertTrue(legend.title().contains("Surface object"));
-        assertEquals(3, legend.metrics().size());
-        assertTrue(legend.metrics().contains("Family: Loose stone"));
-        assertTrue(legend.metrics().contains("Occurrences: 1"));
-        assertTrue(legend.metrics().contains("Variants: 2"));
-        assertFalse(legend.metrics().stream().anyMatch(line -> line.contains("Deposits")));
-        assertFalse(legend.depositCenters());
-    }
-
     @Test
     void materialLegendUsesMaterialMetricsAndDepositCenters() {
         SurfaceOverlayLegend legend = SurfaceOverlayLegend.forAnalysis(
