@@ -232,15 +232,17 @@ Performance work follows this order:
 8. shard CI only if simpler process-level parallelism is insufficient.
 
 The current representative baseline is roughly twenty seconds for the complete
-984+ test suite on the Windows CI runner, with the slowest class around a few
-seconds after the SQLite fixture refactor.
+test suite on the Windows CI runner, with the slowest class around a few seconds
+after the SQLite fixture refactor. The exact test count is intentionally not a
+fixed contract because deletion of retired production surfaces also removes their
+obsolete tests.
 
 `testPerformanceBudget` deliberately uses coarse regression limits rather than
 microbenchmark thresholds:
 
 - complete suite: at most 60 seconds;
 - individual test class: at most 15 seconds;
-- at least 984 tests must execute;
+- every test discovered for the current suite must complete successfully;
 - zero failed and zero skipped tests.
 
 These limits are intentionally much wider than normal run-to-run noise. Their
@@ -423,9 +425,9 @@ Before merging a new or changed test, verify:
 Execution-topology changes are introduced incrementally. At each checkpoint the
 suite must stay under the same or stronger correctness contract.
 
-The current target state is 984+ tests executing deterministically in the
-fastest validated topology, without flaky behavior and without dependence on
-test order. For the present suite that topology is one Gradle worker with JUnit
+The current target state is the complete current suite executing
+deterministically in the fastest validated topology, without flaky behavior and
+without dependence on test order. For the present suite that topology is one Gradle worker with JUnit
 in-process parallelism disabled. Parallel execution remains an opt-in diagnostic
 and may become a production choice only if future measurements show a real,
 repeatable benefit without weakening isolation.

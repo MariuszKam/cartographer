@@ -1,6 +1,5 @@
 package cartographer.perf;
 
-import cartographer.cli.CommandException;
 import cartographer.model.MapChunkCoordinate;
 
 import java.nio.file.Files;
@@ -232,7 +231,7 @@ public final class UpperRockTileStore {
                 }
             }
         } catch (SQLException | java.io.IOException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot publish UPPER_ROCK tiles: "
                             + exception.getMessage(),
                     exception

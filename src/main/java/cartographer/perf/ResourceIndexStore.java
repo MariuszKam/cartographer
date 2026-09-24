@@ -1,6 +1,5 @@
 package cartographer.perf;
 
-import cartographer.cli.CommandException;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkPosition;
 import cartographer.save.ChunkPosDecoder;
@@ -141,7 +140,7 @@ public final class ResourceIndexStore {
                 }
             }
         } catch (SQLException | java.io.IOException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot publish PF-2.5 resource block catalog: "
                             + exception.getMessage(),
                     exception
@@ -260,7 +259,7 @@ public final class ResourceIndexStore {
                 }
             }
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot query PF-2.5 resource occurrences: "
                             + exception.getMessage(),
                     exception
@@ -382,7 +381,7 @@ public final class ResourceIndexStore {
                 }
             }
         } catch (SQLException | java.io.IOException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot publish PF-2.5 resource index: "
                             + exception.getMessage(),
                     exception
@@ -522,7 +521,7 @@ public final class ResourceIndexStore {
                 }
             }
         } catch (SQLException | java.io.IOException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot update PF-2.5 resource-index metadata: "
                             + exception.getMessage(),
                     exception

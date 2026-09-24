@@ -1,6 +1,5 @@
 package cartographer.save;
 
-import cartographer.cli.CommandException;
 import cartographer.application.ProgressReporter;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
@@ -196,7 +195,7 @@ public class VcdbsReader {
                         decodeMode
                 );
             } catch (SQLException exception) {
-                throw new CommandException(
+                throw new IllegalStateException(
                         "Cannot read chunk table by exact position: "
                                 + exception.getMessage(),
                         exception
@@ -225,7 +224,7 @@ public class VcdbsReader {
                         decodeMode
                 );
             } catch (SQLException exception) {
-                throw new CommandException(
+                throw new IllegalStateException(
                         "Cannot read chunk table by packed position ranges: "
                                 + exception.getMessage(),
                         exception
@@ -255,7 +254,7 @@ public class VcdbsReader {
                         decodeMode
                 );
             } catch (SQLException exception) {
-                throw new CommandException(
+                throw new IllegalStateException(
                         "Cannot scan chunk table for exact positions: "
                                 + exception.getMessage(),
                         exception
@@ -273,7 +272,7 @@ public class VcdbsReader {
                     decodeMode
             );
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot read chunk table by exact position: "
                             + exception.getMessage(),
                     exception
@@ -309,7 +308,7 @@ public class VcdbsReader {
                     diagnostics, consumer, progress
             );
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot read adaptive selective chunk traversal: "
                             + exception.getMessage(),
                     exception
@@ -390,7 +389,7 @@ public class VcdbsReader {
         try {
             if (tableMissing(connection, SaveTable.MAPCHUNK.tableName())) {
                 diagnostics.missingTable(SaveTable.MAPCHUNK.tableName());
-                throw new CommandException(
+                throw new IllegalStateException(
                         "Save contains no mapchunk table; "
                                 + "world snapshot discovery cannot be completed"
                 );
@@ -488,7 +487,7 @@ public class VcdbsReader {
                     payloadBytes
             );
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot stream observed mapchunks: "
                             + exception.getMessage(),
                     exception
@@ -610,7 +609,7 @@ public class VcdbsReader {
                     parsedMapChunks, failedMapChunks, payloadBytes
             );
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot read mapchunk table by exact position: " + exception.getMessage(),
                     exception
             );
@@ -745,7 +744,7 @@ public class VcdbsReader {
                     progress
             );
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot read chunk table selectively: "
                             + exception.getMessage(),
                     exception
@@ -782,7 +781,7 @@ public class VcdbsReader {
                     ChunkDecodeMode.FULL
             );
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot scan chunk table for exact positions: "
                             + exception.getMessage(),
                     exception
@@ -824,7 +823,7 @@ public class VcdbsReader {
                     progress
             );
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot scan chunk table selectively for exact positions: "
                             + exception.getMessage(),
                     exception
@@ -865,7 +864,7 @@ public class VcdbsReader {
                     ChunkDecodeMode.FULL
             );
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot read chunk table by exact position: "
                             + exception.getMessage(),
                     exception
@@ -1879,7 +1878,7 @@ public class VcdbsReader {
                     counters.payloadBytes
             );
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot read selective chunk coverage: "
                             + exception.getMessage(),
                     exception
@@ -2349,7 +2348,7 @@ public class VcdbsReader {
                 )
                         .orElseThrow(
                                 () ->
-                                        new CommandException(
+                                        new IllegalStateException(
                                                 "Table playerdata exists but contains no selectable rows"
                                         )
                         );
@@ -2383,7 +2382,7 @@ public class VcdbsReader {
                 )
                         .orElseThrow(
                                 () ->
-                                        new CommandException(
+                                        new IllegalStateException(
                                                 "No playerdata row matched selector: "
                                                         + playerSelector
                                         )
@@ -2411,7 +2410,7 @@ public class VcdbsReader {
             );
 
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot read playerdata: "
                             + exception.getMessage(),
                     exception
@@ -2431,7 +2430,7 @@ public class VcdbsReader {
                 progress
         );
         if (records.isEmpty()) {
-            throw new CommandException("Table playerdata exists but contains no rows");
+            throw new IllegalStateException("Table playerdata exists but contains no rows");
         }
         return records;
     }
@@ -2453,7 +2452,7 @@ public class VcdbsReader {
                 result.value()
                         .orElseThrow(
                                 () ->
-                                        new CommandException(
+                                        new IllegalStateException(
                                                 result.error()
                                                         .orElse(
                                                                 "Unable to parse player position"
@@ -2504,7 +2503,7 @@ public class VcdbsReader {
             );
 
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot read mapchunk table: "
                             + exception.getMessage(),
                     exception
@@ -2548,7 +2547,7 @@ public class VcdbsReader {
             );
 
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot read chunk table: "
                             + exception.getMessage(),
                     exception
@@ -2568,7 +2567,7 @@ public class VcdbsReader {
         try {
             return readMapRegions(session.connection(), diagnostics, progress);
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot read mapregion table: " + exception.getMessage(),
                     exception
             );
@@ -2716,7 +2715,7 @@ public class VcdbsReader {
                     payloadBytes
             );
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot stream mapregion table: "
                             + exception.getMessage(),
                     exception
@@ -3452,7 +3451,7 @@ public class VcdbsReader {
                 connection,
                 tableName
         )) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Missing required table: "
                             + tableName
             );

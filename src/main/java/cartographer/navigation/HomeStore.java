@@ -1,11 +1,11 @@
 package cartographer.navigation;
 
-import cartographer.cli.CommandException;
 import cartographer.model.HomeLocation;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -80,7 +80,7 @@ public class HomeStore {
         } catch (IOException
                  | NumberFormatException exception) {
 
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot read HOME config at "
                             + configPath
                             + ": "
@@ -136,7 +136,7 @@ public class HomeStore {
             }
 
         } catch (IOException exception) {
-            throw new CommandException(
+            throw new UncheckedIOException(
                     "Cannot write HOME config at "
                             + configPath
                             + ": "
@@ -234,7 +234,7 @@ public class HomeStore {
         if (value == null
                 || value.isBlank()) {
 
-            throw new CommandException(
+            throw new IllegalStateException(
                     "HOME config is missing key: "
                             + key
             );

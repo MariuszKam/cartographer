@@ -595,9 +595,9 @@ task, such as `docs/WINDOWS_RELEASE.md` or a future
 `docs/SURFACE_ARCHITECTURE.md`. Inspect `build.gradle.kts`, relevant
 implementation and test files, and relevant `.github/workflows/` files when
 the task requires them. Finally check the active branch, recent commits,
-working tree, and stage instructions. Preserve the CLI entrypoint, Java 25
-toolchain, desktop launcher, read-only save behavior, and current release
-workflow unless the task explicitly changes one of those contracts.
+working tree, and stage instructions. Preserve the Java 25 toolchain, desktop
+launcher, read-only save behavior, and current release workflow unless the task
+explicitly changes one of those contracts.
 
 ## Do not overclaim
 

@@ -2,7 +2,6 @@ package cartographer.save;
 
 import cartographer.testing.IntegrationTest;
 import cartographer.application.ProgressReporter;
-import cartographer.cli.CommandException;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParseResult;
@@ -125,7 +124,7 @@ class VcdbsReaderObservedMapChunkTest {
                 )
         )) {
             assertThrows(
-                    CommandException.class,
+                    IllegalStateException.class,
                     () -> reader.forEachObservedMapChunk(
                             session,
                             new ReadDiagnostics(),

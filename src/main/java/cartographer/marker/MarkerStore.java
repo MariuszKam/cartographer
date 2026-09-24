@@ -1,8 +1,7 @@
 package cartographer.marker;
 
-import cartographer.cli.CommandException;
-
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -65,7 +64,7 @@ public class MarkerStore {
                         );
 
                 if (parts.length != 3) {
-                    throw new CommandException(
+                    throw new IllegalStateException(
                             "Malformed marker entry in "
                                     + path
                     );
@@ -109,7 +108,7 @@ public class MarkerStore {
         } catch (IOException
                  | NumberFormatException exception) {
 
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot read markers for save "
                             + savePath
                             + ": "
@@ -203,7 +202,7 @@ public class MarkerStore {
             return current.size();
 
         } catch (IOException exception) {
-            throw new CommandException(
+            throw new UncheckedIOException(
                     "Cannot clear markers for save "
                             + savePath
                             + ": "
@@ -295,7 +294,7 @@ public class MarkerStore {
             );
 
         } catch (IOException exception) {
-            throw new CommandException(
+            throw new UncheckedIOException(
                     "Cannot write markers at "
                             + path
                             + ": "

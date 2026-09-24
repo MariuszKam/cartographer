@@ -1,6 +1,5 @@
 package cartographer.perf;
 
-import cartographer.cli.CommandException;
 import cartographer.model.MapChunkCoordinate;
 
 import java.nio.file.Files;
@@ -79,7 +78,7 @@ public final class WorldIndexCatalogStore {
                 }
             }
         } catch (SQLException | java.io.IOException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot record observed world-index mapchunks: "
                             + exception.getMessage(),
                     exception
@@ -103,7 +102,7 @@ public final class WorldIndexCatalogStore {
                 }
             }
         } catch (SQLException | java.io.IOException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot mark world-index mapchunk discovery complete: "
                             + exception.getMessage(),
                     exception
@@ -174,7 +173,7 @@ public final class WorldIndexCatalogStore {
             }
             return Set.copyOf(observed);
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot query observed world-index membership: "
                             + exception.getMessage(),
                     exception
@@ -202,7 +201,7 @@ public final class WorldIndexCatalogStore {
             }
             return List.copyOf(result);
         } catch (SQLException exception) {
-            throw new CommandException(
+            throw new IllegalStateException(
                     "Cannot read observed world-index mapchunks: "
                             + exception.getMessage(),
                     exception

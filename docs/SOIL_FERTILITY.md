@@ -142,23 +142,6 @@ Surface and can be selected independently.
 Map mode reuses the existing `RenderActualOreMapUseCase` with no ore match and
 no ore overlays. It is not a separate backend Map use case.
 
-## CLI
-
-Fertility-only render:
-
-```text
-map render world.vcdbs --radius 256 --layers soil_fertility --out fertility.png
-```
-
-Combined render:
-
-```text
-map render world.vcdbs --radius 256 --layers terrain,soil_fertility,markers --out fertility-map.png
-```
-
-`SOIL_FERTILITY` is not part of `RenderLayer.defaults()`, so it must be
-requested explicitly. No new CLI flags are required.
-
 ## Rendering
 
 Soil fertility colors are Cartographer visualization colors; they are not

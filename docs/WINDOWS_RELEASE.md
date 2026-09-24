@@ -5,16 +5,15 @@
 > roadmap uses a separate Stage 1–5 sequence documented in
 > [AUTO_UPDATE.md](AUTO_UPDATE.md).
 
-## Entry points
+## Entry point
 
-VS Cartographer has two entry points:
+VS Cartographer is a desktop application. Its application and Windows packaging
+entry point is:
 
-- CLI: `cartographer.Main`
-- Desktop: `cartographer.ui.CartographerDesktopLauncher`
+- `cartographer.ui.CartographerDesktopLauncher`
 
-The Gradle `application.mainClass` intentionally remains `cartographer.Main` so
-the existing CLI application workflow is unchanged. Windows packaging
-explicitly selects `cartographer.ui.CartographerDesktopLauncher`.
+The standard Gradle `run` task and Windows packaging use this same desktop
+launcher.
 
 ## Packaging input
 
@@ -148,8 +147,7 @@ packaging continues with the standard `jpackage` icon. Stage 3 does not commit
 a placeholder icon.
 
 The packaged launcher remains GUI-only and does not use `--win-console`. The
-CLI remains available separately through the existing Gradle application
-workflow.
+application has no separate command-line entry point.
 
 ## Stage 4: Windows EXE installer
 
@@ -214,7 +212,7 @@ build/release-validation/SHA256SUMS.txt
 
 The helper does not require `runtime/bin/java.exe` and does not require the
 unsigned installer to have Authenticode signing. It reports structure only; it
-does not claim that the GUI, CLI, installer, shortcuts, or uninstall work.
+does not claim that the GUI, installer, shortcuts, or uninstall work.
 
 With Vintage Story closed, record a save baseline before manual regression:
 
@@ -248,19 +246,6 @@ the validation helper:
 .\gradlew.bat packageWindowsPortable
 .\gradlew.bat packageWindowsInstaller
 ```
-
-### Manual CLI regression
-
-The user + ChatGPT will run the existing CLI regression pattern against the
-real save:
-
-```powershell
-.\gradlew.bat run --args='map render <save.vcdbs> --radius 512 --out output\map-final.png --style topographic --layers terrain,surface,environment,geology,markers'
-```
-
-The command must complete successfully, create the output PNG, and report zero
-failed regions and zero failed chunks/mapchunks when those counters are
-reported by the application. The output map requires manual visual inspection.
 
 ### Manual portable GUI regression
 
@@ -448,7 +433,6 @@ branch protection currently requires its check.
 The Windows packaging stages do not:
 
 - create an MSI;
-- change CLI behavior;
 - change save handling;
 - change application storage;
 - change runtime semantics.

@@ -1,8 +1,7 @@
 package cartographer.perf;
 
-import cartographer.cli.CommandException;
-
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -112,7 +111,7 @@ public final class RenderDataCacheStore {
                 temporary = null;
             }
         } catch (IOException exception) {
-            throw new CommandException(
+            throw new UncheckedIOException(
                     "Cannot publish render-data cache manifest: " + exception.getMessage(),
                     exception
             );
