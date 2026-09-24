@@ -199,6 +199,7 @@ public class CommandRouter {
                                     new MapRenderer(),
                                     new UserMarkerRenderer(),
                                     new ActualOreOverlayPainter(),
+                                    sessionFactory,
                                     renderDataCache
                             ),
                             subcommand(
@@ -303,8 +304,10 @@ public class CommandRouter {
                                     new SavedOreObservationProvider(
                                             reader,
                                             metadataReader,
+                                            sessionFactory,
                                             renderDataCache
                                     ),
+                                    sessionFactory,
                                     renderDataCache
                             ),
                             subcommand(args, "prospecting")
@@ -327,7 +330,7 @@ public class CommandRouter {
                             out,
                             new PrepareWorldSnapshotUseCase(
                                     reader,
-                                    metadataReader,
+                                    sessionFactory,
                                     renderDataCache
                             ),
                             subcommand(
