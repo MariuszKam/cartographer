@@ -276,7 +276,7 @@ class ChunkParserTest {
         );
         assertThrows(
                 IllegalStateException.class,
-                chunk::liquidIds
+                () -> cartographer.model.ParsedChunkFixtures.liquidIds(chunk)
         );
     }
 
@@ -973,7 +973,7 @@ class ChunkParserTest {
         );
         assertThrows(
                 IllegalStateException.class,
-                chunk::liquidIds
+                () -> cartographer.model.ParsedChunkFixtures.liquidIds(chunk)
         );
     }
 
