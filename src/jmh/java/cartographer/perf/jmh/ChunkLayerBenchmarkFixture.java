@@ -2,6 +2,7 @@ package cartographer.perf.jmh;
 
 import com.github.luben.zstd.Zstd;
 import cartographer.parser.ChunkDataLayerDecoder;
+import cartographer.parser.ChunkDataLayerDecoderJmhAccess;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -38,7 +39,9 @@ public final class ChunkLayerBenchmarkFixture {
             ChunkDataLayerDecoder decoder,
             FixtureData fixture
     ) {
-        int[] decoded = decoder.decode(fixture.payload(), 2);
+        int[] decoded = ChunkDataLayerDecoderJmhAccess
+                .decodeOwned(decoder, fixture.payload(), 2)
+                .toArray();
         if (decoded.length != ChunkDataLayerDecoder.VALUE_COUNT) {
             throw new IllegalStateException(
                     "fixture decoded length mismatch: " + decoded.length
