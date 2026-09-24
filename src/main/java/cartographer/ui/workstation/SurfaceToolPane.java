@@ -111,13 +111,6 @@ final class SurfaceToolPane extends VBox {
                 : discoveryState.allowsRender(busy, !selectedObservedSurfaceResources().isEmpty());
     }
 
-    void setObservedSurfaceResources(ObservedSurfaceResourceCatalog catalog) {
-        String previousKey = selectedObservedSurfaceResource()
-                .map(resource -> resource.candidate().qualifiedResourceKey())
-                .orElse("");
-        setObservedSurfaceResources(catalog, previousKey);
-    }
-
     void setObservedSurfaceResources(
             ObservedSurfaceResourceCatalog catalog,
             Set<String> previousKeys
@@ -178,18 +171,6 @@ final class SurfaceToolPane extends VBox {
         updateResourceStatus();
         applyObjectFilter();
         notifyAvailabilityChanged();
-    }
-
-    void setObservedSurfaceResources(
-            ObservedSurfaceResourceCatalog catalog,
-            String previousKey
-    ) {
-        setObservedSurfaceResources(
-                catalog,
-                previousKey == null || previousKey.isBlank()
-                        ? Set.of()
-                        : Set.of(previousKey)
-        );
     }
 
     void clearObservedSurfaceResources() {

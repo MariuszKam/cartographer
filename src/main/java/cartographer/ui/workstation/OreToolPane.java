@@ -144,15 +144,6 @@ final class OreToolPane extends VBox {
         updateYFields();
     }
 
-    void setDiscoveryBusy(boolean busy) {
-        singleResourceButton.setDisable(busy);
-        multipleResourcesButton.setDisable(busy);
-        selectAllButton.setDisable(busy);
-        clearAllButton.setDisable(busy);
-        resourceBox.setDisable(busy);
-        resourceChecks.values().forEach(check -> check.setDisable(busy));
-    }
-
     private void configure() {
         List<OreResource> presets = presetResources();
         discoveredResources = presets;

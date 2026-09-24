@@ -39,10 +39,6 @@ public final class ResultInspectorPane extends VBox {
     private final Tab layersTab = new Tab("Layers");
     private final Tab diagnosticsTab = new Tab("Diagnostics");
 
-    public ResultInspectorPane() {
-        this(new LayerPanel());
-    }
-
     public ResultInspectorPane(LayerPanel layerPanel) {
         super(8);
         this.layerPanel = java.util.Objects.requireNonNull(

@@ -6,7 +6,6 @@ import javafx.concurrent.Task;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -23,8 +22,6 @@ public final class WorkstationOperationCoordinator {
     private final WorkstationView workstation;
     private final Map<WorkstationOperationScope, ActiveOperation<?>> active =
             new EnumMap<>(WorkstationOperationScope.class);
-    private final Map<WorkstationOperationScope, WorkstationOperationSnapshot> last =
-            new EnumMap<>(WorkstationOperationScope.class);
     private long generation;
     private Consumer<WorkstationOperationScope> cancelledListener = ignored -> { };
 
@@ -39,25 +36,8 @@ public final class WorkstationOperationCoordinator {
     }
 
     public <T> Task<T> submit(
-            String threadName,
-            Supplier<T> operation,
-            Consumer<T> onSucceeded,
-            Consumer<Throwable> onFailed
-    ) {
-        return submit(
-                WorkstationOperationScope.FOREGROUND,
-                threadName,
-                threadName,
-                operation,
-                onSucceeded,
-                onFailed
-        );
-    }
-
-    public <T> Task<T> submit(
             WorkstationOperationScope scope,
             String type,
-            String requestSummary,
             Supplier<T> operation,
             Consumer<T> onSucceeded,
             Consumer<Throwable> onFailed
@@ -75,7 +55,6 @@ public final class WorkstationOperationCoordinator {
                 token,
                 scope,
                 normalized(type, "type"),
-                normalized(requestSummary, "request summary"),
                 task
         );
         register(activeOperation);
@@ -85,25 +64,8 @@ public final class WorkstationOperationCoordinator {
     }
 
     public <T> Task<T> submitProgress(
-            String threadName,
-            Function<ProgressReporter, T> operation,
-            Consumer<T> onSucceeded,
-            Consumer<Throwable> onFailed
-    ) {
-        return submitProgress(
-                WorkstationOperationScope.FOREGROUND,
-                threadName,
-                threadName,
-                operation,
-                onSucceeded,
-                onFailed
-        );
-    }
-
-    public <T> Task<T> submitProgress(
             WorkstationOperationScope scope,
             String type,
-            String requestSummary,
             Function<ProgressReporter, T> operation,
             Consumer<T> onSucceeded,
             Consumer<Throwable> onFailed
@@ -121,7 +83,6 @@ public final class WorkstationOperationCoordinator {
                 token,
                 scope,
                 normalized(type, "type"),
-                normalized(requestSummary, "request summary"),
                 task
         );
         register(activeOperation);
@@ -139,7 +100,6 @@ public final class WorkstationOperationCoordinator {
                 return false;
             }
             operation.state = WorkstationOperationState.CANCEL_REQUESTED;
-            last.put(scope, operation.snapshot());
         }
         interrupt(operation);
         return true;
@@ -168,17 +128,6 @@ public final class WorkstationOperationCoordinator {
         return operation != null && !operation.terminal();
     }
 
-    public synchronized Optional<WorkstationOperationSnapshot> snapshot(
-            WorkstationOperationScope scope
-    ) {
-        Objects.requireNonNull(scope, "scope is required");
-        ActiveOperation<?> operation = active.get(scope);
-        if (operation != null) {
-            return Optional.of(operation.snapshot());
-        }
-        return Optional.ofNullable(last.get(scope));
-    }
-
     private synchronized long nextGeneration() {
         return ++generation;
     }
@@ -190,9 +139,6 @@ public final class WorkstationOperationCoordinator {
         }
         if (previous != null && !previous.terminal()) {
             previous.state = WorkstationOperationState.CANCEL_REQUESTED;
-            synchronized (this) {
-                last.put(previous.scope(), previous.snapshot());
-            }
             interrupt(previous);
         }
     }
@@ -211,22 +157,12 @@ public final class WorkstationOperationCoordinator {
         }
         task.setOnSucceeded(event -> {
             if (operation.cancelRequested()) {
-                if (complete(
-                        operation,
-                        WorkstationOperationState.CANCELLED,
-                        null,
-                        false
-                )) {
+                if (complete(operation, WorkstationOperationState.CANCELLED)) {
                     cancelledListener.accept(operation.scope());
                 }
                 return;
             }
-            if (!complete(
-                    operation,
-                    WorkstationOperationState.SUCCEEDED,
-                    null,
-                    true
-            )) {
+            if (!complete(operation, WorkstationOperationState.SUCCEEDED)) {
                 return;
             }
             success.accept(task.getValue());
@@ -234,33 +170,18 @@ public final class WorkstationOperationCoordinator {
         task.setOnFailed(event -> {
             Throwable problem = task.getException();
             if (operation.cancelRequested()) {
-                if (complete(
-                        operation,
-                        WorkstationOperationState.CANCELLED,
-                        problem,
-                        false
-                )) {
+                if (complete(operation, WorkstationOperationState.CANCELLED)) {
                     cancelledListener.accept(operation.scope());
                 }
                 return;
             }
-            if (!complete(
-                    operation,
-                    WorkstationOperationState.FAILED,
-                    problem,
-                    false
-            )) {
+            if (!complete(operation, WorkstationOperationState.FAILED)) {
                 return;
             }
             failure.accept(problem);
         });
         task.setOnCancelled(event -> {
-            if (!complete(
-                    operation,
-                    WorkstationOperationState.CANCELLED,
-                    null,
-                    false
-            )) {
+            if (!complete(operation, WorkstationOperationState.CANCELLED)) {
                 return;
             }
             cancelledListener.accept(operation.scope());
@@ -279,18 +200,13 @@ public final class WorkstationOperationCoordinator {
 
     private boolean complete(
             ActiveOperation<?> operation,
-            WorkstationOperationState state,
-            Throwable failure,
-            boolean resultDelivered
+            WorkstationOperationState state
     ) {
         synchronized (this) {
             if (active.get(operation.scope()) != operation) {
                 return false;
             }
             operation.state = state;
-            operation.failure = failure;
-            operation.resultDelivered = resultDelivered;
-            last.put(operation.scope(), operation.snapshot());
             active.remove(operation.scope());
             return true;
         }
@@ -342,7 +258,6 @@ public final class WorkstationOperationCoordinator {
             @Override
             public void start(String stage) {
                 requireCurrent(scope, token, task);
-                recordProgress(scope, token, stage, -1.0);
                 task.reportStage(stage);
             }
 
@@ -352,31 +267,15 @@ public final class WorkstationOperationCoordinator {
                 double fraction = total <= 0
                         ? -1.0
                         : Math.clamp(current / (double) total, 0.0, 1.0);
-                recordProgress(scope, token, stage, fraction);
                 task.reportProgress(stage, current, total);
             }
 
             @Override
             public void done(String stage) {
                 requireCurrent(scope, token, task);
-                recordProgress(scope, token, stage, 1.0);
                 task.reportDone(stage);
             }
         };
-    }
-
-    private synchronized void recordProgress(
-            WorkstationOperationScope scope,
-            long token,
-            String stage,
-            double progress
-    ) {
-        ActiveOperation<?> operation = active.get(scope);
-        if (operation == null || operation.generation() != token) {
-            return;
-        }
-        operation.stage = stage == null ? "" : stage;
-        operation.progress = progress;
     }
 
     private void requireCurrent(
@@ -424,30 +323,20 @@ public final class WorkstationOperationCoordinator {
         private final long generation;
         private final WorkstationOperationScope scope;
         private final String type;
-        private final String requestSummary;
         private final Task<T> task;
         private volatile Thread worker;
         private volatile WorkstationOperationState state =
                 WorkstationOperationState.RUNNING;
-        private volatile String stage = "";
-        private volatile double progress = -1.0;
-        private volatile boolean resultDelivered;
-        private volatile Throwable failure;
 
         private ActiveOperation(
                 long generation,
                 WorkstationOperationScope scope,
                 String type,
-                String requestSummary,
                 Task<T> task
         ) {
             this.generation = generation;
             this.scope = Objects.requireNonNull(scope, "scope is required");
             this.type = Objects.requireNonNull(type, "type is required");
-            this.requestSummary = Objects.requireNonNull(
-                    requestSummary,
-                    "requestSummary is required"
-            );
             this.task = Objects.requireNonNull(task, "task is required");
         }
 
@@ -466,21 +355,6 @@ public final class WorkstationOperationCoordinator {
                     || state == WorkstationOperationState.CANCELLED;
         }
 
-        WorkstationOperationSnapshot snapshot() {
-            return new WorkstationOperationSnapshot(
-                    generation,
-                    scope,
-                    type,
-                    requestSummary,
-                    state,
-                    stage,
-                    progress,
-                    resultDelivered,
-                    Optional.ofNullable(failure)
-                            .map(Throwable::getMessage)
-                            .filter(message -> !message.isBlank())
-            );
-        }
     }
 
     private abstract static class ProgressTask<T> extends Task<T> {
