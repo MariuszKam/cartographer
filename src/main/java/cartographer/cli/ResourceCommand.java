@@ -140,7 +140,7 @@ public class ResourceCommand implements Command {
         );
         this.mapDataUseCase = new PrepareMapDataUseCase(
                 reader,
-                metadataReader
+                sessionFactory
         );
         this.subcommand = subcommand;
     }
