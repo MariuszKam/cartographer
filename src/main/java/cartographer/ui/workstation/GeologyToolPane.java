@@ -42,10 +42,6 @@ final class GeologyToolPane extends VBox {
         yField.setDisable(busy || !atYButton.isSelected());
     }
 
-    void setDiscoveryBusy(boolean busy) {
-        // Preserve Workstation v1 behavior: geology controls were not discovery-busy.
-    }
-
     private void updateYField() {
         yField.setDisable(!atYButton.isSelected());
     }

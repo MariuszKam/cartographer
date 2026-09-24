@@ -83,10 +83,6 @@ final class ProspectingToolPane extends VBox {
         updateState();
     }
 
-    void setDiscoveryBusy(boolean busy) {
-        setBusy(busy);
-    }
-
     private void updateState() {
         boolean selectedMode = selectedResourcesButton.isSelected();
         allResourcesButton.setDisable(busy);

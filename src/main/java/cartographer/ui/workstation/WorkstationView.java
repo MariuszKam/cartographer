@@ -104,13 +104,6 @@ public final class WorkstationView implements UpdateCheckView {
         refreshDockState();
     }
 
-    public WorkstationView(
-            Runnable onBrowse,
-            Runnable onRender
-    ) {
-        this(onBrowse, onRender, () -> { });
-    }
-
     public Parent root() {
         return root;
     }
@@ -215,10 +208,6 @@ public final class WorkstationView implements UpdateCheckView {
 
     public SearchPanel searchPanel() {
         return searchPanel;
-    }
-
-    public ToolNavigationPane toolNavigationPane() {
-        return toolNavigationPane;
     }
 
     private void setMode(WorkstationTool mode) {

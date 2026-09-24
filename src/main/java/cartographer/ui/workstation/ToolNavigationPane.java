@@ -90,15 +90,6 @@ public final class ToolNavigationPane extends VBox {
         onModeChanged.accept(mode);
     }
 
-    public WorkstationTool selectedMode() {
-        if (group.getSelectedToggle() == map) return WorkstationTool.MAP;
-        if (group.getSelectedToggle() == coverage) return WorkstationTool.COVERAGE;
-        if (group.getSelectedToggle() == surface) return WorkstationTool.SURFACE;
-        if (group.getSelectedToggle() == geology) return WorkstationTool.GEOLOGY;
-        if (group.getSelectedToggle() == prospecting) return WorkstationTool.PROSPECTING;
-        return WorkstationTool.ORE;
-    }
-
     public void setMode(WorkstationTool mode) {
         switch (mode) {
             case MAP -> map.setSelected(true);
