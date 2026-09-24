@@ -102,6 +102,32 @@ public final class PrepareMapDataUseCase {
         );
     }
 
+    public PrepareMapDataUseCase(
+            VcdbsReader reader,
+            SaveSessionFactory sessionFactory
+    ) {
+        this(
+                reader,
+                sessionFactory,
+                Optional.empty()
+        );
+    }
+
+    public PrepareMapDataUseCase(
+            VcdbsReader reader,
+            SaveSessionFactory sessionFactory,
+            RenderDataCacheStore renderDataCacheStore
+    ) {
+        this(
+                reader,
+                sessionFactory,
+                Optional.of(Objects.requireNonNull(
+                        renderDataCacheStore,
+                        "render data cache store is required"
+                ))
+        );
+    }
+
     PrepareMapDataUseCase(
             VcdbsReader reader,
             SaveSessionFactory sessionFactory,
