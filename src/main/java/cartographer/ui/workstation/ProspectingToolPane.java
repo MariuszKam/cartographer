@@ -78,23 +78,6 @@ final class ProspectingToolPane extends VBox {
                 .toList();
     }
 
-    String resourceText() {
-        List<String> selected = selectedResourceKeys();
-        return selected.size() == 1 ? selected.getFirst() : "";
-    }
-
-    String selectionLabel() {
-        List<String> selected = selectedResourceKeys();
-        if (allResourcesButton.isSelected()) {
-            return "All resources";
-        }
-        return selected.isEmpty()
-                ? "No resources selected"
-                : selected.size() == 1
-                ? selected.getFirst()
-                : selected.size() + " resources";
-    }
-
     void setBusy(boolean busy) {
         this.busy = busy;
         updateState();

@@ -273,7 +273,7 @@ public final class WorkstationController {
                             loaded.resourceKeys(),
                             loaded.blockRegistry()
                     );
-                    searchPanel.setResources(discovered, loaded.blockRegistry());
+                    searchPanel.setResources(discovered);
                     loadedPlayerAbsolute = loaded.playerAbsolute();
                     loadedWorldMetadata = Optional.of(loaded.metadata());
                     Optional<PlayerPositionSnapshot> player = loaded.playerAbsolute()

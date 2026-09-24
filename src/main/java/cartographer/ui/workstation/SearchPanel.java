@@ -2,9 +2,7 @@ package cartographer.ui.workstation;
 
 import cartographer.application.ActualOreOverlaySpec;
 import cartographer.application.SurfaceMaterialMatch;
-import cartographer.application.SurfaceMaterialPreset;
 import cartographer.geology.rock.RockIdentity;
-import cartographer.model.BlockInfo;
 import cartographer.resource.ObservedSurfaceResource;
 import cartographer.resource.ObservedSurfaceResourceCatalog;
 import cartographer.ui.OreResource;
@@ -15,7 +13,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -112,24 +109,12 @@ public final class SearchPanel extends VBox {
         updateRenderAvailability();
     }
 
-    public String oreResourceText() {
-        return orePane.oreResourceText();
-    }
-
-    public String prospectingResourceText() {
-        return prospectingPane.resourceText();
-    }
-
     public boolean prospectingAllResources() {
         return prospectingPane.allResources();
     }
 
     public List<String> prospectingResourceKeys() {
         return prospectingPane.selectedResourceKeys();
-    }
-
-    public String prospectingSelectionLabel() {
-        return prospectingPane.selectionLabel();
     }
 
     public boolean customYEnabled() {
@@ -172,23 +157,13 @@ public final class SearchPanel extends VBox {
         return surfacePane.selectedMode();
     }
 
-    public Optional<SurfaceMaterialPreset> selectedSurfaceMaterial() {
-        return surfacePane.selectedMaterial();
-    }
-
     public Optional<SurfaceMaterialMatch> surfaceMaterialMatch() {
         return surfacePane.materialMatch();
     }
 
-    public String resourceMatch() {
-        return orePane.resourceMatch();
-    }
-
     public void setResources(
-            List<OreResource> resources,
-            Map<Integer, BlockInfo> registry
+            List<OreResource> resources
     ) {
-        java.util.Objects.requireNonNull(registry, "registry is required");
         orePane.setResources(resources);
         prospectingPane.setResources(resources);
     }
