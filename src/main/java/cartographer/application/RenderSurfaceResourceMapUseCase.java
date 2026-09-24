@@ -23,9 +23,7 @@ import cartographer.resource.SurfaceRenderAnalysis;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
-import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.SurfaceMapScanResult;
 
 import java.util.List;
@@ -48,66 +46,6 @@ public class RenderSurfaceResourceMapUseCase {
 
     public RenderSurfaceResourceMapUseCase(
             VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
-            SurfaceResourceOverlayRenderer overlayRenderer
-    ) {
-        this(
-                reader,
-                metadataReader,
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(),
-                        reader,
-                        metadataReader
-                ),
-                homeStore,
-                markerStore,
-                renderer,
-                userMarkerRenderer,
-                surfaceMaterialAnalyzer,
-                overlayRenderer,
-                Optional.empty()
-        );
-    }
-
-    public RenderSurfaceResourceMapUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
-            SurfaceResourceOverlayRenderer overlayRenderer,
-            RenderDataCacheStore renderDataCacheStore
-    ) {
-        this(
-                reader,
-                metadataReader,
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(),
-                        reader,
-                        metadataReader
-                ),
-                homeStore,
-                markerStore,
-                renderer,
-                userMarkerRenderer,
-                surfaceMaterialAnalyzer,
-                overlayRenderer,
-                Optional.of(Objects.requireNonNull(
-                        renderDataCacheStore,
-                        "render data cache store is required"
-                ))
-        );
-    }
-
-    public RenderSurfaceResourceMapUseCase(
-            VcdbsReader reader,
             SaveSessionFactory sessionFactory,
             HomeStore homeStore,
             MarkerStore markerStore,
@@ -154,86 +92,6 @@ public class RenderSurfaceResourceMapUseCase {
                         "render data cache store is required"
                 ))
         );
-    }
-
-    public RenderSurfaceResourceMapUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            SaveSessionFactory sessionFactory,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
-            SurfaceResourceOverlayRenderer overlayRenderer
-    ) {
-        this(
-                reader,
-                metadataReader,
-                sessionFactory,
-                homeStore,
-                markerStore,
-                renderer,
-                userMarkerRenderer,
-                surfaceMaterialAnalyzer,
-                overlayRenderer,
-                Optional.empty()
-        );
-    }
-
-    public RenderSurfaceResourceMapUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            SaveSessionFactory sessionFactory,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
-            SurfaceResourceOverlayRenderer overlayRenderer,
-            RenderDataCacheStore renderDataCacheStore
-    ) {
-        this(
-                reader,
-                metadataReader,
-                sessionFactory,
-                homeStore,
-                markerStore,
-                renderer,
-                userMarkerRenderer,
-                surfaceMaterialAnalyzer,
-                overlayRenderer,
-                Optional.of(Objects.requireNonNull(
-                        renderDataCacheStore,
-                        "render data cache store is required"
-                ))
-        );
-    }
-
-    private RenderSurfaceResourceMapUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            SaveSessionFactory sessionFactory,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
-            SurfaceResourceOverlayRenderer overlayRenderer,
-            Optional<RenderDataCacheStore> renderDataCacheStore
-    ) {
-        this(
-                reader,
-                sessionFactory,
-                homeStore,
-                markerStore,
-                renderer,
-                userMarkerRenderer,
-                surfaceMaterialAnalyzer,
-                overlayRenderer,
-                renderDataCacheStore
-        );
-        Objects.requireNonNull(metadataReader, "metadataReader is required");
     }
 
     private RenderSurfaceResourceMapUseCase(
