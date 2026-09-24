@@ -7,7 +7,7 @@ import cartographer.model.ChunkPosition;
 import cartographer.model.ParseResult;
 import cartographer.model.ParsedChunk;
 import cartographer.model.WorldMetadata;
-import cartographer.cli.ProgressReporter;
+import cartographer.application.ProgressReporter;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.ChunkDecodeProfile;
 import cartographer.parser.ChunkDecodeWorkspace;
@@ -1063,10 +1063,6 @@ class VcdbsReaderDirectChunkLookupTest {
     private static final class RecordingProgressReporter extends ProgressReporter {
         private final List<String> events = new ArrayList<>();
         private String doneMessage;
-
-        private RecordingProgressReporter() {
-            super(null);
-        }
 
         @Override
         public void start(String stage) {
