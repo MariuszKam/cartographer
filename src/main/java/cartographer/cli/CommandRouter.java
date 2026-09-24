@@ -193,7 +193,6 @@ public class CommandRouter {
                             new PngWriter(),
                             new RenderActualOreMapUseCase(
                                     reader,
-                                    metadataReader,
                                     homeStore,
                                     markerStore,
                                     new MapRenderer(),
@@ -286,7 +285,6 @@ public class CommandRouter {
                     new RockCommand(
                             out,
                             reader,
-                            metadataReader,
                             new RockMapRenderer(),
                             new PngWriter(),
                             renderDataCache,

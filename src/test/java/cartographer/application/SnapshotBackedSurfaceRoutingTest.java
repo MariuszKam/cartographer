@@ -80,7 +80,6 @@ class SnapshotBackedSurfaceRoutingTest {
         RenderSurfaceResourceMapUseCase useCase =
                 new RenderSurfaceResourceMapUseCase(
                         reader,
-                        metadataReader,
                         forbiddenSource,
                         new HomeStore(root.resolve("home.properties")),
                         new MarkerStore(root.resolve("markers.csv")),

@@ -29,30 +29,6 @@ public record ProspectingAreaRequest(
                 .toList();
     }
 
-    /** Compatibility constructor: empty means all resources, present means one filter term. */
-    public ProspectingAreaRequest(
-            Path savePath,
-            Optional<WorldPosition> center,
-            int radius,
-            Optional<String> resource
-    ) {
-        this(
-                savePath,
-                center,
-                radius,
-                Objects.requireNonNull(resource, "resource is required")
-                        .map(List::of)
-                        .orElseGet(List::of)
-        );
-    }
-
-    /** Compatibility view for callers that still display the single-resource form. */
-    public Optional<String> resource() {
-        return resources.size() == 1
-                ? Optional.of(resources.getFirst())
-                : Optional.empty();
-    }
-
     public boolean allResources() {
         return resources.isEmpty();
     }

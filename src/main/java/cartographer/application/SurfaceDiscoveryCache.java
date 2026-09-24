@@ -47,7 +47,4 @@ public final class SurfaceDiscoveryCache {
         entries.clear();
     }
 
-    public int size() {
-        return entries.size();
-    }
 }

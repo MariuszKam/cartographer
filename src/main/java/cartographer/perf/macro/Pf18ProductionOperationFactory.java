@@ -68,7 +68,7 @@ public final class Pf18ProductionOperationFactory implements Pf18MacroOperationF
             SaveSessionFactory sessions = new SaveSessionFactory(
                     new SqliteSaveConnection(), reader, metadataReader);
             RenderRockMapUseCase useCase = new RenderRockMapUseCase(
-                    reader, metadataReader, new RockMapRenderer(), sessions);
+                    reader, new RockMapRenderer(), sessions);
             RenderRockMapRequest request = new RenderRockMapRequest(
                     save, RockMapMode.UPPER_ROCK, workload.radius().blocks(),
                     Optional.empty(), OptionalInt.empty(), OptionalInt.empty(), OptionalInt.empty());
@@ -111,12 +111,12 @@ public final class Pf18ProductionOperationFactory implements Pf18MacroOperationF
         SaveSessionFactory sessions = new SaveSessionFactory(
                 new SqliteSaveConnection(), reader, metadataReader);
         if (cacheRoot == null) {
-            return new RenderActualOreMapUseCase(reader, metadataReader, home, markers,
+            return new RenderActualOreMapUseCase(reader, home, markers,
                     new MapRenderer(), new UserMarkerRenderer(),
                     new ActualOreOverlayPainter(), new MultiActualBlockMapScanner(),
                     new OreChunkPositionPlanner(), sessions);
         }
-        return new RenderActualOreMapUseCase(reader, metadataReader, home, markers,
+        return new RenderActualOreMapUseCase(reader, home, markers,
                 new MapRenderer(), new UserMarkerRenderer(),
                 new ActualOreOverlayPainter(), new MultiActualBlockMapScanner(),
                 new OreChunkPositionPlanner(), sessions, new RenderDataCacheStore(cacheRoot));

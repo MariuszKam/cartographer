@@ -78,7 +78,6 @@ class RenderSurfaceResourceMapUseCaseTest {
         );
         RenderSurfaceResourceMapUseCase useCase = new RenderSurfaceResourceMapUseCase(
                 reader,
-                metadataReader,
                 new SaveSessionFactory(new TestConnectionFactory(), reader, metadataReader),
                 new HomeStore(temporaryDirectory.resolve("surface-cache-home.properties")),
                 new MarkerStore(temporaryDirectory.resolve("surface-cache-markers.csv")),
@@ -278,9 +277,9 @@ class RenderSurfaceResourceMapUseCaseTest {
         ObservedSurfaceResource observed = new ObservedSurfaceResource(candidate, List.of(
                 new SurfaceObjectObservation(candidate, 16, 6, 16, 7)));
         RenderSurfaceResourceMapRequest request =
-                RenderSurfaceResourceMapRequest.forObservedResource(
+                RenderSurfaceResourceMapRequest.forObservedResources(
                         Path.of("save.vcdbs"), 1, 1, RenderStyle.TOPOGRAPHIC,
-                        EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE), observed,
+                        EnumSet.of(RenderLayer.TERRAIN, RenderLayer.SURFACE), List.of(observed),
                         new WorldPosition(16, 100, 16));
 
         IllegalStateException failure = assertThrows(IllegalStateException.class,
@@ -504,7 +503,6 @@ class RenderSurfaceResourceMapUseCaseTest {
         WorldMetadataReader metadataReader = metadataReader(metadata);
         return new RenderSurfaceResourceMapUseCase(
                 reader,
-                metadataReader,
                 new SaveSessionFactory(new TestConnectionFactory(), reader, metadataReader),
                 new HomeStore(Path.of("build", "surface-test-home.properties")),
                 new MarkerStore(Path.of("build", "surface-test-markers.csv")),

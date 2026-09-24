@@ -24,6 +24,8 @@ import cartographer.prospecting.ActualOreObservation;
 import cartographer.prospecting.OreRockCompatibilityProvider;
 import cartographer.prospecting.SavedOreObservationProvider;
 import cartographer.resource.ResourceAnalyzer;
+import cartographer.save.SaveSessionFactory;
+import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockYFilter;
@@ -64,10 +66,16 @@ class SnapshotBackedProspectingRoutingTest {
                 new RegistryParser()
         );
         WorldMetadataReader metadataReader = new WorldMetadataReader();
+        SaveSessionFactory sessionFactory = new SaveSessionFactory(
+                new SqliteSaveConnection(),
+                reader,
+                metadataReader
+        );
         SavedOreObservationProvider provider =
                 new SavedOreObservationProvider(
                         reader,
                         metadataReader,
+                        sessionFactory,
                         cache
                 );
         AnalyzeProspectingAreaUseCase useCase =
@@ -76,6 +84,7 @@ class SnapshotBackedProspectingRoutingTest {
                         new ResourceAnalyzer(),
                         OreRockCompatibilityProvider.unknown(),
                         provider,
+                        sessionFactory,
                         cache
                 );
 

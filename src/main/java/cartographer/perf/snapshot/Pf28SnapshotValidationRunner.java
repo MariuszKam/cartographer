@@ -118,7 +118,6 @@ public final class Pf28SnapshotValidationRunner {
         RenderActualOreMapUseCase warmUseCase =
                 new RenderActualOreMapUseCase(
                         reader,
-                        metadataReader,
                         homeStore,
                         markerStore,
                         new MapRenderer(),
@@ -133,7 +132,6 @@ public final class Pf28SnapshotValidationRunner {
         RenderActualOreMapUseCase sourceUseCase =
                 new RenderActualOreMapUseCase(
                         reader,
-                        metadataReader,
                         homeStore,
                         markerStore,
                         new MapRenderer(),

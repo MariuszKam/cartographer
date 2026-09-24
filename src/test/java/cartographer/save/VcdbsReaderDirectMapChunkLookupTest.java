@@ -1,7 +1,7 @@
 package cartographer.save;
 
 import cartographer.testing.IntegrationTest;
-import cartographer.cli.ProgressReporter;
+import cartographer.application.ProgressReporter;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParseResult;
@@ -10,8 +10,6 @@ import cartographer.parser.MapChunkParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -311,12 +309,8 @@ class VcdbsReaderDirectMapChunkLookupTest {
         }
     }
 
-    private static final class RecordingProgressReporter extends ProgressReporter {
+    private static final class RecordingProgressReporter implements ProgressReporter {
         private final List<String> events = new ArrayList<>();
-
-        private RecordingProgressReporter() {
-            super(new PrintStream(new ByteArrayOutputStream()));
-        }
 
         @Override
         public void start(String stage) {

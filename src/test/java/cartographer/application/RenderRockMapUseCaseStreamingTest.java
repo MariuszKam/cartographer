@@ -35,7 +35,7 @@ class RenderRockMapUseCaseStreamingTest {
     void preservesResultContractForUpperAndAtYStreamingModes() {
         StreamingReader reader = new StreamingReader();
         RenderRockMapUseCase useCase = new RenderRockMapUseCase(
-                reader, new MetadataReader(), new RockMapRenderer(),
+                reader, new RockMapRenderer(),
                 new SaveSessionFactory(new TestConnectionFactory(), reader, new MetadataReader()));
         WorldPosition center = new WorldPosition(16, 0, 16);
 

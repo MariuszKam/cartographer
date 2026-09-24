@@ -5,7 +5,6 @@ import cartographer.geology.rock.RockMapMode;
 import cartographer.application.RenderRockMapRequest;
 import cartographer.application.RenderRockMapResult;
 import cartographer.application.RenderRockMapUseCase;
-import cartographer.model.ChunkPosition;
 import cartographer.model.WorldPosition;
 import cartographer.perf.RenderDataCacheStore;
 import cartographer.render.PngWriter;
@@ -13,9 +12,7 @@ import cartographer.render.RockLegendEntry;
 import cartographer.render.RockMapRenderer;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
-import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
@@ -37,28 +34,6 @@ public final class RockCommand implements Command {
     public RockCommand(
             PrintStream out,
             VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            RockMapRenderer renderer,
-            PngWriter pngWriter,
-            String subcommand
-    ) {
-        this(
-                out,
-                reader,
-                metadataReader,
-                renderer,
-                pngWriter,
-                subcommand,
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(), reader, metadataReader
-                )
-        );
-    }
-
-    public RockCommand(
-            PrintStream out,
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
             RockMapRenderer renderer,
             PngWriter pngWriter,
             RenderDataCacheStore renderDataCacheStore,
@@ -74,7 +49,6 @@ public final class RockCommand implements Command {
                 ? null
                 : new RenderRockMapUseCase(
                         reader,
-                        metadataReader,
                         renderer,
                         sessionFactory,
                         Objects.requireNonNull(
@@ -92,7 +66,6 @@ public final class RockCommand implements Command {
     RockCommand(
             PrintStream out,
             VcdbsReader reader,
-            WorldMetadataReader metadataReader,
             RockMapRenderer renderer,
             PngWriter pngWriter,
             String subcommand,
@@ -104,7 +77,6 @@ public final class RockCommand implements Command {
                 ? null
                 : new RenderRockMapUseCase(
                         reader,
-                        metadataReader,
                         renderer,
                         sessionFactory
                 );
@@ -297,14 +269,6 @@ public final class RockCommand implements Command {
         } catch (NumberFormatException exception) {
             throw new CommandException("Invalid " + name + ": " + value);
         }
-    }
-
-    private int floor(double value) {
-        double result = Math.floor(value);
-        if (result < Integer.MIN_VALUE || result > Integer.MAX_VALUE) {
-            throw new CommandException("World center is outside the supported block range");
-        }
-        return (int) result;
     }
 
     private Optional<String> option(String[] args, String name) {

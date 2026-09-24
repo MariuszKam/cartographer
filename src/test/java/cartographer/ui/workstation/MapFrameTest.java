@@ -77,7 +77,7 @@ class MapFrameTest {
     @Test
     void localRecompositionRequiresRetainedDataForEnabledLayers() {
         MapDecorationState decorations =
-                new MapDecorationState(HomeState.absent(), List.of());
+                new MapDecorationState(HomeState.absent(), List.of(), true);
         MapViewportGeometry geometry = MapViewportGeometry.fullImage(
                 64, 64, 16, 16, 48, 48
         );
@@ -161,7 +161,7 @@ class MapFrameTest {
     @Test
     void retainedPreparedMapReuseRequiresMatchingGeometryAndSurfaceAvailability() {
         MapDecorationState decorations =
-                new MapDecorationState(HomeState.absent(), List.of());
+                new MapDecorationState(HomeState.absent(), List.of(), true);
         MapFrame frame = MapFrame.map(
                 Path.of("reuse.vcdbs"),
                 MapViewportGeometry.fullImage(64, 64, 16, 16, 48, 48),

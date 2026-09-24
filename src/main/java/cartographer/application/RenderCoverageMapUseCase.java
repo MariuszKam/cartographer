@@ -12,9 +12,7 @@ import cartographer.navigation.HomeStore;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
-import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 
 import java.nio.file.Path;
 import java.util.Objects;
@@ -25,26 +23,6 @@ public final class RenderCoverageMapUseCase {
     private final HomeStore homeStore;
     private final RegionCoverageAnalyzer analyzer;
     private final RegionCoverageRenderer renderer;
-
-    public RenderCoverageMapUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            HomeStore homeStore,
-            RegionCoverageAnalyzer analyzer,
-            RegionCoverageRenderer renderer
-    ) {
-        this(
-                reader,
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(),
-                        reader,
-                        metadataReader
-                ),
-                homeStore,
-                analyzer,
-                renderer
-        );
-    }
 
     public RenderCoverageMapUseCase(
             VcdbsReader reader,

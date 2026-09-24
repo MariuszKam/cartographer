@@ -1,7 +1,7 @@
 package cartographer.save;
 
 import cartographer.cli.CommandException;
-import cartographer.cli.ProgressReporter;
+import cartographer.application.ProgressReporter;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.PlayerPositionCandidate;
 

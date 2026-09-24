@@ -1,7 +1,7 @@
 package cartographer.atlas;
 
 import cartographer.cli.CommandException;
-import cartographer.cli.ProgressReporter;
+import cartographer.application.ProgressReporter;
 import cartographer.model.HomeState;
 import cartographer.model.MapChunk;
 import cartographer.model.WorldPosition;

@@ -3,6 +3,7 @@ package cartographer.cli;
 import cartographer.application.RenderActualOreMapRequest;
 import cartographer.application.RenderActualOreMapResult;
 import cartographer.application.RenderActualOreMapUseCase;
+import cartographer.application.RenderDataCacheReport;
 import cartographer.marker.MarkerStore;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
@@ -407,7 +408,6 @@ class MapCommandTest {
     ) {
         RenderActualOreMapUseCase useCase = new RenderActualOreMapUseCase(
                 reader,
-                metadataReader,
                 homeStore,
                 markerStore,
                 renderer,
@@ -711,12 +711,18 @@ class MapCommandTest {
         ) {
             super(
                     reader,
-                    metadataReader,
                     homeStore,
                     markerStore,
                     renderer,
                     userMarkerRenderer,
-                    actualOreOverlayPainter
+                    actualOreOverlayPainter,
+                    new cartographer.scanner.MultiActualBlockMapScanner(),
+                    new cartographer.application.OreChunkPositionPlanner(),
+                    new SaveSessionFactory(
+                            new TestConnectionFactory(),
+                            reader,
+                            metadataReader
+                    )
             );
         }
 
@@ -751,7 +757,11 @@ class MapCommandTest {
                     new ReadDiagnostics(),
                     new ReadDiagnostics(),
                     0,
-                    List.of()
+                    List.of(),
+                    RenderDataCacheReport.disabled("test"),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty()
             );
         }
 

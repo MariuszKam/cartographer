@@ -114,7 +114,11 @@ class RenderActualOreMapUseCaseTest {
                 NullPointerException.class,
                 () -> new RenderActualOreMapResult(
                         null, null, null, null, null, null, null,
-                        null, null, null, null, 0, List.of()
+                        null, null, null, null, 0, List.of(),
+                        RenderDataCacheReport.disabled("test"),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()
                 )
         );
     }
@@ -1539,7 +1543,6 @@ class RenderActualOreMapUseCaseTest {
         };
         return new RenderActualOreMapUseCase(
                 reader,
-                metadataReader,
                 new HomeStore(homePath),
                 new MarkerStore(markerPath),
                 new MapRenderer(),
@@ -1566,7 +1569,6 @@ class RenderActualOreMapUseCaseTest {
         };
         return new RenderActualOreMapUseCase(
                 reader,
-                metadataReader,
                 new HomeStore(homePath),
                 new MarkerStore(markerPath),
                 new MapRenderer(),
@@ -1593,7 +1595,7 @@ class RenderActualOreMapUseCaseTest {
             }
         };
         return new RenderActualOreMapUseCase(
-                reader, metadataReader, new HomeStore(homePath), new MarkerStore(markerPath),
+                reader, new HomeStore(homePath), new MarkerStore(markerPath),
                 new MapRenderer(), new UserMarkerRenderer(),
                 new ActualOreOverlayPainter(), new cartographer.scanner.MultiActualBlockMapScanner(),
                 new OreChunkPositionPlanner(),

@@ -81,7 +81,7 @@ src/main/java/cartographer/
 │   ├── GeologyCommand
 │   ├── MarkerCommand
 │   ├── AtlasCommand
-│   └── ProgressReporter
+│   └── ConsoleProgressReporter
 │
 ├── save/
 │   ├── SqliteSaveConnection

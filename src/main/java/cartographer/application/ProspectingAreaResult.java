@@ -26,12 +26,4 @@ public record ProspectingAreaResult(
             throw new IllegalArgumentException("radius must be positive");
         }
     }
-    public ProspectingAreaResult(
-            WorldPosition center,
-            int radius,
-            List<ProspectingAssessment> assessments
-    ) {
-        this(center, radius, assessments, Optional.empty());
-    }
-
 }

@@ -12,13 +12,6 @@ public record MapDecorationState(
         List<UserMarker> userMarkers,
         boolean userMarkersAvailable
 ) {
-    public MapDecorationState(
-            HomeState home,
-            List<UserMarker> userMarkers
-    ) {
-        this(home, userMarkers, true);
-    }
-
     public MapDecorationState {
         home = Objects.requireNonNull(home, "home is required");
         userMarkers = List.copyOf(

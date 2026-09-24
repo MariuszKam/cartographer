@@ -1,5 +1,6 @@
 package cartographer.cli;
 
+import cartographer.application.ProgressReporter;
 import cartographer.analysis.BlockMatch;
 import cartographer.analysis.BlockScanResult;
 import cartographer.analysis.BlockScanner;
@@ -163,7 +164,7 @@ public class ScanCommand implements Command {
                 );
 
         ProgressReporter progress =
-                new ProgressReporter(
+                new ConsoleProgressReporter(
                         out
                 );
 
@@ -358,7 +359,7 @@ public class ScanCommand implements Command {
         }
 
         ProgressReporter progress =
-                new ProgressReporter(
+                new ConsoleProgressReporter(
                         out
                 );
 
@@ -974,7 +975,7 @@ public class ScanCommand implements Command {
                 );
 
         ProgressReporter progress =
-                new ProgressReporter(
+                new ConsoleProgressReporter(
                         out
                 );
 

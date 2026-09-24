@@ -23,9 +23,7 @@ import cartographer.resource.SurfaceRenderAnalysis;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
-import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.SurfaceMapScanResult;
 
 import java.util.List;
@@ -48,67 +46,6 @@ public class RenderSurfaceResourceMapUseCase {
 
     public RenderSurfaceResourceMapUseCase(
             VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
-            SurfaceResourceOverlayRenderer overlayRenderer
-    ) {
-        this(
-                reader,
-                metadataReader,
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(),
-                        reader,
-                        metadataReader
-                ),
-                homeStore,
-                markerStore,
-                renderer,
-                userMarkerRenderer,
-                surfaceMaterialAnalyzer,
-                overlayRenderer,
-                Optional.empty()
-        );
-    }
-
-    public RenderSurfaceResourceMapUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            SurfaceMaterialAnalyzer surfaceMaterialAnalyzer,
-            SurfaceResourceOverlayRenderer overlayRenderer,
-            RenderDataCacheStore renderDataCacheStore
-    ) {
-        this(
-                reader,
-                metadataReader,
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(),
-                        reader,
-                        metadataReader
-                ),
-                homeStore,
-                markerStore,
-                renderer,
-                userMarkerRenderer,
-                surfaceMaterialAnalyzer,
-                overlayRenderer,
-                Optional.of(Objects.requireNonNull(
-                        renderDataCacheStore,
-                        "render data cache store is required"
-                ))
-        );
-    }
-
-    public RenderSurfaceResourceMapUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
             SaveSessionFactory sessionFactory,
             HomeStore homeStore,
             MarkerStore markerStore,
@@ -119,7 +56,6 @@ public class RenderSurfaceResourceMapUseCase {
     ) {
         this(
                 reader,
-                metadataReader,
                 sessionFactory,
                 homeStore,
                 markerStore,
@@ -133,7 +69,6 @@ public class RenderSurfaceResourceMapUseCase {
 
     public RenderSurfaceResourceMapUseCase(
             VcdbsReader reader,
-            WorldMetadataReader metadataReader,
             SaveSessionFactory sessionFactory,
             HomeStore homeStore,
             MarkerStore markerStore,
@@ -145,7 +80,6 @@ public class RenderSurfaceResourceMapUseCase {
     ) {
         this(
                 reader,
-                metadataReader,
                 sessionFactory,
                 homeStore,
                 markerStore,
@@ -162,7 +96,6 @@ public class RenderSurfaceResourceMapUseCase {
 
     private RenderSurfaceResourceMapUseCase(
             VcdbsReader reader,
-            WorldMetadataReader metadataReader,
             SaveSessionFactory sessionFactory,
             HomeStore homeStore,
             MarkerStore markerStore,
@@ -173,7 +106,6 @@ public class RenderSurfaceResourceMapUseCase {
             Optional<RenderDataCacheStore> renderDataCacheStore
     ) {
         this.reader = Objects.requireNonNull(reader, "reader is required");
-        Objects.requireNonNull(metadataReader, "metadataReader is required");
         this.sessionFactory = Objects.requireNonNull(sessionFactory, "sessionFactory is required");
         this.homeStore = Objects.requireNonNull(homeStore, "homeStore is required");
         this.markerStore = Objects.requireNonNull(markerStore, "markerStore is required");

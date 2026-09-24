@@ -17,9 +17,7 @@ import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
 import cartographer.save.SelectiveChunkStreamStats;
-import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockYFilter;
 
 import java.util.List;
@@ -38,53 +36,12 @@ public final class RenderRockMapUseCase {
 
     public RenderRockMapUseCase(
             VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            RockMapRenderer renderer
-    ) {
-        this(
-                reader,
-                metadataReader,
-                renderer,
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(),
-                        reader,
-                        metadataReader
-                )
-        );
-    }
-
-    public RenderRockMapUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            RockMapRenderer renderer,
-            RenderDataCacheStore renderDataCacheStore
-    ) {
-        this(
-                reader,
-                metadataReader,
-                renderer,
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(),
-                        reader,
-                        metadataReader
-                ),
-                Optional.of(Objects.requireNonNull(
-                        renderDataCacheStore,
-                        "render data cache store is required"
-                ))
-        );
-    }
-
-    public RenderRockMapUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
             RockMapRenderer renderer,
             SaveSessionFactory sessionFactory,
             RenderDataCacheStore renderDataCacheStore
     ) {
         this(
                 reader,
-                metadataReader,
                 renderer,
                 sessionFactory,
                 Optional.of(Objects.requireNonNull(
@@ -96,13 +53,11 @@ public final class RenderRockMapUseCase {
 
     public RenderRockMapUseCase(
             VcdbsReader reader,
-            WorldMetadataReader metadataReader,
             RockMapRenderer renderer,
             SaveSessionFactory sessionFactory
     ) {
         this(
                 reader,
-                metadataReader,
                 renderer,
                 sessionFactory,
                 Optional.empty()
@@ -111,13 +66,11 @@ public final class RenderRockMapUseCase {
 
     RenderRockMapUseCase(
             VcdbsReader reader,
-            WorldMetadataReader metadataReader,
             RockMapRenderer renderer,
             SaveSessionFactory sessionFactory,
             Optional<RenderDataCacheStore> renderDataCacheStore
     ) {
         this.reader = Objects.requireNonNull(reader, "reader is required");
-        Objects.requireNonNull(metadataReader, "metadata reader is required");
         this.sessionFactory = Objects.requireNonNull(
                 sessionFactory,
                 "sessionFactory is required"

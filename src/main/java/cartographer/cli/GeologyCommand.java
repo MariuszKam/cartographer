@@ -1,5 +1,6 @@
 package cartographer.cli;
 
+import cartographer.application.ProgressReporter;
 import cartographer.geology.GeologyAnalyzer;
 import cartographer.geology.GeologyReport;
 import cartographer.geology.GeologicProvinceInterpreter;
@@ -172,7 +173,7 @@ public class GeologyCommand implements Command {
                 );
 
         ProgressReporter progress =
-                new ProgressReporter(
+                new ConsoleProgressReporter(
                         out
                 );
 
@@ -267,7 +268,7 @@ public class GeologyCommand implements Command {
                 );
 
         ProgressReporter progress =
-                new ProgressReporter(
+                new ConsoleProgressReporter(
                         out
                 );
 
@@ -432,7 +433,7 @@ public class GeologyCommand implements Command {
                 );
 
         ProgressReporter progress =
-                new ProgressReporter(
+                new ConsoleProgressReporter(
                         out
                 );
 

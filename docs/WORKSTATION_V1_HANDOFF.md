@@ -61,7 +61,7 @@ expose semantic APIs and keep their JavaFX controls private.
 
 ## Progress architecture
 
-`cartographer.application.ProgressReporter` is the neutral callback contract. The CLI reporter extends it without introducing a UI dependency.
+`cartographer.application.ProgressReporter` is the neutral callback contract. `cartographer.cli.ConsoleProgressReporter` implements that contract, while lower layers remain independent of the CLI package.
 
 JavaFX render tasks use the private `ProgressTask<T>` bridge in `CartographerDesktopApp`; backend callbacks call wrapper methods, which update Task properties. UI listeners then update `WorkstationView` and `WorkstationStatusBar`.
 

@@ -99,7 +99,6 @@ public class CartographerDesktopApp extends Application {
         RenderRockMapUseCase rockUseCase =
                 new RenderRockMapUseCase(
                         reader,
-                        metadataReader,
                         new RockMapRenderer(),
                         sessionFactory,
                         renderDataCacheStore
@@ -274,7 +273,6 @@ public class CartographerDesktopApp extends Application {
         Path config = Path.of(System.getProperty("user.home"), ".vs-cartographer");
         return new RenderActualOreMapUseCase(
                 reader,
-                metadataReader,
                 new HomeStore(config.resolve("home.properties")),
                 new MarkerStore(config),
                 new MapRenderer(),
@@ -294,7 +292,6 @@ public class CartographerDesktopApp extends Application {
         Path config = Path.of(System.getProperty("user.home"), ".vs-cartographer");
         return new RenderSurfaceResourceMapUseCase(
                 reader,
-                metadataReader,
                 sessionFactory,
                 new HomeStore(config.resolve("home.properties")),
                 new MarkerStore(config),

@@ -18,9 +18,7 @@ import cartographer.perf.RenderDataCacheStore;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
-import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 import cartographer.snapshot.SnapshotMapRegionReader;
 import cartographer.snapshot.SnapshotWorldHeaderReader;
 
@@ -39,50 +37,6 @@ public final class AnalyzeProspectingAreaUseCase {
     private final SaveSessionFactory sessionFactory;
     private final Optional<SnapshotMapRegionReader> snapshotMapRegionReader;
     private final Optional<SnapshotWorldHeaderReader> snapshotHeaderReader;
-
-    public AnalyzeProspectingAreaUseCase(
-            VcdbsReader reader,
-            ResourceAnalyzer resourceAnalyzer,
-            OreRockCompatibilityProvider compatibilityProvider,
-            FusedProspectingObservationProvider prospectingProvider
-    ) {
-        this(
-                reader,
-                resourceAnalyzer,
-                compatibilityProvider,
-                prospectingProvider,
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(),
-                        reader,
-                        new WorldMetadataReader()
-                ),
-                Optional.empty()
-        );
-    }
-
-    public AnalyzeProspectingAreaUseCase(
-            VcdbsReader reader,
-            ResourceAnalyzer resourceAnalyzer,
-            OreRockCompatibilityProvider compatibilityProvider,
-            FusedProspectingObservationProvider prospectingProvider,
-            RenderDataCacheStore renderDataCacheStore
-    ) {
-        this(
-                reader,
-                resourceAnalyzer,
-                compatibilityProvider,
-                prospectingProvider,
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(),
-                        reader,
-                        new WorldMetadataReader()
-                ),
-                Optional.of(Objects.requireNonNull(
-                        renderDataCacheStore,
-                        "render data cache store is required"
-                ))
-        );
-    }
 
     public AnalyzeProspectingAreaUseCase(
             VcdbsReader reader,

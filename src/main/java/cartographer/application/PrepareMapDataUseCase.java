@@ -21,9 +21,7 @@ import cartographer.save.ChunkStreamStats;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
-import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.SurfaceFallbackChunkPlanner;
 import cartographer.scanner.SurfaceMap;
 import cartographer.scanner.SurfaceMapScanResult;
@@ -67,40 +65,6 @@ public final class PrepareMapDataUseCase {
             new MapChunkPositionPlanner();
     private final SurfaceFallbackChunkPlanner surfaceFallbackChunkPlanner =
             new SurfaceFallbackChunkPlanner();
-
-    public PrepareMapDataUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader
-    ) {
-        this(
-                reader,
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(),
-                        reader,
-                        metadataReader
-                ),
-                Optional.empty()
-        );
-    }
-
-    public PrepareMapDataUseCase(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            RenderDataCacheStore renderDataCacheStore
-    ) {
-        this(
-                reader,
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(),
-                        reader,
-                        metadataReader
-                ),
-                Optional.of(Objects.requireNonNull(
-                        renderDataCacheStore,
-                        "render data cache store is required"
-                ))
-        );
-    }
 
     public PrepareMapDataUseCase(
             VcdbsReader reader,

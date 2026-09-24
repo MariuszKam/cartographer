@@ -43,7 +43,7 @@ public final class SnapshotCommand implements Command {
         Path save = Path.of(args[0]);
         PrepareWorldSnapshotResult result = useCase.execute(
                 new PrepareWorldSnapshotRequest(save),
-                new ProgressReporter(out)
+                new ConsoleProgressReporter(out)
         );
 
         out.println();

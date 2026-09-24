@@ -34,10 +34,6 @@ public final class WorldIndexBatchPlanner {
         this.tileSpan = tileSpan;
     }
 
-    public int tileSpan() {
-        return tileSpan;
-    }
-
     public List<List<MapChunkCoordinate>> plan(
             Collection<MapChunkCoordinate> coordinates
     ) {

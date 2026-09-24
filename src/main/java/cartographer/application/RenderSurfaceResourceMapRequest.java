@@ -33,25 +33,6 @@ public record RenderSurfaceResourceMapRequest(
                 SurfaceResourceSelection.material(match), center);
     }
 
-    public static RenderSurfaceResourceMapRequest forObservedResource(
-            Path savePath,
-            int radius,
-            int pixelsPerBlock,
-            RenderStyle style,
-            Set<RenderLayer> layers,
-            ObservedSurfaceResource resource,
-            WorldPosition center
-    ) {
-        return forObservedResources(
-                savePath,
-                radius,
-                pixelsPerBlock,
-                style,
-                layers,
-                List.of(resource), center
-        );
-    }
-
     public static RenderSurfaceResourceMapRequest forObservedResources(
             Path savePath,
             int radius,
@@ -92,11 +73,6 @@ public record RenderSurfaceResourceMapRequest(
     }
 
     /** Returns the material matcher for a material request. */
-    public SurfaceMaterialMatch materialMatch() {
-        return material().orElseThrow(() -> new IllegalStateException(
-                "Observed-resource requests do not expose a material match"));
-    }
-
     public List<ObservedSurfaceResource> observedResources() {
         return selection.observedResources();
     }
