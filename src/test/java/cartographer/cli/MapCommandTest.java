@@ -711,12 +711,18 @@ class MapCommandTest {
         ) {
             super(
                     reader,
-                    metadataReader,
                     homeStore,
                     markerStore,
                     renderer,
                     userMarkerRenderer,
-                    actualOreOverlayPainter
+                    actualOreOverlayPainter,
+                    new cartographer.scanner.MultiActualBlockMapScanner(),
+                    new cartographer.application.OreChunkPositionPlanner(),
+                    new SaveSessionFactory(
+                            new TestConnectionFactory(),
+                            reader,
+                            metadataReader
+                    )
             );
         }
 
