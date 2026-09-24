@@ -28,7 +28,7 @@ class SurfaceResourceSelectionTest {
         );
 
         assertEquals(material, SurfaceResourceSelection.material(material).material().orElseThrow());
-        assertEquals(List.of(observed), SurfaceResourceSelection.observed(observed).observedResources());
+        assertEquals(List.of(observed), SurfaceResourceSelection.observedResources(List.of(observed)).observedResources());
         assertThrows(IllegalArgumentException.class, () -> new SurfaceResourceSelection(
                 Optional.of(material), List.of(observed)));
         assertThrows(IllegalArgumentException.class, () -> new SurfaceResourceSelection(
