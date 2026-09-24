@@ -122,8 +122,8 @@ recommended order is:
 3. exercise unavailable-network behavior;
 4. reach `Ready <target>` and exercise the tampered-installer rejection;
 5. restore or re-download the verified installer;
-6. exercise installer cancellation/failure and confirm the old version remains
-   usable;
+6. review the silent-installer result handling and confirm no native installer
+   wizard appears;
 7. only then perform the final successful old-to-new upgrade;
 8. run `AfterUpgrade`;
 9. complete normal GUI checks;
@@ -142,10 +142,11 @@ After the failure scenarios have been recovered:
 4. confirm the UI reaches `Ready <target>`;
 5. click `Restart & update`;
 6. confirm the old process exits before the installer runs;
-7. complete the installer;
+7. confirm no native installer wizard appears while the silent upgrade runs;
 8. confirm VS Cartographer relaunches;
 9. confirm the World Bar reports the target runtime version;
-10. confirm the previous-install result does not falsely report failure.
+10. confirm the previous-install result does not falsely report failure and
+    inspect the per-version installer log if troubleshooting is required.
 
 The runtime version shown by the application is the authoritative application
 check. Windows `DisplayVersion` is an additional packaging check.
@@ -266,21 +267,34 @@ powershell -ExecutionPolicy Bypass -File tools\validate-auto-update-stage5.ps1 `
   -TargetVersion 1.0.1
 ```
 
-### Installer cancellation / failure
+### Silent installer result handling
 
-While the old version is still installed, restore/re-download a valid target
-installer, reach `Ready <target>` again, click `Restart & update`, and cancel
-the installer when Windows presents it.
+The automatic update path is unattended. After `Restart & update`, the
+jpackage EXE is invoked with `/quiet /norestart`, so there is no installer
+window to cancel.
 
-Expected behavior:
+The result contract is:
 
-- the next launch does not report a successful update;
-- the old version remains usable;
-- the failure/cancellation path does not modify the Vintage Story save;
-- another update attempt remains possible.
+```text
+0     -> SUCCESS
+1641  -> SUCCESS (Windows Installer already initiated reboot)
+3010  -> RESTART_REQUIRED
+other -> INSTALLER_FAILED
+```
 
-The exact native installer exit code can differ by cancellation path, so Stage 5
-does not hard-code one cancellation code as the product contract.
+The bootstrap also writes a verbose Windows Installer log to:
+
+```text
+~/.vs-cartographer/updates/bootstrap/install-<target>.log
+```
+
+Automated tests pin this classification. During the real packaged campaign,
+confirm the normal success path produces no installer wizard. If a safe,
+controlled environment naturally produces `3010` or an installer failure,
+confirm the next launch surfaces `Restart required` or the installer exit code
+respectively and that the Vintage Story save remains unchanged. Do not damage
+the Windows installation or deliberately corrupt unrelated system state merely
+to manufacture one of these native exit codes.
 
 ### Network unavailable
 
@@ -303,7 +317,7 @@ Record the final campaign with explicit evidence:
 | S5.2 state persistence | AfterUpgrade helper + HOME/marker GUI check | PENDING MANUAL VALIDATION |
 | S5.3 save integrity | baseline/AfterUpgrade/AfterUninstall hashes and sidecars | PENDING MANUAL VALIDATION |
 | S5.4 installer lifecycle | registry + shortcuts + uninstall helper | PENDING MANUAL VALIDATION |
-| S5.5 failures | tamper, cancellation/failure, unavailable network | PENDING MANUAL VALIDATION |
+| S5.5 failures | tamper, silent installer result handling, unavailable network | PENDING MANUAL VALIDATION |
 | tests | final branch `.\gradlew.bat test` | NOT RUN until CI/reviewer evidence exists |
 
 Do not mark Auto Update Stage 5 or Auto Update v1 DONE from static review alone.
