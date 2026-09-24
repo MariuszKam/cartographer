@@ -1,5 +1,6 @@
 package cartographer.cli;
 
+import cartographer.application.ProgressReporter;
 import cartographer.coverage.RegionCoverageAnalyzer;
 import cartographer.coverage.RegionCoverageRenderer;
 import cartographer.coverage.RegionCoverageSummary;
@@ -131,7 +132,7 @@ public class CoverageCommand implements Command {
                 );
 
         ProgressReporter progress =
-                new ProgressReporter(
+                new ConsoleProgressReporter(
                         out
                 );
 
@@ -219,7 +220,7 @@ public class CoverageCommand implements Command {
             Path savePath
     ) {
         ProgressReporter progress =
-                new ProgressReporter(
+                new ConsoleProgressReporter(
                         out
                 );
 
