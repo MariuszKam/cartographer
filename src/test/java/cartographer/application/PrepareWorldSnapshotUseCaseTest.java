@@ -693,7 +693,7 @@ class PrepareWorldSnapshotUseCaseTest {
         }
     }
     private static final class RecordingProgressReporter
-            extends ProgressReporter {
+            implements ProgressReporter {
         private final List<Double> fractions = new ArrayList<>();
         private final List<String> doneStages = new ArrayList<>();
 
