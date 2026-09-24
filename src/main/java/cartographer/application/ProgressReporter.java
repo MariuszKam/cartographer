@@ -1,14 +1,15 @@
 package cartographer.application;
 
-public class ProgressReporter {
-    public static final ProgressReporter NONE = new ProgressReporter();
+public interface ProgressReporter {
+    ProgressReporter NONE = new ProgressReporter() {
+    };
 
-    public void start(String stage) {
+    default void start(String stage) {
     }
 
-    public void progress(String stage, int current, int total) {
+    default void progress(String stage, int current, int total) {
     }
 
-    public void done(String stage) {
+    default void done(String stage) {
     }
 }
