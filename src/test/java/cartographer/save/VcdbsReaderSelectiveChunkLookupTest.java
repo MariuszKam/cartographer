@@ -2,7 +2,7 @@ package cartographer.save;
 
 import cartographer.testing.IntegrationTest;
 import cartographer.testing.ConcurrencyTest;
-import cartographer.cli.ProgressReporter;
+import cartographer.application.ProgressReporter;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
 import cartographer.model.ParsedChunk;
@@ -492,7 +492,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
                 new int[]{99},
                 new ReadDiagnostics(),
                 tableParser.delivered::add,
-                new ProgressReporter(null)
+                ProgressReporter.NONE
         );
 
         assertEquals(direct.uniquePositionsRequested(), table.uniquePositionsRequested());
@@ -526,7 +526,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
                 new int[]{99},
                 new ReadDiagnostics(),
                 parser.delivered::add,
-                new ProgressReporter(null)
+                ProgressReporter.NONE
         );
 
         assertEquals(1, parser.selectiveCalls.get());
@@ -832,10 +832,6 @@ class VcdbsReaderSelectiveChunkLookupTest {
 
     private static final class RecordingProgressReporter extends ProgressReporter {
         private final List<String> events = new ArrayList<>();
-
-        private RecordingProgressReporter() {
-            super(null);
-        }
 
         @Override
         public void start(String stage) {
