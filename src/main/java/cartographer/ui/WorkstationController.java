@@ -30,7 +30,6 @@ import cartographer.application.SurfaceDiscoveryCacheKey;
 import cartographer.application.SurfaceDiscoveryPolicy;
 import cartographer.application.SurfaceDiscoveryRequestGate;
 import cartographer.application.SurfaceMaterialMatch;
-import cartographer.application.WorldOverview;
 import cartographer.geology.rock.RockMapMode;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
@@ -205,7 +204,6 @@ public final class WorkstationController {
         operationCoordinator.submitProgress(
                 WorkstationOperationScope.FOREGROUND,
                 "world-snapshot-prepare",
-                "Prepare world " + savePath.getFileName(),
                 progress -> prepareWorldSnapshotUseCase.execute(
                         request,
                         progress
@@ -269,7 +267,6 @@ public final class WorkstationController {
         operationCoordinator.submit(
                 WorkstationOperationScope.FOREGROUND,
                 "world-overview",
-                "Load " + savePath.getFileName(),
                 () -> worldOverviewUseCase.execute(savePath),
                 loaded -> {
                     List<OreResource> discovered = resourceResolver.resolve(
@@ -349,7 +346,6 @@ public final class WorkstationController {
                 operationCoordinator.submitProgress(
                         WorkstationOperationScope.FOREGROUND,
                         "ore-retained-render",
-                        "Ore retained R" + request.radius(),
                         progress -> useCase.executeRetained(
                                 request,
                                 frame.savePath(),
@@ -366,7 +362,6 @@ public final class WorkstationController {
                 operationCoordinator.submitProgress(
                         WorkstationOperationScope.FOREGROUND,
                         "ore-render",
-                        "Ore R" + request.radius(),
                         progress -> useCase.execute(request, progress),
                         result -> showResult(result, request),
                         this::showFailure
@@ -389,7 +384,6 @@ public final class WorkstationController {
         operationCoordinator.submitProgress(
                 WorkstationOperationScope.FOREGROUND,
                 "coverage-render",
-                "Coverage " + request.savePath().getFileName(),
                 progress -> coverageUseCase.execute(request, progress),
                 result -> showCoverageResult(result, request),
                 this::showFailure
@@ -422,7 +416,6 @@ public final class WorkstationController {
             operationCoordinator.submitProgress(
                     WorkstationOperationScope.FOREGROUND,
                     "map-retained-render",
-                    "Map retained R" + request.radius(),
                     progress -> useCase.executeRetained(
                             request,
                             frame.savePath(),
@@ -441,7 +434,6 @@ public final class WorkstationController {
         operationCoordinator.submitProgress(
                 WorkstationOperationScope.FOREGROUND,
                 "map-render",
-                "Map R" + request.radius(),
                 progress -> useCase.execute(request, progress),
                 result -> showMapResult(result, request),
                 this::showFailure
@@ -455,7 +447,6 @@ public final class WorkstationController {
         operationCoordinator.submitProgress(
                 WorkstationOperationScope.FOREGROUND,
                 "rock-render",
-                "Geology R" + request.radius(),
                 progress -> rockUseCase.execute(request, progress),
                 result -> showRockResult(result, request),
                 this::showFailure
@@ -484,10 +475,6 @@ public final class WorkstationController {
         operationCoordinator.submit(
                 WorkstationOperationScope.FOREGROUND,
                 "prospecting-analysis",
-                "Prospecting R" + request.radius()
-                        + " (" + (request.allResources()
-                        ? "all resources"
-                        : request.resources().size() + " selected") + ")",
                 () -> prospectingUseCase.execute(request),
                 result -> showProspectingResult(result, request),
                 this::showFailure
@@ -584,7 +571,6 @@ public final class WorkstationController {
             operationCoordinator.submitProgress(
                     WorkstationOperationScope.FOREGROUND,
                     "surface-retained-render",
-                    "Surface retained R" + request.radius(),
                     progress -> surfaceUseCase.executeRetained(
                             request,
                             frame.savePath(),
@@ -602,7 +588,6 @@ public final class WorkstationController {
         operationCoordinator.submitProgress(
                 WorkstationOperationScope.FOREGROUND,
                 "surface-render",
-                "Surface R" + request.radius(),
                 progress -> surfaceUseCase.execute(request, progress),
                 result -> showSurfaceResult(result, request),
                 this::showFailure
@@ -808,7 +793,6 @@ public final class WorkstationController {
         operationCoordinator.submitProgress(
                 WorkstationOperationScope.LOCAL,
                 "layer-recomposition",
-                "Layers " + layers,
                 progress -> mapFrameCompositor.recompose(frame, layers, progress),
                 image -> {
                     workstation.setLocalBusy(false);
@@ -933,7 +917,6 @@ public final class WorkstationController {
         surfaceDiscoveryTask = operationCoordinator.submitProgress(
                 WorkstationOperationScope.DISCOVERY,
                 "surface-object-discovery",
-                "Surface discovery R" + key.radius(),
                 progress -> surfaceDiscoveryUseCase.execute(
                         new DiscoverObservedSurfaceResourcesRequest(
                                 key.savePath(),
@@ -1134,8 +1117,6 @@ public final class WorkstationController {
         operationCoordinator.submit(
                 WorkstationOperationScope.LOCAL,
                 "rock-highlight",
-                rockCode.map(code -> "Highlight " + code)
-                        .orElse("Clear rock highlight"),
                 () -> rockUseCase.renderRetained(
                         frame.rockMap().orElseThrow(),
                         rockCode
