@@ -191,39 +191,6 @@ public record MapFrame(
             Path savePath,
             MapViewportGeometry geometry,
             PreparedMapData prepared,
-            List<ActualOreOverlayResult> overlays
-    ) {
-        return ore(
-                savePath,
-                geometry,
-                prepared,
-                overlays,
-                Optional.empty(),
-                Optional.empty()
-        );
-    }
-
-    public static MapFrame ore(
-            Path savePath,
-            MapViewportGeometry geometry,
-            PreparedMapData prepared,
-            List<ActualOreOverlayResult> overlays,
-            MapDecorationState decorations
-    ) {
-        return ore(
-                savePath,
-                geometry,
-                prepared,
-                overlays,
-                Optional.of(Objects.requireNonNull(decorations, "decorations are required")),
-                Optional.empty()
-        );
-    }
-
-    public static MapFrame ore(
-            Path savePath,
-            MapViewportGeometry geometry,
-            PreparedMapData prepared,
             List<ActualOreOverlayResult> overlays,
             MapDecorationState decorations,
             MapRegionOverlayState mapRegionOverlays
@@ -256,21 +223,6 @@ public record MapFrame(
                 Optional.empty(),
                 decorations,
                 mapRegionOverlays
-        );
-    }
-
-    public static MapFrame surface(
-            Path savePath,
-            MapViewportGeometry geometry,
-            PreparedMapData prepared,
-            SurfaceRenderAnalysis analysis
-    ) {
-        return surface(
-                savePath,
-                geometry,
-                prepared,
-                analysis,
-                Optional.empty()
         );
     }
 
