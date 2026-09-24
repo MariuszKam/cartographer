@@ -1,5 +1,6 @@
 package cartographer.cli;
 
+import cartographer.application.ProgressReporter;
 import cartographer.model.IntDataMap2D;
 import cartographer.model.ServerMapRegion;
 import cartographer.save.ReadDiagnostics;
@@ -63,7 +64,7 @@ public class MapRegionCommand implements Command {
                 new ReadDiagnostics();
 
         ProgressReporter progress =
-                new ProgressReporter(
+                new ConsoleProgressReporter(
                         out
                 );
 
