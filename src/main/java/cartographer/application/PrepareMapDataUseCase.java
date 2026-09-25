@@ -376,7 +376,7 @@ public final class PrepareMapDataUseCase {
                     ),
                     progress
             );
-            recordChunkReadDiagnostics(cache, "Surface fast");
+            recordChunkReadDiagnostics(cache, "Surface fast", fastChunkStats);
         }
 
         List<MapChunkCoordinate> fallbackMapChunks =
@@ -398,7 +398,7 @@ public final class PrepareMapDataUseCase {
                     ),
                     progress
             );
-            recordChunkReadDiagnostics(cache, "Surface fallback");
+            recordChunkReadDiagnostics(cache, "Surface fallback", fallbackChunkStats);
         }
 
         SurfaceRainHeightScanResult result = surfaceSession.finish();
@@ -455,9 +455,10 @@ public final class PrepareMapDataUseCase {
 
     private void recordChunkReadDiagnostics(
             CacheContext cache,
-            String label
+            String label,
+            ChunkStreamStats stats
     ) {
-        reader.lastChunkReadMetrics().ifPresent(metrics ->
+        stats.metrics().ifPresent(metrics ->
                 cache.notes.add(formatChunkReadMetrics(label, metrics))
         );
     }
