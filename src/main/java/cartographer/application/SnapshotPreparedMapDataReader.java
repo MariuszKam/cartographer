@@ -34,7 +34,7 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 
 /**
- * PF-2.6 source-free consumer for prepared Terrain/Surface snapshot data.
+ * Source-free consumer for prepared Terrain/Surface snapshot data.
  *
  * <p>The reader succeeds only when every datum required by the request is
  * proven compatible in the current revision namespace. A miss, corrupt row,
@@ -177,7 +177,7 @@ public final class SnapshotPreparedMapDataReader {
                             0
                     ),
                     List.of(
-                            "PF-2.6 snapshot-backed warm path",
+                            "snapshot-backed warm path",
                             "source SaveSession not opened"
                     )
             );

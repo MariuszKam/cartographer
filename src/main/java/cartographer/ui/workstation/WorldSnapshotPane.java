@@ -37,7 +37,7 @@ public final class WorldSnapshotPane extends HBox {
         coverage.getStyleClass().add("snapshot-coverage");
         prepare.getStyleClass().add("snapshot-prepare-button");
         prepare.setTooltip(new Tooltip(
-                "Build or repair reusable PF-2 world data for the current save revision."
+                "Build or repair reusable world snapshot data for the current save revision."
         ));
         prepare.setOnAction(event -> onPrepare.run());
 

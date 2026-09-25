@@ -44,7 +44,7 @@ class InspectWorldSnapshotStatusUseCaseTest {
                 save
         ).orElseThrow();
 
-        // A plain render-data manifest is not enough to claim PF-2 preparation.
+        // A plain render-data manifest is not enough to claim world snapshot preparation.
         assertEquals(
                 WorldSnapshotStatus.State.NOT_PREPARED,
                 useCase.execute(save).state()

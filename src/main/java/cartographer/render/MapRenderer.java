@@ -40,7 +40,7 @@ public class MapRenderer {
             new MarkerRenderer();
 
     /**
-     * PF-3 raster-bounded Surface production path.
+     * Raster-bounded Surface production path.
      *
      * <p>exactSurface is required only when SOIL_FERTILITY is enabled; the
      * alpha-composited soil overlay still follows the exact compatibility path

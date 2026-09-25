@@ -11,7 +11,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Reads PF-2 derived snapshot status without opening the source SQLite database.
+ * Reads derived world-snapshot status without opening the source SQLite database.
  */
 public final class InspectWorldSnapshotStatusUseCase {
     private final RenderDataCacheStore cacheStore;
