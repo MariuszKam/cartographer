@@ -287,15 +287,56 @@ class VcdbsReaderDirectChunkLookupTest {
                                 ignored -> { }
         );
 
-        ChunkReadMetrics metrics = reader.lastChunkReadMetrics().orElseThrow();
+        ChunkReadMetrics metrics = stats.metrics().orElseThrow();
         assertEquals(ChunkReadStrategy.EXACT_POSITION_BATCHES, metrics.strategy());
         assertEquals(stats.uniquePositionsRequested(), metrics.uniquePositionsRequested());
         assertEquals(stats.batchesExecuted(), metrics.batchesExecuted());
         assertEquals(stats.rowsFound(), metrics.rowsFound());
         assertEquals(stats.parsedChunks(), metrics.parsedChunks());
         assertEquals(stats.payloadBytes(), metrics.payloadBytes());
-        assertEquals(metrics, reader.lastChunkReadMetrics().orElseThrow());
         assertTrue(metrics.totalNanos() >= metrics.finalDrainNanos());
+    }
+
+    @Test
+    void metricsRemainAttachedToTheirProducingTraversal() throws Exception {
+        List<ChunkPosition> existing = spacedPositions(300);
+        Path database = databaseWithRows(existing.toArray(ChunkPosition[]::new));
+        VcdbsReader reader = new VcdbsReader(
+                null,
+                null,
+                new StubChunkParser(),
+                null
+        );
+
+        ChunkStreamStats directStats = adaptive(
+                reader,
+                new SqliteSaveConnection(),
+                database,
+                existing.subList(0, 2),
+                new ReadDiagnostics(),
+                ignored -> { }
+        );
+        ChunkStreamStats tableStats = adaptive(
+                reader,
+                new SqliteSaveConnection(),
+                database,
+                spacedPositions(320),
+                new ReadDiagnostics(),
+                ignored -> { }
+        );
+
+        assertEquals(
+                ChunkReadStrategy.EXACT_POSITION_BATCHES,
+                directStats.metrics().orElseThrow().strategy()
+        );
+        assertEquals(
+                ChunkReadStrategy.TABLE_STREAM,
+                tableStats.metrics().orElseThrow().strategy()
+        );
+        assertEquals(
+                ChunkReadStrategy.EXACT_POSITION_BATCHES,
+                directStats.metrics().orElseThrow().strategy()
+        );
     }
 
     @Test
@@ -318,7 +359,7 @@ class VcdbsReaderDirectChunkLookupTest {
                                 ignored -> { }
         );
 
-        ChunkReadMetrics metrics = reader.lastChunkReadMetrics().orElseThrow();
+        ChunkReadMetrics metrics = stats.metrics().orElseThrow();
         assertEquals(ChunkReadStrategy.TABLE_STREAM, metrics.strategy());
         assertEquals(320, metrics.uniquePositionsRequested());
         assertEquals(1, metrics.batchesExecuted());
@@ -353,10 +394,10 @@ class VcdbsReaderDirectChunkLookupTest {
         assertEquals(1, stats.batchesExecuted());
         assertEquals(
                 ChunkReadStrategy.RANGE_RUN_BATCHES,
-                reader.lastChunkReadMetrics().orElseThrow().strategy()
+                stats.metrics().orElseThrow().strategy()
         );
-        assertEquals(1, reader.lastChunkReadMetrics().orElseThrow().statementsPrepared());
-        assertEquals(1, reader.lastChunkReadMetrics().orElseThrow().statementsExecuted());
+        assertEquals(1, stats.metrics().orElseThrow().statementsPrepared());
+        assertEquals(1, stats.metrics().orElseThrow().statementsExecuted());
     }
 
     @Test
@@ -388,7 +429,7 @@ class VcdbsReaderDirectChunkLookupTest {
         assertEquals(511, stats.parsedChunks());
         assertEquals(
                 ChunkReadStrategy.RANGE_RUN_BATCHES,
-                reader.lastChunkReadMetrics().orElseThrow().strategy()
+                stats.metrics().orElseThrow().strategy()
         );
         assertTrue(parser.xCoordinates().stream().noneMatch(x -> x == 256));
     }
@@ -416,7 +457,7 @@ class VcdbsReaderDirectChunkLookupTest {
                 ProgressReporter.NONE
         );
 
-        ChunkReadMetrics metrics = reader.lastChunkReadMetrics().orElseThrow();
+        ChunkReadMetrics metrics = stats.metrics().orElseThrow();
         assertEquals(3, stats.batchesExecuted());
         assertEquals(2, metrics.statementsPrepared());
         assertEquals(3, metrics.statementsExecuted());
