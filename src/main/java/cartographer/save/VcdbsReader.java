@@ -40,6 +40,7 @@ public class VcdbsReader {
     private final RegistryParser registryParser;
     private final ServerMapRegionParser serverMapRegionParser;
     private final VcdbsChunkStreamReader chunkStreamReader;
+    private final VcdbsSelectiveChunkStreamReader selectiveChunkStreamReader;
     private final VcdbsMapChunkStreamReader mapChunkStreamReader;
 
     public ChunkStreamStats forEachChunkByPositionAdaptive(
@@ -85,7 +86,7 @@ public class VcdbsReader {
             Consumer<ParsedChunk> consumer,
             ProgressReporter progress
     ) {
-        return chunkStreamReader.forEachChunkByPositionMatchingBlockIdsAdaptive(
+        return selectiveChunkStreamReader.forEachChunkByPositionMatchingBlockIdsAdaptive(
                 session, positions, wantedBlockIds, diagnostics, consumer, progress
         );
     }
@@ -97,7 +98,7 @@ public class VcdbsReader {
             ReadDiagnostics diagnostics,
             Consumer<ParsedChunk> consumer
     ) {
-        return chunkStreamReader.forEachChunkByPositionMatchingBlockIdsAdaptive(
+        return selectiveChunkStreamReader.forEachChunkByPositionMatchingBlockIdsAdaptive(
                 session, positions, wantedBlockIds, diagnostics, consumer
         );
     }
@@ -177,7 +178,7 @@ public class VcdbsReader {
             Consumer<SelectiveChunkVisit> consumer,
             ProgressReporter progress
     ) {
-        return chunkStreamReader.forEachChunkByPositionMatchingBlockIdsWithCoverage(
+        return selectiveChunkStreamReader.forEachChunkByPositionMatchingBlockIdsWithCoverage(
                 session, positions, wantedBlockIds, diagnostics, consumer, progress
         );
     }
@@ -189,7 +190,7 @@ public class VcdbsReader {
             ReadDiagnostics diagnostics,
             Consumer<SelectiveChunkVisit> consumer
     ) {
-        return chunkStreamReader.forEachChunkByPositionMatchingBlockIdsWithCoverage(
+        return selectiveChunkStreamReader.forEachChunkByPositionMatchingBlockIdsWithCoverage(
                 session, positions, wantedBlockIds, diagnostics, consumer
         );
     }
@@ -202,7 +203,7 @@ public class VcdbsReader {
             Consumer<ParsedChunk> consumer,
             ProgressReporter progress
     ) {
-        return chunkStreamReader.forEachChunkByPositionMatchingBlockIds(
+        return selectiveChunkStreamReader.forEachChunkByPositionMatchingBlockIds(
                 session, positions, wantedBlockIds, diagnostics, consumer, progress
         );
     }
@@ -227,7 +228,7 @@ public class VcdbsReader {
             Consumer<ParsedChunk> consumer,
             ProgressReporter progress
     ) {
-        return chunkStreamReader.forEachChunkByPositionMatchingBlockIdsTableStream(
+        return selectiveChunkStreamReader.forEachChunkByPositionMatchingBlockIdsTableStream(
                 session, positions, wantedBlockIds, diagnostics, consumer, progress
         );
     }
@@ -293,13 +294,15 @@ public class VcdbsReader {
                 chunkDecodeMaxInFlight
         );
 
+        this.selectiveChunkStreamReader = new VcdbsSelectiveChunkStreamReader(
+                chunkParser,
+                chunkDecodeWorkerCount,
+                chunkDecodeMaxInFlight
+        );
+
         this.mapChunkStreamReader = new VcdbsMapChunkStreamReader(
                 mapChunkParser
         );
-    }
-
-    public Optional<ChunkReadMetrics> lastChunkReadMetrics() {
-        return chunkStreamReader.lastChunkReadMetrics();
     }
 
     private static int defaultChunkDecodeWorkerCount() {
