@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.render.ActualOreOverlaySpec;
 import cartographer.model.WorldPosition;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;

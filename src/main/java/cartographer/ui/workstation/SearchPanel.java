@@ -1,6 +1,6 @@
 package cartographer.ui.workstation;
 
-import cartographer.application.ActualOreOverlaySpec;
+import cartographer.render.ActualOreOverlaySpec;
 import cartographer.application.SurfaceMaterialMatch;
 import cartographer.application.SurfaceMaterialPreset;
 import cartographer.geology.rock.RockIdentity;

@@ -1,6 +1,6 @@
 package cartographer.ui;
 
-import cartographer.application.ActualOreOverlaySpec;
+import cartographer.render.ActualOreOverlaySpec;
 import cartographer.application.AnalyzeProspectingAreaUseCase;
 import cartographer.application.DiscoverObservedSurfaceResourcesRequest;
 import cartographer.application.DiscoverObservedSurfaceResourcesResult;

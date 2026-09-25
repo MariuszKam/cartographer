@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.render.ActualOreOverlaySpec;
 import cartographer.scanner.ActualBlockMap;
 
 import java.util.Objects;
