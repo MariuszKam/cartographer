@@ -1,6 +1,6 @@
 package cartographer.snapshot;
 
-import cartographer.application.MapChunkPositionPlanner;
+import cartographer.spatial.MapChunkPositionPlanner;
 import cartographer.geology.rock.RockCatalog;
 import cartographer.geology.rock.RockCircleGeometry;
 import cartographer.model.BlockInfo;
