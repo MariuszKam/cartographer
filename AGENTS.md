@@ -9,8 +9,6 @@ The project reads Vintage Story saves in SQLite read-only mode and turns stored 
 The tool must never modify the Vintage Story save.
 
 Before substantial work, read the relevant project documentation under `docs/`.
-When ChatGPT is acting as the controlling/orchestrating agent, it must read
-`docs/CHATGPT_CONTROLLER_WORKFLOW.md` before planning implementation.
 
 ---
 
@@ -662,7 +660,6 @@ Before marking a milestone DONE:
 - Make concurrency-test cleanup failure-safe: release test-controlled blockers on failure paths, close owned resources, verify test-owned threads terminate, and do not leave live non-daemon threads behind.
 - Preserve semantic coverage. Do not remove assertions, disable tests, weaken ordering or concurrency contracts, or ignore missing callbacks or leaked threads to make a test pass.
 
-For CI evidence handling, flaky-test diagnosis, repeated validation, and review gates, follow `docs/CHATGPT_CONTROLLER_WORKFLOW.md`.
 
 ---
 
