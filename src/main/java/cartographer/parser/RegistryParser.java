@@ -1,7 +1,7 @@
 package cartographer.parser;
 
 import cartographer.model.BlockInfo;
-import cartographer.save.ProtobufWireReader;
+import cartographer.binary.ProtobufWireReader;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
