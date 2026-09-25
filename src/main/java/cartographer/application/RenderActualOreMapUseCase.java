@@ -4,15 +4,7 @@ import cartographer.render.ActualOreOverlayResult;
 import cartographer.render.ActualOreOverlaySpec;
 import cartographer.spatial.OreChunkPositionPlanner;
 import cartographer.progress.ProgressReporter;
-import cartographer.environment.EnvironmentInterpreter;
-import cartographer.environment.EnvironmentProfile;
-import cartographer.geology.GeologicProvinceInterpreter;
-import cartographer.geology.GeologicProvinceSummary;
 import cartographer.marker.MarkerStore;
-import cartographer.model.BlockInfo;
-import cartographer.model.HomeLocation;
-import cartographer.model.HomeState;
-import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
@@ -31,37 +23,24 @@ import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
 import cartographer.save.VcdbsReader;
 import cartographer.cache.RenderDataCacheStore;
-import cartographer.snapshot.SnapshotMapRegionReader;
-import cartographer.resource.SnapshotResourceReader;
-import cartographer.scanner.ActualBlockMap;
-import cartographer.scanner.ActualBlockMatchSpec;
 import cartographer.scanner.MultiActualBlockMapScanner;
 
-import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 public class RenderActualOreMapUseCase {
-    private final VcdbsReader reader;
     private final SaveSessionFactory sessionFactory;
     private final PrepareMapDataUseCase mapDataUseCase;
-    private final HomeStore homeStore;
-    private final MarkerStore markerStore;
+    private final MapRegionOverlayResolver mapRegionOverlayResolver;
+    private final ActualOreOverlayResolver actualOreOverlayResolver;
+    private final MapDecorationResolver decorationResolver;
     private final MapRenderer renderer;
     private final UserMarkerRenderer userMarkerRenderer;
-    private final MultiActualBlockMapScanner multiActualBlockMapScanner;
-    private final OreChunkPositionPlanner oreChunkPositionPlanner;
     private final ActualOreOverlayPainter actualOreOverlayPainter;
-    private final EnvironmentInterpreter environmentInterpreter = new EnvironmentInterpreter();
-    private final GeologicProvinceInterpreter geologicProvinceInterpreter = new GeologicProvinceInterpreter();
     private final EnvironmentOverlayRenderer environmentOverlayRenderer = new EnvironmentOverlayRenderer();
     private final GeologyOverlayRenderer geologyOverlayRenderer = new GeologyOverlayRenderer();
     private final SystemMarkerOverlayRenderer systemMarkerOverlayRenderer = new SystemMarkerOverlayRenderer();
-    private final Optional<SnapshotMapRegionReader> snapshotMapRegionReader;
-    private final Optional<SnapshotResourceReader> snapshotResourceReader;
 
     public RenderActualOreMapUseCase(
             VcdbsReader reader,
@@ -156,7 +135,7 @@ public class RenderActualOreMapUseCase {
             SaveSessionFactory sessionFactory,
             Optional<RenderDataCacheStore> renderDataCacheStore
     ) {
-        this.reader = Objects.requireNonNull(reader, "reader is required");
+        Objects.requireNonNull(reader, "reader is required");
         this.sessionFactory = Objects.requireNonNull(sessionFactory, "sessionFactory is required");
         Optional<RenderDataCacheStore> cacheOption = Objects.requireNonNull(
                 renderDataCacheStore,
@@ -167,25 +146,23 @@ public class RenderActualOreMapUseCase {
                 sessionFactory,
                 cacheOption
         );
-        this.snapshotMapRegionReader = cacheOption.map(
-                SnapshotMapRegionReader::new
+        this.mapRegionOverlayResolver = new MapRegionOverlayResolver(
+                reader,
+                cacheOption
         );
-        this.snapshotResourceReader = cacheOption.map(
-                SnapshotResourceReader::new
+        this.actualOreOverlayResolver = new ActualOreOverlayResolver(
+                reader,
+                multiActualBlockMapScanner,
+                oreChunkPositionPlanner,
+                cacheOption
         );
-        this.homeStore = Objects.requireNonNull(homeStore, "homeStore is required");
-        this.markerStore = Objects.requireNonNull(markerStore, "markerStore is required");
+        this.decorationResolver = new MapDecorationResolver(
+                homeStore,
+                markerStore
+        );
         this.renderer = Objects.requireNonNull(renderer, "renderer is required");
         this.userMarkerRenderer = Objects.requireNonNull(userMarkerRenderer, "userMarkerRenderer is required");
         this.actualOreOverlayPainter = Objects.requireNonNull(actualOreOverlayPainter, "actualOreOverlayPainter is required");
-        this.multiActualBlockMapScanner = Objects.requireNonNull(
-                multiActualBlockMapScanner,
-                "multiActualBlockMapScanner is required"
-        );
-        this.oreChunkPositionPlanner = Objects.requireNonNull(
-                oreChunkPositionPlanner,
-                "oreChunkPositionPlanner is required"
-        );
     }
 
     public RenderActualOreMapResult execute(RenderActualOreMapRequest request) {
@@ -244,7 +221,7 @@ public class RenderActualOreMapUseCase {
         RenderOptions options = prepared.options();
 
         Optional<MapRegionOverlayState> mapRegionState =
-                snapshotMapRegionState(
+                mapRegionOverlayResolver.snapshot(
                         request.savePath(),
                         options,
                         progress
@@ -254,7 +231,7 @@ public class RenderActualOreMapUseCase {
         }
 
         Optional<List<ActualOreOverlayResult>> oreOverlays =
-                snapshotOreOverlays(
+                actualOreOverlayResolver.snapshot(
                         request,
                         prepared,
                         progress
@@ -263,9 +240,11 @@ public class RenderActualOreMapUseCase {
             return Optional.empty();
         }
 
-        HomeState home = absoluteHome(request.savePath(), metadata);
-        MapDecorationState decorations =
-                decorationState(request.savePath(), home, options);
+        MapDecorationState decorations = decorationResolver.resolve(
+                request.savePath(),
+                metadata,
+                options
+        );
         if (options.layers().contains(RenderLayer.MARKERS)
                 && !decorations.userMarkersAvailable()) {
             throw new IllegalStateException(
@@ -368,106 +347,6 @@ public class RenderActualOreMapUseCase {
         ));
     }
 
-    private Optional<MapRegionOverlayState> snapshotMapRegionState(
-            Path savePath,
-            RenderOptions options,
-            ProgressReporter progress
-    ) {
-        boolean environmentRequested =
-                options.layers().contains(RenderLayer.ENVIRONMENT);
-        boolean geologyRequested =
-                options.layers().contains(RenderLayer.GEOLOGY);
-        if (!environmentRequested && !geologyRequested) {
-            return Optional.of(new MapRegionOverlayState(
-                    Optional.empty(),
-                    Optional.empty()
-            ));
-        }
-        if (snapshotMapRegionReader.isEmpty()) {
-            return Optional.empty();
-        }
-
-        progress.start("Reading map-region overlays from world snapshot");
-        Optional<SnapshotMapRegionReader.Result> snapshot =
-                snapshotMapRegionReader.orElseThrow().read(savePath);
-        if (snapshot.isEmpty()) {
-            return Optional.empty();
-        }
-        SnapshotMapRegionReader.Result result = snapshot.orElseThrow();
-        return Optional.of(new MapRegionOverlayState(
-                environmentRequested
-                        ? Optional.of(result.environmentProfiles())
-                        : Optional.empty(),
-                geologyRequested
-                        ? Optional.of(result.geologySummaries())
-                        : Optional.empty()
-        ));
-    }
-
-    private Optional<List<ActualOreOverlayResult>> snapshotOreOverlays(
-            RenderActualOreMapRequest request,
-            PreparedMapData prepared,
-            ProgressReporter progress
-    ) {
-        List<ActualOreOverlaySpec> specs = request.oreOverlays();
-        if (specs.isEmpty()) {
-            return Optional.of(List.of());
-        }
-        if (snapshotResourceReader.isEmpty()) {
-            return Optional.empty();
-        }
-
-        List<ActualBlockMatchSpec> matches = specs.stream()
-                .map(spec -> new ActualBlockMatchSpec(
-                        spec.match(),
-                        spec.matchMode()
-                ))
-                .toList();
-        int centerX = checkedRound(prepared.center().x());
-        int centerZ = checkedRound(prepared.center().z());
-
-        progress.start("Reading actual ore from world snapshot");
-        Optional<List<ActualBlockMap>> maps =
-                snapshotResourceReader.orElseThrow().readMaps(
-                        request.savePath(),
-                        prepared.metadata(),
-                        prepared.registry(),
-                        centerX,
-                        centerZ,
-                        request.radius(),
-                        matches,
-                        request.yFilter()
-                );
-        if (maps.isEmpty() || maps.orElseThrow().size() != specs.size()) {
-            return Optional.empty();
-        }
-
-        List<ActualOreOverlayResult> result =
-                new java.util.ArrayList<>(specs.size());
-        for (int index = 0; index < specs.size(); index++) {
-            result.add(new ActualOreOverlayResult(
-                    specs.get(index),
-                    maps.orElseThrow().get(index)
-            ));
-        }
-        return Optional.of(List.copyOf(result));
-    }
-
-    private int checkedRound(double value) {
-        if (!Double.isFinite(value)) {
-            throw new IllegalArgumentException(
-                    "world center must be finite"
-            );
-        }
-        long rounded = Math.round(value);
-        if (rounded < Integer.MIN_VALUE || rounded > Integer.MAX_VALUE) {
-            throw new IllegalArgumentException(
-                    "world center is outside the supported block range"
-            );
-        }
-        return (int) rounded;
-    }
-
     public RenderActualOreMapResult execute(
             SaveSession saveSession,
             RenderActualOreMapRequest request,
@@ -499,9 +378,11 @@ public class RenderActualOreMapUseCase {
         );
         WorldMetadata metadata = prepared.metadata();
         RenderOptions options = prepared.options();
-        HomeState home = absoluteHome(request.savePath(), metadata);
-        MapDecorationState decorations =
-                decorationState(request.savePath(), home, options);
+        MapDecorationState decorations = decorationResolver.resolve(
+                request.savePath(),
+                metadata,
+                options
+        );
         return renderPrepared(
                 saveSession,
                 request,
@@ -600,7 +481,7 @@ public class RenderActualOreMapUseCase {
 
         ReadDiagnostics mapRegionDiagnostics = new ReadDiagnostics();
         MapRegionOverlayState mapRegionOverlayState =
-                resolveMapRegionOverlays(
+                mapRegionOverlayResolver.resolve(
                         saveSession,
                         options,
                         retainedMapRegionState,
@@ -626,16 +507,24 @@ public class RenderActualOreMapUseCase {
         );
 
         ReadDiagnostics actualOreDiagnostics = new ReadDiagnostics();
-        List<ActualOreOverlayResult> actualOreOverlays = drawActualOreOverlays(
-                saveSession,
-                request,
-                rendered,
-                center,
-                metadata,
-                prepared.registry(),
-                actualOreDiagnostics,
-                progress
-        );
+        List<ActualOreOverlayResult> actualOreOverlays =
+                actualOreOverlayResolver.resolve(
+                        saveSession,
+                        request,
+                        center,
+                        metadata,
+                        prepared.registry(),
+                        actualOreDiagnostics,
+                        progress
+                );
+        if (!actualOreOverlays.isEmpty()) {
+            actualOreOverlayPainter.paint(
+                    rendered.image(),
+                    actualOreOverlays,
+                    center,
+                    request.radius()
+            );
+        }
 
         if ((hasMapRegionOverlay(options) || !actualOreOverlays.isEmpty())
                 && options.layers().contains(RenderLayer.MARKERS)) {
@@ -683,89 +572,6 @@ public class RenderActualOreMapUseCase {
         );
     }
 
-    private MapRegionOverlayState resolveMapRegionOverlays(
-            SaveSession saveSession,
-            RenderOptions options,
-            Optional<MapRegionOverlayState> retainedState,
-            ReadDiagnostics diagnostics,
-            ProgressReporter progress
-    ) {
-        boolean environmentRequested =
-                options.layers().contains(RenderLayer.ENVIRONMENT);
-        boolean geologyRequested =
-                options.layers().contains(RenderLayer.GEOLOGY);
-        Optional<List<EnvironmentProfile>> retainedEnvironment =
-                retainedState.flatMap(MapRegionOverlayState::environmentProfiles);
-        Optional<List<GeologicProvinceSummary>> retainedGeology =
-                retainedState.flatMap(MapRegionOverlayState::geologySummaries);
-        boolean needEnvironment =
-                environmentRequested && retainedEnvironment.isEmpty();
-        boolean needGeology =
-                geologyRequested && retainedGeology.isEmpty();
-
-        Optional<SnapshotMapRegionReader.Result> snapshot =
-                Optional.empty();
-        if ((needEnvironment || needGeology)
-                && snapshotMapRegionReader.isPresent()) {
-            progress.start("Reading map-region overlays from world snapshot");
-            snapshot = snapshotMapRegionReader.orElseThrow().read(
-                    saveSession.savePath()
-            );
-        }
-        Optional<List<EnvironmentProfile>> snapshotEnvironment =
-                snapshot.map(
-                        SnapshotMapRegionReader.Result::environmentProfiles
-                );
-        Optional<List<GeologicProvinceSummary>> snapshotGeology =
-                snapshot.map(
-                        SnapshotMapRegionReader.Result::geologySummaries
-                );
-
-        boolean sourceEnvironment =
-                needEnvironment && snapshotEnvironment.isEmpty();
-        boolean sourceGeology =
-                needGeology && snapshotGeology.isEmpty();
-        List<ServerMapRegion> regions =
-                sourceEnvironment || sourceGeology
-                        ? readMapRegionsWithProgress(
-                        saveSession,
-                        diagnostics,
-                        progress
-                )
-                        : List.of();
-
-        Optional<List<EnvironmentProfile>> environmentProfiles =
-                retainedEnvironment.isPresent()
-                        ? retainedEnvironment
-                        : !environmentRequested
-                        ? Optional.empty()
-                        : snapshotEnvironment.isPresent()
-                        ? snapshotEnvironment
-                        : Optional.of(
-                        regions.stream()
-                                .map(environmentInterpreter::interpret)
-                                .toList()
-                );
-        Optional<List<GeologicProvinceSummary>> geologySummaries =
-                retainedGeology.isPresent()
-                        ? retainedGeology
-                        : !geologyRequested
-                        ? Optional.empty()
-                        : snapshotGeology.isPresent()
-                        ? snapshotGeology
-                        : Optional.of(
-                        regions.stream()
-                                .map(geologicProvinceInterpreter::summarize)
-                                .flatMap(Optional::stream)
-                                .toList()
-                );
-
-        return new MapRegionOverlayState(
-                environmentProfiles,
-                geologySummaries
-        );
-    }
-
     private void requireRetainedCompatibility(
             RenderActualOreMapRequest request,
             PreparedMapData prepared
@@ -784,105 +590,6 @@ public class RenderActualOreMapUseCase {
                     "retained PreparedMapData does not match Ore render center"
             );
         }
-    }
-
-    private List<ServerMapRegion> readMapRegionsWithProgress(
-            SaveSession saveSession,
-            ReadDiagnostics diagnostics,
-            ProgressReporter progress
-    ) {
-        progress.start("Reading map regions");
-        return reader.readMapRegions(saveSession, diagnostics, progress);
-    }
-
-    private List<ActualOreOverlayResult> drawActualOreOverlays(
-            SaveSession saveSession,
-            RenderActualOreMapRequest request,
-            RenderedMap rendered,
-            WorldPosition center,
-            WorldMetadata metadata,
-            Map<Integer, BlockInfo> registry,
-            ReadDiagnostics diagnostics,
-            ProgressReporter progress
-    ) {
-        List<ActualOreOverlaySpec> specs = request.oreOverlays();
-        if (specs.isEmpty()) {
-            return List.of();
-        }
-        int centerX = (int) Math.round(center.x());
-        int centerZ = (int) Math.round(center.z());
-        List<ActualBlockMatchSpec> matches = specs.stream()
-                .map(spec -> new ActualBlockMatchSpec(spec.match(), spec.matchMode()))
-                .toList();
-        Optional<List<ActualBlockMap>> snapshotMaps =
-                Optional.empty();
-        if (snapshotResourceReader.isPresent()) {
-            progress.start("Reading actual ore from world snapshot");
-            snapshotMaps = snapshotResourceReader.orElseThrow().readMaps(
-                    request.savePath(),
-                    metadata,
-                    registry,
-                    centerX,
-                    centerZ,
-                    request.radius(),
-                    matches,
-                    request.yFilter()
-            );
-        }
-
-        List<ActualBlockMap> maps;
-        if (snapshotMaps.isPresent()) {
-            maps = snapshotMaps.orElseThrow();
-            progress.done("Actual ore loaded from world snapshot");
-        } else {
-            MultiActualBlockMapScanner.StreamingSession session =
-                    multiActualBlockMapScanner.begin(
-                            registry,
-                            centerX,
-                            centerZ,
-                            request.radius(),
-                            matches,
-                            request.yFilter()
-                    );
-            int[] wantedBlockIds = session.wantedBlockIds();
-            if (wantedBlockIds.length != 0) {
-                List<cartographer.model.ChunkPosition> positions =
-                        oreChunkPositionPlanner.plan(
-                                metadata,
-                                centerX,
-                                centerZ,
-                                request.radius(),
-                                request.yFilter()
-                        );
-                reader.forEachChunkByPositionMatchingBlockIdsAdaptive(
-                        saveSession,
-                        positions,
-                        wantedBlockIds,
-                        diagnostics,
-                        session::accept,
-                        progress
-                );
-            }
-            maps = session.finish();
-        }
-
-        List<ActualOreOverlayResult> results = new java.util.ArrayList<>();
-        for (int index = 0; index < specs.size(); index++) {
-            results.add(
-                    new ActualOreOverlayResult(
-                            specs.get(index),
-                            maps.get(index)
-                    )
-            );
-        }
-        List<ActualOreOverlayResult> immutable = List.copyOf(results);
-        actualOreOverlayPainter.paint(
-                rendered.image(),
-                immutable,
-                center,
-                request.radius()
-        );
-        return immutable;
     }
 
     private OverlayRenderReport drawEnvironmentOverlay(
@@ -929,40 +636,5 @@ public class RenderActualOreMapUseCase {
         return options.layers().contains(RenderLayer.ENVIRONMENT)
                 || options.layers().contains(RenderLayer.GEOLOGY);
     }
-
-    private MapDecorationState decorationState(
-            java.nio.file.Path savePath,
-            HomeState home,
-            RenderOptions options
-    ) {
-        try {
-            return new MapDecorationState(
-                    home,
-                    markerStore.load(savePath),
-                    true
-            );
-        } catch (RuntimeException exception) {
-            if (options.layers().contains(RenderLayer.MARKERS)) {
-                throw exception;
-            }
-            return new MapDecorationState(home, List.of(), false);
-        }
-    }
-
-    private HomeState absoluteHome(
-            java.nio.file.Path savePath,
-            WorldMetadata metadata
-    ) {
-        Optional<HomeLocation> displayHome = homeStore.load(savePath);
-        if (displayHome.isEmpty()) {
-            return HomeState.absent();
-        }
-        HomeLocation location = displayHome.orElseThrow();
-        cartographer.model.WorldPosition absolute = metadata.toAbsolute(
-                new cartographer.model.DisplayPosition(location.x(), 0.0, location.z())
-        );
-        return HomeState.present(new HomeLocation(absolute.x(), absolute.z()));
-    }
-
 
 }
