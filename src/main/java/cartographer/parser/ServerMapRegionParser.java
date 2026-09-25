@@ -4,7 +4,7 @@ import cartographer.model.IntDataMap2D;
 import cartographer.model.MapRegionCoordinate;
 import cartographer.model.ParseResult;
 import cartographer.model.ServerMapRegion;
-import cartographer.save.ProtobufWireReader;
+import cartographer.binary.ProtobufWireReader;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
