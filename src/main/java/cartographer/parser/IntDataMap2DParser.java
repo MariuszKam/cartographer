@@ -2,7 +2,7 @@ package cartographer.parser;
 
 import cartographer.model.IntDataMap2D;
 import cartographer.model.ParseResult;
-import cartographer.save.ProtobufWireReader;
+import cartographer.binary.ProtobufWireReader;
 
 import java.util.List;
 import java.util.OptionalLong;
