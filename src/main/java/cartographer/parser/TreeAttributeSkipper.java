@@ -1,6 +1,6 @@
 package cartographer.parser;
 
-import cartographer.save.DotNetBinaryReader;
+import cartographer.binary.DotNetBinaryReader;
 
 public final class TreeAttributeSkipper {
 
