@@ -193,8 +193,8 @@ tasks.register("testArchitectureGuard") {
 val productionPackagePattern = Regex(
     """^\s*package\s+cartographer\.([A-Za-z0-9_]+)(?:\.[A-Za-z0-9_.]+)?\s*;"""
 )
-val productionImportPattern = Regex(
-    """^\s*import\s+cartographer\.([A-Za-z0-9_]+)(?:\.[A-Za-z0-9_.*]+)?\s*;"""
+val productionReferencePattern = Regex(
+    """\bcartographer\.([A-Za-z0-9_]+)\."""
 )
 
 tasks.register("productionArchitectureGuard") {
@@ -237,24 +237,21 @@ tasks.register("productionArchitectureGuard") {
                 graph.getOrPut(sourcePackage) { sortedSetOf() }
 
                 lines.forEach { line ->
-                    val targetPackage =
-                        productionImportPattern.find(line)
-                            ?.groupValues
-                            ?.get(1)
-                            ?: return@forEach
-
-                    if (targetPackage == sourcePackage) {
-                        return@forEach
-                    }
-
-                    graph.getOrPut(sourcePackage) { sortedSetOf() }
-                        .add(targetPackage)
-                    graph.getOrPut(targetPackage) { sortedSetOf() }
-                    edgeSources
-                        .getOrPut(
-                            sourcePackage to targetPackage
-                        ) { sortedSetOf() }
-                        .add(relative)
+                    productionReferencePattern.findAll(line)
+                        .map { match -> match.groupValues[1] }
+                        .filter { targetPackage ->
+                            targetPackage != sourcePackage
+                        }
+                        .forEach { targetPackage ->
+                            graph.getOrPut(sourcePackage) { sortedSetOf() }
+                                .add(targetPackage)
+                            graph.getOrPut(targetPackage) { sortedSetOf() }
+                            edgeSources
+                                .getOrPut(
+                                    sourcePackage to targetPackage
+                                ) { sortedSetOf() }
+                                .add(relative)
+                        }
                 }
             }
 
