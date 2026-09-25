@@ -133,7 +133,6 @@ class RenderActualOreMapUseCaseTest {
 
         assertEquals(1, reader.adaptiveSelectiveCalls);
         assertEquals(1, reader.selectiveCalls);
-        assertEquals(0, reader.legacyChunkCalls);
         assertArrayEquals(new int[]{1}, reader.lastWantedBlockIds);
         assertFalse(reader.lastPositions.isEmpty());
         assertEquals(1, result.actualOreOverlays().getFirst().map().matchingBlocks());
@@ -514,8 +513,6 @@ class RenderActualOreMapUseCaseTest {
 
         assertEquals(1, reader.directMapChunkCalls);
         assertEquals(0, reader.exactChunkCalls);
-        assertEquals(0, reader.legacyMapChunkCalls);
-        assertEquals(0, reader.legacyChunkCalls);
         assertEquals(1, reader.registryCalls);
     }
 
@@ -1232,8 +1229,6 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(1, reader.exactChunkCalls);
         assertEquals(1, reader.exactRequests.getFirst().size());
         assertTrue(hasSurfaceCode(result, "game:fire-clay-blue"));
-        assertEquals(0, reader.legacyMapChunkCalls);
-        assertEquals(0, reader.legacyChunkCalls);
     }
 
     @Test
@@ -1253,8 +1248,6 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(1, reader.adaptiveExactChunkCalls);
         assertEquals(1, reader.exactChunkCalls);
         assertEquals(1, reader.registryCalls);
-        assertEquals(0, reader.legacyMapChunkCalls);
-        assertEquals(0, reader.legacyChunkCalls);
         assertTrue(hasSurfaceCode(result, "game:soil-medium-normal"));
         assertTrue(result.image().getRGB(32, 32)
                 != new cartographer.render.TerrainPalette()
@@ -1278,8 +1271,6 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(1, reader.adaptiveExactChunkCalls);
         assertEquals(1, reader.exactChunkCalls);
         assertEquals(1, reader.registryCalls);
-        assertEquals(0, reader.legacyMapChunkCalls);
-        assertEquals(0, reader.legacyChunkCalls);
         assertTrue(hasSurfaceCode(result, "game:soil-medium-normal"));
     }
 
@@ -1836,8 +1827,6 @@ class RenderActualOreMapUseCaseTest {
         private int adaptiveExactChunkCalls;
         private int registryCalls;
         private int sessionMapRegionCalls;
-        private int legacyMapChunkCalls;
-        private int legacyChunkCalls;
         private final int fakeBlockId;
         private int[] lastWantedBlockIds = new int[0];
         private List<cartographer.model.ChunkPosition> lastPositions = List.of();
@@ -1944,30 +1933,6 @@ class RenderActualOreMapUseCaseTest {
                     0,
                     0
             );
-        }
-
-        @Override
-        public List<MapChunk> readMapChunksAround(
-                SaveSession session,
-                WorldPosition center,
-                int radius,
-                ReadDiagnostics diagnostics,
-                ProgressReporter progress
-        ) {
-            legacyMapChunkCalls++;
-            throw new AssertionError("legacy mapchunk lookup must not be used");
-        }
-
-        @Override
-        public List<ParsedChunk> readChunksAround(
-                SaveSession session,
-                WorldPosition center,
-                int radius,
-                ReadDiagnostics diagnostics,
-                ProgressReporter progress
-        ) {
-            legacyChunkCalls++;
-            throw new AssertionError("legacy chunk lookup must not be used");
         }
 
         @Override

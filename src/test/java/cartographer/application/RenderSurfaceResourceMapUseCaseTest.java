@@ -194,8 +194,6 @@ class RenderSurfaceResourceMapUseCaseTest {
 
         RenderSurfaceResourceMapResult result = useCase(reader).execute(request(16, 16, 1));
 
-        assertEquals(0, reader.legacyMapChunkCalls);
-        assertEquals(0, reader.legacyChunkCalls);
         assertEquals(1, reader.directMapChunkCalls);
         assertEquals(1, reader.adaptiveExactChunkCalls);
         assertEquals(1, reader.exactChunkCalls);
@@ -347,8 +345,6 @@ class RenderSurfaceResourceMapUseCaseTest {
         assertEquals(1, reader.exactChunkCalls);
         assertEquals(8, reader.exactRequests.getFirst().size());
         assertTrue(((cartographer.resource.SurfaceMaterialAnalysis) result.analysis()).matchedBlockCount() > 0);
-        assertEquals(0, reader.legacyMapChunkCalls);
-        assertEquals(0, reader.legacyChunkCalls);
     }
 
     @Test
@@ -402,8 +398,6 @@ class RenderSurfaceResourceMapUseCaseTest {
                 position -> position.x() == surfaceOnly.x()
                         && position.z() == surfaceOnly.z()
         ));
-        assertEquals(0, reader.legacyMapChunkCalls);
-        assertEquals(0, reader.legacyChunkCalls);
     }
 
     @Test
@@ -427,8 +421,6 @@ class RenderSurfaceResourceMapUseCaseTest {
         }
         assertEquals(expectedFallback, Set.copyOf(reader.exactRequests.get(1)));
         assertTrue(((cartographer.resource.SurfaceMaterialAnalysis) result.analysis()).matchedBlockCount() > 0);
-        assertEquals(0, reader.legacyMapChunkCalls);
-        assertEquals(0, reader.legacyChunkCalls);
     }
 
     @Test
@@ -453,8 +445,6 @@ class RenderSurfaceResourceMapUseCaseTest {
 
         assertTrue(hasSurfaceXLessThan(result, 32));
         assertTrue(hasSurfaceXAtLeast(result, 32));
-        assertEquals(0, reader.legacyMapChunkCalls);
-        assertEquals(0, reader.legacyChunkCalls);
     }
 
     @Test
@@ -626,8 +616,6 @@ class RenderSurfaceResourceMapUseCaseTest {
         private int exactChunkCalls;
         private int adaptiveExactChunkCalls;
         private int coverageCalls;
-        private int legacyMapChunkCalls;
-        private int legacyChunkCalls;
 
         private FakeReader(
                 List<MapChunkCoordinate> deliveredMapChunks,
@@ -760,30 +748,6 @@ class RenderSurfaceResourceMapUseCaseTest {
                     positions.size(), positions.isEmpty() ? 0 : 1,
                     decoded + rejected, decoded, rejected, decoded, 0, 0
             );
-        }
-
-        @Override
-        public List<MapChunk> readMapChunksAround(
-                SaveSession session,
-                WorldPosition center,
-                int radiusBlocks,
-                ReadDiagnostics diagnostics,
-                ProgressReporter progress
-        ) {
-            legacyMapChunkCalls++;
-            throw new AssertionError("legacy mapchunk reader must not be used");
-        }
-
-        @Override
-        public List<ParsedChunk> readChunksAround(
-                SaveSession session,
-                WorldPosition center,
-                int radiusBlocks,
-                ReadDiagnostics diagnostics,
-                ProgressReporter progress
-        ) {
-            legacyChunkCalls++;
-            throw new AssertionError("legacy chunk reader must not be used");
         }
 
         @Override

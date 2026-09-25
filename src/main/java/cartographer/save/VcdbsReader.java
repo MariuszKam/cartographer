@@ -2,7 +2,6 @@ package cartographer.save;
 
 import cartographer.progress.ProgressReporter;
 import cartographer.model.BlockInfo;
-import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
@@ -12,8 +11,6 @@ import cartographer.model.ParsedChunk;
 import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldPosition;
 import cartographer.parser.ChunkParser;
-import cartographer.parser.ChunkDecodeWorkspace;
-import cartographer.parser.ChunkDecodeProfile;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
@@ -40,8 +37,6 @@ import java.util.function.Consumer;
 public class VcdbsReader {
 
     private final PlayerDataParser playerDataParser;
-    private final MapChunkParser mapChunkParser;
-    private final ChunkParser chunkParser;
     private final RegistryParser registryParser;
     private final ServerMapRegionParser serverMapRegionParser;
     private final VcdbsChunkStreamReader chunkStreamReader;
@@ -286,12 +281,6 @@ public class VcdbsReader {
         this.playerDataParser =
                 playerDataParser;
 
-        this.mapChunkParser =
-                mapChunkParser;
-
-        this.chunkParser =
-                chunkParser;
-
         this.registryParser =
                 registryParser;
 
@@ -343,41 +332,6 @@ public class VcdbsReader {
                                 () ->
                                         new IllegalStateException(
                                                 "Table playerdata exists but contains no selectable rows"
-                                        )
-                        );
-
-        return parsePlayerPosition(
-                selected,
-                progress
-        );
-    }
-
-    public WorldPosition readPlayerPosition(
-            SaveSession session,
-            String playerSelector,
-            ProgressReporter progress
-    ) {
-        Objects.requireNonNull(
-                playerSelector,
-                "playerSelector is required"
-        );
-
-        List<SaveRecord> records =
-                readPlayerRecords(
-                        session,
-                        progress
-                );
-
-        SaveRecord selected =
-                selectPlayer(
-                        records,
-                        playerSelector
-                )
-                        .orElseThrow(
-                                () ->
-                                        new IllegalStateException(
-                                                "No playerdata row matched selector: "
-                                                        + playerSelector
                                         )
                         );
 
@@ -458,94 +412,6 @@ public class VcdbsReader {
         );
 
         return position;
-    }
-
-    public List<MapChunk> readMapChunksAround(
-            SaveSession session,
-            WorldPosition center,
-            int radiusBlocks,
-            ReadDiagnostics diagnostics,
-            ProgressReporter progress
-    ) {
-        Objects.requireNonNull(session, "session is required");
-        Objects.requireNonNull(center, "center is required");
-        Objects.requireNonNull(diagnostics, "diagnostics is required");
-        Objects.requireNonNull(progress, "progress is required");
-
-        try {
-            Connection connection =
-                    session.connection();
-
-            if (SqliteSaveTableInspector.tableMissing(
-                    connection,
-                    SaveTable.MAPCHUNK.tableName()
-            )) {
-                diagnostics.missingTable(
-                        SaveTable.MAPCHUNK.tableName()
-                );
-
-                return List.of();
-            }
-
-            return readMapChunksAroundFromResultSet(
-                    connection,
-                    center,
-                    radiusBlocks,
-                    diagnostics,
-                    progress
-            );
-
-        } catch (SQLException exception) {
-            throw new IllegalStateException(
-                    "Cannot read mapchunk table: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
-    }
-
-    public List<ParsedChunk> readChunksAround(
-            SaveSession session,
-            WorldPosition center,
-            int radiusBlocks,
-            ReadDiagnostics diagnostics,
-            ProgressReporter progress
-    ) {
-        Objects.requireNonNull(session, "session is required");
-        Objects.requireNonNull(center, "center is required");
-        Objects.requireNonNull(diagnostics, "diagnostics is required");
-        Objects.requireNonNull(progress, "progress is required");
-
-        try {
-            Connection connection =
-                    session.connection();
-
-            if (SqliteSaveTableInspector.tableMissing(
-                    connection,
-                    SaveTable.CHUNK.tableName()
-            )) {
-                diagnostics.missingTable(
-                        SaveTable.CHUNK.tableName()
-                );
-
-                return List.of();
-            }
-
-            return readChunksAroundFromResultSet(
-                    connection,
-                    center,
-                    radiusBlocks,
-                    diagnostics,
-                    progress
-            );
-
-        } catch (SQLException exception) {
-            throw new IllegalStateException(
-                    "Cannot read chunk table: "
-                            + exception.getMessage(),
-                    exception
-            );
-        }
     }
 
     /** Reads mapregions from a borrowed session-owned connection. */
@@ -838,248 +704,6 @@ public class VcdbsReader {
         return regions;
     }
 
-    private List<MapChunk> readMapChunksAroundFromResultSet(
-            Connection connection,
-            WorldPosition center,
-            int radiusBlocks,
-            ReadDiagnostics diagnostics,
-            ProgressReporter progress
-    ) throws SQLException {
-        List<MapChunk> chunks =
-                new ArrayList<>();
-
-        int expectedRows =
-                SqliteSaveTableInspector.countRows(
-                        connection,
-                        SaveTable.MAPCHUNK.tableName()
-                );
-
-        String sql =
-                "SELECT position, data FROM \""
-                        + SaveTable.MAPCHUNK.tableName()
-                        + "\"";
-
-        try (PreparedStatement statement =
-                     connection.prepareStatement(
-                             sql
-                     );
-
-             ResultSet resultSet =
-                     statement.executeQuery()) {
-
-            int row =
-                    0;
-
-            while (resultSet.next()) {
-                row++;
-
-                progress.progress(
-                        "Parsing mapchunks",
-                        row,
-                        expectedRows
-                );
-
-                Optional<MapChunkCoordinate> coordinate =
-                        SavePackedPositionDecoder.mapChunkCoordinate(
-                                resultSet.getObject(
-                                        "position"
-                                )
-                        );
-
-                if (coordinate.isEmpty()) {
-                    diagnostics.recordSkipped(
-                            "mapchunk row has no readable coordinate"
-                    );
-
-                    continue;
-                }
-
-                MapChunkCoordinate chunkCoordinate =
-                        coordinate.orElseThrow();
-
-                if (!withinRadius(
-                        chunkCoordinate,
-                        center,
-                        radiusBlocks
-                )) {
-                    diagnostics.recordSkipped(
-                            "mapchunk outside requested radius"
-                    );
-
-                    continue;
-                }
-
-                byte[] payload =
-                        resultSet.getBytes(
-                                "data"
-                        );
-
-                if (payload == null) {
-                    continue;
-                }
-
-                ParseResult<MapChunk> parsed =
-                        mapChunkParser.parse(
-                                chunkCoordinate,
-                                payload
-                        );
-
-                if (parsed.isSuccess()) {
-                    diagnostics.recordParsed();
-
-                    chunks.add(
-                            parsed.value()
-                                    .orElseThrow()
-                    );
-
-                } else {
-                    diagnostics.recordFailed(
-                            parsed.error()
-                                    .orElse(
-                                            "unknown mapchunk parse error"
-                                    )
-                    );
-                }
-            }
-        }
-
-        return chunks;
-    }
-
-    private List<ParsedChunk> readChunksAroundFromResultSet(
-            Connection connection,
-            WorldPosition center,
-            int radiusBlocks,
-            ReadDiagnostics diagnostics,
-            ProgressReporter progress
-    ) throws SQLException {
-        try (ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace()) {
-            return readChunksAroundFromResultSet(
-                    connection, center, radiusBlocks, diagnostics, progress, workspace
-            );
-        }
-    }
-
-    private List<ParsedChunk> readChunksAroundFromResultSet(
-            Connection connection,
-            WorldPosition center,
-            int radiusBlocks,
-            ReadDiagnostics diagnostics,
-            ProgressReporter progress,
-            ChunkDecodeWorkspace workspace
-    ) throws SQLException {
-        List<ParsedChunk> chunks =
-                new ArrayList<>();
-
-        int expectedRows =
-                SqliteSaveTableInspector.countRows(
-                        connection,
-                        SaveTable.CHUNK.tableName()
-                );
-
-        String sql =
-                "SELECT position, data FROM \""
-                        + SaveTable.CHUNK.tableName()
-                        + "\"";
-
-        try (PreparedStatement statement =
-                     connection.prepareStatement(
-                             sql
-                     );
-
-             ResultSet resultSet =
-                     statement.executeQuery()) {
-
-            int row =
-                    0;
-
-            while (resultSet.next()) {
-                row++;
-
-                progress.progress(
-                        "Parsing chunks",
-                        row,
-                        expectedRows
-                );
-
-                Optional<ChunkCoordinate> coordinate =
-                        SavePackedPositionDecoder.chunkCoordinate(
-                                resultSet.getObject(
-                                        "position"
-                                )
-                        );
-
-                if (coordinate.isEmpty()) {
-                    diagnostics.recordSkipped(
-                            "chunk row has no readable coordinate"
-                    );
-
-                    continue;
-                }
-
-                ChunkCoordinate chunkCoordinate =
-                        coordinate.orElseThrow();
-
-                if (!withinRadius(
-                        chunkCoordinate,
-                        center,
-                        radiusBlocks
-                )) {
-                    diagnostics.recordSkipped(
-                            "chunk outside requested radius"
-                    );
-
-                    continue;
-                }
-
-                byte[] payload =
-                        resultSet.getBytes(
-                                "data"
-                        );
-
-                if (payload == null) {
-                    continue;
-                }
-
-                ParseResult<ParsedChunk> parsed =
-                        chunkParser.parse(
-                                chunkCoordinate,
-                                payload,
-                                ChunkDecodeProfile.BLOCKS_AND_LIQUIDS,
-                                workspace
-                        );
-
-                if (parsed.isSuccess()) {
-                    ParsedChunk chunk =
-                            parsed.value()
-                                    .orElseThrow();
-
-                    diagnostics.recordParsed();
-
-                    if (!chunk.liquidLayerAvailable()) {
-                        diagnostics.recordLiquidDecodeFailure(
-                                chunk.liquidDecodeError()
-                        );
-                    }
-
-                    chunks.add(
-                            chunk
-                    );
-
-                } else {
-                    diagnostics.recordFailed(
-                            parsed.error()
-                                    .orElse(
-                                            "unknown chunk parse error"
-                                    )
-                    );
-                }
-            }
-        }
-
-        return chunks;
-    }
-
     private Optional<SaveRecord> selectDefaultPlayer(
             List<SaveRecord> records
     ) {
@@ -1092,43 +716,6 @@ public class VcdbsReader {
                                         )
                         )
                 );
-    }
-
-    private Optional<SaveRecord> selectPlayer(
-            List<SaveRecord> records,
-            String selector
-    ) {
-        String wanted =
-                selector.toLowerCase(
-                        Locale.ROOT
-                );
-
-        return records.stream()
-                .filter(
-                        record ->
-                                record.columns()
-                                        .values()
-                                        .stream()
-                                        .map(
-                                                String::valueOf
-                                        )
-                                        .map(
-                                                value ->
-                                                        value.toLowerCase(
-                                                                Locale.ROOT
-                                                        )
-                                        )
-                                        .anyMatch(
-                                                value ->
-                                                        value.equals(
-                                                                wanted
-                                                        )
-                                                                || value.contains(
-                                                                wanted
-                                                        )
-                                        )
-                )
-                .findFirst();
     }
 
     private List<SaveRecord> readRecords(
@@ -1264,62 +851,6 @@ public class VcdbsReader {
         }
 
         return false;
-    }
-
-    private boolean withinRadius(
-            MapChunkCoordinate coordinate,
-            WorldPosition center,
-            int radiusBlocks
-    ) {
-        MapChunkCoordinate centerCoordinate =
-                center.mapChunkCoordinate();
-
-        int radiusChunks =
-                Math.max(
-                        1,
-                        (int) Math.ceil(
-                                radiusBlocks
-                                        / (double)
-                                        MapChunkCoordinate.SIZE_BLOCKS
-                        )
-                );
-
-        return Math.abs(
-                coordinate.x()
-                        - centerCoordinate.x()
-        ) <= radiusChunks
-                && Math.abs(
-                coordinate.z()
-                        - centerCoordinate.z()
-        ) <= radiusChunks;
-    }
-
-    private boolean withinRadius(
-            ChunkCoordinate coordinate,
-            WorldPosition center,
-            int radiusBlocks
-    ) {
-        ChunkCoordinate centerCoordinate =
-                center.chunkCoordinate();
-
-        int radiusChunks =
-                Math.max(
-                        1,
-                        (int) Math.ceil(
-                                radiusBlocks
-                                        / (double)
-                                        ChunkCoordinate.SIZE_BLOCKS
-                        )
-                );
-
-        return Math.abs(
-                coordinate.x()
-                        - centerCoordinate.x()
-        ) <= radiusChunks
-                && Math.abs(
-                coordinate.z()
-                        - centerCoordinate.z()
-        ) <= radiusChunks;
     }
 
     private void ensurePlayerDataTable(
