@@ -281,6 +281,7 @@ The repository provides these TEST-PERF tasks:
 ```text
 testArchitectureAudit
 testArchitectureGuard
+productionArchitectureGuard
 testPerformanceBudget
 testQualityGate
 testParallelProbe
@@ -308,6 +309,15 @@ It assigns each file one of three review priorities:
 `testArchitectureGuard` enforces the generated triage. Any `HIGH` row fails
 the build. This keeps the audit and the gate on one source of truth instead of
 maintaining a smaller independent regex deny-list.
+
+`productionArchitectureGuard` scans imports in `src/main/java/cartographer`,
+builds the top-level production package dependency graph, and fails when that
+graph contains a cycle or violates the enforced layer directions. In
+particular, lower-level packages must not depend on `application`, production
+packages outside `ui` must not depend on `ui`, `snapshot` must not depend
+on `application`, `render`, or `prospecting`, and `parser` must not
+depend on `save`. The task writes the generated graph and any violations to
+`build/reports/architecture/production-package-graph.txt`.
 
 Large SQLite fixture populations must be inserted inside an explicit
 transaction and should use JDBC batching. Repeating one auto-committed insert
@@ -337,9 +347,10 @@ The normal pull-request correctness gate is the complete
 `test` task.
 
 Pull-request CI has exactly one test job and one Gradle quality-gate
-invocation: `testQualityGate`. The gate runs the architecture audit and guard,
-executes the complete suite once with the selected one-worker topology, and
-validates the coarse performance/completeness budget. CI then retains
+invocation: `testQualityGate`. The gate runs both the production package
+architecture guard and the test architecture audit/guard, executes the complete
+suite once with the selected one-worker topology, and validates the coarse
+performance/completeness budget. CI then retains
 timing/JUnit evidence and performs the existing tooling syntax validation.
 
 Topology matrices and repeated stress campaigns are diagnostic techniques, not
