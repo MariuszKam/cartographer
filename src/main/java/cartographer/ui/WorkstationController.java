@@ -2,8 +2,6 @@ package cartographer.ui;
 
 import cartographer.render.ActualOreOverlaySpec;
 import cartographer.application.AnalyzeProspectingAreaUseCase;
-import cartographer.application.DiscoverObservedSurfaceResourcesRequest;
-import cartographer.application.DiscoverObservedSurfaceResourcesResult;
 import cartographer.application.DiscoverObservedSurfaceResourcesUseCase;
 import cartographer.application.LoadWorldOverviewUseCase;
 import cartographer.application.InspectWorldSnapshotStatusUseCase;
@@ -12,47 +10,28 @@ import cartographer.application.PrepareWorldSnapshotResult;
 import cartographer.application.PrepareWorldSnapshotUseCase;
 import cartographer.application.WorldSnapshotStatus;
 import cartographer.application.ProspectingAreaRequest;
-import cartographer.application.ProspectingAreaResult;
 import cartographer.application.RenderActualOreMapRequest;
-import cartographer.application.RenderActualOreMapResult;
 import cartographer.application.RenderActualOreMapUseCase;
 import cartographer.application.RenderCoverageMapRequest;
-import cartographer.application.RenderCoverageMapResult;
 import cartographer.application.RenderCoverageMapUseCase;
 import cartographer.application.RenderRockMapRequest;
-import cartographer.application.RenderRockMapResult;
 import cartographer.application.RenderRockMapUseCase;
-import cartographer.application.RenderSurfaceResourceMapRequest;
-import cartographer.application.RenderSurfaceResourceMapResult;
 import cartographer.application.RenderSurfaceResourceMapUseCase;
-import cartographer.application.SurfaceDiscoveryCache;
-import cartographer.application.SurfaceDiscoveryCacheKey;
-import cartographer.application.SurfaceDiscoveryPolicy;
-import cartographer.application.SurfaceDiscoveryRequestGate;
-import cartographer.resource.SurfaceMaterialMatch;
 import cartographer.geology.rock.RockMapMode;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.render.RenderStyle;
-import cartographer.resource.ObservedSurfaceResource;
 import cartographer.scanner.ActualBlockYFilter;
-import cartographer.ui.workstation.MapCursorPosition;
-import cartographer.ui.workstation.LocalRecompositionGate;
 import cartographer.ui.workstation.MapFrame;
-import cartographer.ui.workstation.MapFrameCompositor;
-import cartographer.ui.workstation.MapFrameState;
 import cartographer.ui.workstation.MapPanel;
 import cartographer.ui.workstation.ResultInspectorPane;
 import cartographer.ui.workstation.SearchPanel;
-import cartographer.ui.workstation.SurfaceObjectDiscoveryState;
-import cartographer.ui.workstation.SurfaceToolMode;
 import cartographer.ui.workstation.WorkstationOperationCoordinator;
 import cartographer.ui.workstation.WorkstationOperationScope;
 import cartographer.ui.workstation.WorkstationTool;
 import cartographer.ui.workstation.WorkstationView;
 import cartographer.ui.update.UpdateCheckView;
 import cartographer.ui.workstation.WorldPanel;
-import javafx.concurrent.Task;
 import javafx.scene.Parent;
 
 import java.nio.file.Path;
@@ -60,7 +39,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -78,16 +56,11 @@ public final class WorkstationController {
     private final MapPanel mapPanel;
     private final ResultInspectorPane resultInspector;
     private final WorkstationOperationCoordinator operationCoordinator;
-    private final MapFrameState mapFrameState = new MapFrameState();
-    private final MapFrameCompositor mapFrameCompositor = new MapFrameCompositor();
-    private final LocalRecompositionGate localRecompositionGate =
-            new LocalRecompositionGate();
-    private long rockHighlightGeneration;
+    private final WorkstationMapFrameController mapFrameController;
+    private final SurfaceToolController surfaceToolController;
 
     private final RenderActualOreMapUseCase useCase;
     private final RenderCoverageMapUseCase coverageUseCase;
-    private final RenderSurfaceResourceMapUseCase surfaceUseCase;
-    private final DiscoverObservedSurfaceResourcesUseCase surfaceDiscoveryUseCase;
     private final RenderRockMapUseCase rockUseCase;
     private final AnalyzeProspectingAreaUseCase prospectingUseCase;
     private final LoadWorldOverviewUseCase worldOverviewUseCase;
@@ -95,19 +68,8 @@ public final class WorkstationController {
     private final InspectWorldSnapshotStatusUseCase snapshotStatusUseCase;
     private final OreResourceResolver resourceResolver = new OreResourceResolver();
 
-    private DiscoverObservedSurfaceResourcesResult surfaceDiscoveryResult;
-    private SurfaceObjectDiscoveryState surfaceObjectDiscoveryState =
-            SurfaceObjectDiscoveryState.NOT_SCANNED;
-    private final SurfaceDiscoveryRequestGate surfaceDiscoveryGate =
-            new SurfaceDiscoveryRequestGate();
-    private final SurfaceDiscoveryCache surfaceDiscoveryCache =
-            new SurfaceDiscoveryCache(4);
-    private Optional<cartographer.model.WorldPosition> surfaceDiscoveryCenter = Optional.empty();
     private Optional<cartographer.model.WorldPosition> loadedPlayerAbsolute = Optional.empty();
     private Optional<WorldMetadata> loadedWorldMetadata = Optional.empty();
-    private SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey surfaceDiscoveryTaskKey;
-    private Task<DiscoverObservedSurfaceResourcesResult> surfaceDiscoveryTask;
-    private Set<String> surfaceSelectionKeys = Set.of();
 
     public WorkstationController(
             Supplier<Optional<Path>> saveChooser,
@@ -124,9 +86,6 @@ public final class WorkstationController {
         this.saveChooser = Objects.requireNonNull(saveChooser, "save chooser is required");
         this.useCase = Objects.requireNonNull(useCase, "map/ore use case is required");
         this.coverageUseCase = Objects.requireNonNull(coverageUseCase, "coverage use case is required");
-        this.surfaceUseCase = Objects.requireNonNull(surfaceUseCase, "surface use case is required");
-        this.surfaceDiscoveryUseCase = Objects.requireNonNull(
-                surfaceDiscoveryUseCase, "surface discovery use case is required");
         this.rockUseCase = Objects.requireNonNull(rockUseCase, "rock use case is required");
         this.prospectingUseCase = Objects.requireNonNull(
                 prospectingUseCase, "prospecting use case is required");
@@ -151,13 +110,34 @@ public final class WorkstationController {
         mapPanel = workstation.mapPanel();
         resultInspector = workstation.resultInspectorPane();
         operationCoordinator = new WorkstationOperationCoordinator(workstation);
+        mapFrameController = new WorkstationMapFrameController(
+                workstation,
+                searchPanel,
+                worldPanel,
+                mapPanel,
+                resultInspector,
+                operationCoordinator,
+                rockUseCase,
+                () -> loadedPlayerAbsolute,
+                () -> loadedWorldMetadata
+        );
+        surfaceToolController = new SurfaceToolController(
+                workstation,
+                searchPanel,
+                worldPanel,
+                operationCoordinator,
+                surfaceUseCase,
+                surfaceDiscoveryUseCase,
+                mapFrameController,
+                this::showFailure
+        );
 
-        mapPanel.setOnCursorPositionChanged(this::handleCursorPositionChanged);
+        mapPanel.setOnCursorPositionChanged(mapFrameController::handleCursorPositionChanged);
         workstation.setOnModeChanged(this::handleModeChanged);
-        workstation.setOnRadiusChanged(this::handleRadiusChanged);
-        workstation.setOnSurfaceModeChanged(this::handleSurfaceModeChanged);
-        workstation.setOnRenderLayersChanged(this::handleRenderLayersChanged);
-        searchPanel.setOnRockHighlightChanged(this::handleRockHighlightChanged);
+        workstation.setOnRadiusChanged(radius -> surfaceToolController.maybeStartDiscovery());
+        workstation.setOnSurfaceModeChanged(mode -> surfaceToolController.maybeStartDiscovery());
+        workstation.setOnRenderLayersChanged(mapFrameController::handleRenderLayersChanged);
+        searchPanel.setOnRockHighlightChanged(mapFrameController::handleRockHighlightChanged);
         workstation.setOnCancel(this::cancelPreferredOperation);
         operationCoordinator.setOnCancelled(this::handleOperationCancelled);
     }
@@ -253,12 +233,8 @@ public final class WorkstationController {
         workstation.setSnapshotPreparing(false);
         refreshSnapshotStatus(savePath);
         mapPanel.clearNavigationContext();
-        localRecompositionGate.invalidate();
-        rockHighlightGeneration++;
-        mapFrameState.clear();
-        workstation.clearMapGeometry();
-        surfaceSelectionKeys = Set.of();
-        invalidateSurfaceDiscovery();
+        mapFrameController.reset();
+        surfaceToolController.invalidateDiscovery();
         setBusy(true);
         workstation.setStatus("Loading resources and player position...");
         workstation.setPlayerLoaded(false);
@@ -314,7 +290,7 @@ public final class WorkstationController {
                 return;
             }
             if (searchPanel.selectedMode() == WorkstationTool.SURFACE) {
-                renderSurfaceResource();
+                surfaceToolController.render();
                 return;
             }
             if (searchPanel.selectedMode() == WorkstationTool.MAP) {
@@ -327,7 +303,7 @@ public final class WorkstationController {
                             || request.layers().contains(
                             cartographer.render.RenderLayer.SOIL_FERTILITY
                     );
-            Optional<MapFrame> reusable = mapFrameState.current()
+            Optional<MapFrame> reusable = mapFrameController.current()
                     .filter(frame -> frame.canReusePreparedMap(
                             request.savePath(),
                             request.radius(),
@@ -354,7 +330,7 @@ public final class WorkstationController {
                                 frame.mapRegionOverlayState(),
                                 progress
                         ),
-                        result -> showResult(result, request),
+                        result -> mapFrameController.showOreResult(result, request),
                         this::showFailure
                 );
             } else {
@@ -363,7 +339,7 @@ public final class WorkstationController {
                         WorkstationOperationScope.FOREGROUND,
                         "ore-render",
                         progress -> useCase.execute(request, progress),
-                        result -> showResult(result, request),
+                        result -> mapFrameController.showOreResult(result, request),
                         this::showFailure
                 );
             }
@@ -385,7 +361,7 @@ public final class WorkstationController {
                 WorkstationOperationScope.FOREGROUND,
                 "coverage-render",
                 progress -> coverageUseCase.execute(request, progress),
-                result -> showCoverageResult(result, request),
+                result -> mapFrameController.showCoverageResult(result, request),
                 this::showFailure
         );
     }
@@ -397,7 +373,7 @@ public final class WorkstationController {
                         || request.layers().contains(
                         cartographer.render.RenderLayer.SOIL_FERTILITY
                 );
-        Optional<MapFrame> reusable = mapFrameState.current()
+        Optional<MapFrame> reusable = mapFrameController.current()
                 .filter(frame -> frame.canReusePreparedMap(
                         request.savePath(),
                         request.radius(),
@@ -424,7 +400,7 @@ public final class WorkstationController {
                             frame.mapRegionOverlayState(),
                             progress
                     ),
-                    result -> showMapResult(result, request),
+                    result -> mapFrameController.showMapResult(result, request),
                     this::showFailure
             );
             return;
@@ -435,7 +411,7 @@ public final class WorkstationController {
                 WorkstationOperationScope.FOREGROUND,
                 "map-render",
                 progress -> useCase.execute(request, progress),
-                result -> showMapResult(result, request),
+                result -> mapFrameController.showMapResult(result, request),
                 this::showFailure
         );
     }
@@ -448,7 +424,7 @@ public final class WorkstationController {
                 WorkstationOperationScope.FOREGROUND,
                 "rock-render",
                 progress -> rockUseCase.execute(request, progress),
-                result -> showRockResult(result, request),
+                result -> mapFrameController.showRockResult(result, request),
                 this::showFailure
         );
     }
@@ -476,7 +452,7 @@ public final class WorkstationController {
                 WorkstationOperationScope.FOREGROUND,
                 "prospecting-analysis",
                 () -> prospectingUseCase.execute(request),
-                result -> showProspectingResult(result, request),
+                result -> mapFrameController.showProspectingResult(result, request),
                 this::showFailure
         );
     }
@@ -501,96 +477,6 @@ public final class WorkstationController {
                 y,
                 OptionalInt.empty(),
                 OptionalInt.empty()
-        );
-    }
-
-    private void renderSurfaceResource() {
-        if (searchPanel.selectedSurfaceMode() == SurfaceToolMode.MATERIALS) {
-            renderSurfaceMaterial();
-            return;
-        }
-        List<ObservedSurfaceResource> selected = selectedSurfaceResourcesForRender();
-        SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey key = currentSurfaceDiscoveryKey();
-        if (surfaceDiscoveryResult == null
-                || !key.equals(surfaceDiscoveryTaskKey)
-                || !surfaceDiscoveryResult.observedResources().resources().stream()
-                .map(resource -> resource.candidate().qualifiedResourceKey())
-                .collect(java.util.stream.Collectors.toSet())
-                .containsAll(selected.stream()
-                        .map(resource -> resource.candidate().qualifiedResourceKey()).toList())) {
-            throw new IllegalStateException(
-                    "Surface object discovery is not current; scan the save first."
-            );
-        }
-        selected = selected.stream()
-                .map(resource -> surfaceDiscoveryResult.observedResources()
-                        .findByQualifiedResourceKey(resource.candidate().qualifiedResourceKey())
-                        .orElseThrow(() -> new IllegalStateException(
-                                "Selected surface object is not in the current discovery result: "
-                                        + resource.candidate().qualifiedResourceKey())))
-                .toList();
-        RenderSurfaceResourceMapRequest request = RenderSurfaceResourceMapRequest.forObservedResources(
-                key.savePath(),
-                key.radius(),
-                1,
-                RenderStyle.TOPOGRAPHIC,
-                workstation.selectedRenderLayers(),
-                selected,
-                surfaceDiscoveryResult.center()
-        );
-        submitSurfaceRender(request);
-    }
-
-    private void renderSurfaceMaterial() {
-        if (worldPanel.savePathText().isBlank()) {
-            throw new IllegalArgumentException("Select a .vcdbs save.");
-        }
-        SurfaceMaterialMatch match = searchPanel.surfaceMaterialMatch().orElseThrow(
-                () -> new IllegalStateException("Select a surface material."));
-        RenderSurfaceResourceMapRequest request = new RenderSurfaceResourceMapRequest(
-                Path.of(worldPanel.savePathText()), searchPanel.selectedRadius(), 1,
-                RenderStyle.TOPOGRAPHIC, workstation.selectedRenderLayers(), match, Optional.empty());
-        submitSurfaceRender(request);
-    }
-
-    private void submitSurfaceRender(RenderSurfaceResourceMapRequest request) {
-        Optional<MapFrame> reusable = mapFrameState.current()
-                .filter(frame -> frame.canReusePreparedMap(
-                        request.savePath(),
-                        request.radius(),
-                        request.pixelsPerBlock(),
-                        request.style(),
-                        request.center(),
-                        true
-                ))
-                .filter(frame -> frame.supportsLocalRecomposition(request.layers()));
-        setBusy(true);
-        if (reusable.isPresent()) {
-            MapFrame frame = reusable.orElseThrow();
-            workstation.setStatus("Rendering Surface from retained map data...");
-            operationCoordinator.submitProgress(
-                    WorkstationOperationScope.FOREGROUND,
-                    "surface-retained-render",
-                    progress -> surfaceUseCase.executeRetained(
-                            request,
-                            frame.savePath(),
-                            frame.preparedMapData().orElseThrow(),
-                            frame.decorationState().orElseThrow(),
-                            progress
-                    ),
-                    result -> showSurfaceResult(result, request),
-                    this::showFailure
-            );
-            return;
-        }
-
-        workstation.setStatus("Rendering surface resource...");
-        operationCoordinator.submitProgress(
-                WorkstationOperationScope.FOREGROUND,
-                "surface-render",
-                progress -> surfaceUseCase.execute(request, progress),
-                result -> showSurfaceResult(result, request),
-                this::showFailure
         );
     }
 
@@ -646,391 +532,9 @@ public final class WorkstationController {
         );
     }
 
-    private void showResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
-        localRecompositionGate.invalidate();
-        mapPanel.show(result.image(), Optional.of(result.geometry()), loadedPlayerAbsolute);
-        mapFrameState.retain(MapFrame.ore(
-                request.savePath(),
-                result.geometry(),
-                result.preparedMapData().orElseThrow(
-                        () -> new IllegalStateException("ore result missing prepared map data")
-                ),
-                result.actualOreOverlays(),
-                result.decorationState().orElseThrow(
-                        () -> new IllegalStateException("ore result missing decoration state")
-                ),
-                result.mapRegionOverlayState().orElseThrow(
-                        () -> new IllegalStateException("ore result missing map-region overlay state")
-                )
-        ));
-        workstation.setMapGeometry(Optional.of(result.geometry()));
-        resultInspector.showOreResult(result, request);
-        workstation.setStatus("Rendered.");
-        setBusy(false);
-    }
-
-    private void showMapResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
-        localRecompositionGate.invalidate();
-        mapPanel.show(result.image(), Optional.of(result.geometry()), loadedPlayerAbsolute);
-        mapFrameState.retain(MapFrame.map(
-                request.savePath(),
-                result.geometry(),
-                result.preparedMapData().orElseThrow(
-                        () -> new IllegalStateException("map result missing prepared map data")
-                ),
-                result.decorationState().orElseThrow(
-                        () -> new IllegalStateException("map result missing decoration state")
-                ),
-                result.mapRegionOverlayState().orElseThrow(
-                        () -> new IllegalStateException("map result missing map-region overlay state")
-                )
-        ));
-        workstation.setMapGeometry(Optional.of(result.geometry()));
-        resultInspector.showMapResult(result, request);
-        workstation.setStatus("Map rendered.");
-        setBusy(false);
-    }
-
-    private void showCoverageResult(
-            RenderCoverageMapResult result,
-            RenderCoverageMapRequest request
-    ) {
-        localRecompositionGate.invalidate();
-        mapPanel.show(result.image(), result.geometry(), loadedPlayerAbsolute);
-        mapFrameState.clear();
-        result.geometry().ifPresent(geometry ->
-                mapFrameState.retain(MapFrame.coverage(request.savePath(), geometry)));
-        workstation.setMapGeometry(result.geometry());
-        resultInspector.showCoverageResult(result);
-        workstation.setStatus("Coverage rendered.");
-        setBusy(false);
-    }
-
-    private void showSurfaceResult(
-            RenderSurfaceResourceMapResult result,
-            RenderSurfaceResourceMapRequest request
-    ) {
-        localRecompositionGate.invalidate();
-        mapPanel.show(result.image(), Optional.of(result.geometry()), loadedPlayerAbsolute);
-        mapFrameState.retain(MapFrame.surface(
-                request.savePath(),
-                result.geometry(),
-                result.preparedMapData().orElseThrow(
-                        () -> new IllegalStateException("surface result missing prepared map data")
-                ),
-                result.analysis(),
-                result.decorationState().orElseThrow(
-                        () -> new IllegalStateException("surface result missing decoration state")
-                )
-        ));
-        workstation.setMapGeometry(Optional.of(result.geometry()));
-        resultInspector.showSurfaceResult(result, request);
-        workstation.setStatus("Rendered.");
-        setBusy(false);
-    }
-
-    private List<ObservedSurfaceResource> selectedSurfaceResourcesForRender() {
-        if (worldPanel.savePathText().isBlank()) {
-            throw new IllegalArgumentException("Select a .vcdbs save.");
-        }
-        List<ObservedSurfaceResource> selected = workstation.selectedObservedSurfaceResources();
-        if (selected.isEmpty()) {
-            throw new IllegalStateException(
-                    "No observed surface object is available in this radius."
-            );
-        }
-        return selected;
-    }
-
     private void handleModeChanged(WorkstationTool mode) {
-        if (mode == WorkstationTool.GEOLOGY
-                || mode == WorkstationTool.PROSPECTING) {
-            List<cartographer.geology.rock.RockIdentity> rocks =
-                    mapFrameState.current()
-                            .flatMap(MapFrame::rockMap)
-                            .map(cartographer.geology.rock.RockMap::ordinalTable)
-                            .orElseGet(List::of);
-            searchPanel.setRockLegend(rocks);
-        }
-        maybeStartSurfaceObjectDiscovery();
-    }
-
-    private void handleSurfaceModeChanged(SurfaceToolMode mode) {
-        maybeStartSurfaceObjectDiscovery();
-    }
-
-    private void handleRenderLayersChanged(Set<cartographer.render.RenderLayer> layers) {
-        Optional<MapFrame> current = mapFrameState.current();
-        if (current.isEmpty()) {
-            return;
-        }
-        MapFrame frame = current.orElseThrow();
-        if (!frame.supportsLocalRecomposition(layers)) {
-            if (frame.tool() == WorkstationTool.MAP
-                    || frame.tool() == WorkstationTool.ORE
-                    || frame.tool() == WorkstationTool.SURFACE) {
-                workstation.setStatus(
-                        "Selected layers need data not retained in this frame; press Render."
-                );
-            }
-            return;
-        }
-
-        if (worldPanel.savePathText().isBlank()
-                || !Path.of(worldPanel.savePathText())
-                .toAbsolutePath()
-                .normalize()
-                .equals(frame.savePath())) {
-            return;
-        }
-
-        LocalRecompositionGate.Token token =
-                localRecompositionGate.begin(frame, layers);
-        workstation.setLocalBusy(true);
-        if (!operationCoordinator.isActive(WorkstationOperationScope.FOREGROUND)) {
-            workstation.setStatus("Recomposing layers locally...");
-        }
-        operationCoordinator.submitProgress(
-                WorkstationOperationScope.LOCAL,
-                "layer-recomposition",
-                progress -> mapFrameCompositor.recompose(frame, layers, progress),
-                image -> {
-                    workstation.setLocalBusy(false);
-                    if (!localRecompositionGate.accepts(
-                            token,
-                            mapFrameState.current(),
-                            workstation.selectedRenderLayers()
-                    )) {
-                        return;
-                    }
-                    mapPanel.replaceImage(
-                            image,
-                            Optional.of(frame.geometry()),
-                            loadedPlayerAbsolute
-                    );
-                    if (!operationCoordinator.isActive(
-                            WorkstationOperationScope.FOREGROUND
-                    )) {
-                        workstation.setStatus(
-                                "Layers recomposed locally (no save read)."
-                        );
-                    }
-                },
-                failure -> {
-                    workstation.setLocalBusy(false);
-                    if (localRecompositionGate.accepts(
-                            token,
-                            mapFrameState.current(),
-                            workstation.selectedRenderLayers()
-                    ) && !operationCoordinator.isActive(
-                            WorkstationOperationScope.FOREGROUND
-                    )) {
-                        workstation.setStatus(
-                                "Local recomposition failed: "
-                                        + conciseMessage(failure)
-                        );
-                    }
-                }
-        );
-    }
-
-    private void handleRadiusChanged(int radius) {
-        maybeStartSurfaceObjectDiscovery();
-    }
-
-    private void maybeStartSurfaceObjectDiscovery() {
-        if (searchPanel.selectedMode() != WorkstationTool.SURFACE
-                || searchPanel.selectedSurfaceMode()
-                != SurfaceToolMode.OBJECTS
-                || worldPanel.savePathText().isBlank()) {
-            return;
-        }
-
-        SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey currentKey =
-                currentSurfaceDiscoveryKey();
-        boolean currentTaskMatches = surfaceDiscoveryTaskKey != null
-                && surfaceDiscoveryTaskKey.equals(currentKey);
-        if (surfaceObjectDiscoveryState.isCurrentFor(currentTaskMatches)) {
-            return;
-        }
-
-        startSurfaceDiscovery(currentKey.savePath());
-    }
-
-    private SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey currentSurfaceDiscoveryKey() {
-        return new SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey(
-                Path.of(worldPanel.savePathText()),
-                searchPanel.selectedRadius()
-        );
-    }
-
-    private void invalidateSurfaceDiscovery() {
-        surfaceDiscoveryGate.invalidate();
-        operationCoordinator.cancel(WorkstationOperationScope.DISCOVERY);
-        surfaceDiscoveryCache.clear();
-        surfaceDiscoveryCenter = Optional.empty();
-        surfaceDiscoveryResult = null;
-        surfaceDiscoveryTaskKey = null;
-        workstation.clearObservedSurfaceResources();
-        surfaceObjectDiscoveryState = SurfaceObjectDiscoveryState.NOT_SCANNED;
-        workstation.setSurfaceObjectDiscoveryState(surfaceObjectDiscoveryState);
-    }
-
-    private void startSurfaceDiscovery(Path savePath) {
-        SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey key = new SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey(
-                savePath,
-                searchPanel.selectedRadius()
-        );
-
-        if (surfaceDiscoveryCenter.isPresent()) {
-            SurfaceDiscoveryCacheKey cacheKey = SurfaceDiscoveryCacheKey.of(
-                    key.savePath(), key.radius(), surfaceDiscoveryCenter.orElseThrow());
-            Optional<DiscoverObservedSurfaceResourcesResult> cached = surfaceDiscoveryCache.get(cacheKey);
-            if (SurfaceDiscoveryPolicy.activation(cached.isPresent(), false)
-                    == SurfaceDiscoveryPolicy.Activation.CACHE_HIT) {
-                surfaceDiscoveryGate.begin(key);
-                surfaceSelectionKeys = workstation.selectedObservedSurfaceResources().stream()
-                        .map(resource -> resource.candidate().qualifiedResourceKey())
-                        .collect(java.util.stream.Collectors.toUnmodifiableSet());
-                workstation.setDiscoveryBusy(false);
-                applySurfaceDiscoveryResult(key, cached.orElseThrow());
-                return;
-            }
-        }
-        boolean sameKeyScanInFlight = surfaceDiscoveryTask != null
-                && !surfaceDiscoveryTask.isDone()
-                && key.equals(surfaceDiscoveryTaskKey);
-        if (SurfaceDiscoveryPolicy.activation(false, sameKeyScanInFlight)
-                == SurfaceDiscoveryPolicy.Activation.ALREADY_SCANNING) {
-            return;
-        }
-        SurfaceDiscoveryRequestGate.SurfaceDiscoveryToken token = surfaceDiscoveryGate.begin(key);
-        surfaceDiscoveryResult = null;
-        surfaceDiscoveryTaskKey = key;
-        surfaceSelectionKeys = workstation.selectedObservedSurfaceResources().stream()
-                .map(resource -> resource.candidate().qualifiedResourceKey())
-                .collect(java.util.stream.Collectors.toUnmodifiableSet());
-        workstation.clearObservedSurfaceResources();
-        surfaceObjectDiscoveryState = SurfaceObjectDiscoveryState.SCANNING;
-        workstation.setSurfaceObjectDiscoveryState(surfaceObjectDiscoveryState);
-        workstation.setDiscoveryBusy(true);
-        surfaceDiscoveryTask = operationCoordinator.submitProgress(
-                WorkstationOperationScope.DISCOVERY,
-                "surface-object-discovery",
-                progress -> surfaceDiscoveryUseCase.execute(
-                        new DiscoverObservedSurfaceResourcesRequest(
-                                key.savePath(),
-                                key.radius(),
-                                surfaceDiscoveryCenter
-                        ),
-                        progress
-                ),
-                result -> {
-                    workstation.setDiscoveryBusy(false);
-                    if (!SurfaceDiscoveryPolicy.shouldCacheCompletion(
-                            surfaceDiscoveryGate.accepts(token, currentSurfaceDiscoveryKey()))) {
-                        return;
-                    }
-                    if (surfaceDiscoveryCenter.isEmpty()) {
-                        surfaceDiscoveryCenter = Optional.of(result.center());
-                    }
-                    surfaceDiscoveryCache.put(
-                            SurfaceDiscoveryCacheKey.of(
-                                    key.savePath(),
-                                    key.radius(),
-                                    result.center()
-                            ),
-                            result
-                    );
-                    applySurfaceDiscoveryResult(key, result);
-                },
-                failure -> {
-                    workstation.setDiscoveryBusy(false);
-                    if (!surfaceDiscoveryGate.accepts(token, currentSurfaceDiscoveryKey())) {
-                        return;
-                    }
-                    showSurfaceDiscoveryFailure();
-                }
-        );
-    }
-
-    private void applySurfaceDiscoveryResult(
-            SurfaceDiscoveryRequestGate.SurfaceDiscoveryKey key,
-            DiscoverObservedSurfaceResourcesResult result
-    ) {
-        surfaceDiscoveryTaskKey = key;
-        surfaceDiscoveryResult = result;
-        workstation.setObservedSurfaceResources(result.observedResources(), surfaceSelectionKeys);
-        surfaceSelectionKeys = workstation.selectedObservedSurfaceResources().stream()
-                .map(resource -> resource.candidate().qualifiedResourceKey())
-                .collect(java.util.stream.Collectors.toUnmodifiableSet());
-        surfaceObjectDiscoveryState = result.observedResources().resources().isEmpty()
-                ? SurfaceObjectDiscoveryState.EMPTY
-                : SurfaceObjectDiscoveryState.READY;
-        workstation.setSurfaceObjectDiscoveryState(surfaceObjectDiscoveryState);
-    }
-
-    private void showRockResult(
-            RenderRockMapResult result,
-            RenderRockMapRequest request
-    ) {
-        localRecompositionGate.invalidate();
-        rockHighlightGeneration++;
-        var rockMap = result.retainedMap().orElseThrow(() ->
-                new IllegalStateException(
-                        "Geology Workstation render requires retained ROCK data"
-                )
-        );
-        searchPanel.setRockLegend(rockMap.ordinalTable());
-        var displayed = searchPanel.selectedRockHighlight().isPresent()
-                ? rockUseCase.renderRetained(
-                rockMap,
-                searchPanel.selectedRockHighlight()
-        )
-                : result.rendered();
-        mapPanel.show(
-                displayed.image(),
-                Optional.of(displayed.geometry()),
-                loadedPlayerAbsolute
-        );
-        mapFrameState.retain(MapFrame.geology(
-                request.savePath(),
-                displayed.geometry(),
-                rockMap
-        ));
-        workstation.setMapGeometry(Optional.of(displayed.geometry()));
-        resultInspector.showRockResult(result, request);
-        workstation.setStatus("Rock map rendered.");
-        setBusy(false);
-    }
-
-    private void showProspectingResult(
-            ProspectingAreaResult result,
-            ProspectingAreaRequest request
-    ) {
-        localRecompositionGate.invalidate();
-        rockHighlightGeneration++;
-        result.rockMap().ifPresent(rockMap -> {
-            searchPanel.setRockLegend(rockMap.ordinalTable());
-            var rendered = rockUseCase.renderRetained(
-                    rockMap,
-                    searchPanel.selectedRockHighlight()
-            );
-            mapPanel.show(
-                    rendered.image(),
-                    Optional.of(rendered.geometry()),
-                    loadedPlayerAbsolute
-            );
-            mapFrameState.retain(MapFrame.prospecting(
-                    request.savePath(),
-                    rendered.geometry(),
-                    rockMap
-            ));
-            workstation.setMapGeometry(Optional.of(rendered.geometry()));
-        });
-        resultInspector.showProspectingResult(result, request);
-        workstation.setStatus("Prospecting analysis complete.");
-        setBusy(false);
+        mapFrameController.handleModeChanged(mode);
+        surfaceToolController.maybeStartDiscovery();
     }
 
     private PlayerPositionSnapshot playerSnapshot(
@@ -1063,103 +567,6 @@ public final class WorkstationController {
         );
     }
 
-    private void handleCursorPositionChanged(Optional<MapCursorPosition> cursor) {
-        if (cursor.isEmpty() || loadedWorldMetadata.isEmpty()) {
-            workstation.clearCursorCoordinates();
-            resultInspector.clearCursorInspection();
-            return;
-        }
-        MapCursorPosition absolute = cursor.orElseThrow();
-        var display = loadedWorldMetadata.orElseThrow().toDisplay(
-                new cartographer.model.WorldPosition(
-                        absolute.absoluteX(),
-                        0.0,
-                        absolute.absoluteZ()
-                )
-        );
-        workstation.setCursorCoordinates(display.x(), display.z());
-
-        Optional<cartographer.geology.rock.RockColumnSample> rockSample =
-                mapFrameState.current()
-                        .flatMap(MapFrame::rockMap)
-                        .flatMap(rockMap -> rockMap.sampleAt(
-                                floorWorldCoordinate(absolute.absoluteX()),
-                                floorWorldCoordinate(absolute.absoluteZ())
-                        ));
-        resultInspector.showRockCursor(rockSample);
-    }
-
-    private int floorWorldCoordinate(double value) {
-        double floored = Math.floor(value);
-        if (floored < Integer.MIN_VALUE || floored > Integer.MAX_VALUE) {
-            throw new IllegalArgumentException(
-                    "world coordinate is outside supported block range"
-            );
-        }
-        return (int) floored;
-    }
-
-    private void handleRockHighlightChanged(Optional<String> rockCode) {
-        Optional<MapFrame> current = mapFrameState.current();
-        if (current.isEmpty() || current.orElseThrow().rockMap().isEmpty()) {
-            return;
-        }
-        MapFrame frame = current.orElseThrow();
-        if (frame.tool() != WorkstationTool.GEOLOGY
-                && frame.tool() != WorkstationTool.PROSPECTING) {
-            return;
-        }
-        long generation = ++rockHighlightGeneration;
-        workstation.setLocalBusy(true);
-        if (!operationCoordinator.isActive(WorkstationOperationScope.FOREGROUND)) {
-            workstation.setStatus("Highlighting rock locally...");
-        }
-        operationCoordinator.submit(
-                WorkstationOperationScope.LOCAL,
-                "rock-highlight",
-                () -> rockUseCase.renderRetained(
-                        frame.rockMap().orElseThrow(),
-                        rockCode
-                ),
-                rendered -> {
-                    workstation.setLocalBusy(false);
-                    if (generation != rockHighlightGeneration
-                            || mapFrameState.current().filter(frame::equals).isEmpty()
-                            || !searchPanel.selectedRockHighlight().equals(rockCode)) {
-                        return;
-                    }
-                    mapPanel.replaceImage(
-                            rendered.image(),
-                            Optional.of(rendered.geometry()),
-                            loadedPlayerAbsolute
-                    );
-                    workstation.setMapGeometry(Optional.of(rendered.geometry()));
-                    if (!operationCoordinator.isActive(
-                            WorkstationOperationScope.FOREGROUND
-                    )) {
-                        workstation.setStatus(
-                                rockCode.map(
-                                                code -> "Rock highlighted locally: " + code
-                                        )
-                                        .orElse("Rock highlight cleared locally.")
-                        );
-                    }
-                },
-                failure -> {
-                    workstation.setLocalBusy(false);
-                    if (generation == rockHighlightGeneration
-                            && !operationCoordinator.isActive(
-                            WorkstationOperationScope.FOREGROUND
-                    )) {
-                        workstation.setStatus(
-                                "Local rock highlight failed: "
-                                        + conciseMessage(failure)
-                        );
-                    }
-                }
-        );
-    }
-
     private void cancelPreferredOperation() {
         if (operationCoordinator.cancelPreferred()) {
             workstation.setStatus("Cancelling operation...");
@@ -1177,24 +584,8 @@ public final class WorkstationController {
                     );
                 }
             }
-            case DISCOVERY -> {
-                workstation.setDiscoveryBusy(false);
-                if (surfaceObjectDiscoveryState == SurfaceObjectDiscoveryState.SCANNING) {
-                    surfaceDiscoveryResult = null;
-                    surfaceDiscoveryTaskKey = null;
-                    workstation.clearObservedSurfaceResources();
-                    surfaceObjectDiscoveryState =
-                            SurfaceObjectDiscoveryState.NOT_SCANNED;
-                    workstation.setSurfaceObjectDiscoveryState(
-                            surfaceObjectDiscoveryState
-                    );
-                }
-            }
-            case LOCAL -> {
-                localRecompositionGate.invalidate();
-                rockHighlightGeneration++;
-                workstation.setLocalBusy(false);
-            }
+            case DISCOVERY -> surfaceToolController.handleDiscoveryCancelled();
+            case LOCAL -> mapFrameController.handleLocalCancelled();
         }
         if (!operationCoordinator.isActive(WorkstationOperationScope.FOREGROUND)
                 && !operationCoordinator.isActive(WorkstationOperationScope.LOCAL)
@@ -1225,13 +616,6 @@ public final class WorkstationController {
             operationCoordinator.cancel(WorkstationOperationScope.DISCOVERY);
         }
         workstation.setBusy(busy);
-    }
-
-    private void showSurfaceDiscoveryFailure() {
-        surfaceDiscoveryResult = null;
-        surfaceObjectDiscoveryState = SurfaceObjectDiscoveryState.FAILED;
-        workstation.clearObservedSurfaceResources();
-        workstation.setSurfaceObjectDiscoveryState(surfaceObjectDiscoveryState);
     }
 
     private List<ActualOreOverlaySpec> selectedOverlays() {
