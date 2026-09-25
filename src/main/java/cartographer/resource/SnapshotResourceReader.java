@@ -30,7 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * PF-2.6 consumer for the PF-2.5 actual-resource index.
+ * Snapshot-backed consumer for the actual-resource index.
  *
  * <p>Only ORE_CODE semantics are supported. Any missing/corrupt snapshot
  * coverage or failed indexed source position returns Optional.empty(), which

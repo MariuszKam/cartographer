@@ -2,7 +2,7 @@ package cartographer.index;
 
 import java.util.Objects;
 
-/** Lookup state for one revision-scoped PF-2.5 resource chunk entry. */
+/** Lookup state for one revision-scoped resource-index chunk entry. */
 public record ResourceChunkIndexLookup(
         Status status,
         ResourceChunkCoverageStatus coverageStatus

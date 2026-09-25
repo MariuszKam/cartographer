@@ -18,7 +18,7 @@ import java.util.Objects;
 import java.util.TreeMap;
 
 /**
- * Bounded PF-2.5 builder for resource membership/occurrence state.
+ * Bounded resource-index builder for resource membership/occurrence state.
  *
  * <p>The selective reader already performs the authoritative palette check.
  * A palette rejection therefore means source coverage is available and no
