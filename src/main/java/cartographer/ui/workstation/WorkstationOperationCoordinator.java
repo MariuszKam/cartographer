@@ -1,6 +1,6 @@
 package cartographer.ui.workstation;
 
-import cartographer.application.ProgressReporter;
+import cartographer.progress.ProgressReporter;
 import javafx.concurrent.Task;
 
 import java.util.EnumMap;

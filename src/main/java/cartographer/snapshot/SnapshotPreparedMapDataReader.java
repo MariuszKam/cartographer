@@ -5,7 +5,7 @@ import cartographer.application.MapChunkRenderWindowPlanner;
 import cartographer.application.PrepareMapDataRequest;
 import cartographer.application.PreparedMapData;
 import cartographer.application.PreparedSurfaceData;
-import cartographer.application.ProgressReporter;
+import cartographer.progress.ProgressReporter;
 import cartographer.application.RenderDataCacheReport;
 import cartographer.application.SurfaceDataRequirement;
 import cartographer.model.MapChunkCoordinate;

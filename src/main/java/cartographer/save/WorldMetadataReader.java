@@ -1,6 +1,6 @@
 package cartographer.save;
 
-import cartographer.application.ProgressReporter;
+import cartographer.progress.ProgressReporter;
 import cartographer.model.ParseResult;
 import cartographer.model.WorldMetadata;
 import cartographer.parser.SaveGameParser;
