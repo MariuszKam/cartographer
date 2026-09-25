@@ -1,6 +1,6 @@
 package cartographer.ui.workstation;
 
-import cartographer.application.SurfaceMaterialMatch;
+import cartographer.resource.SurfaceMaterialMatch;
 import cartographer.application.SurfaceMaterialPreset;
 import cartographer.render.SurfaceObjectColorPolicy;
 import cartographer.resource.ObservedSurfaceResource;

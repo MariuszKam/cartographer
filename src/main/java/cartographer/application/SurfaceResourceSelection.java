@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.resource.SurfaceMaterialMatch;
 import cartographer.resource.ObservedSurfaceResource;
 import cartographer.resource.SurfaceObjectPresentation;
 
