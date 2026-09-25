@@ -10,7 +10,6 @@ import cartographer.index.ResourceChunkIndexLookup;
 import cartographer.index.ResourceIndexStore;
 import cartographer.index.ResourceOccurrence;
 import cartographer.snapshot.WorldDataSnapshot;
-import cartographer.resource.ActualOreObservation;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMatchMode;
 import cartographer.scanner.ActualBlockMatchSpec;
