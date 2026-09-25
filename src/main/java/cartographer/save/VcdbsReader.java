@@ -45,6 +45,7 @@ public class VcdbsReader {
     private final RegistryParser registryParser;
     private final ServerMapRegionParser serverMapRegionParser;
     private final VcdbsChunkStreamReader chunkStreamReader;
+    private final VcdbsMapChunkStreamReader mapChunkStreamReader;
 
     public ChunkStreamStats forEachChunkByPositionAdaptive(
             SaveSession session,
@@ -113,7 +114,7 @@ public class VcdbsReader {
             Consumer<MapChunk> consumer,
             ProgressReporter progress
     ) {
-        return chunkStreamReader.forEachObservedMapChunk(
+        return mapChunkStreamReader.forEachObservedMapChunk(
                 session, diagnostics, observedCoordinateConsumer, consumer, progress
         );
     }
@@ -124,7 +125,7 @@ public class VcdbsReader {
             Consumer<MapChunk> consumer,
             ProgressReporter progress
     ) {
-        return chunkStreamReader.forEachObservedMapChunk(
+        return mapChunkStreamReader.forEachObservedMapChunk(
                 session, diagnostics, consumer, progress
         );
     }
@@ -135,7 +136,7 @@ public class VcdbsReader {
             Consumer<MapChunkCoordinate> observedCoordinateConsumer,
             Consumer<MapChunk> consumer
     ) {
-        return chunkStreamReader.forEachObservedMapChunk(
+        return mapChunkStreamReader.forEachObservedMapChunk(
                 session, diagnostics, observedCoordinateConsumer, consumer
         );
     }
@@ -145,7 +146,7 @@ public class VcdbsReader {
             ReadDiagnostics diagnostics,
             Consumer<MapChunk> consumer
     ) {
-        return chunkStreamReader.forEachObservedMapChunk(
+        return mapChunkStreamReader.forEachObservedMapChunk(
                 session, diagnostics, consumer
         );
     }
@@ -157,7 +158,7 @@ public class VcdbsReader {
             Consumer<MapChunk> consumer,
             ProgressReporter progress
     ) {
-        return chunkStreamReader.forEachMapChunkByCoordinate(
+        return mapChunkStreamReader.forEachMapChunkByCoordinate(
                 session, coordinates, diagnostics, consumer, progress
         );
     }
@@ -168,7 +169,7 @@ public class VcdbsReader {
             ReadDiagnostics diagnostics,
             Consumer<MapChunk> consumer
     ) {
-        return chunkStreamReader.forEachMapChunkByCoordinate(
+        return mapChunkStreamReader.forEachMapChunkByCoordinate(
                 session, coordinates, diagnostics, consumer
         );
     }
@@ -298,10 +299,13 @@ public class VcdbsReader {
                 new ServerMapRegionParser();
 
         this.chunkStreamReader = new VcdbsChunkStreamReader(
-                mapChunkParser,
                 chunkParser,
                 chunkDecodeWorkerCount,
                 chunkDecodeMaxInFlight
+        );
+
+        this.mapChunkStreamReader = new VcdbsMapChunkStreamReader(
+                mapChunkParser
         );
     }
 
