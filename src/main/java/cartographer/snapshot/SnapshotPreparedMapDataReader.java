@@ -1,7 +1,7 @@
 package cartographer.snapshot;
 
 import cartographer.spatial.MapChunkPositionPlanner;
-import cartographer.application.MapChunkRenderWindowPlanner;
+import cartographer.spatial.MapChunkRenderWindowPlanner;
 import cartographer.application.PrepareMapDataRequest;
 import cartographer.application.PreparedMapData;
 import cartographer.application.PreparedSurfaceData;

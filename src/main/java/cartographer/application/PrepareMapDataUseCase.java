@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.spatial.MapChunkRenderWindowPlanner;
 import cartographer.spatial.MapChunkPositionPlanner;
 import cartographer.progress.ProgressReporter;
 import cartographer.model.BlockInfo;

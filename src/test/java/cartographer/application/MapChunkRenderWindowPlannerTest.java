@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.spatial.MapChunkRenderWindowPlanner;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
