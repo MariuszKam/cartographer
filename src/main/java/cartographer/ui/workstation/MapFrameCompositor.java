@@ -2,7 +2,7 @@ package cartographer.ui.workstation;
 
 import cartographer.application.MapDecorationState;
 import cartographer.application.PreparedMapData;
-import cartographer.application.ProgressReporter;
+import cartographer.progress.ProgressReporter;
 import cartographer.render.ActualOreOverlayPainter;
 import cartographer.render.EnvironmentOverlayRenderer;
 import cartographer.render.GeologyOverlayRenderer;

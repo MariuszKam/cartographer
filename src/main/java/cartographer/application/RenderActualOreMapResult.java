@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.render.ActualOreOverlayResult;
 import cartographer.render.MapRenderReport;
 import cartographer.render.MapViewportGeometry;
 import cartographer.render.OverlayRenderReport;

@@ -3,7 +3,7 @@ package cartographer.parser;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParseResult;
-import cartographer.save.ProtobufWireReader;
+import cartographer.binary.ProtobufWireReader;
 
 import java.util.List;
 

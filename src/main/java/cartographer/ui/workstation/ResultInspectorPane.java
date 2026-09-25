@@ -5,6 +5,7 @@ import cartographer.coverage.RegionCoverageSummary;
 import cartographer.geology.rock.RockColumnSample;
 import cartographer.geology.rock.RockMapMode;
 import cartographer.prospecting.ProspectingAssessment;
+import cartographer.render.ActualOreOverlayResult;
 import cartographer.render.RockLegendEntry;
 import cartographer.render.RenderLayer;
 import cartographer.resource.SurfaceMaterialAnalysis;

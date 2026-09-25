@@ -1,4 +1,4 @@
-package cartographer.save;
+package cartographer.binary;
 
 import org.junit.jupiter.api.Test;
 

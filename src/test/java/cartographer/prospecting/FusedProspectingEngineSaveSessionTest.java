@@ -1,6 +1,7 @@
 package cartographer.prospecting;
 
-import cartographer.application.ProgressReporter;
+import cartographer.resource.ActualOreObservation;
+import cartographer.progress.ProgressReporter;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;

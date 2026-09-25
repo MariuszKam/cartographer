@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.progress.ProgressReporter;
 import cartographer.geology.rock.RockCatalog;
 import cartographer.geology.rock.RockColumnSample;
 import cartographer.geology.rock.RockIdentity;
@@ -15,7 +16,7 @@ import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
-import cartographer.prospecting.ActualOreObservation;
+import cartographer.resource.ActualOreObservation;
 import cartographer.prospecting.FusedProspectingObservationProvider;
 import cartographer.prospecting.FusedProspectingResult;
 import cartographer.prospecting.OreRockCompatibility;

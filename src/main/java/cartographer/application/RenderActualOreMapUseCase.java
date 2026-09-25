@@ -1,5 +1,9 @@
 package cartographer.application;
 
+import cartographer.render.ActualOreOverlayResult;
+import cartographer.render.ActualOreOverlaySpec;
+import cartographer.spatial.OreChunkPositionPlanner;
+import cartographer.progress.ProgressReporter;
 import cartographer.environment.EnvironmentInterpreter;
 import cartographer.environment.EnvironmentProfile;
 import cartographer.geology.GeologicProvinceInterpreter;
@@ -28,7 +32,7 @@ import cartographer.save.SaveSessionFactory;
 import cartographer.save.VcdbsReader;
 import cartographer.cache.RenderDataCacheStore;
 import cartographer.snapshot.SnapshotMapRegionReader;
-import cartographer.snapshot.SnapshotResourceReader;
+import cartographer.resource.SnapshotResourceReader;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMatchSpec;
 import cartographer.scanner.MultiActualBlockMapScanner;

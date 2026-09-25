@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.progress.ProgressReporter;
 import cartographer.testing.ConcurrencyTest;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;

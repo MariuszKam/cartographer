@@ -1,5 +1,7 @@
 package cartographer.application;
 
+import cartographer.spatial.MapChunkPositionPlanner;
+import cartographer.progress.ProgressReporter;
 import cartographer.model.BlockInfo;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;

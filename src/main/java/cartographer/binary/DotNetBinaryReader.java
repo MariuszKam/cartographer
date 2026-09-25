@@ -1,4 +1,4 @@
-package cartographer.save;
+package cartographer.binary;
 
 import java.nio.charset.StandardCharsets;
 

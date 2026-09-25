@@ -4,7 +4,7 @@ import cartographer.application.MapDecorationState;
 import cartographer.application.PreparedMapData;
 import cartographer.application.PreparedSurfaceData;
 import cartographer.application.SurfaceDataRequirement;
-import cartographer.application.ProgressReporter;
+import cartographer.progress.ProgressReporter;
 import cartographer.application.RenderDataCacheReport;
 import cartographer.model.HomeState;
 import cartographer.model.WorldMetadata;

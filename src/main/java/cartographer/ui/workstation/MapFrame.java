@@ -1,6 +1,6 @@
 package cartographer.ui.workstation;
 
-import cartographer.application.ActualOreOverlayResult;
+import cartographer.render.ActualOreOverlayResult;
 import cartographer.application.MapDecorationState;
 import cartographer.application.MapRegionOverlayState;
 import cartographer.application.PreparedMapData;

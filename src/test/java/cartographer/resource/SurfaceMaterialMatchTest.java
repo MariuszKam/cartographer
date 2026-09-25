@@ -1,11 +1,8 @@
-package cartographer.application;
+package cartographer.resource;
 
 import cartographer.model.BlockInfo;
 import cartographer.model.SurfaceClass;
 import cartographer.model.WorldMetadata;
-import cartographer.resource.SurfaceMaterialAnalysis;
-import cartographer.resource.SurfaceMaterialAnalyzer;
-import cartographer.resource.SurfaceResourcePoint;
 import cartographer.scanner.SurfaceMapScanResult;
 import cartographer.scanner.SurfaceTileAccumulator;
 import cartographer.scanner.SurfaceTileLayout;
@@ -58,17 +55,6 @@ class SurfaceMaterialMatchTest {
                 .matches(block("game:peat-normal")));
         assertFalse(new SurfaceMaterialMatch("Peat", List.of("peat"))
                 .matches(block("game:clay-blue")));
-    }
-
-    @Test
-    void supportedMaterialResolverRejectsObjectAndUnknownNames() {
-        assertTrue(SurfaceMaterialPreset.resolve("Fire Clay").isPresent());
-        assertTrue(SurfaceMaterialPreset.resolve("clay").isPresent());
-        assertTrue(SurfaceMaterialPreset.resolve("PEAT").isPresent());
-        assertFalse(SurfaceMaterialPreset.resolve("obsidian").isPresent());
-        assertFalse(SurfaceMaterialPreset.resolve("nativecopper").isPresent());
-        assertFalse(SurfaceMaterialPreset.resolve("cassiterite").isPresent());
-        assertFalse(SurfaceMaterialPreset.resolve("arbitrary-unknown-value").isPresent());
     }
 
     @Test

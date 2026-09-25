@@ -1,4 +1,4 @@
-package cartographer.application;
+package cartographer.resource;
 
 import cartographer.model.BlockInfo;
 

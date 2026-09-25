@@ -4,7 +4,7 @@ import cartographer.model.ChunkCoordinate;
 import cartographer.model.DecodedChunkLayer;
 import cartographer.model.ParseResult;
 import cartographer.model.ParsedChunk;
-import cartographer.save.ProtobufWireReader;
+import cartographer.binary.ProtobufWireReader;
 
 import java.util.Arrays;
 import java.util.Objects;

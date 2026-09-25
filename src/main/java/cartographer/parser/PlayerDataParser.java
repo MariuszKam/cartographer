@@ -2,7 +2,7 @@ package cartographer.parser;
 
 import cartographer.model.ParseResult;
 import cartographer.model.WorldPosition;
-import cartographer.save.ProtobufWireReader;
+import cartographer.binary.ProtobufWireReader;
 
 import java.util.Optional;
 

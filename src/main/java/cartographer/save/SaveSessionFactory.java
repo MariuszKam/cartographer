@@ -29,7 +29,7 @@ public final class SaveSessionFactory {
         Path normalized = SavePathIdentity.normalize(savePath);
         Connection connection = connectionFactory.openReadOnly(normalized);
         try {
-            WorldMetadata metadata = metadataReader.read(connection, cartographer.application.ProgressReporter.NONE);
+            WorldMetadata metadata = metadataReader.read(connection, cartographer.progress.ProgressReporter.NONE);
             Map<Integer, BlockInfo> registry = reader.readBlockRegistry(connection);
             SaveSnapshot snapshot = new SaveSnapshot(metadata, registry);
             return new SaveSession(normalized, connection, snapshot);

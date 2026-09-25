@@ -1,6 +1,6 @@
-package cartographer.snapshot;
+package cartographer.resource;
 
-import cartographer.application.OreChunkPositionPlanner;
+import cartographer.spatial.OreChunkPositionPlanner;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkPosition;
 import cartographer.model.WorldMetadata;
@@ -10,7 +10,6 @@ import cartographer.index.ResourceChunkIndexLookup;
 import cartographer.index.ResourceIndexStore;
 import cartographer.index.ResourceOccurrence;
 import cartographer.snapshot.WorldDataSnapshot;
-import cartographer.prospecting.ActualOreObservation;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMatchMode;
 import cartographer.scanner.ActualBlockMatchSpec;

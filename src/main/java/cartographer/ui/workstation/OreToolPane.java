@@ -1,6 +1,6 @@
 package cartographer.ui.workstation;
 
-import cartographer.application.ActualOreOverlaySpec;
+import cartographer.render.ActualOreOverlaySpec;
 import cartographer.render.OreOverlayPalette;
 import cartographer.ui.OrePreset;
 import cartographer.ui.OreResource;

@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.resource.SurfaceMaterialMatch;
 import cartographer.marker.MarkerStore;
 import cartographer.model.BlockInfo;
 import cartographer.model.MapChunkCoordinate;

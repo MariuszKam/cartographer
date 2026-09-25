@@ -1,4 +1,4 @@
-package cartographer.application;
+package cartographer.render;
 
 import java.awt.Color;
 import cartographer.scanner.ActualBlockMatchMode;

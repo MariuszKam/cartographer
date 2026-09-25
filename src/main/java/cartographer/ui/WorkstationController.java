@@ -1,6 +1,6 @@
 package cartographer.ui;
 
-import cartographer.application.ActualOreOverlaySpec;
+import cartographer.render.ActualOreOverlaySpec;
 import cartographer.application.AnalyzeProspectingAreaUseCase;
 import cartographer.application.DiscoverObservedSurfaceResourcesRequest;
 import cartographer.application.DiscoverObservedSurfaceResourcesResult;
@@ -29,7 +29,7 @@ import cartographer.application.SurfaceDiscoveryCache;
 import cartographer.application.SurfaceDiscoveryCacheKey;
 import cartographer.application.SurfaceDiscoveryPolicy;
 import cartographer.application.SurfaceDiscoveryRequestGate;
-import cartographer.application.SurfaceMaterialMatch;
+import cartographer.resource.SurfaceMaterialMatch;
 import cartographer.geology.rock.RockMapMode;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;

@@ -1,13 +1,8 @@
-package cartographer.snapshot;
+package cartographer.application;
 
-import cartographer.application.MapChunkPositionPlanner;
-import cartographer.application.MapChunkRenderWindowPlanner;
-import cartographer.application.PrepareMapDataRequest;
-import cartographer.application.PreparedMapData;
-import cartographer.application.PreparedSurfaceData;
-import cartographer.application.ProgressReporter;
-import cartographer.application.RenderDataCacheReport;
-import cartographer.application.SurfaceDataRequirement;
+import cartographer.spatial.MapChunkPositionPlanner;
+import cartographer.spatial.MapChunkRenderWindowPlanner;
+import cartographer.progress.ProgressReporter;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.SurfaceClass;
 import cartographer.model.SurfaceClassCode;

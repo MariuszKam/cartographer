@@ -1,6 +1,7 @@
 package cartographer.prospecting;
 
-import cartographer.application.OreChunkPositionPlanner;
+import cartographer.resource.ActualOreObservation;
+import cartographer.spatial.OreChunkPositionPlanner;
 import cartographer.geology.rock.RockCatalog;
 import cartographer.geology.rock.RockMap;
 import cartographer.geology.rock.RockMapMode;

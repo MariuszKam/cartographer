@@ -1,5 +1,7 @@
 package cartographer.application;
 
+import cartographer.spatial.OreChunkPositionPlanner;
+import cartographer.progress.ProgressReporter;
 import cartographer.geology.rock.RockCatalog;
 import cartographer.geology.rock.RockMap;
 import cartographer.geology.rock.RockMapMode;
@@ -11,7 +13,7 @@ import cartographer.cache.RenderDataCacheStore;
 import cartographer.render.RockMapRenderResult;
 import cartographer.render.RockMapRenderer;
 import cartographer.snapshot.SnapshotUpperRockReader;
-import cartographer.snapshot.SnapshotUpperRockRenderReader;
+import cartographer.render.SnapshotUpperRockRenderReader;
 import cartographer.snapshot.SnapshotWorldHeaderReader;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;

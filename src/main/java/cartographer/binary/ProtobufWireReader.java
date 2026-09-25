@@ -1,4 +1,4 @@
-package cartographer.save;
+package cartographer.binary;
 
 import java.util.Arrays;
 import java.util.ArrayList;

@@ -1,8 +1,5 @@
-package cartographer.snapshot;
-
-import cartographer.application.PrepareMapDataRequest;
-import cartographer.application.ProgressReporter;
-import cartographer.application.SurfaceDataRequirement;
+package cartographer.application;
+import cartographer.progress.ProgressReporter;
 import cartographer.model.BlockInfo;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.SurfaceClass;

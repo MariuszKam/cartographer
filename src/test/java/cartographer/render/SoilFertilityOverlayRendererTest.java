@@ -1,6 +1,6 @@
 package cartographer.render;
 
-import cartographer.application.ProgressReporter;
+import cartographer.progress.ProgressReporter;
 import cartographer.model.BlockInfo;
 import cartographer.model.SurfaceClass;
 import cartographer.model.WorldMetadata;

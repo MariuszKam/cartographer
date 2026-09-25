@@ -1,4 +1,4 @@
-package cartographer.application;
+package cartographer.progress;
 
 public interface ProgressReporter {
     ProgressReporter NONE = new ProgressReporter() {

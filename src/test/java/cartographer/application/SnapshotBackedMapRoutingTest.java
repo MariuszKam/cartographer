@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.spatial.OreChunkPositionPlanner;
 import cartographer.marker.MarkerStore;
 import cartographer.model.BlockInfo;
 import cartographer.model.MapChunkCoordinate;

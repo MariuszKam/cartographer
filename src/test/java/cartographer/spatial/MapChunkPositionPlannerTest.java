@@ -1,4 +1,4 @@
-package cartographer.application;
+package cartographer.spatial;
 
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;

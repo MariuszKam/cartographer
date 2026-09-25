@@ -1,5 +1,8 @@
 package cartographer.application;
 
+import cartographer.spatial.MapChunkRenderWindowPlanner;
+import cartographer.spatial.MapChunkPositionPlanner;
+import cartographer.progress.ProgressReporter;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkPosition;
 import cartographer.model.MapChunkCoordinate;
@@ -31,7 +34,6 @@ import cartographer.scanner.SurfaceRainHeightScanResult;
 import cartographer.scanner.SurfaceStreamingSession;
 import cartographer.scanner.SurfaceTile;
 import cartographer.scanner.SurfaceTileDiagnosticSummary;
-import cartographer.snapshot.SnapshotPreparedMapDataReader;
 
 import java.nio.file.Path;
 import java.util.ArrayList;

@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.resource.SurfaceMaterialMatch;
 import cartographer.model.BlockInfo;
 import cartographer.resource.ObservedSurfaceResource;
 import cartographer.resource.SurfaceObjectCandidate;

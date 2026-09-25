@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.progress.ProgressReporter;
 import cartographer.model.ServerMapRegion;
 import cartographer.model.WorldPosition;
 import cartographer.resource.ResourceAnalyzer;

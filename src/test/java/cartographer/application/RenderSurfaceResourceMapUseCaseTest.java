@@ -1,5 +1,7 @@
 package cartographer.application;
 
+import cartographer.resource.SurfaceMaterialMatch;
+import cartographer.progress.ProgressReporter;
 import cartographer.marker.MarkerStore;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
@@ -248,7 +250,7 @@ class RenderSurfaceResourceMapUseCaseTest {
 
         RenderSurfaceResourceMapResult result = useCase(reader).execute(
                 request,
-                cartographer.application.ProgressReporter.NONE
+                cartographer.progress.ProgressReporter.NONE
         );
 
         assertEquals(0, reader.coverageCalls);
@@ -281,7 +283,7 @@ class RenderSurfaceResourceMapUseCaseTest {
 
         IllegalStateException failure = assertThrows(IllegalStateException.class,
                 () -> useCase(reader).execute(request,
-                        cartographer.application.ProgressReporter.NONE));
+                        cartographer.progress.ProgressReporter.NONE));
         assertTrue(failure.getMessage().contains("missing block ID: 7"));
     }
 

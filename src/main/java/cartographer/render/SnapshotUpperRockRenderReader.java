@@ -1,6 +1,6 @@
-package cartographer.snapshot;
+package cartographer.render;
 
-import cartographer.application.MapChunkPositionPlanner;
+import cartographer.spatial.MapChunkPositionPlanner;
 import cartographer.geology.rock.RockCatalog;
 import cartographer.geology.rock.RockCircleGeometry;
 import cartographer.model.BlockInfo;
@@ -10,9 +10,6 @@ import cartographer.model.WorldPosition;
 import cartographer.cache.RenderDataCacheStore;
 import cartographer.snapshot.UpperRockTileLookup;
 import cartographer.snapshot.WorldDataSnapshot;
-import cartographer.render.RockMapRenderResult;
-import cartographer.render.RockMapRenderer;
-import cartographer.render.RockSnapshotRenderAccumulator;
 
 import java.nio.file.Path;
 import java.util.List;
