@@ -19,9 +19,6 @@ import cartographer.perf.WorldDataSnapshot;
 import cartographer.perf.TerrainHeightTile;
 import cartographer.perf.TerrainTileStore;
 import cartographer.perf.SurfaceTileStore;
-import cartographer.perf.fingerprint.ImageFingerprinter;
-import cartographer.perf.fingerprint.RenderActualOreMapResultFingerprinter;
-import cartographer.perf.fingerprint.ResultFingerprint;
 import cartographer.render.ActualOreOverlayPainter;
 import cartographer.render.MapRenderer;
 import cartographer.render.RenderLayer;
@@ -58,6 +55,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static cartographer.testing.ImageAssertions.assertImageEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -202,10 +200,7 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(0, retained.chunkDiagnostics().skipped());
         assertEquals(0, retained.chunkDiagnostics().failed());
         assertEquals(1, retained.actualOreOverlays().getFirst().map().matchingBlocks());
-        assertEquals(
-                ImageFingerprinter.fingerprint(first.image()),
-                ImageFingerprinter.fingerprint(retained.image())
-        );
+        assertImageEquals(first.image(), retained.image());
         assertTrue(retained.renderDataCacheReport().notes().stream()
                 .anyMatch(note -> note.contains("retained PreparedMapData reused")));
     }
@@ -292,10 +287,7 @@ class RenderActualOreMapUseCaseTest {
         assertEquals(mapRegionCalls, reader.sessionMapRegionCalls);
         assertEquals(0, retained.mapRegionDiagnostics().parsed());
         assertTrue(retained.mapRegionOverlayState().orElseThrow().environmentPrepared());
-        assertEquals(
-                ImageFingerprinter.fingerprint(first.image()),
-                ImageFingerprinter.fingerprint(retained.image())
-        );
+        assertImageEquals(first.image(), retained.image());
     }
 
     @Test
@@ -1177,13 +1169,27 @@ class RenderActualOreMapUseCaseTest {
             RenderActualOreMapResult expected,
             RenderActualOreMapResult actual
     ) {
-        ResultFingerprint expectedSemantic =
-                RenderActualOreMapResultFingerprinter.fingerprint(expected);
-        ResultFingerprint actualSemantic =
-                RenderActualOreMapResultFingerprinter.fingerprint(actual);
-        assertEquals(expectedSemantic, actualSemantic);
-        assertEquals(ImageFingerprinter.fingerprint(expected.image()),
-                ImageFingerprinter.fingerprint(actual.image()));
+        assertEquals(expected.geometry(), actual.geometry());
+        assertEquals(expected.surface().columnsScanned(), actual.surface().columnsScanned());
+        assertEquals(expected.surface().emptyColumns(), actual.surface().emptyColumns());
+        assertEquals(
+                expected.surface().liquidUnavailableColumns(),
+                actual.surface().liquidUnavailableColumns()
+        );
+        assertEquals(expected.surface().waterColumns(), actual.surface().waterColumns());
+        assertEquals(
+                expected.surface().unknownSurfaceBlocks(),
+                actual.surface().unknownSurfaceBlocks()
+        );
+        assertEquals(
+                expected.surface().topUnknownSurfaceBlockCodes(Integer.MAX_VALUE),
+                actual.surface().topUnknownSurfaceBlockCodes(Integer.MAX_VALUE)
+        );
+        assertEquals(
+                expected.surface().distinctSurfaceBlockCodes(Integer.MAX_VALUE),
+                actual.surface().distinctSurfaceBlockCodes(Integer.MAX_VALUE)
+        );
+        assertImageEquals(expected.image(), actual.image());
     }
 
     @Test
