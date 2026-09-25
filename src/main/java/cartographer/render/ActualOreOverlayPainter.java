@@ -1,6 +1,5 @@
 package cartographer.render;
 
-import cartographer.application.ActualOreOverlayResult;
 import cartographer.model.WorldPosition;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMapCell;

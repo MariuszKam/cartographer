@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.render.ActualOreOverlayResult;
 import cartographer.render.ActualOreOverlaySpec;
 import cartographer.spatial.OreChunkPositionPlanner;
 import cartographer.progress.ProgressReporter;

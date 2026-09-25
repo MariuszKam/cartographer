@@ -1,7 +1,6 @@
 package cartographer.render;
 
 import cartographer.model.WorldPosition;
-import cartographer.application.ActualOreOverlayResult;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMapCell;
 import org.junit.jupiter.api.Test;
