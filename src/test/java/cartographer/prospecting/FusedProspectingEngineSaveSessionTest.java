@@ -36,19 +36,20 @@ class FusedProspectingEngineSaveSessionTest {
     void scansOneDecodedStreamForOverlappingResources() {
         CountingReader reader = new CountingReader();
         TestMetadataReader metadataReader = new TestMetadataReader();
-        FusedProspectingResult result = new FusedProspectingEngine(
+        SaveSessionFactory sessions = new SaveSessionFactory(
+                new TestConnectionFactory(),
                 reader,
-                new SaveSessionFactory(
-                        new TestConnectionFactory(),
-                        reader,
-                        metadataReader
-                )
-        ).analyze(
-                Path.of("fixture.vcdbs"),
-                new WorldPosition(16, 0, 16),
-                16,
-                java.util.List.of("copper", "native")
+                metadataReader
         );
+        FusedProspectingResult result;
+        try (SaveSession session = sessions.open(Path.of("fixture.vcdbs"))) {
+            result = new FusedProspectingEngine(reader).analyze(
+                    session,
+                    new WorldPosition(16, 0, 16),
+                    16,
+                    java.util.List.of("copper", "native")
+            );
+        }
 
         assertEquals(1, reader.calls.get());
         assertEquals(reader.visits, reader.decodedChunks,

@@ -75,7 +75,6 @@ class SnapshotBackedProspectingRoutingTest {
         SavedOreObservationProvider provider =
                 new SavedOreObservationProvider(
                         reader,
-                        metadataReader,
                         sessionFactory,
                         cache
                 );

@@ -4,122 +4,43 @@ import cartographer.model.WorldPosition;
 import cartographer.cache.RenderDataCacheStore;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
-import cartographer.save.SqliteSaveConnection;
 import cartographer.resource.SnapshotResourceReader;
 import cartographer.snapshot.SnapshotUpperRockReader;
 import cartographer.snapshot.SnapshotWorldHeaderReader;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 public final class SavedOreObservationProvider implements FusedProspectingObservationProvider {
     private final FusedProspectingEngine fusedEngine;
-    private final Optional<SnapshotUpperRockReader> snapshotRockReader;
-    private final Optional<SnapshotResourceReader> snapshotResourceReader;
-    private final Optional<SnapshotWorldHeaderReader> snapshotHeaderReader;
+    private final SaveSessionFactory sessionFactory;
+    private final SnapshotUpperRockReader snapshotRockReader;
+    private final SnapshotResourceReader snapshotResourceReader;
+    private final SnapshotWorldHeaderReader snapshotHeaderReader;
 
     public SavedOreObservationProvider(
             VcdbsReader reader,
-            WorldMetadataReader metadataReader
-    ) {
-        this(
-                reader,
-                metadataReader,
-                Optional.empty()
-        );
-    }
-
-    public SavedOreObservationProvider(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            RenderDataCacheStore renderDataCacheStore
-    ) {
-        this(
-                reader,
-                metadataReader,
-                Optional.of(Objects.requireNonNull(
-                        renderDataCacheStore,
-                        "render data cache store is required"
-                ))
-        );
-    }
-
-    public SavedOreObservationProvider(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            SaveSessionFactory sessionFactory
-    ) {
-        this(
-                reader,
-                metadataReader,
-                sessionFactory,
-                Optional.empty()
-        );
-    }
-
-    public SavedOreObservationProvider(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
             SaveSessionFactory sessionFactory,
             RenderDataCacheStore renderDataCacheStore
     ) {
-        this(
+        VcdbsReader requiredReader = Objects.requireNonNull(
                 reader,
-                metadataReader,
+                "reader is required"
+        );
+        this.fusedEngine = new FusedProspectingEngine(requiredReader);
+        this.sessionFactory = Objects.requireNonNull(
                 sessionFactory,
-                Optional.of(Objects.requireNonNull(
-                        renderDataCacheStore,
-                        "render data cache store is required"
-                ))
+                "session factory is required"
         );
-    }
-
-    private SavedOreObservationProvider(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            Optional<RenderDataCacheStore> renderDataCacheStore
-    ) {
-        this(
-                reader,
-                metadataReader,
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(),
-                        reader,
-                        metadataReader
-                ),
-                renderDataCacheStore
-        );
-    }
-
-    private SavedOreObservationProvider(
-            VcdbsReader reader,
-            WorldMetadataReader metadataReader,
-            SaveSessionFactory sessionFactory,
-            Optional<RenderDataCacheStore> renderDataCacheStore
-    ) {
-        this.fusedEngine = new FusedProspectingEngine(
-                Objects.requireNonNull(reader, "reader is required"),
-                Objects.requireNonNull(
-                        sessionFactory,
-                        "session factory is required"
-                )
-        );
-        Objects.requireNonNull(
-                metadataReader,
-                "metadata reader is required"
-        );
-        Optional<RenderDataCacheStore> cache = Objects.requireNonNull(
+        RenderDataCacheStore cache = Objects.requireNonNull(
                 renderDataCacheStore,
-                "render data cache option is required"
+                "render data cache store is required"
         );
-        this.snapshotRockReader = cache.map(SnapshotUpperRockReader::new);
-        this.snapshotResourceReader = cache.map(SnapshotResourceReader::new);
-        this.snapshotHeaderReader = cache.map(SnapshotWorldHeaderReader::new);
+        this.snapshotRockReader = new SnapshotUpperRockReader(cache);
+        this.snapshotResourceReader = new SnapshotResourceReader(cache);
+        this.snapshotHeaderReader = new SnapshotWorldHeaderReader(cache);
     }
 
     @Override
@@ -138,33 +59,29 @@ public final class SavedOreObservationProvider implements FusedProspectingObserv
                 )
         );
 
-        if (snapshotRockReader.isPresent()
-                && snapshotResourceReader.isPresent()) {
-            var metadata = session.snapshot().metadata();
-            var registry = session.snapshot().blockRegistry();
-            var rockMap = snapshotRockReader.orElseThrow().read(
-                    session.savePath(),
-                    metadata,
-                    registry,
-                    center,
-                    radius
+        var metadata = session.snapshot().metadata();
+        var registry = session.snapshot().blockRegistry();
+        var rockMap = snapshotRockReader.read(
+                session.savePath(),
+                metadata,
+                registry,
+                center,
+                radius
+        );
+        var observations = snapshotResourceReader.readObservations(
+                session.savePath(),
+                metadata,
+                registry,
+                floor(center.x()),
+                floor(center.z()),
+                radius,
+                resourceKeys
+        );
+        if (rockMap.isPresent() && observations.isPresent()) {
+            return new FusedProspectingResult(
+                    rockMap.orElseThrow(),
+                    observations.orElseThrow()
             );
-            var observations =
-                    snapshotResourceReader.orElseThrow().readObservations(
-                            session.savePath(),
-                            metadata,
-                            registry,
-                            floor(center.x()),
-                            floor(center.z()),
-                            radius,
-                            resourceKeys
-                    );
-            if (rockMap.isPresent() && observations.isPresent()) {
-                return new FusedProspectingResult(
-                        rockMap.orElseThrow(),
-                        observations.orElseThrow()
-                );
-            }
         }
 
         return fusedEngine.analyze(
@@ -189,45 +106,42 @@ public final class SavedOreObservationProvider implements FusedProspectingObserv
                 "resourceKeys are required"
         ));
 
-        if (snapshotRockReader.isPresent()
-                && snapshotResourceReader.isPresent()
-                && snapshotHeaderReader.isPresent()) {
-            var header = snapshotHeaderReader.orElseThrow().read(savePath);
-            if (header.isPresent()) {
-                var metadata = header.orElseThrow().metadata();
-                var registry = header.orElseThrow().blockRegistry();
-                var rockMap = snapshotRockReader.orElseThrow().read(
-                        savePath,
-                        metadata,
-                        registry,
-                        center,
-                        radius
+        var header = snapshotHeaderReader.read(savePath);
+        if (header.isPresent()) {
+            var metadata = header.orElseThrow().metadata();
+            var registry = header.orElseThrow().blockRegistry();
+            var rockMap = snapshotRockReader.read(
+                    savePath,
+                    metadata,
+                    registry,
+                    center,
+                    radius
+            );
+            var observations = snapshotResourceReader.readObservations(
+                    savePath,
+                    metadata,
+                    registry,
+                    floor(center.x()),
+                    floor(center.z()),
+                    radius,
+                    resourceKeys
+            );
+            if (rockMap.isPresent() && observations.isPresent()) {
+                return new FusedProspectingResult(
+                        rockMap.orElseThrow(),
+                        observations.orElseThrow()
                 );
-                var observations =
-                        snapshotResourceReader.orElseThrow().readObservations(
-                                savePath,
-                                metadata,
-                                registry,
-                                floor(center.x()),
-                                floor(center.z()),
-                                radius,
-                                resourceKeys
-                        );
-                if (rockMap.isPresent() && observations.isPresent()) {
-                    return new FusedProspectingResult(
-                            rockMap.orElseThrow(),
-                            observations.orElseThrow()
-                    );
-                }
             }
         }
 
-        return fusedEngine.analyze(
-                savePath,
-                center,
-                radius,
-                resourceKeys
-        );
+        try (SaveSession session = sessionFactory.open(savePath)) {
+            return fusedEngine.analyze(
+                    session,
+                    center,
+                    radius,
+                    resourceKeys
+            );
+        }
     }
 
     private int floor(double value) {
