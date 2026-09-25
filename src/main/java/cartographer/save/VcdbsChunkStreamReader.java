@@ -74,6 +74,10 @@ final class VcdbsChunkStreamReader {
         this.chunkDecodeMaxInFlight = chunkDecodeMaxInFlight;
     }
 
+    Optional<ChunkReadMetrics> lastChunkReadMetrics() {
+        return Optional.ofNullable(lastChunkReadMetrics.get());
+    }
+
     public ChunkStreamStats forEachChunkByPositionAdaptive(
             SaveSession session,
             Collection<ChunkPosition> positions,
