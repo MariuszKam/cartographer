@@ -1,6 +1,6 @@
 package cartographer.scanner;
 
-/** Final PF-1.4 fallback diagnostics for one complete mapchunk domain. */
+/** Final Surface fallback diagnostics for one complete mapchunk domain. */
 public record SurfaceTileDiagnosticSummary(
         int columnsScanned,
         int emptyColumns,

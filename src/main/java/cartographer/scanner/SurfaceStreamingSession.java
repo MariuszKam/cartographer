@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Complete PF-1.4 C+D session. Mapchunks plan, and every decoded chunk is
+ * Complete Surface streaming session. Mapchunks plan, and every decoded chunk is
  * consumed directly into one compact accumulator before the callback returns.
  */
 public final class SurfaceStreamingSession {

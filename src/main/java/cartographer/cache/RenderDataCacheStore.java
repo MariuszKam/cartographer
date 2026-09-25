@@ -14,7 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Persistent manifest store for the PF-1.7 render-data cache foundation. */
+/** Persistent manifest store for the render-data cache manifest. */
 public final class RenderDataCacheStore {
     private static final String MANIFEST_FILE = "manifest.properties";
 

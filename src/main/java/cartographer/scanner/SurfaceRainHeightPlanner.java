@@ -17,7 +17,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 
-/** Tile-local RainHeight planner for the PF-1.4 fast path. */
+/** Tile-local RainHeight planner for the Surface rain-height fast path. */
 public final class SurfaceRainHeightPlanner {
     public StreamingSession begin(
             WorldMetadata metadata,

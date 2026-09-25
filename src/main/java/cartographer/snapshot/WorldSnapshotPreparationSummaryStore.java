@@ -13,7 +13,7 @@ import java.util.Optional;
 import java.util.Properties;
 
 /**
- * Small revision-local status file for PF-2 Prepare World UX.
+ * Small revision-local status file for world snapshot preparation UX.
  */
 public final class WorldSnapshotPreparationSummaryStore {
     private static final String FILE_NAME =

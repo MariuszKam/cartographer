@@ -257,7 +257,7 @@ public class MultiActualBlockMapScanner {
         }
 
         /**
-         * Feeds one compact PF-2.5 occurrence column without materializing a
+         * Feeds one compact resource occurrence column without materializing a
          * ParsedChunk. Semantics match accept(ParsedChunk): circle and Y
          * filtering are applied before the same mutable maps are updated.
          */

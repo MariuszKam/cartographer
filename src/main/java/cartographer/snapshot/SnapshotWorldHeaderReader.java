@@ -8,7 +8,7 @@ import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Source-free PF-2.6 reader for the small revision-scoped world header. */
+/** Source-free snapshot reader for the small revision-scoped world header. */
 public final class SnapshotWorldHeaderReader {
     private final RenderDataCacheStore cacheStore;
 
