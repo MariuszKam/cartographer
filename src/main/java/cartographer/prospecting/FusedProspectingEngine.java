@@ -14,16 +14,12 @@ import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
-import cartographer.save.SaveSessionFactory;
 import cartographer.save.SaveSnapshot;
 import cartographer.save.SelectiveChunkVisit;
 import cartographer.save.SelectiveChunkVisitStatus;
-import cartographer.save.SqliteSaveConnection;
 import cartographer.save.VcdbsReader;
-import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockYFilter;
 
-import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,33 +28,10 @@ import java.util.Objects;
 /** One bounded PF-1.2 traversal feeding the PF-1.3 rock session and ore accumulator. */
 public final class FusedProspectingEngine {
     private final VcdbsReader reader;
-    private final SaveSessionFactory sessionFactory;
     private final OreChunkPositionPlanner planner = new OreChunkPositionPlanner();
 
-    public FusedProspectingEngine(VcdbsReader reader, WorldMetadataReader metadataReader) {
-        this(
-                reader,
-                new SaveSessionFactory(
-                        new SqliteSaveConnection(),
-                        reader,
-                        metadataReader
-                )
-        );
-    }
-
-    public FusedProspectingEngine(
-            VcdbsReader reader,
-            SaveSessionFactory sessionFactory
-    ) {
+    public FusedProspectingEngine(VcdbsReader reader) {
         this.reader = Objects.requireNonNull(reader, "reader is required");
-        this.sessionFactory = Objects.requireNonNull(sessionFactory, "session factory is required");
-    }
-
-    public FusedProspectingResult analyze(Path savePath, WorldPosition center, int radius, List<String> resources) {
-        Objects.requireNonNull(savePath, "save path is required");
-        try (SaveSession session = sessionFactory.open(savePath)) {
-            return analyze(session, center, radius, resources);
-        }
     }
 
     public FusedProspectingResult analyze(
