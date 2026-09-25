@@ -68,7 +68,7 @@ class SavedOreObservationProviderSnapshotTest {
         SavedOreObservationProvider provider =
                 new SavedOreObservationProvider(
                         reader,
-                        metadataReader,
+                        sessions,
                         cache
                 );
 
@@ -115,18 +115,16 @@ class SavedOreObservationProviderSnapshotTest {
         SavedOreObservationProvider provider =
                 new SavedOreObservationProvider(
                         reader,
-                        metadataReader,
+                        sessions,
                         cache
                 );
 
-        try (SaveSession session = sessions.open(save)) {
-            provider.analyze(
-                    session,
-                    new WorldPosition(16, 0, 16),
-                    1,
-                    List.of("copper")
-            );
-        }
+        provider.analyze(
+                save,
+                new WorldPosition(16, 0, 16),
+                1,
+                List.of("copper")
+        );
 
         assertEquals(1, reader.sourceCalls.get());
     }
