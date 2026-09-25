@@ -1,6 +1,5 @@
-package cartographer.application;
+package cartographer.spatial;
 
-import cartographer.spatial.MapChunkPositionPlanner;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;
 import org.junit.jupiter.api.Test;

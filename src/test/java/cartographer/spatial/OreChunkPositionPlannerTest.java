@@ -1,6 +1,5 @@
-package cartographer.application;
+package cartographer.spatial;
 
-import cartographer.spatial.OreChunkPositionPlanner;
 import cartographer.model.ChunkPosition;
 import cartographer.model.WorldMetadata;
 import cartographer.scanner.ActualBlockYFilter;

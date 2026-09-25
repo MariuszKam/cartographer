@@ -1,12 +1,8 @@
-package cartographer.application;
+package cartographer.resource;
 
-import cartographer.resource.SurfaceMaterialMatch;
 import cartographer.model.BlockInfo;
 import cartographer.model.SurfaceClass;
 import cartographer.model.WorldMetadata;
-import cartographer.resource.SurfaceMaterialAnalysis;
-import cartographer.resource.SurfaceMaterialAnalyzer;
-import cartographer.resource.SurfaceResourcePoint;
 import cartographer.scanner.SurfaceMapScanResult;
 import cartographer.scanner.SurfaceTileAccumulator;
 import cartographer.scanner.SurfaceTileLayout;
