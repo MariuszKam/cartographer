@@ -26,7 +26,7 @@ import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
 import cartographer.save.VcdbsReader;
-import cartographer.perf.RenderDataCacheStore;
+import cartographer.cache.RenderDataCacheStore;
 import cartographer.snapshot.SnapshotMapRegionReader;
 import cartographer.snapshot.SnapshotResourceReader;
 import cartographer.scanner.ActualBlockMap;

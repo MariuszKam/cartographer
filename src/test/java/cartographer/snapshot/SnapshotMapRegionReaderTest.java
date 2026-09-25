@@ -3,9 +3,9 @@ package cartographer.snapshot;
 import cartographer.environment.EnvironmentProfile;
 import cartographer.geology.GeologicProvinceSummary;
 import cartographer.model.MapRegionCoordinate;
-import cartographer.perf.MapRegionSnapshotEntry;
-import cartographer.perf.RenderDataCacheStore;
-import cartographer.perf.WorldDataSnapshot;
+import cartographer.snapshot.MapRegionSnapshotEntry;
+import cartographer.cache.RenderDataCacheStore;
+import cartographer.snapshot.WorldDataSnapshot;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

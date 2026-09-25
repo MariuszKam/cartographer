@@ -17,7 +17,7 @@ import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
 import cartographer.parser.RegistryParser;
-import cartographer.perf.RenderDataCacheStore;
+import cartographer.cache.RenderDataCacheStore;
 import cartographer.prospecting.OreRockCompatibilityProvider;
 import cartographer.prospecting.SavedOreObservationProvider;
 import cartographer.render.ActualOreOverlayPainter;

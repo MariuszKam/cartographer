@@ -7,7 +7,7 @@ import cartographer.geology.rock.RockIdentity;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
-import cartographer.perf.UpperRockTile;
+import cartographer.snapshot.UpperRockTile;
 
 import java.awt.image.BufferedImage;
 import java.util.Comparator;

@@ -1,8 +1,8 @@
 package cartographer.snapshot;
 
-import cartographer.perf.RenderDataCacheStore;
-import cartographer.perf.WorldDataSnapshot;
-import cartographer.perf.WorldSnapshotHeader;
+import cartographer.cache.RenderDataCacheStore;
+import cartographer.snapshot.WorldDataSnapshot;
+import cartographer.snapshot.WorldSnapshotHeader;
 
 import java.nio.file.Path;
 import java.util.Objects;

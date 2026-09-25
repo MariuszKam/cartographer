@@ -1,6 +1,6 @@
 package cartographer.application;
 
-import cartographer.perf.WorldSnapshotPreparationSummary;
+import cartographer.snapshot.WorldSnapshotPreparationSummary;
 
 import java.nio.file.Path;
 import java.util.Objects;

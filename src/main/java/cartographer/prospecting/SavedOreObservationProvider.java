@@ -1,7 +1,7 @@
 package cartographer.prospecting;
 
 import cartographer.model.WorldPosition;
-import cartographer.perf.RenderDataCacheStore;
+import cartographer.cache.RenderDataCacheStore;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
 import cartographer.save.SqliteSaveConnection;

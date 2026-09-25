@@ -10,7 +10,7 @@ import cartographer.model.ParsedChunk;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
-import cartographer.perf.RenderDataCacheStore;
+import cartographer.cache.RenderDataCacheStore;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
