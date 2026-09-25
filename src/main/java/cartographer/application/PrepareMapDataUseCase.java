@@ -34,7 +34,6 @@ import cartographer.scanner.SurfaceRainHeightScanResult;
 import cartographer.scanner.SurfaceStreamingSession;
 import cartographer.scanner.SurfaceTile;
 import cartographer.scanner.SurfaceTileDiagnosticSummary;
-import cartographer.snapshot.SnapshotPreparedMapDataReader;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
