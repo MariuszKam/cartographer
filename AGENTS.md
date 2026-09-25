@@ -1,674 +1,96 @@
 # VS Cartographer
 
-## Project purpose
+## Purpose
 
-VS Cartographer is a Java/JavaFX desktop application for offline analysis of Vintage Story `.vcdbs` save files.
+VS Cartographer is a desktop application for offline analysis of Vintage Story save data.
 
-The project reads Vintage Story saves in SQLite read-only mode and turns stored world data into useful navigation, mapping, terrain, environment, geology, resource and marker information.
+The source save is authoritative input and must never be modified by the application.
 
-The tool must never modify the Vintage Story save.
+Before substantial changes, inspect the current implementation, tests, build configuration, CI, and task-relevant documentation. Treat current repository state as discoverable truth; do not rely on historical snapshots.
 
-Before substantial work, read the relevant project documentation under `docs/`.
+## Non-negotiable safety rules
 
----
+- Open source save data read-only.
+- Never intentionally write to, migrate, repair, or mutate the user's source save.
+- Treat missing, unknown, unsupported, and corrupt data as distinct from known data.
+- Never invent world data to fill gaps.
+- Keep binary parsing defensive and bounded.
+- Isolate malformed rows, chunks, or records where safe instead of turning one local failure into broader corruption.
+- Resolve game identifiers from authoritative save/registry data when available; do not hard-code unstable game IDs as truth.
+- Prefer direct evidence from source data over heuristics or inference.
+- Never present inferred or derived information as if it were a direct observation.
 
-## Core rules
+## Coordinate and domain semantics
 
-- Open `.vcdbs` read-only.
-- Never write to the game save.
-- Treat missing data as missing data, not as permission to guess.
-- Binary parsers must be defensive.
-- Parser failures for individual rows/chunks should be reported without aborting the full analysis where possible.
-- Coordinate spaces must be explicit.
-- Prefer real save data over heuristics.
-- Keep rendering, parsing and analysis separated.
-- Every milestone requires reviewer validation on a real save before being marked DONE.
+- Coordinate spaces are distinct domain concepts.
+- Make coordinate conversions explicit at boundaries.
+- Never silently mix coordinate spaces.
+- Preserve meaningful distinctions such as authoritative versus derived data, observed versus inferred data, and absent versus corrupt versus unknown data.
+- Do not erase domain distinctions merely to reduce types or simplify plumbing.
 
----
+## Architecture
 
-## Coordinate contract
+Follow the durable architecture principles in `docs/ARCHITECTURE_PRINCIPLES.md`.
 
-Vintage Story save data uses absolute world coordinates.
+For production changes:
 
-For the current known world:
+- preserve an acyclic dependency graph;
+- preserve semantic ownership of concepts;
+- keep dependency direction coherent with architectural responsibility;
+- keep presentation concerns outside lower-level domain and infrastructure concerns;
+- use explicit boundaries and adapters instead of hidden coupling;
+- respect automated architecture constraints;
+- do not bypass architecture rules through reflection, service locators, global state, forwarding wrappers, duplicated models, or generic dumping-ground packages.
 
-```text
-World size:
-X = 1,024,000
-Y = 256
-Z = 1,024,000
-```
+If a requested change appears to require violating a fundamental architecture principle, surface that conflict explicitly instead of silently weakening the architecture.
 
-The world center is therefore approximately:
+## Change discipline
 
-```text
-X = 512000
-Z = 512000
-```
+- Prefer the smallest coherent change that fully solves the requested problem.
+- Do not bundle unrelated refactors.
+- Preserve established behavior unless the task explicitly changes it.
+- Place a type according to who owns its meaning, not according to where it happens to be used first.
+- Introduce abstractions only for a real seam, substitution need, lifecycle boundary, or architectural responsibility.
+- Do not add speculative framework layers for possible future use.
+- Keep authoritative source access, parsing/decoding, interpretation, orchestration, persistence, and presentation responsibilities explicit.
+- When current documentation conflicts with current executable behavior, investigate the discrepancy rather than choosing whichever version is more convenient.
 
-Display coordinates are:
+## Validation and evidence
 
-```text
-displayX = absoluteX - worldSizeX / 2
-displayZ = absoluteZ - worldSizeZ / 2
-```
+- Never claim that a build, test, benchmark, runtime workflow, or real-save validation passed unless it actually ran.
+- Distinguish static review from runtime evidence.
+- Use the repository's current build and CI configuration to discover authoritative validation commands.
+- Preserve semantic test coverage; do not delete, disable, weaken, or bypass tests merely to obtain a green result.
+- Treat failing architecture or quality guards as design feedback, not obstacles to route around.
+- When runtime behavior is affected, validate at the level required by that behavior.
+- When rendering or other visual output is affected, include visual inspection where the task requires it.
 
-User-facing HOME and USER MARKERS are stored in DISPLAY coordinates.
+## Concurrency-test rules
 
-Renderers convert them back to absolute coordinates through `WorldMetadata`.
+- Synchronize concurrency tests on explicit lifecycle events.
+- Do not use scheduler timing or sleep-based waiting as proof that another thread reached a state.
+- Timed waits are deadlock guards, not correctness conditions.
+- Make cleanup failure-safe and ensure test-owned threads, executors, files, sockets, and other resources terminate or close.
+- Do not weaken ordering, callback, lifecycle, or cleanup assertions to make a flaky test pass.
 
-Never silently mix DISPLAY and ABSOLUTE coordinate spaces.
+## Repository knowledge
 
----
+Keep this file as a durable contract, not a repository manual.
 
-## Current architecture
+Do not add:
 
-```text
-src/main/java/cartographer/
+- source-tree snapshots;
+- package, class, or file inventories;
+- current dependency graphs;
+- feature-completeness lists;
+- roadmap, milestone, release, or next-step status;
+- current issue, pull-request, commit, or branch status;
+- current test counts, timings, performance numbers, or CI results;
+- current parser capability inventories;
+- current world/save-specific dimensions or values;
+- mutable build or CI commands that can be discovered from repository configuration;
+- implementation descriptions that merely restate today's code.
 
-├── save/
-│   ├── SqliteSaveConnection
-│   ├── VcdbsReader
-│   └── WorldMetadataReader
-│
-├── parser/
-│   ├── PlayerDataParser
-│   ├── MapChunkParser
-│   ├── ChunkParser
-│   ├── RegistryParser
-│   └── ServerMapRegionParser
-│
-├── scanner/
-│   ├── SurfaceStreamingSession
-│   ├── SurfaceRainHeightPlanner
-│   ├── SurfaceRainHeightScanner
-│   ├── SurfaceObjectCompactPlanner
-│   └── SurfaceObjectStreamingScanner
-│
-├── render/
-│   ├── MapRenderer
-│   ├── UserMarkerRenderer
-│   ├── SurfaceResourceOverlayRenderer
-│   ├── RenderLayer
-│   ├── RenderOptions
-│   └── RenderStyle
-│
-├── environment/
-│   ├── EnvironmentInterpreter
-│   ├── ClimateInterpreter
-│   ├── ForestInterpreter
-│   ├── OceanInterpreter
-│   └── LandformInterpreter
-│
-├── geology/
-│   └── geology analysis
-│
-├── resource/
-│   ├── ResourceAnalyzer
-│   ├── ResourceHotspot
-│   ├── ResourceOverlayCell
-│   ├── SurfaceMaterialAnalyzer
-│   ├── SurfaceMaterialAnalysis
-│   ├── SurfaceMaterialDeposit
-│   └── SurfaceResourcePoint
-│
-├── marker/
-│   ├── UserMarker
-│   └── MarkerStore
-│
-├── navigation/
-│   └── HomeStore
-│
-├── cache/
-│   ├── RenderDataCacheStore
-│   ├── TerrainTileStore
-│   └── SurfaceTileStore
-│
-├── index/
-│   └── ResourceIndexStore
-│
-└── snapshot/
-    ├── WorldDataSnapshot
-    ├── UpperRockTileStore
-    └── MapRegionSnapshotStore
-```
+Put changing state in the place that owns it: source code, tests, build configuration, CI, generated reports, task-specific issues or pull requests, or focused documentation.
 
-This is a living architecture. Do not create unused abstractions only because they appear in the roadmap.
-
----
-
-# Verified save format knowledge
-
-## SQLite tables
-
-Known useful tables include:
-
-```text
-playerdata
-chunk
-mapchunk
-mapregion
-gamedata
-```
-
----
-
-## Player
-
-Player position parsing is implemented and verified on a real save.
-
----
-
-## World metadata
-
-World size is read from SaveGame metadata.
-
-Known relevant values:
-
-```text
-MapSizeX
-MapSizeY
-MapSizeZ
-```
-
----
-
-## Chunk coordinates
-
-Chunk/mapchunk/mapregion coordinate decoding is implemented.
-
-Mapregion coordinates must be decoded directly from the packed mapregion position.
-
-Do not divide already-decoded mapregion coordinates by 16 again.
-
----
-
-## Mapchunk
-
-Mapchunk parsing is implemented and used for terrain rendering.
-
-Known useful fields include terrain/rain height data.
-
----
-
-## Server chunk
-
-Server chunk decoding supports current known compressed chunk payloads.
-
-Known support includes:
-
-```text
-compression version 2
-raw palettes
-zstd compressed palettes
-bitplanes
-liquid layer
-```
-
----
-
-## Block registry
-
-Block IDs are resolved through the registry stored in save data.
-
-Do not hard-code block IDs.
-
----
-
-# Completed milestones
-
-## 0.1–0.8 Foundation
-
-Completed:
-
-```text
-0.1 whereami
-0.2 HOME / navigation
-0.3 coordinate math
-0.4 mapchunk parsing
-0.5 PNG MVP
-0.6 terrain rendering
-0.7 block registry
-0.8 surface scanner
-```
-
----
-
-## 0.9 Semantic terrain
-
-DONE.
-
-Includes:
-
-```text
-semantic surface classification
-real liquid handling
-surface rendering
-unknown block diagnostics
-```
-
-Known UNKNOWN blocks may include artificial/player-made blocks such as farmland, cob and fences.
-
-A future BUILT / HUMAN_MADE classification may be added.
-
----
-
-## 0.10 Performance / SQLite range reading
-
-DONE.
-
-Implemented:
-
-```text
-streaming SQLite reads
-range filtering before loading chunk BLOBs
-bounded Surface streaming temporary state
-large-radius rendering without previous OOM
-progress overflow fix
-```
-
----
-
-## 0.11 Server MapRegion
-
-DONE.
-
-Parsed mapregion data includes:
-
-```text
-Climate
-Forest
-Landform
-GeologicProvince
-OreMaps
-RockStrata
-Ocean
-```
-
----
-
-## 0.12 Environment / Biome interpretation
-
-DONE.
-
-Implemented conservative interpretation of:
-
-```text
-Climate
-Forest
-Ocean
-Landform
-```
-
-Climate values are treated as indices unless their real physical units are proven.
-
-Do not invent official biome names.
-
----
-
-## 0.13 Geology / Resources
-
-DONE.
-
-Includes:
-
-```text
-RockStrata raw parsing
-OreMaps raw parsing
-geologic province parsing
-real ore signal extraction
-relative ore signal analysis
-world coordinate conversion
-hotspot ranking
-spatial hotspot separation
-resource heatmaps
-ore search maps
-surface resource search
-connected surface deposits
-clay search
-peat search
-```
-
-Important distinction:
-
-OreMaps indicate relative generated ore signal.
-
-They are not proof that a specific ore block physically exists at a coordinate.
-
-Surface resource search is different: it uses actual decoded visible surface blocks.
-
----
-
-## 0.14 User Markers
-
-DONE.
-
-Implemented:
-
-```text
-per-save marker persistence
-DISPLAY coordinate storage
-add
-update
-here
-list
-remove
-clear
-multi-word names
-case-insensitive replacement
-per-save isolation
-map rendering
-labels
-```
-
-USER MARKERS are stored outside the Vintage Story save.
-
----
-
-# Current milestone
-
-## 1.0 Detailed Cartographer
-
-Most of the original 1.0 scope is already implemented.
-
-Completed:
-
-```text
-terrain layer
-real water/liquid surface
-semantic surface layer
-PLAYER marker
-HOME marker
-user markers
-marker labels
-PNG export
-radius configuration
-scale configuration
-render styles
-render layers
-missing-data diagnostics
-```
-
-Still missing for 1.0 completion:
-
-```text
-explored-world spatial coverage explored-region coverage visualization
-```
-
----
-
-## 1.0a Explored World Coverage
-
-Next implementation target.
-
-Goal:
-
-Build a real spatial index of explored mapregions and summarize the explored world footprint.
-
-Desired analysis:
-
-```text
-present mapregions
-region bounding box
-world-coordinate bounds
-display-coordinate bounds
-bounding-grid size
-missing cells
-coverage percentage
-```
-
-Desired render:
-
-```text
-explored region cells
-missing cells inside explored bounding box
-PLAYER
-HOME
-```
-
-This milestone is considered complete only after:
-
-```text
-unit tests
-real-save desktop validation
-visual inspection
-```
-
-Once 1.0a is complete:
-
-```text
-1.0 Detailed Cartographer = DONE
-```
-
----
-
-# Future roadmap
-
-## 1.5 Geology Map / Cross-Sections
-
-Goals:
-
-```text
-surface geology visualization
-rock-strata interpretation
-vertical geological cross sections
-terrain slope analysis
-geological layer export
-```
-
-RockStrata semantics must be established before presenting raw values as named rock types or depths.
-
----
-
-## 2.0 World Analyzer
-
-Goals:
-
-```text
-structure detection
-interesting block searches
-region statistics
-CSV/text export
-world reports
-```
-
----
-
-## 3.5 Real Incremental Rendering
-
-Current incremental support is not considered complete incremental rendering.
-
-Target:
-
-```text
-detect changed mapchunks/chunks
-invalidate only affected tiles
-reuse previous terrain output
-marker changes must not force terrain reparsing
-```
-
----
-
-## 4.0 LOD / Atlas
-
-Goals:
-
-```text
-tile pyramid
-real LOD
-huge explored-world atlas
-metadata
-optional lightweight HTML viewer
-```
-
----
-
-# Marker contract
-
-User-facing markers are stored in DISPLAY coordinates. Marker names are unique
-per save, case-insensitively. Renderers convert DISPLAY coordinates back to
-absolute coordinates through `WorldMetadata`; never silently mix the two spaces.
-
----
-
-# Resource analysis rules
-
-## OreMap resources
-
-Example:
-
-```text
-nativecopper
-cassiterite
-hematite
-gold
-silver
-```
-
-Use OreMap analysis.
-
-Do not claim a hotspot guarantees physical ore blocks.
-
----
-
-## Surface resources
-
-Example:
-
-```text
-clay
-peat
-```
-
-Use decoded surface block search.
-
-Connected surface deposits currently use 8-neighbor connectivity.
-
----
-
-# Rendering rules
-
-Current main render layers:
-
-```text
-TERRAIN
-SURFACE
-SOIL_FERTILITY
-MARKERS
-```
-
-`SOIL_FERTILITY` is optional and is not part of the default render-layer set.
-It uses conservative nominal soil/farmland block evidence. It does not
-represent current farmland N/P/K state and does not infer fertility through
-snow or water.
-
-WATER is represented through the real liquid/surface layer and is not a separate top-level render layer.
-
----
-
-# Development workflow
-
-## Reviewer responsibilities
-
-The user + ChatGPT are responsible for:
-
-```text
-architecture
-review
-tests
-real-save validation
-benchmarking
-PNG inspection
-milestone sign-off
-```
-
-## Codex responsibilities
-
-Codex is an implementation executor only.
-
-Codex may:
-
-```text
-edit requested files
-implement requested functionality
-inspect its own diff for accidental edits
-commit
-push
-```
-
-Codex must not:
-
-```text
-run Gradle
-run tests
-run builds
-run the application
-run benchmarks
-run Docker
-perform real-save validation
-inspect generated PNGs
-claim tests pass
-claim performance numbers
-declare milestones DONE
-force push
-rewrite history
-perform broad unrelated refactors
-```
-
-Codex final output should report only:
-
-```text
-commit SHA
-commit message
-files changed
-short implementation summary
-assumptions / reviewer checks
-explicit statement that tests and real-save validation were not run
-```
-
-Required final statement:
-
-```text
-Tests and real-save validation were not run; they are left to the reviewer.
-```
-
-For performance work:
-
-```text
-Tests, benchmarks, and real-save validation were not run; they are left to the reviewer.
-```
-
----
-
-# Testing / validation rules
-
-Before marking a milestone DONE:
-
-1. Compile/test suite must be green.
-2. Relevant desktop workflow must be exercised against the real save when runtime behavior is affected.
-3. Output must be manually inspected.
-4. Rendered output must be visually inspected when rendering is involved.
-5. No unrelated files should be changed in the implementation commit.
-
-## Test authoring rules
-
-- Concurrency tests must synchronize on explicit lifecycle events using mechanisms such as `CountDownLatch`, barriers, semaphores, futures, or callback handshakes. Do not infer correctness from scheduler timing.
-- Do not use `Thread.sleep(...)` or `TimeUnit.*.sleep(...)` to wait for another thread to "probably" reach a state. Real passage of time is appropriate only when time itself is the behavior under test.
-- Timed waits may prevent CI from hanging indefinitely, but they are deadlock guards only; they must not encode a finish-within-a-duration correctness assumption. Increasing a timeout alone is not a flaky-test fix.
-- Before calling `thread.interrupt()`, deterministically establish the intended blocking or lifecycle phase. Do not use `Thread.State` polling as synchronization.
-- Treat worker completion and callback/consumer completion as distinct phases unless the production contract explicitly guarantees their equivalence. Synchronize on the phase the assertion concerns.
-- Make concurrency-test cleanup failure-safe: release test-controlled blockers on failure paths, close owned resources, verify test-owned threads terminate, and do not leave live non-daemon threads behind.
-- Preserve semantic coverage. Do not remove assertions, disable tests, weaken ordering or concurrency contracts, or ignore missing callbacks or leaked threads to make a test pass.
-
-
----
-
-# Current next step
-
-Implement:
-
-```text
-1.0a Explored World Coverage
-```
-
-Do not start 1.5 geology cross-sections before 1.0a is reviewed and marked complete.
+Only change this file when a fundamental project rule changes, not when ordinary implementation details change.
