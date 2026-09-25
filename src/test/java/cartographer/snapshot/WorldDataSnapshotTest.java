@@ -1,5 +1,9 @@
 package cartographer.snapshot;
 
+import cartographer.cache.RenderDataCacheStore;
+import cartographer.cache.TerrainHeightTile;
+import cartographer.cache.TerrainTileLookup;
+
 import cartographer.model.MapChunkCoordinate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

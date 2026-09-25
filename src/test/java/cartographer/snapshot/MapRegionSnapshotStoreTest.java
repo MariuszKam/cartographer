@@ -1,5 +1,7 @@
 package cartographer.snapshot;
 
+import cartographer.cache.RenderDataCacheStore;
+
 import cartographer.testing.IntegrationTest;
 import cartographer.environment.ClimateSummary;
 import cartographer.environment.EnvironmentLabel;

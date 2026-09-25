@@ -1,5 +1,11 @@
 package cartographer.snapshot;
 
+import cartographer.cache.RenderDataCacheRevision;
+import cartographer.cache.RenderDataCacheStore;
+import cartographer.cache.SurfaceTileStore;
+import cartographer.cache.TerrainTileStore;
+import cartographer.index.ResourceIndexStore;
+
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;

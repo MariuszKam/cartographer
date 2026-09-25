@@ -1,5 +1,8 @@
 package cartographer.index;
 
+import cartographer.cache.RenderDataCacheStore;
+import cartographer.snapshot.WorldDataSnapshot;
+
 import cartographer.testing.IntegrationTest;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkPosition;

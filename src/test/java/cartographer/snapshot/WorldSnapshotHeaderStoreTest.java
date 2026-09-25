@@ -1,5 +1,7 @@
 package cartographer.snapshot;
 
+import cartographer.cache.RenderDataCacheStore;
+
 import cartographer.model.BlockInfo;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;

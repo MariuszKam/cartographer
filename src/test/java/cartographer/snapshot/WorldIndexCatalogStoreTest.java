@@ -1,5 +1,10 @@
 package cartographer.snapshot;
 
+import cartographer.cache.RenderDataCacheIdentity;
+import cartographer.cache.RenderDataCacheManifest;
+import cartographer.cache.RenderDataCacheRevision;
+import cartographer.cache.RenderDataCacheStore;
+
 import cartographer.model.MapChunkCoordinate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

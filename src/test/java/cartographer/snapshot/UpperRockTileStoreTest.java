@@ -1,5 +1,7 @@
 package cartographer.snapshot;
 
+import cartographer.cache.RenderDataCacheStore;
+
 import cartographer.testing.IntegrationTest;
 import cartographer.geology.rock.RockColumnState;
 import cartographer.model.MapChunkCoordinate;

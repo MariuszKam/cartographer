@@ -1,5 +1,7 @@
 package cartographer.snapshot;
 
+import cartographer.cache.RenderDataCacheStore;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

@@ -1,5 +1,8 @@
 package cartographer.snapshot;
 
+import cartographer.cache.RenderDataCacheRevision;
+import cartographer.cache.RenderDataCacheStore;
+
 import cartographer.model.MapChunkCoordinate;
 
 import java.nio.file.Files;

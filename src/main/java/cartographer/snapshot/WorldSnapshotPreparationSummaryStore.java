@@ -1,5 +1,8 @@
 package cartographer.snapshot;
 
+import cartographer.cache.RenderDataCacheRevision;
+import cartographer.cache.RenderDataCacheStore;
+
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;

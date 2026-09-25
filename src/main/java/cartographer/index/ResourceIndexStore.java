@@ -1,5 +1,8 @@
 package cartographer.index;
 
+import cartographer.cache.RenderDataCacheRevision;
+import cartographer.cache.RenderDataCacheStore;
+
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkPosition;
 import cartographer.save.ChunkPosDecoder;
