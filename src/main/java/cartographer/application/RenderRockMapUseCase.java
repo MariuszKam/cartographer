@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.spatial.OreChunkPositionPlanner;
 import cartographer.progress.ProgressReporter;
 import cartographer.geology.rock.RockCatalog;
 import cartographer.geology.rock.RockMap;

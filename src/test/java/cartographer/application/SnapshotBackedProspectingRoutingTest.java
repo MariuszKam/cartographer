@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.spatial.OreChunkPositionPlanner;
 import cartographer.environment.EnvironmentProfile;
 import cartographer.geology.rock.RockColumnState;
 import cartographer.model.BlockInfo;
