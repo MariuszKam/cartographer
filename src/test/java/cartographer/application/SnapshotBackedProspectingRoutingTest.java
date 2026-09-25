@@ -21,7 +21,7 @@ import cartographer.index.ResourceOccurrence;
 import cartographer.snapshot.UpperRockTile;
 import cartographer.snapshot.WorldDataSnapshot;
 import cartographer.snapshot.WorldSnapshotHeader;
-import cartographer.prospecting.ActualOreObservation;
+import cartographer.resource.ActualOreObservation;
 import cartographer.prospecting.OreRockCompatibilityProvider;
 import cartographer.prospecting.SavedOreObservationProvider;
 import cartographer.resource.ResourceAnalyzer;

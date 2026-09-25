@@ -7,7 +7,7 @@ import cartographer.cache.RenderDataCacheStore;
 import cartographer.index.ResourceChunkIndexEntry;
 import cartographer.index.ResourceOccurrence;
 import cartographer.snapshot.WorldDataSnapshot;
-import cartographer.prospecting.ActualOreObservation;
+import cartographer.resource.ActualOreObservation;
 import cartographer.scanner.ActualBlockMatchMode;
 import cartographer.scanner.ActualBlockMatchSpec;
 import cartographer.scanner.ActualBlockYFilter;

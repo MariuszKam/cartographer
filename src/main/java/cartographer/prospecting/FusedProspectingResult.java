@@ -1,5 +1,6 @@
 package cartographer.prospecting;
 
+import cartographer.resource.ActualOreObservation;
 import cartographer.geology.rock.RockMap;
 
 import java.util.List;

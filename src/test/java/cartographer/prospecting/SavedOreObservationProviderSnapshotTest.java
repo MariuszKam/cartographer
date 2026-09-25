@@ -1,5 +1,6 @@
 package cartographer.prospecting;
 
+import cartographer.resource.ActualOreObservation;
 import cartographer.spatial.OreChunkPositionPlanner;
 import cartographer.progress.ProgressReporter;
 import cartographer.geology.rock.RockColumnState;

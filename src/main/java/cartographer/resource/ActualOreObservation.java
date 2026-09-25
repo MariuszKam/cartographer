@@ -1,4 +1,4 @@
-package cartographer.prospecting;
+package cartographer.resource;
 
 public enum ActualOreObservation {
     OBSERVED,
