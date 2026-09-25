@@ -2,7 +2,7 @@
 
 ## Purpose
 
-VS Cartographer is a Java/JavaFX desktop application for offline analysis of Vintage Story save data.
+VS Cartographer is a desktop application for offline analysis of Vintage Story save data.
 
 The source save is authoritative input and must never be modified by the application.
 
