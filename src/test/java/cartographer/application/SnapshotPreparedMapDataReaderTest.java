@@ -1,8 +1,4 @@
 package cartographer.application;
-import cartographer.snapshot.WorldDataSnapshot;
-import cartographer.snapshot.WorldIndexCatalogStore;
-import cartographer.snapshot.WorldSnapshotHeader;
-
 import cartographer.progress.ProgressReporter;
 import cartographer.model.BlockInfo;
 import cartographer.model.MapChunkCoordinate;
