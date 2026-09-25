@@ -353,10 +353,8 @@ final class VcdbsChunkStreamReader {
     /**
      * Visits exact chunk positions with the selective decoder and reports
      * availability independently from whether a ParsedChunk was delivered.
-     */
-    /**
-     * Session-owned variant. The session connection is borrowed and never
-     * closed by this reader.
+     *
+     * <p>The session connection is borrowed and never closed by this reader.</p>
      */
     public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsWithCoverage(
             SaveSession session,
