@@ -30,10 +30,7 @@ final class VcdbsMapChunkStreamReader {
     private final MapChunkParser mapChunkParser;
 
     VcdbsMapChunkStreamReader(MapChunkParser mapChunkParser) {
-        this.mapChunkParser = Objects.requireNonNull(
-                mapChunkParser,
-                "mapChunkParser is required"
-        );
+        this.mapChunkParser = mapChunkParser;
     }
 
     MapChunkStreamStats forEachObservedMapChunk(
