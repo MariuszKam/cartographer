@@ -7,7 +7,7 @@ import cartographer.model.ChunkPosition;
 import cartographer.model.ParseResult;
 import cartographer.model.ParsedChunk;
 import cartographer.model.WorldMetadata;
-import cartographer.application.ProgressReporter;
+import cartographer.progress.ProgressReporter;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.ChunkDecodeProfile;
 import cartographer.parser.ChunkDecodeWorkspace;
@@ -123,7 +123,7 @@ class VcdbsReaderDirectChunkLookupTest {
                             List.of(position),
                             new ReadDiagnostics(),
                             delivered::add,
-                            cartographer.application.ProgressReporter.NONE
+                            cartographer.progress.ProgressReporter.NONE
                     );
 
             assertEquals(1, stats.rowsFound());

@@ -5,7 +5,7 @@ import cartographer.application.MapRegionOverlayState;
 import cartographer.application.PreparedMapData;
 import cartographer.application.PreparedSurfaceData;
 import cartographer.application.SurfaceDataRequirement;
-import cartographer.application.ProgressReporter;
+import cartographer.progress.ProgressReporter;
 import cartographer.application.RenderDataCacheReport;
 import cartographer.geology.rock.RockCatalog;
 import cartographer.geology.rock.RockColumnSample;

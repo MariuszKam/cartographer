@@ -1,7 +1,7 @@
 package cartographer.snapshot;
 
 import cartographer.application.PrepareMapDataRequest;
-import cartographer.application.ProgressReporter;
+import cartographer.progress.ProgressReporter;
 import cartographer.application.SurfaceDataRequirement;
 import cartographer.model.BlockInfo;
 import cartographer.model.MapChunkCoordinate;

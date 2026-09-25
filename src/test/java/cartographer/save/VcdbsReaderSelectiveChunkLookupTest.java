@@ -2,7 +2,7 @@ package cartographer.save;
 
 import cartographer.testing.IntegrationTest;
 import cartographer.testing.ConcurrencyTest;
-import cartographer.application.ProgressReporter;
+import cartographer.progress.ProgressReporter;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
 import cartographer.model.ParsedChunk;

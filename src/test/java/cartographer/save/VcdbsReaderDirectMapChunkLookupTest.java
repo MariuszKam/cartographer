@@ -1,7 +1,7 @@
 package cartographer.save;
 
 import cartographer.testing.IntegrationTest;
-import cartographer.application.ProgressReporter;
+import cartographer.progress.ProgressReporter;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParseResult;
