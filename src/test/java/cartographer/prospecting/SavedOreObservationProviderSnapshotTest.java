@@ -1,7 +1,7 @@
 package cartographer.prospecting;
 
 import cartographer.application.OreChunkPositionPlanner;
-import cartographer.application.ProgressReporter;
+import cartographer.progress.ProgressReporter;
 import cartographer.geology.rock.RockColumnState;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;

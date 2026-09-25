@@ -1,6 +1,6 @@
 package cartographer.save;
 
-import cartographer.application.ProgressReporter;
+import cartographer.progress.ProgressReporter;
 import cartographer.model.BlockInfo;
 import cartographer.model.WorldMetadata;
 import org.junit.jupiter.api.Test;

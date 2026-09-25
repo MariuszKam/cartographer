@@ -124,7 +124,7 @@ class DenseHeightGridTest {
                 minWorldZ,
                 width,
                 height,
-                cartographer.application.ProgressReporter.NONE,
+                cartographer.progress.ProgressReporter.NONE,
                 chunks.size()
         );
         chunks.forEach(builder::accept);
