@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.progress.ProgressReporter;
 import cartographer.environment.EnvironmentInterpreter;
 import cartographer.environment.EnvironmentProfile;
 import cartographer.geology.GeologicProvinceInterpreter;

@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.progress.ProgressReporter;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkPosition;
 import cartographer.model.MapChunkCoordinate;

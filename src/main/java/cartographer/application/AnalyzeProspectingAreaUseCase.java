@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.progress.ProgressReporter;
 import cartographer.geology.rock.RockColumnState;
 import cartographer.geology.rock.RockIdentity;
 import cartographer.geology.rock.RockMap;
