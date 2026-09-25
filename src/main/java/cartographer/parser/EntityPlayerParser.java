@@ -2,7 +2,7 @@ package cartographer.parser;
 
 import cartographer.model.ParseResult;
 import cartographer.model.WorldPosition;
-import cartographer.save.DotNetBinaryReader;
+import cartographer.binary.DotNetBinaryReader;
 
 import java.util.Locale;
 
