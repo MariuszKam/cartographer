@@ -121,13 +121,18 @@ src/main/java/cartographer/
 ├── navigation/
 │   └── HomeStore
 │
-└── perf/
-    ├── RenderDataCacheStore
+├── cache/
+│   ├── RenderDataCacheStore
+│   ├── TerrainTileStore
+│   └── SurfaceTileStore
+│
+├── index/
+│   └── ResourceIndexStore
+│
+└── snapshot/
     ├── WorldDataSnapshot
-    ├── TerrainTileStore
-    ├── SurfaceTileStore
     ├── UpperRockTileStore
-    └── ResourceIndexStore
+    └── MapRegionSnapshotStore
 ```
 
 This is a living architecture. Do not create unused abstractions only because they appear in the roadmap.
@@ -473,15 +478,15 @@ world reports
 
 ## 3.0 Performance Engine
 
-The current performance architecture is implemented across bounded streaming
-decode, compact ROCK/Surface processing, fused prospecting, operation-scoped
-read-only save access, persistent render-data caching, and reviewer-controlled
-macro/resource/JFR evidence. See
+The current runtime performance architecture is implemented across bounded
+streaming decode, compact ROCK/Surface processing, fused prospecting,
+operation-scoped read-only save access, persistent derived caching, resource
+indexes and revision-scoped prepared-world snapshots. See
 [`docs/PERFORMANCE_ARCHITECTURE.md`](docs/PERFORMANCE_ARCHITECTURE.md).
 
-Legacy common-pool decode scanning was removed during the implementation of
-the bounded streaming engine. Runtime validation of the current architecture
-remains reviewer-controlled and pending.
+Runtime cache/index/snapshot code is product infrastructure and must not be
+placed under a generic performance-tooling package. Opt-in benchmarks belong
+outside normal runtime source, currently under `src/jmh`.
 
 ---
 
