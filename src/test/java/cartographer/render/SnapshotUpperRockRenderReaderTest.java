@@ -9,8 +9,6 @@ import cartographer.model.WorldPosition;
 import cartographer.cache.RenderDataCacheStore;
 import cartographer.snapshot.UpperRockTile;
 import cartographer.snapshot.WorldDataSnapshot;
-import cartographer.render.RockMapRenderer;
-import cartographer.render.RockPalette;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
