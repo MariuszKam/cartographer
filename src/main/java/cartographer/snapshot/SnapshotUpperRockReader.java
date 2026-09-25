@@ -12,10 +12,10 @@ import cartographer.model.BlockInfo;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
-import cartographer.perf.RenderDataCacheStore;
-import cartographer.perf.UpperRockTile;
-import cartographer.perf.UpperRockTileLookup;
-import cartographer.perf.WorldDataSnapshot;
+import cartographer.cache.RenderDataCacheStore;
+import cartographer.snapshot.UpperRockTile;
+import cartographer.snapshot.UpperRockTileLookup;
+import cartographer.snapshot.WorldDataSnapshot;
 
 import java.nio.file.Path;
 import java.util.List;

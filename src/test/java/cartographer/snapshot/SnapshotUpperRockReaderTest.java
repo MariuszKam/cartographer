@@ -5,9 +5,9 @@ import cartographer.model.BlockInfo;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
-import cartographer.perf.RenderDataCacheStore;
-import cartographer.perf.UpperRockTile;
-import cartographer.perf.WorldDataSnapshot;
+import cartographer.cache.RenderDataCacheStore;
+import cartographer.snapshot.UpperRockTile;
+import cartographer.snapshot.WorldDataSnapshot;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

@@ -1,7 +1,7 @@
 package cartographer.ui.workstation;
 
 import cartographer.application.WorldSnapshotStatus;
-import cartographer.perf.WorldSnapshotPreparationSummary;
+import cartographer.snapshot.WorldSnapshotPreparationSummary;
 import javafx.css.PseudoClass;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;

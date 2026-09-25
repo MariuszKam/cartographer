@@ -8,7 +8,7 @@ import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.model.BlockInfo;
 import cartographer.navigation.HomeStore;
-import cartographer.perf.RenderDataCacheStore;
+import cartographer.cache.RenderDataCacheStore;
 import cartographer.render.MapRenderer;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderOptions;

@@ -3,9 +3,9 @@ package cartographer.snapshot;
 import cartographer.environment.EnvironmentProfile;
 import cartographer.geology.GeologicProvinceSummary;
 import cartographer.model.ServerMapRegion;
-import cartographer.perf.MapRegionSnapshotRead;
-import cartographer.perf.RenderDataCacheStore;
-import cartographer.perf.WorldDataSnapshot;
+import cartographer.snapshot.MapRegionSnapshotRead;
+import cartographer.cache.RenderDataCacheStore;
+import cartographer.snapshot.WorldDataSnapshot;
 
 import java.nio.file.Path;
 import java.util.List;

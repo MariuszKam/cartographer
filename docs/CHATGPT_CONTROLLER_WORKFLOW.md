@@ -44,10 +44,9 @@ Before planning substantial work, ChatGPT should:
 7. inspect recent history and existing changes before deciding scope.
 
 Discover relevant documentation; do not assume today's documentation list is
-complete. Durable examples include `docs/PERFORMANCE_ARCHITECTURE.md`,
-`docs/TESTING_ARCHITECTURE.md`, and `docs/WINDOWS_RELEASE.md`. Read only the
-documents relevant to the current task rather than relying on historical
-milestone handoffs.
+complete. Durable examples include `docs/TESTING_ARCHITECTURE.md` and
+`docs/WINDOWS_RELEASE.md`. Read only the documents relevant to the current
+task rather than relying on historical milestone handoffs.
 
 Never infer local repository state from remote GitHub state. A repository
 connector may show remote refs and commits, but that does not prove which
@@ -331,9 +330,10 @@ comparison must be treated as immutable for the duration of that comparison.
 If the save, workload input, or other comparison input changes, the old and
 new fingerprints are not directly comparable and timing deltas are not valid
 apples-to-apples evidence. Mark the comparison `INCONCLUSIVE` and establish a
-new baseline on the same immutable input if validation must continue. The
-measurement contract in `docs/PERFORMANCE_ARCHITECTURE.md` remains authoritative
-for the complete methodology.
+new baseline on the same immutable input if validation must continue.
+Any additional benchmark methodology, metrics, thresholds, warm-up rules, or
+environment constraints must be defined explicitly by the task being validated
+rather than inherited from a historical performance campaign.
 
 ## Validation ownership
 

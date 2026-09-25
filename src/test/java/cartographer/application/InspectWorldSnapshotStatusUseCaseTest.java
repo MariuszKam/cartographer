@@ -1,8 +1,8 @@
 package cartographer.application;
 
-import cartographer.perf.RenderDataCacheStore;
-import cartographer.perf.WorldDataSnapshot;
-import cartographer.perf.WorldSnapshotPreparationSummary;
+import cartographer.cache.RenderDataCacheStore;
+import cartographer.snapshot.WorldDataSnapshot;
+import cartographer.snapshot.WorldSnapshotPreparationSummary;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

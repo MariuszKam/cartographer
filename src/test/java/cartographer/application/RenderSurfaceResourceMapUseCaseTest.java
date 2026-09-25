@@ -10,8 +10,7 @@ import cartographer.model.ParsedChunk;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
-import cartographer.perf.RenderDataCacheStore;
-import cartographer.perf.fingerprint.ImageFingerprinter;
+import cartographer.cache.RenderDataCacheStore;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.MapChunkParser;
 import cartographer.parser.PlayerDataParser;
@@ -51,6 +50,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static cartographer.testing.ImageAssertions.assertImageEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -145,10 +145,7 @@ class RenderSurfaceResourceMapUseCaseTest {
         assertEquals(0, retained.chunkDiagnostics().parsed());
         assertEquals(0, retained.chunkDiagnostics().skipped());
         assertEquals(0, retained.chunkDiagnostics().failed());
-        assertEquals(
-                ImageFingerprinter.fingerprint(first.image()),
-                ImageFingerprinter.fingerprint(retained.image())
-        );
+        assertImageEquals(first.image(), retained.image());
         assertTrue(retained.renderDataCacheReport().notes().stream()
                 .anyMatch(note -> note.contains("retained PreparedMapData reused")));
     }

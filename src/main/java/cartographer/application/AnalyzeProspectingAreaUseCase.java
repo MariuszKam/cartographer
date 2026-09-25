@@ -14,7 +14,7 @@ import cartographer.prospecting.ProspectingEvaluator;
 import cartographer.prospecting.ProspectingAssessment;
 import cartographer.resource.ResourceAnalyzer;
 import cartographer.resource.ResourceOverlayCell;
-import cartographer.perf.RenderDataCacheStore;
+import cartographer.cache.RenderDataCacheStore;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;

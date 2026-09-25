@@ -1,9 +1,9 @@
 package cartographer.application;
 
-import cartographer.perf.RenderDataCacheRevision;
-import cartographer.perf.RenderDataCacheStore;
-import cartographer.perf.WorldDataSnapshot;
-import cartographer.perf.WorldSnapshotPreparationSummary;
+import cartographer.cache.RenderDataCacheRevision;
+import cartographer.cache.RenderDataCacheStore;
+import cartographer.snapshot.WorldDataSnapshot;
+import cartographer.snapshot.WorldSnapshotPreparationSummary;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

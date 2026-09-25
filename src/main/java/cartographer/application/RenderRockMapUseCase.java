@@ -7,7 +7,7 @@ import cartographer.geology.rock.RockStreamingSession;
 import cartographer.model.ChunkPosition;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
-import cartographer.perf.RenderDataCacheStore;
+import cartographer.cache.RenderDataCacheStore;
 import cartographer.render.RockMapRenderResult;
 import cartographer.render.RockMapRenderer;
 import cartographer.snapshot.SnapshotUpperRockReader;
