@@ -1,4 +1,4 @@
-package cartographer.snapshot;
+package cartographer.resource;
 
 import cartographer.spatial.OreChunkPositionPlanner;
 import cartographer.model.BlockInfo;

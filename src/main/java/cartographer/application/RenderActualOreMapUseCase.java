@@ -32,7 +32,7 @@ import cartographer.save.SaveSessionFactory;
 import cartographer.save.VcdbsReader;
 import cartographer.cache.RenderDataCacheStore;
 import cartographer.snapshot.SnapshotMapRegionReader;
-import cartographer.snapshot.SnapshotResourceReader;
+import cartographer.resource.SnapshotResourceReader;
 import cartographer.scanner.ActualBlockMap;
 import cartographer.scanner.ActualBlockMatchSpec;
 import cartographer.scanner.MultiActualBlockMapScanner;

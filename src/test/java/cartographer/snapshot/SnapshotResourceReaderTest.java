@@ -1,5 +1,6 @@
 package cartographer.snapshot;
 
+import cartographer.resource.SnapshotResourceReader;
 import cartographer.spatial.OreChunkPositionPlanner;
 import cartographer.model.BlockInfo;
 import cartographer.model.WorldMetadata;

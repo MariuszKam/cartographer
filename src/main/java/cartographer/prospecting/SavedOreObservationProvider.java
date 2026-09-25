@@ -5,7 +5,7 @@ import cartographer.cache.RenderDataCacheStore;
 import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
 import cartographer.save.SqliteSaveConnection;
-import cartographer.snapshot.SnapshotResourceReader;
+import cartographer.resource.SnapshotResourceReader;
 import cartographer.snapshot.SnapshotUpperRockReader;
 import cartographer.snapshot.SnapshotWorldHeaderReader;
 import cartographer.save.VcdbsReader;
