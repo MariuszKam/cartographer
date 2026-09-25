@@ -55,7 +55,9 @@ The production source:
 
 - uses HTTPS;
 - starts from the project-owned GitHub latest-release endpoint;
-- follows normal HTTPS redirects;
+- follows normal HTTPS redirects only while the final response remains on
+  trusted GitHub-owned HTTPS hosts (`github.com` or
+  `*.githubusercontent.com`);
 - uses bounded connect/request timeouts;
 - treats non-200 responses as failed checks.
 

@@ -204,19 +204,19 @@ class HttpUpdateInstallerSourceTest {
 
     @Test
     void acceptsGithubAndGithubusercontentHttpsTargets() {
-        assertTrue(HttpUpdateInstallerSource.isTrustedDownloadUri(
+        assertTrue(TrustedUpdateUriPolicy.isTrustedGithubHttpsUri(
                 URI.create(
                         "https://github.com/MariuszKam/cartographer/"
                                 + "releases/download/v1.1.0/file.exe"
                 )
         ));
-        assertTrue(HttpUpdateInstallerSource.isTrustedDownloadUri(
+        assertTrue(TrustedUpdateUriPolicy.isTrustedGithubHttpsUri(
                 URI.create(
                         "https://release-assets.githubusercontent.com/"
                                 + "github-production-release-asset/file"
                 )
         ));
-        assertTrue(HttpUpdateInstallerSource.isTrustedDownloadUri(
+        assertTrue(TrustedUpdateUriPolicy.isTrustedGithubHttpsUri(
                 URI.create(
                         "https://objects.githubusercontent.com/"
                                 + "github-production-release-asset/file"
@@ -226,17 +226,25 @@ class HttpUpdateInstallerSourceTest {
 
     @Test
     void rejectsNonHttpsAndNonGithubTargets() {
-        assertFalse(HttpUpdateInstallerSource.isTrustedDownloadUri(
+        assertFalse(TrustedUpdateUriPolicy.isTrustedGithubHttpsUri(
                 URI.create(
                         "http://github.com/MariuszKam/cartographer/"
                                 + "releases/download/v1.1.0/file.exe"
                 )
         ));
-        assertFalse(HttpUpdateInstallerSource.isTrustedDownloadUri(
+        assertFalse(TrustedUpdateUriPolicy.isTrustedGithubHttpsUri(
                 URI.create("https://example.com/file.exe")
         ));
-        assertFalse(HttpUpdateInstallerSource.isTrustedDownloadUri(
+        assertFalse(TrustedUpdateUriPolicy.isTrustedGithubHttpsUri(
                 URI.create("https://evilgithubusercontent.com/file.exe")
+        ));
+        assertFalse(TrustedUpdateUriPolicy.isTrustedGithubHttpsUri(
+                URI.create(
+                        "https://githubusercontent.com.evil.example/file.exe"
+                )
+        ));
+        assertFalse(TrustedUpdateUriPolicy.isTrustedGithubHttpsUri(
+                URI.create("https://githubusercontent.com/file.exe")
         ));
     }
 

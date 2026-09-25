@@ -9,7 +9,13 @@ import java.time.Duration;
 import java.util.Objects;
 
 public final class HttpUpdateManifestSource implements UpdateManifestSource {
-    private final HttpClient client;
+    @FunctionalInterface
+    interface Sender {
+        HttpResponse<String> send(HttpRequest request)
+                throws IOException, InterruptedException;
+    }
+
+    private final Sender sender;
     private final HttpRequest request;
 
     public HttpUpdateManifestSource(
@@ -17,8 +23,20 @@ public final class HttpUpdateManifestSource implements UpdateManifestSource {
             Duration connectTimeout,
             Duration requestTimeout
     ) {
+        this(
+                manifestUri,
+                createSender(connectTimeout),
+                requestTimeout
+        );
+    }
+
+    HttpUpdateManifestSource(
+            URI manifestUri,
+            Sender sender,
+            Duration requestTimeout
+    ) {
         Objects.requireNonNull(manifestUri, "manifestUri is required");
-        Objects.requireNonNull(connectTimeout, "connectTimeout is required");
+        this.sender = Objects.requireNonNull(sender, "sender is required");
         Objects.requireNonNull(requestTimeout, "requestTimeout is required");
 
         if (!"https".equalsIgnoreCase(manifestUri.getScheme())
@@ -28,10 +46,6 @@ public final class HttpUpdateManifestSource implements UpdateManifestSource {
             );
         }
 
-        client = HttpClient.newBuilder()
-                .connectTimeout(connectTimeout)
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .build();
         request = HttpRequest.newBuilder(manifestUri)
                 .timeout(requestTimeout)
                 .header("Accept", "text/plain")
@@ -40,18 +54,31 @@ public final class HttpUpdateManifestSource implements UpdateManifestSource {
                 .build();
     }
 
-    @Override
-    public String load() throws IOException, InterruptedException {
-        HttpResponse<String> response = client.send(
+    private static Sender createSender(Duration connectTimeout) {
+        Objects.requireNonNull(connectTimeout, "connectTimeout is required");
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(connectTimeout)
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .build();
+        return request -> client.send(
                 request,
                 HttpResponse.BodyHandlers.ofString()
         );
+    }
+
+    @Override
+    public String load() throws IOException, InterruptedException {
+        HttpResponse<String> response = sender.send(request);
         if (response.statusCode() != 200) {
             throw new IOException(
                     "Update manifest request returned HTTP "
                             + response.statusCode()
             );
         }
+        TrustedUpdateUriPolicy.requireTrustedGithubHttpsUri(
+                response.uri(),
+                "Update manifest redirect left trusted GitHub HTTPS hosts"
+        );
         return response.body();
     }
 }
