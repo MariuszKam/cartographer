@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-/** Revision-scoped cache-local store for PF-2.4 UPPER_ROCK tiles. */
+/** Revision-scoped cache-local store for UPPER_ROCK snapshot tiles. */
 public final class UpperRockTileStore {
     private static final String DATABASE_FILE = "upper-rock-cache.sqlite";
     private static final int SELECT_BATCH_SIZE = 400;

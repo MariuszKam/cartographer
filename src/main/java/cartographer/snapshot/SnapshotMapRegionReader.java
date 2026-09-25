@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Healthy-complete PF-2.4 mapregion snapshot consumer. */
+/** Healthy-complete mapregion snapshot consumer. */
 public final class SnapshotMapRegionReader {
     private final RenderDataCacheStore cacheStore;
 

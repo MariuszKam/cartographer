@@ -2,7 +2,7 @@ package cartographer.application;
 
 import java.util.List;
 
-/** Immutable per-render report for optional PF-1.7 render-data caching. */
+/** Immutable per-render report for optional render-data caching. */
 public record RenderDataCacheReport(
         boolean enabled,
         ArtifactStats terrain,

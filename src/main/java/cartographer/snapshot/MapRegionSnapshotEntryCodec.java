@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-/** Deterministic compact binary codec for interpreted PF-2.4 mapregion state. */
+/** Deterministic compact binary codec for interpreted mapregion snapshot state. */
 final class MapRegionSnapshotEntryCodec {
     private static final int MAGIC = 0x4D523234; // MR24
     private static final int VERSION = 2;

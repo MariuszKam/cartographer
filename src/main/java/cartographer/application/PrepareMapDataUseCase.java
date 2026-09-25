@@ -711,7 +711,7 @@ public final class PrepareMapDataUseCase {
 
     private CacheContext prepareCache(Path savePath) {
         if (renderDataCacheStore.isEmpty()) {
-            return CacheContext.disabled("PF-1.7 render-data cache disabled");
+            return CacheContext.disabled("render-data cache disabled");
         }
         try {
             RenderDataCacheStore store = renderDataCacheStore.orElseThrow();

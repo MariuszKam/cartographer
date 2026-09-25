@@ -24,10 +24,10 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Reads a complete request-shaped UPPER_ROCK map from PF-2.4 snapshot tiles.
+ * Reads a complete request-shaped UPPER_ROCK map from revision-scoped snapshot tiles.
  *
  * <p>Any missing, corrupt, incompatible or semantically unsupported state is
- * a cache miss for PF-2.6 and must be handled by the caller's authoritative
+ * a cache miss for snapshot-backed warm reads and must be handled by the caller's authoritative
  * source path.</p>
  */
 public final class SnapshotUpperRockReader {

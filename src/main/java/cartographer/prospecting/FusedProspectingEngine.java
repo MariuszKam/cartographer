@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-/** One bounded PF-1.2 traversal feeding the PF-1.3 rock session and ore accumulator. */
+/** One bounded source traversal feeding the rock session and ore accumulator. */
 public final class FusedProspectingEngine {
     private final VcdbsReader reader;
     private final OreChunkPositionPlanner planner = new OreChunkPositionPlanner();

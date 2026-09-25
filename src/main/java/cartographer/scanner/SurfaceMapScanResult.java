@@ -10,7 +10,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 
-/** Compact production Surface result and diagnostics for PF-1.4 E. */
+/** Compact production Surface result and diagnostics for Surface scanning. */
 public record SurfaceMapScanResult(
         SurfaceMap map,
         Map<Integer, BlockInfo> registry,

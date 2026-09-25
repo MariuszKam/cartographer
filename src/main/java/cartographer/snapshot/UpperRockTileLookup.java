@@ -2,7 +2,7 @@ package cartographer.snapshot;
 
 import java.util.Objects;
 
-/** Result of reading one optional PF-2.4 UPPER_ROCK tile. */
+/** Result of reading one optional UPPER_ROCK snapshot tile. */
 public record UpperRockTileLookup(Status status, UpperRockTile tile) {
     public enum Status {
         HIT,

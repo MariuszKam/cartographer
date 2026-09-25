@@ -10,7 +10,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Small immutable revision-scoped header used by PF-2.6 warm operations.
+ * Small immutable revision-scoped header used by snapshot-backed warm operations.
  *
  * <p>This is derived data only. The Vintage Story save remains authoritative;
  * a missing or incompatible header is a cache miss and must fall back to the

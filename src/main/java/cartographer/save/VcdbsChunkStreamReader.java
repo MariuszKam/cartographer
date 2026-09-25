@@ -366,7 +366,7 @@ final class VcdbsChunkStreamReader {
     /**
      * Streams every observed main-world mapchunk from the authoritative save.
      *
-     * <p>This is the PF-2.3 discovery path. It uses the session-owned read-only
+     * <p>This is the snapshot terrain discovery path. It uses the session-owned read-only
      * connection and never retains source payloads after the consumer
      * callback returns.</p>
      */

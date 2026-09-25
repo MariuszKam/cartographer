@@ -94,7 +94,7 @@ class PrepareWorldSnapshotUseCaseTest {
         assertTrue(first.complete());
         assertTrue(
                 progress.monotonic(),
-                "PF-2.7 Workstation progress must never move backwards"
+                "world snapshot preparation progress must never move backwards"
         );
         assertEquals(1.0, progress.lastFraction());
         assertTrue(
@@ -190,7 +190,7 @@ class PrepareWorldSnapshotUseCaseTest {
         assertEquals(
                 1,
                 reader.resourceReads.get(),
-                "complete PF-2.5 resource coverage must avoid another source traversal"
+                "complete resource-index coverage must avoid another source traversal"
         );
         assertEquals(4, second.resourceChunkHits());
         assertEquals(0, second.resourceChunksPublished());
@@ -488,7 +488,7 @@ class PrepareWorldSnapshotUseCaseTest {
                 ProgressReporter progress
         ) {
             // Mimic the real reader's nested lifecycle: finishing one nested
-            // stage and starting another must never move PF-2.7 progress
+            // stage and starting another must never move snapshot preparation progress
             // backwards within the Header phase.
             progress.start("Reading PLAYER records");
             progress.progress("Reading PLAYER records", 1, 2);

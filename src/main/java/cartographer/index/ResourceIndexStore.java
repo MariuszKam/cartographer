@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Revision-scoped PF-2.5 resource occurrence index.
+ * Revision-scoped resource occurrence index.
  *
  * <p>The database is derived data below the external cache namespace. One
  * coverage row is stored for every indexed source chunk position, including
@@ -144,7 +144,7 @@ public final class ResourceIndexStore {
             }
         } catch (SQLException | java.io.IOException exception) {
             throw new IllegalStateException(
-                    "Cannot publish PF-2.5 resource block catalog: "
+                    "Cannot publish resource block catalog: "
                             + exception.getMessage(),
                     exception
             );
@@ -263,7 +263,7 @@ public final class ResourceIndexStore {
             }
         } catch (SQLException exception) {
             throw new IllegalStateException(
-                    "Cannot query PF-2.5 resource occurrences: "
+                    "Cannot query resource occurrences: "
                             + exception.getMessage(),
                     exception
             );
@@ -385,7 +385,7 @@ public final class ResourceIndexStore {
             }
         } catch (SQLException | java.io.IOException exception) {
             throw new IllegalStateException(
-                    "Cannot publish PF-2.5 resource index: "
+                    "Cannot publish resource index: "
                             + exception.getMessage(),
                     exception
             );
@@ -496,7 +496,7 @@ public final class ResourceIndexStore {
                         );
                     } catch (RuntimeException exception) {
                         throw new SQLException(
-                                "corrupt PF-2.5 resource occurrence row",
+                                "corrupt resource occurrence row",
                                 exception
                         );
                     }
@@ -525,7 +525,7 @@ public final class ResourceIndexStore {
             }
         } catch (SQLException | java.io.IOException exception) {
             throw new IllegalStateException(
-                    "Cannot update PF-2.5 resource-index metadata: "
+                    "Cannot update resource-index metadata: "
                             + exception.getMessage(),
                     exception
             );

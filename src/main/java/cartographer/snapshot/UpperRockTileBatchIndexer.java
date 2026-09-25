@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Bounded PF-2.4 builder for full-height UPPER_ROCK mapchunk tiles.
+ * Bounded snapshot builder for full-height UPPER_ROCK mapchunk tiles.
  *
  * <p>Availability semantics intentionally mirror {@code RockStreamingSession}:
  * decoded and palette-rejected chunks are available; missing/failed chunks are
@@ -131,7 +131,7 @@ public final class UpperRockTileBatchIndexer {
         ChunkPosition position = visit.position();
         if (position.dimension() != 0) {
             throw new IllegalArgumentException(
-                    "PF-2.4 ROCK indexing only supports main-world chunks"
+                    "UPPER_ROCK indexing only supports main-world chunks"
             );
         }
         TileState state = states.get(

@@ -20,7 +20,7 @@ import java.util.Objects;
  * Persistent cache-local SQLite store for compact terrain tiles.
  *
  * <p>This store is deliberately separate from the read-only game save. It
- * opens a cache database only below the injected PF-1.7 revision directory and
+ * opens a cache database only below the injected render-data cache revision directory and
  * never accepts the source save path as a database target.</p>
  */
 public final class TerrainTileStore {

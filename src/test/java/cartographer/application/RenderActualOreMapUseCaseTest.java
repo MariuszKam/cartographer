@@ -1729,11 +1729,11 @@ class RenderActualOreMapUseCaseTest {
         for (Path artifact : artifacts) {
             Path normalized = artifact.toAbsolutePath().normalize();
             assertTrue(Files.isRegularFile(normalized),
-                    "expected PF-1.7 artifact is missing: " + normalized);
+                    "expected render-data cache artifact is missing: " + normalized);
             assertTrue(normalized.startsWith(root),
-                    "PF-1.7 artifact escaped cache root: " + normalized);
+                    "render-data cache artifact escaped cache root: " + normalized);
             assertFalse(normalized.startsWith(sourceDirectory),
-                    "PF-1.7 artifact was placed beside the source save: " + normalized);
+                    "render-data cache artifact was placed beside the source save: " + normalized);
         }
         for (String name : List.of("manifest.properties", "terrain-cache.sqlite",
                 "surface-cache.sqlite")) {

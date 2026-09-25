@@ -9,7 +9,7 @@ import java.util.Objects;
 import java.util.TreeMap;
 
 /**
- * Registry-derived catalog of real ore block IDs eligible for PF-2.5 indexing.
+ * Registry-derived catalog of real ore block IDs eligible for resource indexing.
  *
  * <p>OreMaps are intentionally not consulted here. They may describe
  * prospecting probability/resources, but they are not evidence that an actual

@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * One terminal PF-2.5 resource-index result for a requested source chunk.
+ * One terminal resource-index result for a requested source chunk.
  */
 public record ResourceChunkIndexEntry(
         ChunkPosition position,
