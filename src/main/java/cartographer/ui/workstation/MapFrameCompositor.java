@@ -21,9 +21,10 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Rebuilds the currently displayed map from retained compact state only.
+ * Rebuilds a bounded analysis raster from retained compact state only.
  *
- * <p>This compositor never opens the save, cache, HOME store or marker store.
+ * <p>Progressive MAP does not use this compositor. This compositor never opens
+ * the save, cache, HOME store or marker store.
  * All required state must already be retained in the MapFrame.</p>
  */
 public final class MapFrameCompositor {

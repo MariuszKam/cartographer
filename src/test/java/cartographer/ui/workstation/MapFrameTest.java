@@ -4,22 +4,15 @@ import cartographer.application.MapDecorationState;
 import cartographer.application.MapRegionOverlayState;
 import cartographer.application.PreparedMapData;
 import cartographer.application.PreparedSurfaceData;
-import cartographer.application.SurfaceDataRequirement;
-import cartographer.progress.ProgressReporter;
 import cartographer.application.RenderDataCacheReport;
-import cartographer.geology.rock.RockCatalog;
-import cartographer.geology.rock.RockColumnSample;
-import cartographer.geology.rock.RockIdentity;
-import cartographer.geology.rock.RockMap;
-import cartographer.geology.rock.RockMapAssembler;
-import cartographer.geology.rock.RockMapMode;
-import cartographer.model.BlockInfo;
+import cartographer.application.SurfaceDataRequirement;
 import cartographer.model.HomeState;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
+import cartographer.progress.ProgressReporter;
 import cartographer.render.MapTerrainPreparation;
-import cartographer.render.RenderLayer;
 import cartographer.render.MapViewportGeometry;
+import cartographer.render.RenderLayer;
 import cartographer.render.RenderOptions;
 import cartographer.render.RenderStyle;
 import cartographer.save.ReadDiagnostics;
@@ -36,24 +29,27 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MapFrameTest {
 
     @Test
-    void retainedMapFrameKeepsCompactStateWithoutRasterOrSourceResources() {
-        PreparedMapData prepared = prepared();
-        MapViewportGeometry geometry = MapViewportGeometry.fullImage(
-                64, 64, 0, 0, 64, 64
-        );
-
-        MapFrame frame = MapFrame.map(
+    void retainedBoundedAnalysisFrameKeepsCompactStateWithoutRasterOrSourceResources() {
+        PreparedMapData prepared = prepared(Set.of(RenderLayer.TERRAIN));
+        MapFrame frame = MapFrame.ore(
                 Path.of("world.vcdbs"),
-                geometry,
-                prepared
+                geometry(),
+                prepared,
+                List.of(),
+                decorations(true),
+                emptyRegionState()
         );
 
-        assertEquals(WorkstationTool.MAP, frame.tool());
+        assertEquals(WorkstationTool.ORE, frame.tool());
         assertSame(prepared, frame.preparedMapData().orElseThrow());
         assertTrue(frame.actualOreOverlays().isEmpty());
         assertTrue(frame.surfaceAnalysis().isEmpty());
@@ -67,26 +63,40 @@ class MapFrameTest {
         );
         for (var component : MapFrame.class.getRecordComponents()) {
             assertFalse(
-                    forbidden.stream().anyMatch(type ->
-                            type.isAssignableFrom(component.getType())),
-                    "MapFrame must not directly retain " + component.getType().getName()
+                    forbidden.stream().anyMatch(
+                            type -> type.isAssignableFrom(component.getType())
+                    ),
+                    "MapFrame must not directly retain "
+                            + component.getType().getName()
             );
         }
     }
 
     @Test
-    void localRecompositionRequiresRetainedDataForEnabledLayers() {
-        MapDecorationState decorations =
-                new MapDecorationState(HomeState.absent(), List.of(), true);
-        MapViewportGeometry geometry = MapViewportGeometry.fullImage(
-                64, 64, 16, 16, 48, 48
+    void progressiveMapCannotBeRepresentedByBoundedMapFrame() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new MapFrame(
+                        Path.of("world.vcdbs"),
+                        WorkstationTool.MAP,
+                        geometry(),
+                        Optional.of(prepared(Set.of(RenderLayer.TERRAIN))),
+                        List.of(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(decorations(true)),
+                        Optional.of(emptyRegionState())
+                )
         );
+    }
 
-        MapFrame rich = MapFrame.map(
-                Path.of("rich.vcdbs"),
-                geometry,
-                prepared(Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE)),
-                decorations
+    @Test
+    void localRecompositionRemainsAvailableForBoundedAnalysisFrames() {
+        MapFrame rich = oreFrame(
+                "rich.vcdbs",
+                Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
+                decorations(true),
+                emptyRegionState()
         );
         assertTrue(rich.supportsLocalRecomposition(Set.of(
                 RenderLayer.TERRAIN,
@@ -100,15 +110,15 @@ class MapFrameTest {
                 RenderLayer.MARKERS
         )));
 
-        MapFrame soilPrepared = MapFrame.map(
-                Path.of("soil.vcdbs"),
-                geometry,
-                prepared(Set.of(
+        MapFrame soilPrepared = oreFrame(
+                "soil.vcdbs",
+                Set.of(
                         RenderLayer.TERRAIN,
                         RenderLayer.SURFACE,
                         RenderLayer.SOIL_FERTILITY
-                )),
-                decorations
+                ),
+                decorations(true),
+                emptyRegionState()
         );
         assertTrue(soilPrepared.supportsLocalRecomposition(Set.of(
                 RenderLayer.TERRAIN,
@@ -116,35 +126,20 @@ class MapFrameTest {
                 RenderLayer.SOIL_FERTILITY
         )));
 
-        MapFrame sparse = MapFrame.map(
-                Path.of("sparse.vcdbs"),
-                geometry,
-                prepared(Set.of(RenderLayer.MARKERS)),
-                decorations
+        MapFrame unavailableMarkers = oreFrame(
+                "markers-unavailable.vcdbs",
+                Set.of(RenderLayer.TERRAIN),
+                decorations(false),
+                emptyRegionState()
         );
-        assertTrue(sparse.supportsLocalRecomposition(Set.of(RenderLayer.MARKERS)));
-        assertFalse(sparse.supportsLocalRecomposition(Set.of(RenderLayer.TERRAIN)));
-        assertFalse(sparse.supportsLocalRecomposition(Set.of(RenderLayer.SURFACE)));
-        assertFalse(sparse.supportsLocalRecomposition(Set.of(RenderLayer.SOIL_FERTILITY)));
-
-        MapFrame unavailableMarkers = MapFrame.map(
-                Path.of("markers-unavailable.vcdbs"),
-                geometry,
-                prepared(Set.of(RenderLayer.TERRAIN)),
-                new MapDecorationState(HomeState.absent(), List.of(), false)
-        );
-        assertTrue(unavailableMarkers.supportsLocalRecomposition(
-                Set.of(RenderLayer.TERRAIN)
-        ));
         assertFalse(unavailableMarkers.supportsLocalRecomposition(
                 Set.of(RenderLayer.TERRAIN, RenderLayer.MARKERS)
         ));
 
-        MapFrame environmentPrepared = MapFrame.map(
-                Path.of("environment.vcdbs"),
-                geometry,
-                prepared(Set.of(RenderLayer.TERRAIN, RenderLayer.ENVIRONMENT)),
-                decorations,
+        MapFrame environmentPrepared = oreFrame(
+                "environment.vcdbs",
+                Set.of(RenderLayer.TERRAIN, RenderLayer.ENVIRONMENT),
+                decorations(true),
                 new MapRegionOverlayState(
                         Optional.of(List.of()),
                         Optional.empty()
@@ -159,15 +154,15 @@ class MapFrameTest {
     }
 
     @Test
-    void retainedPreparedMapReuseRequiresMatchingGeometryAndSurfaceAvailability() {
-        MapDecorationState decorations =
-                new MapDecorationState(HomeState.absent(), List.of(), true);
+    void retainedPreparedMapReuseStillRequiresMatchingBoundedAnalysisGeometry() {
         Path savePath = Path.of("reuse.vcdbs");
-        MapFrame frame = MapFrame.map(
+        MapFrame frame = MapFrame.ore(
                 savePath,
-                MapViewportGeometry.fullImage(64, 64, 16, 16, 48, 48),
+                geometry(),
                 prepared(Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE)),
-                decorations
+                List.of(),
+                decorations(true),
+                emptyRegionState()
         );
 
         assertTrue(frame.canReusePreparedMap(
@@ -186,83 +181,14 @@ class MapFrameTest {
                 Optional.empty(),
                 true
         ));
-
-        MapFrame withoutSurface = MapFrame.map(
-                savePath,
-                MapViewportGeometry.fullImage(64, 64, 16, 16, 48, 48),
-                prepared(Set.of(RenderLayer.TERRAIN)),
-                decorations
-        );
-        assertFalse(withoutSurface.canReusePreparedMap(
-                savePath,
-                16,
-                1,
-                RenderStyle.TOPOGRAPHIC,
-                Optional.empty(),
-                true
-        ));
     }
 
     @Test
-    void prospectingFrameRetainsOnlyCompactRockMapState() {
-        RockIdentity granite = new RockIdentity(
-                7,
-                "game:rock-granite",
-                "game",
-                "granite"
-        );
-        RockMapAssembler assembler = new RockMapAssembler(
-                new WorldPosition(32, 0, 32),
-                16,
-                0,
-                64,
-                RockMapMode.UPPER_ROCK,
-                RockCatalog.from(Map.of(
-                        granite.blockId(),
-                        new BlockInfo(
-                                granite.blockId(),
-                                granite.code()
-                        )
-                ))
-        );
-        assembler.accept(
-                RockColumnSample.observed(
-                        32,
-                        32,
-                        granite,
-                        5
-                )
-        );
-        RockMap rockMap = assembler.finish();
-        MapFrame frame = MapFrame.prospecting(
-                Path.of("prospecting.vcdbs"),
-                MapViewportGeometry.fullImage(
-                        33,
-                        33,
-                        16,
-                        16,
-                        49,
-                        49
-                ),
-                rockMap
-        );
-
-        assertEquals(WorkstationTool.PROSPECTING, frame.tool());
-        assertSame(rockMap, frame.rockMap().orElseThrow());
-        assertTrue(frame.preparedMapData().isEmpty());
-        assertTrue(frame.actualOreOverlays().isEmpty());
-        assertTrue(frame.surfaceAnalysis().isEmpty());
-        assertTrue(frame.decorationState().isEmpty());
-        assertTrue(frame.mapRegionOverlayState().isEmpty());
-    }
-
-    @Test
-    void stateReplacesAndInvalidatesCurrentFrame() {
+    void stateReplacesAndInvalidatesCurrentBoundedFrame() {
         MapFrameState state = new MapFrameState();
-        MapFrame first = MapFrame.map(
+        MapFrame first = MapFrame.coverage(
                 Path.of("first.vcdbs"),
-                MapViewportGeometry.fullImage(64, 64, 0, 0, 64, 64),
-                prepared()
+                MapViewportGeometry.fullImage(64, 64, 0, 0, 64, 64)
         );
         MapFrame second = MapFrame.coverage(
                 Path.of("second.vcdbs"),
@@ -278,8 +204,41 @@ class MapFrameTest {
         assertTrue(state.current().isEmpty());
     }
 
-    private PreparedMapData prepared() {
-        return prepared(Set.of());
+    private MapFrame oreFrame(
+            String save,
+            Set<RenderLayer> layers,
+            MapDecorationState decorations,
+            MapRegionOverlayState regionState
+    ) {
+        return MapFrame.ore(
+                Path.of(save),
+                geometry(),
+                prepared(layers),
+                List.of(),
+                decorations,
+                regionState
+        );
+    }
+
+    private MapViewportGeometry geometry() {
+        return MapViewportGeometry.fullImage(
+                64, 64, 16, 16, 48, 48
+        );
+    }
+
+    private MapDecorationState decorations(boolean available) {
+        return new MapDecorationState(
+                HomeState.absent(),
+                List.of(),
+                available
+        );
+    }
+
+    private MapRegionOverlayState emptyRegionState() {
+        return new MapRegionOverlayState(
+                Optional.empty(),
+                Optional.empty()
+        );
     }
 
     private PreparedMapData prepared(Set<RenderLayer> layers) {
@@ -321,7 +280,10 @@ class MapFrameTest {
                 center,
                 options,
                 MapTerrainPreparation.builder(
-                        center, options, 0, ProgressReporter.NONE
+                        center,
+                        options,
+                        0,
+                        ProgressReporter.NONE
                 ).finish(),
                 preparedSurface,
                 Map.of(),

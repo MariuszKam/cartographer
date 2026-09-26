@@ -12,14 +12,14 @@ It turns explored world data into an interactive workstation for mapping terrain
 
 | Tool            | Purpose                                                                                                |
 | --------------- | ------------------------------------------------------------------------------------------------------ |
-| **Map**         | Render explored terrain with optional surface, soil-fertility, environment, geology and marker layers. |
+| **Map**         | Stream explored terrain progressively from the player, with optional surface, soil-fertility and marker layers. |
 | **Coverage**    | Visualize observed mapregion coverage and holes inside the explored bounds.                            |
 | **Ores**        | Scan authoritative saved CHUNK data for one or multiple ore resources, with optional Y filtering.      |
 | **Surface**     | Analyze discovered surface objects or surface materials around the selected area.                      |
 | **Geology**     | Render the upper rock layer or inspect rock at a selected world Y level.                               |
 | **Prospecting** | Combine saved geology and ore evidence into resource assessments.                                      |
 
-The workstation also provides configurable radii, player centering, zoom/navigation, result inspection, technical diagnostics, HOME/user markers, and reusable derived world snapshots for faster repeated analysis.
+The progressive Map starts automatically after a save is opened and prioritizes the visible viewport as you pan or zoom. Bounded analysis tools retain configurable radii where analysis scope is meaningful. The workstation also provides player centering, zoom/navigation, result inspection, technical diagnostics, HOME/user markers, and reusable derived world snapshots for faster repeated analysis.
 
 ## Save safety
 
@@ -44,7 +44,7 @@ Official packaged releases are built for **Windows x64**.
 3. Run the installer and launch **VS Cartographer**.
 4. Close Vintage Story.
 5. Choose **Open save** and select a `.vcdbs` save.
-6. Pick a tool, radius and options, then render or analyze.
+6. Open **Map** to watch explored terrain stream progressively. For bounded analysis tools, choose the analysis radius/options and then render or analyze.
 
 A portable Windows ZIP is also published with each stable release.
 

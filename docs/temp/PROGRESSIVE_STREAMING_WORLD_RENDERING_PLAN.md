@@ -2,7 +2,7 @@
 
 ## Temporary core implementation plan
 
-Status: ACTIVE MIGRATION PLAN
+Status: IMPLEMENTATION COMPLETE — FULL JAVA 25 QUALITY GATE PENDING
 
 Branch: feature/progressive-streaming-world-rendering
 
@@ -900,7 +900,7 @@ Each phase should land as a coherent commit/PR-sized change with tests. Do not d
 
 ### Phase 0 — Baseline and measurement harness
 
-Status: IMPLEMENTED
+Status: IMPLEMENTED, THEN RETIRED AFTER CUTOVER
 
 Goals:
 
@@ -1183,79 +1183,86 @@ Tests cover deterministic LOD selection, supported blocks-per-pixel values, lowe
 
 ### Phase 12 — Legacy cleanup and final refactor
 
-Only after all consumers have migrated, remove obsolete bounded rendering infrastructure.
+Status: IMPLEMENTED
 
-See the explicit cleanup inventory below.
+The final cleanup deliberately distinguishes obsolete MAP migration code from bounded analysis infrastructure that still has real production consumers.
+
+Removed or retired in this phase:
+
+- the retained-frame MAP factory path (`MapFrame.map(...)`) and MAP-specific retained-frame invariant/recomposition logic;
+- MAP participation in `WorkstationMapFrameController` local whole-raster layer recomposition;
+- Phase-0 migration-only `LegacyMapRenderBaselineFixture`, `LegacyMapRenderBaselineTest`, and `LegacyMapRendererBenchmark`;
+- the dedicated `progressiveRenderingBaseline` Gradle task that existed only to compare the old MAP model during migration;
+- tests that modeled MAP as a retained bounded `MapFrame`; bounded recomposition tests now exercise the ORE/SURFACE analysis use cases that still own that architecture;
+- stale README wording that instructed every user to choose a radius and render the Map.
+
+Intentionally retained after re-grep/classification:
+
+- `RadiusPane` and `SearchPanel.selectedRadius()` because ORE, SURFACE, GEOLOGY and PROSPECTING still have meaningful bounded analysis scope;
+- `RenderOptions.radiusBlocks`, `MapRasterContract`, `RenderSamplingPlan`, `RenderedMap`, `MapRenderer` and `MapPanel` because they remain production infrastructure for bounded analysis tools;
+- `MapFrame` and `MapFrameCompositor` because ORE/SURFACE retain bounded prepared data for local recomposition, while GEOLOGY/PROSPECTING retain compact RockMap state;
+- full-detail convenience overloads on the new progressive types where they remain coherent APIs for tests and callers rather than migration-only adapters.
+
+The architectural line after cleanup is explicit:
+
+- **MAP** is save/revision-scoped, progressive, sparse, tile/LOD based and does not use the global radius/whole-map `MapFrame` contract;
+- **bounded analysis tools** may still use radius, one-shot raster output and retained compact analysis frames where those concepts are part of the tool itself.
+
+No source-save write path was introduced by the migration.
+
+Validation limitation:
+
+- selective source/test reasoning and targeted contract checks were performed throughout the phases;
+- the repository's full Gradle/Java 25 quality gate has not been executed in this environment because the available runtime/tooling cannot provision the required Java 25/Gradle dependency set;
+- therefore this document records implementation completion, not an unverified claim that the full repository quality gate passed.
 
 ---
 
-## 22. Legacy cleanup inventory
+## 22. Final cleanup classification
 
-This list is intentionally a migration inventory, not a promise that every class is deleted unchanged. A class may be retained if it still has a coherent post-migration responsibility. Every item must be re-grepped before deletion.
+The original cleanup inventory was intentionally broader than the final deletion set. The final reclassification is:
 
-### 22.1 Expected direct removals or major replacements
+### 22.1 Removed MAP-specific legacy
 
-Likely obsolete for the main map after migration:
+- global radius selection from MAP UX;
+- one-shot MAP Render action and bounded MAP request assembly;
+- bounded MAP result presentation/inspection;
+- `MapFrame.map(...)` and MAP retained-frame state;
+- MAP whole-frame local recomposition;
+- migration-only legacy MAP parity test fixture/test/benchmark and dedicated Gradle task;
+- user documentation describing MAP as a radius-bounded render.
 
-- RadiusPane as global map render scope;
-- SearchPanel.selectedRadius for MAP;
-- RenderOptions.radiusBlocks as the base-world extent contract;
-- MapRasterContract as the central main-map extent mechanism;
-- RenderSamplingPlan as one global square-map sampling plan;
-- RenderedMap as the only/main map presentation result;
-- MapPanel’s single ImageView whole-map implementation;
-- MapFrame as a one-bounded-frame owner for migrated world layers;
-- MapFrameCompositor whole-frame recomposition path;
-- MAP reuse checks based on exact radius/center whole-frame compatibility;
-- whole-map progress reporting as the primary user feedback.
+### 22.2 Retained bounded-analysis infrastructure
 
-### 22.2 Classes requiring decomposition, not blind deletion
+These names may look similar to the former MAP path but still have active non-MAP responsibility:
 
-Likely reusable logic exists inside:
+- `RadiusPane` — analysis scope selection;
+- `RenderOptions.radiusBlocks` — bounded analysis render options;
+- `MapRasterContract` / `RenderSamplingPlan` — bounded analysis raster sampling;
+- `RenderedMap` / `MapRenderer` — bounded ORE/SURFACE base raster production;
+- `MapPanel` — presentation surface for bounded analysis results;
+- `MapFrame` / `MapFrameCompositor` — retained bounded analysis state and local recomposition;
+- ROCK-specific radius/sampling infrastructure — geology/prospecting analysis;
+- geometric marker/circle radius values — ordinary geometry, unrelated to MAP extent.
 
-- LiveMapDataPreparer;
-- SnapshotPreparedMapDataReader;
-- MapTerrainPreparation;
-- MapRenderer;
-- overlay renderers;
-- RenderActualOreMapUseCase;
-- RenderSurfaceResourceMapUseCase;
-- RenderRockMapUseCase;
-- WorkstationController;
-- WorkstationMapFrameController;
-- WorkstationOperationCoordinator.
+These are not progressive-MAP technical debt merely because they contain the word “radius” or render a bounded raster.
 
-Extract useful mechanisms into tile/session-oriented responsibilities before removing old orchestration.
+### 22.3 Progressive MAP end-state
 
-### 22.3 Radius references that may remain
+The progressive MAP path is now centered on:
 
-Do not delete radius when it means:
+- `RenderTileCoordinate`, `RenderTileBounds`, `RenderTileLayout`;
+- strong per-mapchunk source outcomes and coordinate-only observed-world discovery;
+- `MapTileDataLoader` over existing revision-scoped Terrain/Surface stores;
+- `RenderLod` + `RenderTileKey`;
+- `MapTileRenderer` / `RenderedMapTile`;
+- `ProgressiveMapSession` with bounded prioritized scheduling;
+- `WorldMapViewport` with world-space camera, LOD-aware bounded raster cache and vector markers;
+- automatic player-first startup and viewport reprioritization.
 
-- geometric circle radius;
-- marker styling radius;
-- local bounded analysis scope that remains a real user/domain concept;
-- algorithmic neighborhood distance unrelated to whole-map extent.
+### 22.4 Remaining follow-up after merge
 
-At final cleanup, classify every remaining radius reference by semantic meaning.
-
-### 22.4 Cleanup completion grep
-
-Final cleanup must include a repository-wide sweep for at least:
-
-- radiusBlocks;
-- selectedRadius;
-- RadiusPane;
-- MapRasterContract;
-- RenderSamplingPlan;
-- RenderedMap;
-- MapFrame;
-- MapFrameCompositor;
-- whole-image replaceImage/show paths;
-- compatibility constructors or adapters created only for migration;
-- unused progress stages tied to whole-map rendering;
-- obsolete tests that only protect removed bounded behavior.
-
-Every remaining hit must have an explicit post-migration reason.
+This temporary core document should remain available through review/merge because it records migration decisions and retained-vs-removed reasoning. After the branch is validated and merged, durable architectural conclusions should be extracted into permanent focused documentation and this temporary migration record can then be removed deliberately.
 
 ---
 

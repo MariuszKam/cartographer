@@ -248,8 +248,7 @@ final class WorkstationMapFrameController {
         }
         MapFrame frame = current.orElseThrow();
         if (!frame.supportsLocalRecomposition(layers)) {
-            if (frame.tool() == WorkstationTool.MAP
-                    || frame.tool() == WorkstationTool.ORE
+            if (frame.tool() == WorkstationTool.ORE
                     || frame.tool() == WorkstationTool.SURFACE) {
                 workstation.setStatus(
                         "Selected layers need data not retained in this frame; press Render."
