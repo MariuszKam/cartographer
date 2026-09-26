@@ -73,12 +73,10 @@ class SqliteSaveConnectionTest {
     void missingSourceIsRejectedBeforeOpeningJdbc() {
         Path missing = temporaryDirectory.resolve("missing.vcdbs");
 
-        SaveException failure = assertThrows(SaveException.class, () -> {
-            try (Connection ignored =
-                         new SqliteSaveConnection().openReadOnly(missing)) {
-                // Opening a missing source is expected to fail.
-            }
-        });
+        SaveException failure = assertThrows(
+                SaveException.class,
+                () -> new SqliteSaveConnection().openReadOnly(missing).close()
+        );
 
         assertTrue(failure.getMessage().contains("does not exist"));
     }

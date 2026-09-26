@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -108,8 +109,8 @@ class BoundedStreamingDecodePipelineLifecycleTest extends BoundedStreamingDecode
             awaitLatch(finishStarted, "finishStarted");
             controller.interrupt();
             awaitLatch(controllerFinished, "controllerFinished");
-            assertTrue(failure.get() instanceof IllegalStateException);
-            assertTrue(failure.get().getCause() instanceof InterruptedException);
+            assertInstanceOf(IllegalStateException.class, failure.get());
+            assertInstanceOf(InterruptedException.class, failure.get().getCause());
             assertTrue(interrupted.get());
             awaitLatch(workerInterrupted, "workerInterrupted");
             awaitWorkerTermination(worker);
@@ -147,24 +148,15 @@ class BoundedStreamingDecodePipelineLifecycleTest extends BoundedStreamingDecode
 
     @Test
     void rejectsInvalidConfigurationAndNulls() {
-        assertThrows(IllegalArgumentException.class, () -> {
-            try (BoundedStreamingDecodePipeline<Object> ignored =
-                         new BoundedStreamingDecodePipeline<>(0, 2, value -> { })) {
-                // Constructor is expected to reject the configuration.
-            }
-        });
-        assertThrows(IllegalArgumentException.class, () -> {
-            try (BoundedStreamingDecodePipeline<Object> ignored =
-                         new BoundedStreamingDecodePipeline<>(2, 2, value -> { })) {
-                // Constructor is expected to reject the configuration.
-            }
-        });
-        assertThrows(NullPointerException.class, () -> {
-            try (BoundedStreamingDecodePipeline<Integer> ignored =
-                         new BoundedStreamingDecodePipeline<>(1, 2, null)) {
-                // Constructor is expected to reject the null consumer.
-            }
-        });
+        assertThrows(IllegalArgumentException.class, () ->
+                new BoundedStreamingDecodePipeline<>(0, 2, value -> { }).close()
+        );
+        assertThrows(IllegalArgumentException.class, () ->
+                new BoundedStreamingDecodePipeline<>(2, 2, value -> { }).close()
+        );
+        assertThrows(NullPointerException.class, () ->
+                new BoundedStreamingDecodePipeline<Integer>(1, 2, null).close()
+        );
         try (BoundedStreamingDecodePipeline<Integer> pipeline =
                      new BoundedStreamingDecodePipeline<>(1, 2, value -> { })) {
             assertThrows(NullPointerException.class, () -> pipeline.submit(null));

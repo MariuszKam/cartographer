@@ -9,6 +9,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -292,7 +294,7 @@ class BoundedStreamingDecodePipelineFailureTest extends BoundedStreamingDecodePi
             assertEquals(1, closeReturned.getCount());
             releaseWorker.countDown();
             awaitLatch(closeReturned, "closeReturned");
-            assertEquals(null, failure.get());
+            assertNull(failure.get());
             assertEquals(0, pipeline.inFlightCount());
             awaitWorkerTermination(worker);
         } finally {
@@ -353,7 +355,7 @@ class BoundedStreamingDecodePipelineFailureTest extends BoundedStreamingDecodePi
             awaitLatch(submitted, "submitted");
             awaitLatch(firstInterrupted, "firstInterrupted");
             awaitLatch(closeReturned, "closeReturned");
-            assertEquals(null, failure.get());
+            assertNull(failure.get());
             assertEquals(1, secondStarted.getCount());
             assertTrue(callbacks.isEmpty());
             assertEquals(0, pipeline.inFlightCount());
@@ -413,8 +415,8 @@ class BoundedStreamingDecodePipelineFailureTest extends BoundedStreamingDecodePi
             assertEquals(1, closeReturned.getCount());
             releaseWorker.countDown();
             awaitLatch(closeReturned, "closeReturned");
-            assertTrue(failure.get() instanceof IllegalStateException);
-            assertTrue(failure.get().getCause() instanceof InterruptedException);
+            assertInstanceOf(IllegalStateException.class, failure.get());
+            assertInstanceOf(InterruptedException.class, failure.get().getCause());
             assertTrue(interrupted.get());
             awaitWorkerTermination(worker);
         } finally {
@@ -479,10 +481,8 @@ class BoundedStreamingDecodePipelineFailureTest extends BoundedStreamingDecodePi
         IllegalStateException cause = new IllegalStateException("fatal decode");
         AtomicReference<Thread> worker = new AtomicReference<>();
         List<Integer> callbacks = new ArrayList<>();
-        BoundedStreamingDecodePipeline<Integer> pipeline =
-                new BoundedStreamingDecodePipeline<>(1, 2, callbacks::add);
-
-        try {
+        try (BoundedStreamingDecodePipeline<Integer> pipeline =
+                     new BoundedStreamingDecodePipeline<>(1, 2, callbacks::add)) {
             pipeline.submit(() -> {
                 worker.set(Thread.currentThread());
                 throw cause;
@@ -498,8 +498,6 @@ class BoundedStreamingDecodePipelineFailureTest extends BoundedStreamingDecodePi
             assertTrue(callbacks.isEmpty());
             awaitWorkerTermination(worker);
             assertEquals(0, pipeline.inFlightCount());
-        } finally {
-            pipeline.close();
         }
     }
 
