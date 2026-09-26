@@ -27,12 +27,14 @@ public final class SaveSessionFactory {
 
     public SaveSession open(Path savePath) {
         Path normalized = SavePathIdentity.normalize(savePath);
+        SaveSourceStamp sourceStamp = SaveSourceStamp.capture(normalized);
         Connection connection = connectionFactory.openReadOnly(normalized);
         try {
             WorldMetadata metadata = metadataReader.read(connection, cartographer.progress.ProgressReporter.NONE);
             Map<Integer, BlockInfo> registry = reader.readBlockRegistry(connection);
             SaveSnapshot snapshot = new SaveSnapshot(metadata, registry);
-            return new SaveSession(normalized, connection, snapshot);
+            sourceStamp.requireUnchanged(normalized);
+            return new SaveSession(normalized, connection, snapshot, sourceStamp);
         } catch (RuntimeException exception) {
             closeAfterFailedOpen(connection, exception);
             throw exception;
