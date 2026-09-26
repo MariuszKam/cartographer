@@ -1,17 +1,13 @@
 package cartographer.scanner;
 
 import cartographer.model.BlockInfo;
-import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
 import cartographer.model.ParsedChunk;
 import cartographer.model.SurfaceClass;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.SurfaceClassCode;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;

@@ -2,7 +2,6 @@ package cartographer.scanner;
 
 import cartographer.model.ChunkPosition;
 import cartographer.model.ChunkCoordinate;
-import cartographer.model.MapChunk;
 import cartographer.model.MapChunkHeightView;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;

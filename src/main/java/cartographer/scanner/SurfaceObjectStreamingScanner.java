@@ -1,7 +1,5 @@
 package cartographer.scanner;
 
-import cartographer.model.BlockInfo;
-import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
 import cartographer.model.ParsedChunk;
 import cartographer.save.SelectiveChunkVisit;

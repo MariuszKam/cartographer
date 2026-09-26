@@ -1,8 +1,6 @@
 package cartographer.scanner;
 
 import cartographer.model.BlockInfo;
-import cartographer.model.ChunkPosition;
-import cartographer.model.MapChunk;
 import cartographer.model.MapChunkHeightView;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParsedChunk;

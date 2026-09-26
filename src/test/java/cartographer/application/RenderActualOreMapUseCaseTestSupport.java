@@ -3,7 +3,6 @@ package cartographer.application;
 import cartographer.render.ActualOreOverlaySpec;
 import cartographer.spatial.OreChunkPositionPlanner;
 import cartographer.progress.ProgressReporter;
-import cartographer.testing.IntegrationTest;
 import cartographer.marker.MarkerStore;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
@@ -16,10 +15,6 @@ import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
 import cartographer.cache.RenderDataCacheRevision;
 import cartographer.cache.RenderDataCacheStore;
-import cartographer.index.ResourceChunkIndexEntry;
-import cartographer.index.ResourceOccurrence;
-import cartographer.snapshot.WorldDataSnapshot;
-import cartographer.cache.TerrainHeightTile;
 import cartographer.cache.TerrainTileStore;
 import cartographer.cache.SurfaceTileStore;
 import cartographer.render.ActualOreOverlayPainter;
@@ -38,14 +33,12 @@ import cartographer.save.VcdbsReader;
 import cartographer.save.WorldMetadataReader;
 import cartographer.scanner.ActualBlockMatchMode;
 import cartographer.scanner.ActualBlockYFilter;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.awt.Color;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.nio.file.Files;
-import java.nio.file.attribute.FileTime;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -59,10 +52,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static cartographer.testing.ImageAssertions.assertImageEquals;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 abstract class RenderActualOreMapUseCaseTestSupport {
