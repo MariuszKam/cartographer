@@ -1,8 +1,10 @@
 package cartographer.ui.workstation;
 
 import cartographer.model.WorldPosition;
+import cartographer.render.RenderLod;
 import cartographer.render.RenderTileBounds;
 import cartographer.render.RenderTileCoordinate;
+import cartographer.render.RenderTileKey;
 import cartographer.render.RenderTileLayout;
 import cartographer.render.RenderedMapTile;
 import javafx.application.Platform;
@@ -33,7 +35,7 @@ public final class WorldMapViewport extends Region {
     private final WorldMapViewportModel model;
     private final Canvas canvas = new Canvas();
     private final int maxCachedTiles;
-    private final Map<RenderTileCoordinate, CachedTile> tiles;
+    private final Map<RenderTileKey, CachedTile> tiles;
     private final AtomicBoolean redrawPending = new AtomicBoolean();
 
     private Consumer<WorldMapViewportDemand> demandListener =
@@ -61,7 +63,7 @@ public final class WorldMapViewport extends Region {
         this.tiles = new LinkedHashMap<>(16, 0.75f, true) {
             @Override
             protected boolean removeEldestEntry(
-                    Map.Entry<RenderTileCoordinate, CachedTile> eldest
+                    Map.Entry<RenderTileKey, CachedTile> eldest
             ) {
                 return size() > WorldMapViewport.this.maxCachedTiles;
             }
@@ -161,7 +163,10 @@ public final class WorldMapViewport extends Region {
             return;
         }
         tiles.put(
-                tile.coordinate(),
+                new RenderTileKey(
+                        tile.coordinate(),
+                        tile.lod()
+                ),
                 new CachedTile(
                         tile.worldBounds(),
                         SwingFXUtils.toFXImage(tile.image(), null)
@@ -185,6 +190,10 @@ public final class WorldMapViewport extends Region {
 
     public double pixelsPerBlock() {
         return model.pixelsPerBlock();
+    }
+
+    public RenderLod currentLod() {
+        return model.currentLod();
     }
 
     @Override
@@ -235,7 +244,9 @@ public final class WorldMapViewport extends Region {
 
         WorldMapViewportDemand demand = model.demand(0);
         for (RenderTileCoordinate coordinate : demand.visible()) {
-            CachedTile tile = tiles.get(coordinate);
+            CachedTile tile = cachedTileFor(
+                    new RenderTileKey(coordinate, demand.lod())
+            );
             if (tile == null) {
                 continue;
             }
@@ -256,6 +267,29 @@ public final class WorldMapViewport extends Region {
             );
         }
         drawMarkers(graphics);
+    }
+
+    private CachedTile cachedTileFor(RenderTileKey desired) {
+        CachedTile exact = tiles.get(desired);
+        if (exact != null) {
+            return exact;
+        }
+
+        RenderTileKey bestKey = null;
+        int bestDistance = Integer.MAX_VALUE;
+        for (RenderTileKey candidate : tiles.keySet()) {
+            if (!candidate.coordinate().equals(desired.coordinate())) {
+                continue;
+            }
+            int distance = Math.abs(
+                    candidate.lod().level() - desired.lod().level()
+            );
+            if (distance < bestDistance) {
+                bestKey = candidate;
+                bestDistance = distance;
+            }
+        }
+        return bestKey == null ? null : tiles.get(bestKey);
     }
 
     private void drawMarkers(GraphicsContext graphics) {

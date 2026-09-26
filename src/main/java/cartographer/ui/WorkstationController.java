@@ -590,7 +590,10 @@ public final class WorkstationController {
                                 initialCenter.x(),
                                 initialCenter.z()
                         );
-        session.start(bootstrap);
+        session.start(
+                bootstrap,
+                progressiveMapViewport.currentLod()
+        );
         session.requestPlayerRings(bootstrap, 2);
     }
 
@@ -664,7 +667,8 @@ public final class WorkstationController {
         }
         current.requestViewport(
                 demand.visible(),
-                demand.prefetch()
+                demand.prefetch(),
+                demand.lod()
         );
     }
 

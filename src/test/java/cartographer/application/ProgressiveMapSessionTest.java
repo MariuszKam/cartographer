@@ -1,9 +1,11 @@
 package cartographer.application;
 
 import cartographer.model.MapChunkCoordinate;
+import cartographer.render.RenderLod;
 import cartographer.render.RenderStyle;
 import cartographer.render.RenderTileBounds;
 import cartographer.render.RenderTileCoordinate;
+import cartographer.render.RenderTileKey;
 import cartographer.render.RenderTileLayout;
 import cartographer.render.RenderedMapTile;
 import org.junit.jupiter.api.Test;
@@ -423,6 +425,53 @@ class ProgressiveMapSessionTest {
         public void close() {
             closeThreadName = Thread.currentThread().getName();
             closed.countDown();
+        }
+    }
+
+    @Test
+    void viewportLodFlowsThroughSchedulerIntoRenderPipeline()
+            throws Exception {
+        RenderTileLayout layout = new RenderTileLayout(1);
+        LodPipeline pipeline = new LodPipeline(layout);
+        ProgressiveMapSession session = new ProgressiveMapSession(
+                12,
+                layout,
+                pipeline,
+                ignored -> { },
+                8,
+                1,
+                1
+        );
+        RenderTileCoordinate coordinate =
+                new RenderTileCoordinate(0, 0);
+
+        session.start(coordinate, RenderLod.LOD_3);
+
+        assertTrue(pipeline.rendered.await(
+                TIMEOUT_SECONDS,
+                TimeUnit.SECONDS
+        ));
+        session.close();
+
+        assertEquals(RenderLod.LOD_3, pipeline.renderedLod);
+    }
+
+    private static final class LodPipeline extends RecordingPipeline {
+        private final CountDownLatch rendered = new CountDownLatch(1);
+        private volatile RenderLod renderedLod;
+
+        private LodPipeline(RenderTileLayout layout) {
+            super(layout, 1);
+        }
+
+        @Override
+        public RenderedMapTile render(
+                RenderTileKey key,
+                MapTileData data
+        ) {
+            renderedLod = key.lod();
+            rendered.countDown();
+            return rendered(layout, key.coordinate());
         }
     }
 

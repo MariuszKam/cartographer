@@ -1162,14 +1162,24 @@ Layer implementation rules now established:
 
 ### Phase 11 — LOD
 
-Add multi-resolution render tiles after LOD-independent tile/session contracts are stable.
+Status: IMPLEMENTED
 
-Requirements:
+Progressive MAP now has explicit multi-resolution raster identity and viewport-driven LOD selection:
 
-- deterministic LOD selection by zoom;
-- no high-resolution world-wide raster allocation for fit-world;
-- LOD-aware cache keys;
-- acceptable transition behavior while zooming.
+- `RenderLod` defines power-of-two sampling levels from 1 through 32 world blocks per raster pixel;
+- `RenderTileKey` combines `RenderTileCoordinate` and `RenderLod`, so scheduler deduplication/terminal state no longer conflates multiple raster resolutions of the same world-space tile;
+- `WorldMapViewportModel` deterministically selects the nearest LOD from the current pixels-per-block zoom scale;
+- `WorldMapViewportDemand` carries that selected LOD with visible and prefetch coordinates;
+- viewport demand updates the active session's current LOD, so newly discovered/background tiles use the currently useful scale rather than an unrelated fixed full-resolution raster;
+- `MapTileRenderer` samples the same fixed world-space tile bounds at the requested LOD and allocates only `ceil(worldBlocks / blocksPerPixel)` raster dimensions;
+- `RenderedMapTile` carries the LOD that produced its raster and validates raster dimensions against world bounds plus that sampling density;
+- the JavaFX tile cache is keyed by coordinate + LOD; if the exact requested LOD is not ready during zoom transition, the viewport temporarily draws the closest cached LOD for that coordinate instead of flashing empty space;
+- fit-world/very zoomed-out states therefore request coarse tile rasters rather than creating full-resolution tiles and shrinking them on screen;
+- the tile benchmark now covers both candidate spatial spans and multiple LOD densities.
+
+Compatibility overloads that default to full-detail LOD remain only to keep Phase-0/legacy tests and migration fixtures compiling during the final cleanup. They are explicitly reviewed in Phase 12.
+
+Tests cover deterministic LOD selection, supported blocks-per-pixel values, lower raster dimensions at coarse LOD, distinct scheduler identity for the same coordinate at different LODs, viewport zoom-to-LOD selection, and propagation of the requested LOD through the session into the render pipeline.
 
 ### Phase 12 — Legacy cleanup and final refactor
 

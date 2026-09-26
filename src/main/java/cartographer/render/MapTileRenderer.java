@@ -46,7 +46,8 @@ public final class MapTileRenderer {
                 colorRange,
                 style,
                 Set.of(RenderLayer.TERRAIN),
-                Map.of()
+                Map.of(),
+                RenderLod.fullDetail()
         );
     }
 
@@ -59,6 +60,29 @@ public final class MapTileRenderer {
             Set<RenderLayer> layers,
             Map<Integer, BlockInfo> registry
     ) {
+
+        return render(
+                coordinate,
+                data,
+                terrainContext,
+                colorRange,
+                style,
+                layers,
+                registry,
+                RenderLod.fullDetail()
+        );
+    }
+
+    public RenderedMapTile render(
+            RenderTileCoordinate coordinate,
+            MapTileData data,
+            Map<MapChunkCoordinate, TerrainHeightTile> terrainContext,
+            TerrainColorRange colorRange,
+            RenderStyle style,
+            Set<RenderLayer> layers,
+            Map<Integer, BlockInfo> registry,
+            RenderLod lod
+    ) {
         Objects.requireNonNull(coordinate, "coordinate is required");
         Objects.requireNonNull(data, "data is required");
         Objects.requireNonNull(terrainContext, "terrainContext is required");
@@ -66,6 +90,7 @@ public final class MapTileRenderer {
         Objects.requireNonNull(style, "style is required");
         Objects.requireNonNull(layers, "layers are required");
         Objects.requireNonNull(registry, "registry is required");
+        Objects.requireNonNull(lod, "lod is required");
 
         RenderTileBounds bounds = data.effectiveWorldBounds()
                 .orElseThrow(
@@ -73,8 +98,13 @@ public final class MapTileRenderer {
                                 "cannot render a tile outside world bounds"
                         )
                 );
-        int width = Math.toIntExact(bounds.widthBlocks());
-        int height = Math.toIntExact(bounds.heightBlocks());
+        int blocksPerPixel = lod.blocksPerPixel();
+        int width = Math.toIntExact(
+                divideCeil(bounds.widthBlocks(), blocksPerPixel)
+        );
+        int height = Math.toIntExact(
+                divideCeil(bounds.heightBlocks(), blocksPerPixel)
+        );
         BufferedImage image = new BufferedImage(
                 width,
                 height,
@@ -100,12 +130,18 @@ public final class MapTileRenderer {
 
         int drawn = 0;
         for (int imageY = 0; imageY < height; imageY++) {
-            int worldZ = Math.toIntExact(
-                    bounds.worldMinZ() + imageY
+            int worldZ = sampleCoordinate(
+                    bounds.worldMinZ(),
+                    bounds.worldMaxZExclusive(),
+                    imageY,
+                    blocksPerPixel
             );
             for (int imageX = 0; imageX < width; imageX++) {
-                int worldX = Math.toIntExact(
-                        bounds.worldMinX() + imageX
+                int worldX = sampleCoordinate(
+                        bounds.worldMinX(),
+                        bounds.worldMaxXExclusive(),
+                        imageX,
+                        blocksPerPixel
                 );
                 TerrainSample terrain = sampleAt(
                         samples,
@@ -115,7 +151,8 @@ public final class MapTileRenderer {
                 double shade = hillshade(
                         samples,
                         worldX,
-                        worldZ
+                        worldZ,
+                        blocksPerPixel
                 );
 
                 if (drawTerrain && terrain != null) {
@@ -179,7 +216,7 @@ public final class MapTileRenderer {
                 coordinate,
                 bounds,
                 image,
-                1,
+                lod,
                 drawn,
                 style
         );
@@ -219,12 +256,13 @@ public final class MapTileRenderer {
     private double hillshade(
             Map<MapChunkCoordinate, TerrainHeightTile> samples,
             int worldX,
-            int worldZ
+            int worldZ,
+            int sampleStep
     ) {
-        TerrainSample west = sampleAt(samples, worldX - 1, worldZ);
-        TerrainSample east = sampleAt(samples, worldX + 1, worldZ);
-        TerrainSample north = sampleAt(samples, worldX, worldZ - 1);
-        TerrainSample south = sampleAt(samples, worldX, worldZ + 1);
+        TerrainSample west = sampleAt(samples, worldX - sampleStep, worldZ);
+        TerrainSample east = sampleAt(samples, worldX + sampleStep, worldZ);
+        TerrainSample north = sampleAt(samples, worldX, worldZ - sampleStep);
+        TerrainSample south = sampleAt(samples, worldX, worldZ + sampleStep);
         if (west == null
                 || east == null
                 || north == null
@@ -274,6 +312,29 @@ public final class MapTileRenderer {
         int blue = ((overlay & 0xFF) * alpha
                 + (background & 0xFF) * inverse) / 255;
         return 0xFF000000 | (red << 16) | (green << 8) | blue;
+    }
+
+    private static long divideCeil(long value, int divisor) {
+        return Math.floorDiv(
+                Math.addExact(value, divisor - 1L),
+                divisor
+        );
+    }
+
+    private static int sampleCoordinate(
+            long min,
+            long maxExclusive,
+            int sampleIndex,
+            int blocksPerPixel
+    ) {
+        long start = Math.addExact(
+                min,
+                Math.multiplyExact((long) sampleIndex, blocksPerPixel)
+        );
+        long midpoint = Math.addExact(start, blocksPerPixel / 2L);
+        return Math.toIntExact(
+                Math.min(midpoint, maxExclusive - 1L)
+        );
     }
 
     private record TerrainSample(int height) {

@@ -6,6 +6,7 @@ import cartographer.cache.TerrainHeightTile;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.render.MapTileRenderer;
+import cartographer.render.RenderLod;
 import cartographer.render.RenderStyle;
 import cartographer.render.RenderTileBounds;
 import cartographer.render.RenderTileCoordinate;
@@ -40,6 +41,9 @@ import java.util.concurrent.TimeUnit;
 public class MapTileRendererBenchmark {
     @Param({"4", "8"})
     public int mapChunksPerSide;
+
+    @Param({"1", "4", "16"})
+    public int blocksPerPixel;
 
     private MapTileRenderer renderer;
     private RenderTileCoordinate coordinate;
@@ -97,12 +101,15 @@ public class MapTileRendererBenchmark {
 
     @Benchmark
     public RenderedMapTile renderTile() {
-        return renderer.renderTerrain(
+        return renderer.render(
                 coordinate,
                 data,
                 context,
                 range,
-                RenderStyle.TOPOGRAPHIC
+                RenderStyle.TOPOGRAPHIC,
+                java.util.Set.of(cartographer.render.RenderLayer.TERRAIN),
+                java.util.Map.of(),
+                RenderLod.forBlocksPerPixel(blocksPerPixel)
         );
     }
 }

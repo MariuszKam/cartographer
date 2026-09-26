@@ -1,6 +1,7 @@
 package cartographer.ui.workstation;
 
 import cartographer.model.WorldPosition;
+import cartographer.render.RenderLod;
 import cartographer.render.RenderTileBounds;
 import cartographer.render.RenderTileCoordinate;
 import cartographer.render.RenderTileLayout;
@@ -114,12 +115,20 @@ public final class WorldMapViewportModel {
             );
         }
         if (viewportWidth <= 0.0 || viewportHeight <= 0.0) {
-            return new WorldMapViewportDemand(List.of(), List.of());
+            return new WorldMapViewportDemand(
+                    List.of(),
+                    List.of(),
+                    currentLod()
+            );
         }
 
         List<RenderTileCoordinate> visible = visibleTiles();
         if (prefetchTileMargin == 0 || visible.isEmpty()) {
-            return new WorldMapViewportDemand(visible, List.of());
+            return new WorldMapViewportDemand(
+                    visible,
+                    List.of(),
+                    currentLod()
+            );
         }
 
         Set<RenderTileCoordinate> visibleSet =
@@ -161,7 +170,11 @@ public final class WorldMapViewportModel {
                 }
             }
         }
-        return new WorldMapViewportDemand(visible, prefetch);
+        return new WorldMapViewportDemand(
+                visible,
+                prefetch,
+                currentLod()
+        );
     }
 
     public void fit(RenderTileBounds bounds, double paddingPixels) {
@@ -194,6 +207,10 @@ public final class WorldMapViewportModel {
 
     public double pixelsPerBlock() {
         return pixelsPerBlock;
+    }
+
+    public RenderLod currentLod() {
+        return RenderLod.forPixelsPerBlock(pixelsPerBlock);
     }
 
     public double centerWorldX() {

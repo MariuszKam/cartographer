@@ -5,7 +5,9 @@ import cartographer.progress.ProgressReporter;
 import cartographer.render.MapTileRenderer;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
+import cartographer.render.RenderLod;
 import cartographer.render.RenderTileCoordinate;
+import cartographer.render.RenderTileKey;
 import cartographer.render.RenderTileLayout;
 import cartographer.render.RenderedMapTile;
 import cartographer.render.TerrainColorRange;
@@ -123,14 +125,29 @@ final class SaveBackedProgressiveTilePipeline
             RenderTileCoordinate coordinate,
             MapTileData data
     ) {
+        return render(
+                new RenderTileKey(
+                        coordinate,
+                        RenderLod.fullDetail()
+                ),
+                data
+        );
+    }
+
+    @Override
+    public RenderedMapTile render(
+            RenderTileKey key,
+            MapTileData data
+    ) {
         return renderer.render(
-                coordinate,
+                key.coordinate(),
                 data,
                 data.terrainTiles(),
                 colorRange,
                 RenderStyle.TOPOGRAPHIC,
                 layers,
-                overview.blockRegistry()
+                overview.blockRegistry(),
+                key.lod()
         );
     }
 

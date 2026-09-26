@@ -1,6 +1,8 @@
 package cartographer.application;
 
+import cartographer.render.RenderLod;
 import cartographer.render.RenderTileCoordinate;
+import cartographer.render.RenderTileKey;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -60,4 +62,25 @@ class ProgressiveTileSchedulerTest {
         assertEquals(viewport, scheduler.take().coordinate());
         assertEquals(first, scheduler.take().coordinate());
     }
+    @Test
+    void sameCoordinateAtDifferentLodsAreDistinctWorkItems()
+            throws Exception {
+        ProgressiveTileScheduler scheduler =
+                new ProgressiveTileScheduler(4);
+        RenderTileCoordinate coordinate =
+                new RenderTileCoordinate(2, 3);
+
+        assertTrue(scheduler.offer(
+                new RenderTileKey(coordinate, RenderLod.LOD_0),
+                ProgressiveTilePriority.VIEWPORT
+        ));
+        assertTrue(scheduler.offer(
+                new RenderTileKey(coordinate, RenderLod.LOD_3),
+                ProgressiveTilePriority.VIEWPORT
+        ));
+
+        assertEquals(RenderLod.LOD_0, scheduler.take().key().lod());
+        assertEquals(RenderLod.LOD_3, scheduler.take().key().lod());
+    }
+
 }

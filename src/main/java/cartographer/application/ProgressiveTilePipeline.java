@@ -1,6 +1,7 @@
 package cartographer.application;
 
 import cartographer.render.RenderTileCoordinate;
+import cartographer.render.RenderTileKey;
 import cartographer.render.RenderedMapTile;
 
 /**
@@ -18,6 +19,13 @@ public interface ProgressiveTilePipeline extends AutoCloseable {
             RenderTileCoordinate coordinate,
             MapTileData data
     );
+
+    default RenderedMapTile render(
+            RenderTileKey key,
+            MapTileData data
+    ) {
+        return render(key.coordinate(), data);
+    }
 
     default ProgressiveDiscoveryBatch discoverNextBatch() {
         return ProgressiveDiscoveryBatch.complete();

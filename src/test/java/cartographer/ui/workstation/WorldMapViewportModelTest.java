@@ -1,6 +1,7 @@
 package cartographer.ui.workstation;
 
 import cartographer.model.WorldPosition;
+import cartographer.render.RenderLod;
 import cartographer.render.RenderTileBounds;
 import cartographer.render.RenderTileCoordinate;
 import cartographer.render.RenderTileLayout;
@@ -102,4 +103,18 @@ class WorldMapViewportModelTest {
         assertEquals(2.0, model.pixelsPerBlock(), 1.0e-9);
         assertTrue(model.demand(0).visible().size() > 0);
     }
+    @Test
+    void zoomSelectsCoarserLodDeterministically() {
+        WorldMapViewportModel model =
+                new WorldMapViewportModel(new RenderTileLayout(4));
+        model.setViewportSize(800, 600);
+        model.centerOn(0.0, 0.0);
+
+        assertEquals(RenderLod.LOD_0, model.demand(0).lod());
+
+        model.zoomAt(0.125, 400, 300);
+
+        assertEquals(RenderLod.LOD_3, model.demand(0).lod());
+    }
+
 }

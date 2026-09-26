@@ -1,6 +1,7 @@
 package cartographer.application;
 
 import cartographer.render.RenderTileCoordinate;
+import cartographer.render.RenderTileKey;
 
 import java.util.Comparator;
 import java.util.HashMap;
@@ -20,10 +21,10 @@ final class ProgressiveTileScheduler {
     private final int capacity;
     private final PriorityQueue<ScheduledTile> queue =
             new PriorityQueue<>(ORDER);
-    private final Map<RenderTileCoordinate, ScheduledTile> queued =
+    private final Map<RenderTileKey, ScheduledTile> queued =
             new HashMap<>();
-    private final Set<RenderTileCoordinate> inFlight = new HashSet<>();
-    private final Set<RenderTileCoordinate> terminal = new HashSet<>();
+    private final Set<RenderTileKey> inFlight = new HashSet<>();
+    private final Set<RenderTileKey> terminal = new HashSet<>();
 
     private long nextSequence;
     private boolean closed;
@@ -39,33 +40,43 @@ final class ProgressiveTileScheduler {
             RenderTileCoordinate coordinate,
             ProgressiveTilePriority priority
     ) {
-        Objects.requireNonNull(coordinate, "coordinate is required");
+        return offer(
+                RenderTileKey.fullDetail(coordinate),
+                priority
+        );
+    }
+
+    synchronized boolean offer(
+            RenderTileKey key,
+            ProgressiveTilePriority priority
+    ) {
+        Objects.requireNonNull(key, "key is required");
         Objects.requireNonNull(priority, "priority is required");
         if (closed
-                || terminal.contains(coordinate)
-                || inFlight.contains(coordinate)) {
+                || terminal.contains(key)
+                || inFlight.contains(key)) {
             return false;
         }
 
-        ScheduledTile existing = queued.get(coordinate);
+        ScheduledTile existing = queued.get(key);
         if (existing != null) {
             if (priority.ordinal() >= existing.priority().ordinal()) {
                 return false;
             }
             queue.remove(existing);
             ScheduledTile upgraded = new ScheduledTile(
-                    coordinate,
+                    key,
                     priority,
                     existing.sequence()
             );
             queue.add(upgraded);
-            queued.put(coordinate, upgraded);
+            queued.put(key, upgraded);
             notifyAll();
             return true;
         }
 
         ScheduledTile candidate = new ScheduledTile(
-                coordinate,
+                key,
                 priority,
                 nextSequence++
         );
@@ -77,11 +88,11 @@ final class ProgressiveTileScheduler {
                 return false;
             }
             queue.remove(worst);
-            queued.remove(worst.coordinate());
+            queued.remove(worst.key());
         }
 
         queue.add(candidate);
-        queued.put(coordinate, candidate);
+        queued.put(key, candidate);
         notifyAll();
         return true;
     }
@@ -91,8 +102,8 @@ final class ProgressiveTileScheduler {
             return null;
         }
         ScheduledTile next = queue.remove();
-        queued.remove(next.coordinate());
-        inFlight.add(next.coordinate());
+        queued.remove(next.key());
+        inFlight.add(next.key());
         return next;
     }
 
@@ -104,14 +115,19 @@ final class ProgressiveTileScheduler {
             return null;
         }
         ScheduledTile next = queue.remove();
-        queued.remove(next.coordinate());
-        inFlight.add(next.coordinate());
+        queued.remove(next.key());
+        inFlight.add(next.key());
         return next;
     }
 
     synchronized void terminal(RenderTileCoordinate coordinate) {
-        inFlight.remove(coordinate);
-        terminal.add(coordinate);
+        terminal(RenderTileKey.fullDetail(coordinate));
+    }
+
+    synchronized void terminal(RenderTileKey key) {
+        Objects.requireNonNull(key, "key is required");
+        inFlight.remove(key);
+        terminal.add(key);
         notifyAll();
     }
 
@@ -131,13 +147,17 @@ final class ProgressiveTileScheduler {
     }
 
     record ScheduledTile(
-            RenderTileCoordinate coordinate,
+            RenderTileKey key,
             ProgressiveTilePriority priority,
             long sequence
     ) {
         ScheduledTile {
-            Objects.requireNonNull(coordinate, "coordinate is required");
+            Objects.requireNonNull(key, "key is required");
             Objects.requireNonNull(priority, "priority is required");
+        }
+
+        RenderTileCoordinate coordinate() {
+            return key.coordinate();
         }
     }
 }
