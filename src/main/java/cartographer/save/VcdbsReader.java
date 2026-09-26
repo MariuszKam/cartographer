@@ -43,7 +43,7 @@ public class VcdbsReader {
     private final VcdbsSelectiveChunkStreamReader selectiveChunkStreamReader;
     private final VcdbsMapChunkStreamReader mapChunkStreamReader;
 
-    public ChunkStreamStats forEachChunkByPositionAdaptive(
+    ChunkStreamStats forEachChunkByPositionAdaptive(
             SaveSession session,
             Collection<ChunkPosition> positions,
             ReadDiagnostics diagnostics,
@@ -67,7 +67,7 @@ public class VcdbsReader {
         );
     }
 
-    public ChunkStreamStats forEachChunkByPositionAdaptive(
+    ChunkStreamStats forEachChunkByPositionAdaptive(
             SaveSession session,
             Collection<ChunkPosition> positions,
             ReadDiagnostics diagnostics,
