@@ -11,6 +11,8 @@ final class ChunkDecodeWorkspacePool implements AutoCloseable {
     private final AtomicBoolean[] borrowed;
     private boolean closed;
 
+    // The pool owns every workspace from construction until close().
+    @SuppressWarnings("resource")
     ChunkDecodeWorkspacePool(int size) {
         if (size <= 0) throw new IllegalArgumentException("pool size must be positive");
         available = new ArrayBlockingQueue<>(size);

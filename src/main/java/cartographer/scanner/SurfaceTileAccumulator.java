@@ -178,10 +178,7 @@ public final class SurfaceTileAccumulator {
         if (liquidComparison != 0) {
             return liquidComparison > 0;
         }
-        return Byte.compare(
-                SurfaceTile.encodeSurfaceClass(newClass),
-                oldClass
-        ) > 0;
+        return SurfaceTile.encodeSurfaceClass(newClass) > oldClass;
     }
 
     private void ensureMutable() {

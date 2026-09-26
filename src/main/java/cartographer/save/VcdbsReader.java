@@ -160,11 +160,10 @@ public class VcdbsReader {
             SaveSession session,
             Collection<ChunkPosition> positions,
             ReadDiagnostics diagnostics,
-            Consumer<ParsedChunk> consumer,
-            ProgressReporter progress
+            Consumer<ParsedChunk> consumer
     ) {
         return chunkStreamReader.forEachChunkByPositionTableStream(
-                session, positions, diagnostics, consumer, progress
+                session, positions, diagnostics, consumer, ProgressReporter.NONE
         );
     }
 
@@ -173,11 +172,15 @@ public class VcdbsReader {
             Collection<ChunkPosition> positions,
             int[] wantedBlockIds,
             ReadDiagnostics diagnostics,
-            Consumer<ParsedChunk> consumer,
-            ProgressReporter progress
+            Consumer<ParsedChunk> consumer
     ) {
         return selectiveChunkStreamReader.forEachChunkByPositionMatchingBlockIdsTableStream(
-                session, positions, wantedBlockIds, diagnostics, consumer, progress
+                session,
+                positions,
+                wantedBlockIds,
+                diagnostics,
+                consumer,
+                ProgressReporter.NONE
         );
     }
 
