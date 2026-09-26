@@ -68,6 +68,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @IntegrationTest
 class RenderActualOreMapLifecycleAndSurfaceTest extends RenderActualOreMapUseCaseTestSupport {
 
+    @TempDir
+    Path temporaryDirectory;
+
+    @Override
+    Path temporaryDirectory() {
+        return temporaryDirectory;
+    }
+
     @Test
     void productionRenderUsesOneSourceConnectionAcrossMultipleReaderActions() {
         TestConnectionFactory connections = new TestConnectionFactory();
