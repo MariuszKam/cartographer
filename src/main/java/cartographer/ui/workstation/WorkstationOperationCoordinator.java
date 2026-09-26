@@ -264,9 +264,6 @@ public final class WorkstationOperationCoordinator {
             @Override
             public void progress(String stage, int current, int total) {
                 requireCurrent(scope, token, task);
-                double fraction = total <= 0
-                        ? -1.0
-                        : Math.clamp(current / (double) total, 0.0, 1.0);
                 task.reportProgress(stage, current, total);
             }
 
