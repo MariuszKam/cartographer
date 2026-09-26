@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -569,8 +570,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
                     positions,
                     wantedBlockIds,
                     diagnostics,
-                    consumer,
-                    ProgressReporter.NONE
+                    consumer
             );
         }
     }
@@ -739,7 +739,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
     private static void joinCaller(Thread thread)
             throws InterruptedException {
         thread.join(TimeUnit.SECONDS.toMillis(TEST_DEADLOCK_TIMEOUT_SECONDS));
-        assertTrue(!thread.isAlive(), "caller did not terminate");
+        assertFalse(thread.isAlive(), "caller did not terminate");
     }
 
     private static final class RecordingChunkParser extends ChunkParser {

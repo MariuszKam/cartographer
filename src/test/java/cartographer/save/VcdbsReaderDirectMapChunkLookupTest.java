@@ -1,5 +1,6 @@
 package cartographer.save;
 
+import cartographer.testing.TestConnections;
 import cartographer.testing.IntegrationTest;
 import cartographer.progress.ProgressReporter;
 import cartographer.model.MapChunk;
@@ -10,7 +11,6 @@ import cartographer.parser.MapChunkParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -225,11 +225,7 @@ class VcdbsReaderDirectMapChunkLookupTest {
     }
 
     private SaveSession emptySession(Path database) {
-        Connection connection = (Connection) Proxy.newProxyInstance(
-                Connection.class.getClassLoader(),
-                new Class<?>[]{Connection.class},
-                (proxy, method, args) -> null
-        );
+        Connection connection = TestConnections.noOp();
         return new SaveSession(database, connection, snapshot());
     }
 

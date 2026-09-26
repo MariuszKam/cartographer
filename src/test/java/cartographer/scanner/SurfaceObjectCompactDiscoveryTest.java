@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -69,7 +70,7 @@ class SurfaceObjectCompactDiscoveryTest {
     void compactPlannerOwnCircleIncludesBoundaryAndRejectsOutsideCell() {
         SurfaceObjectCompactPlan plan = compactPlan(new MapChunk(new MapChunkCoordinate(0, 0), new int[0], filled(10)), WORLD, 16, 16);
 
-        assertTrue(!candidatesAt(plan, 16, 17).isEmpty());
+        assertFalse(candidatesAt(plan, 16, 17).isEmpty());
         assertTrue(candidatesAt(plan, 16, 18).isEmpty());
     }
 
@@ -78,7 +79,7 @@ class SurfaceObjectCompactDiscoveryTest {
         WorldMetadata edgeWorld = new WorldMetadata(33, 64, 33);
         SurfaceObjectCompactPlan plan = compactPlan(new MapChunk(new MapChunkCoordinate(1, 1), new int[0], filled(10)), edgeWorld, 32, 32);
 
-        assertTrue(!candidatesAt(plan, 32, 32).isEmpty());
+        assertFalse(candidatesAt(plan, 32, 32).isEmpty());
         assertTrue(candidatesAt(plan, 33, 32).isEmpty());
         assertTrue(candidatesAt(plan, 32, 33).isEmpty());
     }
