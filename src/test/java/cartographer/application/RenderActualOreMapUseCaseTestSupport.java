@@ -67,8 +67,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 abstract class RenderActualOreMapUseCaseTestSupport {
 
-    @TempDir
-    Path temporaryDirectory;
+    abstract Path temporaryDirectory();
 
     RenderActualOreMapResult execute(FakeReader reader) {
         return execute(
@@ -136,11 +135,11 @@ abstract class RenderActualOreMapUseCaseTestSupport {
         RenderActualOreMapUseCase useCase = useCase(
                 reader,
                 new WorldMetadata(128, 256, 128),
-                temporaryDirectory.resolve("home.properties"),
-                temporaryDirectory.resolve("markers.csv")
+                temporaryDirectory().resolve("home.properties"),
+                temporaryDirectory().resolve("markers.csv")
         );
         RenderActualOreMapRequest request = new RenderActualOreMapRequest(
-                temporaryDirectory.resolve("save.vcdbs"),
+                temporaryDirectory().resolve("save.vcdbs"),
                 16,
                 1,
                 RenderStyle.TOPOGRAPHIC,
@@ -177,11 +176,11 @@ abstract class RenderActualOreMapUseCaseTestSupport {
         RenderActualOreMapUseCase useCase = useCase(
                 reader,
                 metadata,
-                temporaryDirectory.resolve("home-surface.properties"),
-                temporaryDirectory.resolve("markers-surface.csv")
+                temporaryDirectory().resolve("home-surface.properties"),
+                temporaryDirectory().resolve("markers-surface.csv")
         );
         return useCase.execute(new RenderActualOreMapRequest(
-                temporaryDirectory.resolve("surface-save.vcdbs"), radius, 1,
+                temporaryDirectory().resolve("surface-save.vcdbs"), radius, 1,
                 RenderStyle.TOPOGRAPHIC, layers, Optional.empty(),
                 ActualBlockYFilter.unbounded(),
                 Optional.of(new WorldPosition(centerX, 64, centerZ)), specs
