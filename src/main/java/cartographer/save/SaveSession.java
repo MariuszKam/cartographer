@@ -17,12 +17,23 @@ public final class SaveSession implements AutoCloseable {
     private final Path savePath;
     private final Connection connection;
     private final SaveSnapshot snapshot;
+    private final SaveSourceStamp sourceStamp;
     private boolean closed;
 
     SaveSession(Path savePath, Connection connection, SaveSnapshot snapshot) {
+        this(savePath, connection, snapshot, null);
+    }
+
+    SaveSession(
+            Path savePath,
+            Connection connection,
+            SaveSnapshot snapshot,
+            SaveSourceStamp sourceStamp
+    ) {
         this.savePath = SavePathIdentity.normalize(savePath);
         this.connection = Objects.requireNonNull(connection, "connection is required");
         this.snapshot = Objects.requireNonNull(snapshot, "snapshot is required");
+        this.sourceStamp = sourceStamp;
     }
 
     public Path savePath() {
@@ -64,10 +75,33 @@ public final class SaveSession implements AutoCloseable {
             return;
         }
         closed = true;
+        SaveException closeFailure = null;
         try {
             connection.close();
         } catch (SQLException exception) {
-            throw new SaveException("Cannot close save session: " + savePath, exception);
+            closeFailure = new SaveException(
+                    "Cannot close save session: " + savePath,
+                    exception
+            );
+        }
+
+        SaveException sourceFailure = null;
+        if (sourceStamp != null) {
+            try {
+                sourceStamp.requireUnchanged(savePath);
+            } catch (SaveException exception) {
+                sourceFailure = exception;
+            }
+        }
+
+        if (closeFailure != null) {
+            if (sourceFailure != null) {
+                closeFailure.addSuppressed(sourceFailure);
+            }
+            throw closeFailure;
+        }
+        if (sourceFailure != null) {
+            throw sourceFailure;
         }
     }
 
