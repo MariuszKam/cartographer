@@ -38,7 +38,7 @@ final class RockCellLayout {
             throw new IllegalArgumentException("rock ordinal capacity is insufficient");
         }
         if (yBits == 0 && yRangeHeight > 1
-                || yBits > 0 && yRangeHeight > (1L << Math.min(yBits, 62))) {
+                || yBits > 0 && yRangeHeight > (1L << yBits)) {
             if (!(yBits == 62 && yRangeHeight <= (1L << 62))) {
                 throw new IllegalArgumentException("Y capacity is insufficient");
             }

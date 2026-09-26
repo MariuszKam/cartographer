@@ -170,7 +170,6 @@ class SurfaceStreamingSessionTest {
         Arrays.fill(state, (byte) (SurfaceTile.CONSIDERED | SurfaceTile.RESOLVED));
         int[] surfaceY = new int[cells];
         int[] blockIds = new int[cells];
-        int[] liquidIds = new int[cells];
         Arrays.fill(surfaceY, 12);
         Arrays.fill(blockIds, 1);
         byte[] classes = new byte[cells];
@@ -208,7 +207,7 @@ class SurfaceStreamingSessionTest {
 
             @Override
             public int liquidBlockIdAtIndex(int cellIndex) {
-                return liquidIds[cellIndex];
+                return 0;
             }
 
             @Override

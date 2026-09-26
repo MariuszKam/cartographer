@@ -52,10 +52,12 @@ import javafx.stage.Stage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -158,9 +160,11 @@ public class CartographerDesktopApp extends Application {
 
         stage.setTitle("VS Cartographer");
         Scene scene = new Scene(controller.root(), 1440, 880);
-        scene.getStylesheets().add(
-                getClass().getResource("/cartographer/ui/cartographer-dark.css").toExternalForm()
+        URL stylesheet = Objects.requireNonNull(
+                getClass().getResource("/cartographer/ui/cartographer-dark.css"),
+                "cartographer stylesheet is required"
         );
+        scene.getStylesheets().add(stylesheet.toExternalForm());
         stage.setScene(scene);
         stage.setMinWidth(1024);
         stage.setMinHeight(680);

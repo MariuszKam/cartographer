@@ -3,8 +3,6 @@ package cartographer.save;
 import cartographer.testing.ConcurrencyTest;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -24,12 +22,10 @@ class BoundedStreamingDecodePipelineLifecycleTest extends BoundedStreamingDecode
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
         AtomicInteger callbacks = new AtomicInteger();
-        List<Integer> values = new ArrayList<>();
 
         try (BoundedStreamingDecodePipeline<Integer> pipeline =
                      new BoundedStreamingDecodePipeline<>(2, 3, value -> {
                          callbacks.incrementAndGet();
-                         values.add(value);
                          throw cause;
                      })) {
             pipeline.submit(() -> {

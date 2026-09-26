@@ -130,8 +130,7 @@ public final class SurfaceCacheTile implements CachedSurfaceTileView {
                 copyArrays
         );
         this.sourceMode = Objects.requireNonNull(sourceMode, "source mode is required");
-        if (diagnosticColumnsScanned < 0
-                || diagnosticEmptyColumns < 0
+        if (diagnosticEmptyColumns < 0
                 || diagnosticLiquidUnavailableColumns < 0
                 || diagnosticEmptyColumns > diagnosticColumnsScanned
                 || diagnosticLiquidUnavailableColumns > diagnosticColumnsScanned) {
