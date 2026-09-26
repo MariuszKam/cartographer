@@ -68,6 +68,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @IntegrationTest
 class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
 
+    @TempDir
+    Path temporaryDirectory;
+
+    @Override
+    Path temporaryDirectory() {
+        return temporaryDirectory;
+    }
+
     @Test
     void malformedFinalManifestDisablesCacheAndUsesSource() throws Exception {
         Path savePath = temporaryDirectory.resolve("malformed-render-data-save.vcdbs");
