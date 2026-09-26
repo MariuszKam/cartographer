@@ -32,12 +32,12 @@ class SurfaceStreamingSessionTest {
         session.acceptMapChunk(new MapChunk(
                 new MapChunkCoordinate(0, 0), filled(100), new int[0]));
         session.finishPlanning();
-        session.acceptFastChunk(airChunk(3));
+        session.acceptFastChunk(airChunk());
         assertEquals(
                 List.of(new MapChunkCoordinate(0, 0)),
                 session.fallbackMapChunks()
         );
-        session.acceptFallbackChunk(fallbackChunk(2, 95, 1));
+        session.acceptFallbackChunk(fallbackChunk());
 
         SurfaceRainHeightScanResult result = session.finish();
 
@@ -267,25 +267,25 @@ class SurfaceStreamingSessionTest {
         );
     }
 
-    private ParsedChunk airChunk(int sectionY) {
+    private ParsedChunk airChunk() {
         return cartographer.model.ParsedChunkFixtures.create(
-                new ChunkCoordinate(0, sectionY, 0),
-                sectionY * ChunkCoordinate.SIZE_BLOCKS,
+                new ChunkCoordinate(0, 3, 0),
+                3 * ChunkCoordinate.SIZE_BLOCKS,
                 32, 32, 32, new int[32 * 32 * 32]
         );
     }
 
-    private ParsedChunk fallbackChunk(int sectionY, int worldY, int blockId) {
+    private ParsedChunk fallbackChunk() {
         int[] blocks = new int[32 * 32 * 32];
-        int localY = worldY - sectionY * ChunkCoordinate.SIZE_BLOCKS;
+        int localY = 95 - 2 * ChunkCoordinate.SIZE_BLOCKS;
         for (int localZ = 0; localZ < 32; localZ++) {
             for (int localX = 0; localX < 32; localX++) {
-                blocks[(localY * 32 + localZ) * 32 + localX] = blockId;
+                blocks[(localY * 32 + localZ) * 32 + localX] = 1;
             }
         }
         return cartographer.model.ParsedChunkFixtures.create(
-                new ChunkCoordinate(0, sectionY, 0),
-                sectionY * ChunkCoordinate.SIZE_BLOCKS,
+                new ChunkCoordinate(0, 2, 0),
+                2 * ChunkCoordinate.SIZE_BLOCKS,
                 32, 32, 32, blocks
         );
     }

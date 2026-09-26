@@ -593,7 +593,7 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
         assertEquals(1, second.renderDataCacheReport().surface().misses());
         assertEquals(1, second.renderDataCacheReport().surface().sourceLoaded());
         assertTrue(hasSurfaceCode(second, "game:fire-clay-blue"));
-        assertTrue(hasSurfaceXAtLeast(second, 32));
+        assertTrue(hasSurfaceXAtLeast(second));
         assertTrue(secondReader.directMapChunkRequests.getLast().contains(fallbackCoordinate));
         assertTrue(secondReader.directMapChunkRequests.getLast().stream()
                 .allMatch(coordinate -> coordinate.equals(fallbackCoordinate)));
@@ -601,8 +601,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
                 .flatMap(List::stream)
                 .allMatch(position -> position.x() == fallbackCoordinate.x()));
 
-        assertTrue(hasSurfaceXLessThan(second, 32));
-        assertTrue(hasSurfaceXAtLeast(second, 32));
+        assertTrue(hasSurfaceXLessThan(second));
+        assertTrue(hasSurfaceXAtLeast(second));
     }
 
     @Test

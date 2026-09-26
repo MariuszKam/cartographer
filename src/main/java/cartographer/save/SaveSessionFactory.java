@@ -30,7 +30,7 @@ public final class SaveSessionFactory {
         SaveSourceStamp sourceStamp = SaveSourceStamp.capture(normalized);
         Connection connection = connectionFactory.openReadOnly(normalized);
         try {
-            WorldMetadata metadata = metadataReader.read(connection, cartographer.progress.ProgressReporter.NONE);
+            WorldMetadata metadata = metadataReader.read(connection);
             Map<Integer, BlockInfo> registry = reader.readBlockRegistry(connection);
             SaveSnapshot snapshot = new SaveSnapshot(metadata, registry);
             sourceStamp.requireUnchanged(normalized);

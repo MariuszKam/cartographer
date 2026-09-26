@@ -161,10 +161,7 @@ class RenderCoverageMapUseCaseTest {
             extends WorldMetadataReader {
 
         @Override
-        protected WorldMetadata read(
-                Connection connection,
-                ProgressReporter progress
-        ) {
+        protected WorldMetadata read(Connection connection) {
             return new WorldMetadata(
                     1024,
                     256,

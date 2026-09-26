@@ -28,8 +28,8 @@ public final class SurfaceRainHeightPlan {
             List<MapChunkCoordinate> fallbackMapChunks
     ) {
         this.layout = Objects.requireNonNull(layout, "layout is required");
-        this.rainHeights = copy(rainHeights, "rain heights");
-        this.candidatePresent = copy(candidatePresent, "candidate presence");
+        this.rainHeights = copyRainHeights(rainHeights);
+        this.candidatePresent = copyCandidatePresence(candidatePresent);
         this.promotedMapChunks = Arrays.copyOf(
                 Objects.requireNonNull(promotedMapChunks, "promoted mapchunks are required"),
                 promotedMapChunks.length
@@ -80,24 +80,30 @@ public final class SurfaceRainHeightPlan {
         return cellOrdinalsByChunk.get(position);
     }
 
-    private static int[][] copy(int[][] values, String name) {
-        Objects.requireNonNull(values, name + " are required");
+    private static int[][] copyRainHeights(int[][] values) {
+        Objects.requireNonNull(values, "rain heights are required");
         int[][] result = new int[values.length][];
         for (int index = 0; index < values.length; index++) {
             result[index] = Arrays.copyOf(
-                    Objects.requireNonNull(values[index], name + " cannot contain null"),
+                    Objects.requireNonNull(
+                            values[index],
+                            "rain heights cannot contain null"
+                    ),
                     values[index].length
             );
         }
         return result;
     }
 
-    private static boolean[][] copy(boolean[][] values, String name) {
-        Objects.requireNonNull(values, name + " are required");
+    private static boolean[][] copyCandidatePresence(boolean[][] values) {
+        Objects.requireNonNull(values, "candidate presence is required");
         boolean[][] result = new boolean[values.length][];
         for (int index = 0; index < values.length; index++) {
             result[index] = Arrays.copyOf(
-                    Objects.requireNonNull(values[index], name + " cannot contain null"),
+                    Objects.requireNonNull(
+                            values[index],
+                            "candidate presence cannot contain null"
+                    ),
                     values[index].length
             );
         }

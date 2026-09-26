@@ -16,7 +16,7 @@ final class MapViewportNavigation {
         }
 
         double desiredOffset = targetPosition - contentMin - viewportLength / 2.0;
-        return clamp(desiredOffset / scrollableLength, 0.0, 1.0);
+        return clampUnit(desiredOffset / scrollableLength);
     }
 
     static double interpolateScrollValue(
@@ -24,10 +24,10 @@ final class MapViewportNavigation {
             double maxValue,
             double fraction
     ) {
-        return minValue + clamp(fraction, 0.0, 1.0) * (maxValue - minValue);
+        return minValue + clampUnit(fraction) * (maxValue - minValue);
     }
 
-    private static double clamp(double value, double min, double max) {
-        return Math.clamp(value, min, max);
+    private static double clampUnit(double value) {
+        return Math.clamp(value, 0.0, 1.0);
     }
 }

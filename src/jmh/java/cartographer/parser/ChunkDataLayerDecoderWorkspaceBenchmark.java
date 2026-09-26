@@ -58,7 +58,7 @@ public class ChunkDataLayerDecoderWorkspaceBenchmark {
 
     @Benchmark
     public DecodedChunkLayer decodeWithReusedWorkspace() {
-        return decoder.decodeOwned(payload, 2, workspace);
+        return decoder.decodeOwned(payload, workspace);
     }
 
     @Benchmark

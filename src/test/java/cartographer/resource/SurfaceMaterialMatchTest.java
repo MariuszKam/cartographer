@@ -67,8 +67,8 @@ class SurfaceMaterialMatchTest {
                         1, new BlockInfo(1, "game:fire-clay-blue"),
                         2, new BlockInfo(2, "game:fire-clay-blue")
                 ),
-                new Cell(10, 5, 20, 1),
-                new Cell(11, 5, 20, 2)
+                new Cell(10, 1),
+                new Cell(11, 2)
         );
 
         SurfaceMaterialAnalysis result = new SurfaceMaterialAnalyzer().analyze(
@@ -114,8 +114,8 @@ class SurfaceMaterialMatchTest {
         for (Cell cell : cells) {
             accumulator.recordSurface(
                     cell.worldX(),
-                    cell.worldZ(),
-                    cell.worldY(),
+                    20,
+                    5,
                     cell.blockId(),
                     0,
                     SurfaceClass.UNKNOWN
@@ -137,8 +137,6 @@ class SurfaceMaterialMatchTest {
 
     private record Cell(
             int worldX,
-            int worldY,
-            int worldZ,
             int blockId
     ) {
     }

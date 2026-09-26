@@ -46,8 +46,8 @@ class ObservedSurfaceResourceSelectionTest {
                         2, new BlockInfo(2, "somemod:loosestones-something-free")
                 )),
                 scan(
-                        surface(0, 0, 0, 1),
-                        surface(1, 0, 0, 2)
+                        surface(0, 1),
+                        surface(1, 2)
                 )
         );
 
@@ -78,8 +78,8 @@ class ObservedSurfaceResourceSelectionTest {
                         1, new BlockInfo(1, "game:loosestones-something-free"),
                         2, new BlockInfo(2, "somemod:loosestones-something-free"))),
                 scan(
-                        surface(0, 0, 0, 1),
-                        surface(1, 0, 0, 2)
+                        surface(0, 1),
+                        surface(1, 2)
                 ));
 
         assertEquals(List.of("game:something", "somemod:something"),
@@ -97,18 +97,16 @@ class ObservedSurfaceResourceSelectionTest {
         return observed.build(
                 candidateCatalog,
                 scan(
-                        surface(0, 0, 0, 1),
-                        surface(1, 0, 0, 2)
+                        surface(0, 1),
+                        surface(1, 2)
                 )
         );
     }
 
     private SurfaceObjectCompactFixtures.Observation surface(
             int x,
-            int y,
-            int z,
             int blockId
     ) {
-        return observation(x, y, z, blockId);
+        return observation(x, 0, 0, blockId);
     }
 }
