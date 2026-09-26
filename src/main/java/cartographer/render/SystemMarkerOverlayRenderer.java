@@ -2,7 +2,6 @@ package cartographer.render;
 
 import cartographer.model.WorldPosition;
 import cartographer.model.HomeState;
-import cartographer.model.WorldPosition;
 
 import java.awt.Color;
 import java.awt.Graphics2D;

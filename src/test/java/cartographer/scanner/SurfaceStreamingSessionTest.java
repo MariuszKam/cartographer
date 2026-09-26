@@ -28,7 +28,7 @@ class SurfaceStreamingSessionTest {
 
     @Test
     void lowerFallbackYReplacesEarlierFastObservationWhenMapchunkPromotes() {
-        SurfaceStreamingSession session = session(100);
+        SurfaceStreamingSession session = session();
         session.acceptMapChunk(new MapChunk(
                 new MapChunkCoordinate(0, 0), filled(100), new int[0]));
         session.finishPlanning();
@@ -48,14 +48,14 @@ class SurfaceStreamingSessionTest {
 
     @Test
     void fastMissingLiquidPromotesBeforeFallbackAndDoesNotLeakFinalDiagnostic() {
-        SurfaceStreamingSession session = session(1);
+        SurfaceStreamingSession session = session();
         session.acceptMapChunk(new MapChunk(
                 new MapChunkCoordinate(0, 0), filled(1), new int[0]));
         session.finishPlanning();
         session.acceptFastChunk(unavailableChunk(0));
 
         assertTrue(session.fallbackMapChunks().contains(new MapChunkCoordinate(0, 0)));
-        session.acceptFallbackChunk(chunkFilled(0, 1, 1));
+        session.acceptFallbackChunk(chunkFilled(0, 1));
 
         SurfaceRainHeightScanResult result = session.finish();
 
@@ -83,7 +83,7 @@ class SurfaceStreamingSessionTest {
 
     @Test
     void missingRequestedServerChunkPromotesBeforeFallbackScheduling() {
-        SurfaceStreamingSession session = session(1);
+        SurfaceStreamingSession session = session();
         session.acceptMapChunk(new MapChunk(
                 new MapChunkCoordinate(0, 0), filled(1), new int[0]));
         session.finishPlanning();
@@ -97,8 +97,8 @@ class SurfaceStreamingSessionTest {
                 WORLD, 1, 1, 1,
                 List.of(new MapChunkCoordinate(0, 0)), REGISTRY, true, true);
         session.finishPlanning();
-        session.acceptFallbackChunk(chunkFilled(0, 1, 1));
-        session.acceptFallbackChunk(chunkFilled(1, 33, 1));
+        session.acceptFallbackChunk(chunkFilled(0, 1));
+        session.acceptFallbackChunk(chunkFilled(1, 1));
 
         SurfaceRainHeightScanResult result = session.finish();
 
@@ -124,12 +124,12 @@ class SurfaceStreamingSessionTest {
 
     @Test
     void fallbackSelectsHighestAcrossArbitraryVerticalArrivalOrder() {
-        SurfaceStreamingSession first = session(0);
-        SurfaceStreamingSession second = session(0);
+        SurfaceStreamingSession first = session();
+        SurfaceStreamingSession second = session();
         first.finishPlanning();
         second.finishPlanning();
-        ParsedChunk lower = chunkFilled(0, 20, 1);
-        ParsedChunk upper = chunkFilled(1, 50, 2);
+        ParsedChunk lower = chunkFilled(0, 1);
+        ParsedChunk upper = chunkFilled(1, 2);
         first.acceptFallbackChunk(lower);
         first.acceptFallbackChunk(upper);
         second.acceptFallbackChunk(upper);
@@ -143,11 +143,11 @@ class SurfaceStreamingSessionTest {
 
     @Test
     void sessionConsumesCallbacksWithoutExposingDecodedChunkOwnership() {
-        SurfaceStreamingSession session = session(1);
+        SurfaceStreamingSession session = session();
         session.acceptMapChunk(new MapChunk(
                 new MapChunkCoordinate(0, 0), filled(1), new int[0]));
         session.finishPlanning();
-        ParsedChunk chunk = chunkFilled(0, 1, 1);
+        ParsedChunk chunk = chunkFilled(0, 1);
         session.acceptFastChunk(chunk);
         SurfaceRainHeightScanResult result = session.finish();
 
@@ -236,7 +236,7 @@ class SurfaceStreamingSessionTest {
                 return 0;
             }
         });
-        session.acceptFallbackChunk(chunkFilledAt(1, 0, 0, 2));
+        session.acceptFallbackChunk(chunkFilledAt(1, 0, 2));
 
         SurfaceRainHeightScanResult result = session.finish();
 
@@ -246,7 +246,7 @@ class SurfaceStreamingSessionTest {
         assertEquals(12, result.surface().surfaceYAt(1, 16));
     }
 
-    private SurfaceStreamingSession session(int rainHeight) {
+    private SurfaceStreamingSession session() {
         return SurfaceStreamingSession.begin(
                 WORLD, 1, 1, 2,
                 List.of(new MapChunkCoordinate(0, 0)),
@@ -254,11 +254,11 @@ class SurfaceStreamingSessionTest {
         );
     }
 
-    private ParsedChunk chunkFilled(int sectionY, int worldY, int blockId) {
-        return chunkFilledAt(0, sectionY, worldY, blockId);
+    private ParsedChunk chunkFilled(int sectionY, int blockId) {
+        return chunkFilledAt(0, sectionY, blockId);
     }
 
-    private ParsedChunk chunkFilledAt(int chunkX, int sectionY, int worldY, int blockId) {
+    private ParsedChunk chunkFilledAt(int chunkX, int sectionY, int blockId) {
         int[] blocks = new int[32 * 32 * 32];
         Arrays.fill(blocks, blockId);
         return cartographer.model.ParsedChunkFixtures.create(

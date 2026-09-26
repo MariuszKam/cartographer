@@ -20,7 +20,6 @@ import java.util.Optional;
  * source save by the caller.</p>
  */
 public final class WorldDataSnapshot {
-    private final RenderDataCacheStore cacheStore;
     private final RenderDataCacheRevision revision;
     private final WorldSnapshotHeaderStore headerStore;
     private final TerrainTileStore terrainStore;
@@ -35,7 +34,7 @@ public final class WorldDataSnapshot {
             RenderDataCacheStore cacheStore,
             RenderDataCacheRevision revision
     ) {
-        this.cacheStore = Objects.requireNonNull(cacheStore, "cacheStore is required");
+        Objects.requireNonNull(cacheStore, "cacheStore is required");
         this.revision = Objects.requireNonNull(revision, "revision is required");
         this.headerStore = new WorldSnapshotHeaderStore(cacheStore, revision);
         this.terrainStore = new TerrainTileStore(cacheStore, revision);
@@ -81,16 +80,8 @@ public final class WorldDataSnapshot {
         return Optional.of(new WorldDataSnapshot(cacheStore, revision));
     }
 
-    public RenderDataCacheRevision revision() {
-        return revision;
-    }
-
     public String revisionHash() {
         return revision.revisionHash();
-    }
-
-    public Path savePath() {
-        return revision.identity().normalizedSavePath();
     }
 
     public WorldSnapshotHeaderStore headerStore() {

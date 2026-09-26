@@ -81,10 +81,6 @@ public final class MapPanel extends BorderPane {
         setCenter(viewportChrome);
     }
 
-    public void show(BufferedImage image) {
-        show(image, Optional.empty(), Optional.empty());
-    }
-
     public void show(
             BufferedImage image,
             Optional<MapViewportGeometry> geometry,

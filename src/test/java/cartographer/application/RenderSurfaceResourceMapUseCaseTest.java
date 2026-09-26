@@ -530,7 +530,7 @@ class RenderSurfaceResourceMapUseCaseTest {
 
     private boolean hasSurfaceXLessThan(RenderSurfaceResourceMapResult result, int bound) {
         int[] found = {0};
-        result.surface().map().forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
+        result.surface().map().forEachResolvedCell((x, z, y, blockId, surfaceClass) -> {
             if (x < bound) found[0]++;
         });
         return found[0] != 0;
@@ -538,7 +538,7 @@ class RenderSurfaceResourceMapUseCaseTest {
 
     private boolean hasSurfaceXAtLeast(RenderSurfaceResourceMapResult result, int bound) {
         int[] found = {0};
-        result.surface().map().forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
+        result.surface().map().forEachResolvedCell((x, z, y, blockId, surfaceClass) -> {
             if (x >= bound) found[0]++;
         });
         return found[0] != 0;

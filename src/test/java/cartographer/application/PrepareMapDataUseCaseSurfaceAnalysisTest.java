@@ -138,7 +138,7 @@ class PrepareMapDataUseCaseSurfaceAnalysisTest {
     private int resolvedCells(SurfaceMapScanResult result) {
         int[] count = {0};
         result.map().forEachResolvedCell(
-                (x, z, y, blockId, liquidId, surfaceClass) ->
+                (x, z, y, blockId, surfaceClass) ->
                         count[0]++
         );
         return count[0];

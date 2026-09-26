@@ -96,10 +96,6 @@ public final class RenderRockMapUseCase {
                 cache.map(SnapshotWorldHeaderReader::new);
     }
 
-    public RockMapRenderResult renderRetained(RockMap rockMap) {
-        return renderRetained(rockMap, Optional.empty());
-    }
-
     public RockMapRenderResult renderRetained(
             RockMap rockMap,
             Optional<String> highlightRockCode
@@ -299,19 +295,6 @@ public final class RenderRockMapUseCase {
                 minY,
                 maxYExclusive
         ));
-    }
-
-    public RenderRockMapResult execute(
-            SaveSession saveSession,
-            RenderRockMapRequest request,
-            ProgressReporter progress
-    ) {
-        return executeSource(
-                saveSession,
-                request,
-                progress,
-                true
-        );
     }
 
     private RenderRockMapResult executeSource(

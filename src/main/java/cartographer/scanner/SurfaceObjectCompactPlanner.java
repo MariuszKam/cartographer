@@ -72,7 +72,7 @@ public final class SurfaceObjectCompactPlanner {
                         plannedTargets = Math.addExact(plannedTargets, 1);
                         for (int worldY = first; worldY < last; worldY++) {
                             if (isCandidateY(terrain[cell], rain[cell], sourceFlags, worldY)) {
-                                positions.indexOf(
+                                positions.add(
                                         Math.floorDiv(worldX, cartographer.model.ChunkCoordinate.SIZE_BLOCKS),
                                         Math.floorDiv(worldY, cartographer.model.ChunkCoordinate.SIZE_BLOCKS),
                                         Math.floorDiv(worldZ, cartographer.model.ChunkCoordinate.SIZE_BLOCKS));
@@ -91,7 +91,7 @@ public final class SurfaceObjectCompactPlanner {
         private int firstCandidateY(int terrain, int rain, byte flags) {
             long first = Long.MAX_VALUE;
             if ((flags & TileBuilder.TERRAIN_PRESENT) != 0) first = Math.min(first, (long) terrain - 2L);
-            if ((flags & TileBuilder.RAIN_PRESENT) != 0) first = Math.min(first, (long) rain);
+            if ((flags & TileBuilder.RAIN_PRESENT) != 0) first = Math.min(first, rain);
             return first == Long.MAX_VALUE ? 0 : (int) Math.max(0L, first);
         }
 
@@ -99,7 +99,7 @@ public final class SurfaceObjectCompactPlanner {
             long last = Long.MIN_VALUE;
             if ((flags & TileBuilder.TERRAIN_PRESENT) != 0) last = Math.max(last, (long) terrain + 4L);
             if ((flags & TileBuilder.RAIN_PRESENT) != 0) last = Math.max(last, (long) rain + 4L);
-            return last == Long.MIN_VALUE ? 0 : (int) Math.min((long) metadata.mapSizeY(), last);
+            return last == Long.MIN_VALUE ? 0 : (int) Math.min(metadata.mapSizeY(), last);
         }
 
         private boolean isCandidateY(int terrain, int rain, byte flags, int y) {
@@ -148,7 +148,7 @@ public final class SurfaceObjectCompactPlanner {
         private int[] xs = new int[16], ys = new int[16], zs = new int[16], slots = new int[32];
         private int size;
 
-        int indexOf(int x, int y, int z) {
+        void add(int x, int y, int z) {
             if (size * 2 >= slots.length) grow();
             int slot = slot(x, y, z, slots.length);
             while (true) {
@@ -157,10 +157,10 @@ public final class SurfaceObjectCompactPlanner {
                     int index = size++;
                     ensureValues(index + 1);
                     xs[index] = x; ys[index] = y; zs[index] = z; slots[slot] = index + 1;
-                    return index;
+                    return;
                 }
                 int index = stored - 1;
-                if (xs[index] == x && ys[index] == y && zs[index] == z) return index;
+                if (xs[index] == x && ys[index] == y && zs[index] == z) return;
                 slot = (slot + 1) & (slots.length - 1);
             }
         }

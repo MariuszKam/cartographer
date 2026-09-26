@@ -84,7 +84,6 @@ public final class FusedProspectingEngine {
         int baseX = Math.multiplyExact(chunk.coordinate().x(), ChunkCoordinate.SIZE_BLOCKS);
         int baseZ = Math.multiplyExact(chunk.coordinate().z(), ChunkCoordinate.SIZE_BLOCKS);
         for (int y = 0; y < chunk.sizeY(); y++) {
-            int worldY = chunk.minY() + y;
             for (int z = 0; z < chunk.sizeZ(); z++) {
                 int worldZ = baseZ + z;
                 long dz = (long) worldZ - centerZ;

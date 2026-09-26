@@ -1,11 +1,10 @@
 package cartographer.render;
 
-import cartographer.progress.ProgressReporter;
 import cartographer.model.WorldPosition;
+import cartographer.progress.ProgressReporter;
 import cartographer.model.HomeState;
 import cartographer.model.MapChunk;
 import cartographer.model.SurfaceClass;
-import cartographer.model.WorldPosition;
 import cartographer.model.BlockInfo;
 import cartographer.scanner.SurfaceMap;
 

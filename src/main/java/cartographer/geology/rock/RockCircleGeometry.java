@@ -19,7 +19,7 @@ public final class RockCircleGeometry {
             throw new IllegalArgumentException("radius must be positive");
         }
         long rowCountLong = Math.addExact(
-                Math.multiplyExact((long) radius, 2L),
+                Math.multiplyExact(radius, 2L),
                 1L
         );
         if (rowCountLong > Integer.MAX_VALUE) {
@@ -50,7 +50,7 @@ public final class RockCircleGeometry {
             long dz = (long) row - radius;
             long remaining = Math.subtractExact(radiusSquared, Math.multiplyExact(dz, dz));
             long halfWidth = floorSqrt(remaining);
-            long startX = Math.subtractExact((long) centerX, halfWidth);
+            long startX = Math.subtractExact(centerX, halfWidth);
             long length = Math.addExact(Math.multiplyExact(halfWidth, 2L), 1L);
             if (startX < Integer.MIN_VALUE || startX > Integer.MAX_VALUE
                     || length > Integer.MAX_VALUE) {
@@ -175,10 +175,10 @@ public final class RockCircleGeometry {
     }
 
     private static long preflightCellCount(int radius, int rowCount, long radiusSquared) {
-        long radiusPlusOne = Math.addExact((long) radius, 1L);
+        long radiusPlusOne = Math.addExact(radius, 1L);
         long diamondCells = Math.addExact(
                 1L,
-                Math.multiplyExact(2L, Math.multiplyExact((long) radius, radiusPlusOne))
+                Math.multiplyExact(2L, Math.multiplyExact(radius, radiusPlusOne))
         );
         if (diamondCells > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("rock circle exceeds supported cell capacity");

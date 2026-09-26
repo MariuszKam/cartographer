@@ -2,7 +2,6 @@ package cartographer.coverage;
 
 import cartographer.model.WorldPosition;
 import cartographer.model.HomeState;
-import cartographer.model.WorldPosition;
 import cartographer.render.MarkerRenderer;
 import cartographer.render.MapViewportGeometry;
 

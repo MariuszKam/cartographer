@@ -104,7 +104,7 @@ public final class SurfaceObjectCompactPlan {
         int firstCandidateY(int cellIndex) {
             long first = Long.MAX_VALUE;
             if ((sourceFlags[cellIndex] & TERRAIN_PRESENT) != 0) first = Math.min(first, (long) terrainAnchors[cellIndex] - 2L);
-            if ((sourceFlags[cellIndex] & RAIN_PRESENT) != 0) first = Math.min(first, (long) rainAnchors[cellIndex]);
+            if ((sourceFlags[cellIndex] & RAIN_PRESENT) != 0) first = Math.min(first, rainAnchors[cellIndex]);
             return first == Long.MAX_VALUE ? 0 : (int) Math.max(0L, first);
         }
 
@@ -112,7 +112,7 @@ public final class SurfaceObjectCompactPlan {
             long last = Long.MIN_VALUE;
             if ((sourceFlags[cellIndex] & TERRAIN_PRESENT) != 0) last = Math.max(last, (long) terrainAnchors[cellIndex] + 4L);
             if ((sourceFlags[cellIndex] & RAIN_PRESENT) != 0) last = Math.max(last, (long) rainAnchors[cellIndex] + 4L);
-            return last == Long.MIN_VALUE ? 0 : (int) Math.min((long) mapSizeY, last);
+            return last == Long.MIN_VALUE ? 0 : (int) Math.min(mapSizeY, last);
         }
 
         boolean isCandidateY(int cellIndex, int worldY) {

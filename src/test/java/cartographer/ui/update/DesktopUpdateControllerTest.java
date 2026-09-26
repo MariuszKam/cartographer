@@ -63,8 +63,7 @@ class DesktopUpdateControllerTest {
     }
 
     @Test
-    void automaticCheckShowsAvailableUpdateAndPersistsSuccess()
-            throws Exception {
+    void automaticCheckShowsAvailableUpdateAndPersistsSuccess() {
         Instant now = Instant.parse("2026-09-20T10:00:00Z");
         UpdatePreferencesStore store = store();
         AtomicInteger loads = new AtomicInteger();
@@ -697,7 +696,6 @@ class DesktopUpdateControllerTest {
     }
 
     private static final class FakeView implements UpdateCheckView {
-        private ApplicationVersion currentVersion;
         private ApplicationVersion availableVersion;
         private ApplicationVersion readyVersion;
         private boolean checking;
@@ -710,19 +708,16 @@ class DesktopUpdateControllerTest {
         private ApplicationVersion installedVersion;
         private ApplicationVersion restartRequiredVersion;
         private String previousInstallFailure;
-        private Runnable checkAction = () -> { };
         private Runnable openAction = () -> { };
         private Runnable downloadAction = () -> { };
         private Runnable installAction = () -> { };
 
         @Override
         public void showCurrentVersion(ApplicationVersion version) {
-            currentVersion = version;
         }
 
         @Override
         public void setOnCheckForUpdates(Runnable action) {
-            checkAction = action;
         }
 
         @Override

@@ -44,7 +44,7 @@ public final class SoilFertilityOverlayRenderer {
         Graphics2D graphics = image.createGraphics();
         try {
             graphics.setComposite(java.awt.AlphaComposite.SrcOver);
-            surface.forEachResolvedCell((worldX, worldZ, y, blockId, liquidId, surfaceClass) -> {
+            surface.forEachResolvedCell((worldX, worldZ, y, blockId, surfaceClass) -> {
                 if (surfaceClass == SurfaceClass.WATER || surfaceClass == SurfaceClass.SNOW) {
                     return;
                 }

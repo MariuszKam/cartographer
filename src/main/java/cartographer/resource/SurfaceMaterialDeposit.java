@@ -26,6 +26,4 @@ public record SurfaceMaterialDeposit(
         blockCodes = blockCodes == null ? Set.of() : Set.copyOf(blockCodes);
     }
 
-    public int widthBlocks() { return maxWorldX - minWorldX + 1; }
-    public int depthBlocks() { return maxWorldZ - minWorldZ + 1; }
 }

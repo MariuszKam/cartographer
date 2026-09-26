@@ -63,8 +63,6 @@ public final class RockMap {
     public WorldPosition center() { return center; }
     public int radius() { return radius; }
     public RockCircleGeometry geometry() { return geometry; }
-    public int minY() { return minY; }
-    public int maxYExclusive() { return maxYExclusive; }
     public RockMapMode mode() { return mode; }
     public long observedCount() { return observedCount; }
     public long noRockCount() { return noRockCount; }

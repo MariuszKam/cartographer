@@ -7,8 +7,6 @@ final class RockCellLayout {
     private static final int STATE_BITS = 2;
 
     private final int rockOrdinalBits;
-    private final int yBits;
-    private final int totalBits;
     private final int rockCount;
     private final long yRangeHeight;
     private final boolean intBacked;
@@ -25,7 +23,7 @@ final class RockCellLayout {
                 || yBits < 0 || yBits > 62) {
             throw new IllegalArgumentException("packed field width is invalid");
         }
-        this.totalBits = Math.addExact(STATE_BITS,
+        int totalBits = Math.addExact(STATE_BITS,
                 Math.addExact(rockOrdinalBits, yBits));
         if (totalBits > Long.SIZE) {
             throw new IllegalArgumentException(
@@ -46,7 +44,6 @@ final class RockCellLayout {
             }
         }
         this.rockOrdinalBits = rockOrdinalBits;
-        this.yBits = yBits;
         this.rockCount = rockCount;
         this.yRangeHeight = yRangeHeight;
         this.intBacked = totalBits <= Integer.SIZE;
@@ -58,7 +55,7 @@ final class RockCellLayout {
         if (rockCount < 0 || yRangeHeight <= 0) {
             throw new IllegalArgumentException("packed layout domain is invalid");
         }
-        int rockBits = ceilLog2(Math.addExact((long) rockCount, 1L));
+        int rockBits = ceilLog2(Math.addExact(rockCount, 1L));
         int yBits = ceilLog2(yRangeHeight);
         return new RockCellLayout(rockBits, yBits, rockCount, yRangeHeight);
     }
@@ -99,19 +96,6 @@ final class RockCellLayout {
 
     long yOffset(long packed) {
         return (packed >>> (STATE_BITS + rockOrdinalBits)) & yMask;
-    }
-
-    void validate(long packed) {
-        RockColumnState state = state(packed);
-        int ordinal = rockOrdinal(packed);
-        long yOffset = yOffset(packed);
-        if (state == RockColumnState.OBSERVED) {
-            if (ordinal <= 0 || ordinal > rockCount || yOffset >= yRangeHeight) {
-                throw new IllegalArgumentException("invalid observed packed cell");
-            }
-        } else if (ordinal != 0 || yOffset != 0) {
-            throw new IllegalArgumentException("non-observed packed cell has payload");
-        }
     }
 
     private static int stateCode(RockColumnState state) {

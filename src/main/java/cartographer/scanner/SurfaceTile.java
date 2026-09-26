@@ -73,10 +73,6 @@ public final class SurfaceTile {
         return height;
     }
 
-    public int cellCount() {
-        return state.length;
-    }
-
     public boolean isActive(int localX, int localZ) {
         return (state[index(localX, localZ)] & ACTIVE) != 0;
     }

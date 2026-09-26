@@ -83,10 +83,6 @@ final class RadiusPane extends VBox {
         radius4096Button.setDisable(busy);
     }
 
-    void setDiscoveryBusy(boolean busy) {
-        setBusy(busy);
-    }
-
     static List<Integer> supportedRadii() {
         return List.of(128, 256, 512, 1024, 2048, 4096);
     }

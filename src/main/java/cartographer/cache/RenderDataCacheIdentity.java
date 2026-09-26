@@ -16,9 +16,7 @@ public record RenderDataCacheIdentity(
     public RenderDataCacheIdentity {
         normalizedSavePath = SavePathIdentity.normalize(normalizedSavePath);
         String expectedHash = RenderDataCacheIdentityHash.sha256(normalizedSavePath.toString());
-        if (namespaceHash == null) {
-            namespaceHash = expectedHash;
-        } else if (!expectedHash.equalsIgnoreCase(namespaceHash)) {
+        if (namespaceHash != null && !expectedHash.equalsIgnoreCase(namespaceHash)) {
             throw new IllegalArgumentException("namespace hash does not match save path");
         }
         namespaceHash = expectedHash;

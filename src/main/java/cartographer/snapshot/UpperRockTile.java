@@ -153,6 +153,7 @@ public final class UpperRockTile {
         return height;
     }
 
+
     public int cellCount() {
         return states.length;
     }
@@ -262,10 +263,6 @@ public final class UpperRockTile {
                         "ROCK geometry must be positive"
                 );
             }
-        }
-
-        public int cellCount() {
-            return Math.multiplyExact(width, height);
         }
     }
 

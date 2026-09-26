@@ -1,7 +1,5 @@
 package cartographer.save;
 
-import cartographer.testing.IntegrationTest;
-import cartographer.testing.ConcurrencyTest;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
 import cartographer.model.ParseResult;
@@ -11,7 +9,6 @@ import cartographer.progress.ProgressReporter;
 import cartographer.parser.ChunkParser;
 import cartographer.parser.ChunkDecodeProfile;
 import cartographer.parser.ChunkDecodeWorkspace;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.lang.reflect.Proxy;
@@ -24,14 +21,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 abstract class VcdbsReaderDirectChunkLookupTestSupport {
@@ -169,9 +162,6 @@ abstract class VcdbsReaderDirectChunkLookupTestSupport {
         return database;
     }
 
-    Path databaseWithRowCount(int count) throws Exception {
-        return databaseWithRows(positions(count).toArray(ChunkPosition[]::new));
-    }
 
     List<ChunkPosition> positions(int count) {
         List<ChunkPosition> positions = new ArrayList<>();

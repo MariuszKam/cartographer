@@ -85,10 +85,6 @@ final class ArgbRaster {
         }
     }
 
-    int width() {
-        return width;
-    }
-
     int height() {
         return height;
     }

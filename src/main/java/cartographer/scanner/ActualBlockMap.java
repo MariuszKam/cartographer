@@ -85,10 +85,6 @@ public record ActualBlockMap(
         }
     }
 
-    public int diameterBlocks() {
-        return radius * 2 + 1;
-    }
-
     public int hitColumns() {
         return cells.size();
     }

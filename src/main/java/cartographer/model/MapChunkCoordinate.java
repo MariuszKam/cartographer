@@ -21,13 +21,6 @@ public record MapChunkCoordinate(
         );
     }
 
-    public RegionCoordinate regionCoordinate() {
-        return RegionCoordinate.fromMapChunk(
-                x,
-                z
-        );
-    }
-
     private static int floorDiv(
             double value
     ) {

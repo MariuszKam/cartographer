@@ -66,28 +66,12 @@ public final class SurfaceRegistryLookup {
         return i < 0 || codes[i] == null ? "unknown:" + id : codes[i];
     }
 
-    public String materialType(int id) {
-        int i = index(id);
-        return i < 0 ? id == 0 ? "air" : "solid" : materialTypes[i];
-    }
-
-    public String rockFamily(int id) {
-        int i = index(id);
-        return i < 0 ? "unknown" : rockFamilies[i];
-    }
-
-    public int size() { return ids.length; }
-
     public int slot(int id) { return index(id); }
 
     public String codeAt(int slot) {
         Objects.checkIndex(slot, codes.length);
         return codes[slot] == null ? "unknown:" + ids[slot] : codes[slot];
     }
-
-    public String materialTypeAt(int slot) { return materialTypes[slot]; }
-
-    public String rockFamilyAt(int slot) { return rockFamilies[slot]; }
 
     private int index(int id) { return Arrays.binarySearch(ids, id); }
 

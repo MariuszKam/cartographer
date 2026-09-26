@@ -12,8 +12,6 @@ import java.util.Objects;
 
 /** Standalone completion-order-independent streaming UPPER ROCK analyzer. */
 public final class RockStreamingSession {
-    private final WorldPosition center;
-    private final int radius;
     private final int minY;
     private final int maxYExclusive;
     private final RockMapMode mode;
@@ -26,7 +24,6 @@ public final class RockStreamingSession {
     private final int chunkMaxZ;
     private final int chunkMinY;
     private final int chunkMaxY;
-    private final int verticalChunkCount;
     private final int wordsPerHorizontalColumn;
     private final long[] terminalSeenWords;
     private final long[] availableWords;
@@ -43,8 +40,7 @@ public final class RockStreamingSession {
             RockMapMode mode,
             RockCatalog catalog
     ) {
-        this.center = Objects.requireNonNull(center, "center is required");
-        this.radius = radius;
+        Objects.requireNonNull(center, "center is required");
         this.minY = minY;
         this.maxYExclusive = maxYExclusive;
         this.dimension = dimension;
@@ -62,9 +58,8 @@ public final class RockStreamingSession {
         this.chunkMinZ = checkedChunk(Math.floorDiv(Math.subtractExact((long) centerZ, radius), size));
         this.chunkMaxZ = checkedChunk(Math.floorDiv(Math.addExact((long) centerZ, radius), size));
         this.chunkMinY = checkedChunk(Math.floorDiv((long) minY, size));
-        this.chunkMaxY = checkedChunk(Math.floorDiv(Math.subtractExact((long) maxYExclusive, 1L), size));
+        this.chunkMaxY = checkedChunk(Math.floorDiv(Math.subtractExact(maxYExclusive, 1L), size));
         long verticalCount = Math.addExact(Math.subtractExact((long) chunkMaxY, chunkMinY), 1L);
-        this.verticalChunkCount = Math.toIntExact(verticalCount);
         this.wordsPerHorizontalColumn = Math.toIntExact(Math.addExact(verticalCount, 63L) / 64L);
         long horizontalCount = Math.multiplyExact(
                 Math.addExact((long) chunkMaxX - chunkMinX, 1L),
@@ -164,7 +159,7 @@ public final class RockStreamingSession {
             throw new IllegalArgumentException("decoded chunk dimensions must be positive");
         }
         long startY = Math.max((long) minY, chunk.minY());
-        long endY = Math.min((long) maxYExclusive, Math.addExact((long) chunk.minY(), chunk.sizeY()));
+        long endY = Math.min(maxYExclusive, Math.addExact((long) chunk.minY(), chunk.sizeY()));
         if (startY >= endY) return;
         if (mode == RockMapMode.AT_Y && (minY < startY || minY >= endY)) return;
         long chunkStartX = Math.multiplyExact((long) chunkX, ChunkCoordinate.SIZE_BLOCKS);
@@ -174,7 +169,7 @@ public final class RockStreamingSession {
         for (int row = 0; row < geometry.rowCount(); row++) {
             int worldZ = geometry.worldZForRow(row);
             if (worldZ < chunkStartZ || worldZ >= chunkEndZ) continue;
-            long startX = Math.max((long) geometry.rowStartX(row), chunkStartX);
+            long startX = Math.max(geometry.rowStartX(row), chunkStartX);
             long endX = Math.min(
                     Math.addExact((long) geometry.rowStartX(row), geometry.rowLength(row)),
                     chunkEndX
@@ -201,7 +196,7 @@ public final class RockStreamingSession {
 
     private RockColumnState coverageAboveCandidate(int index, int worldX, int worldZ) {
         int candidateY = builder.candidateY(index);
-        long firstY = Math.addExact((long) candidateY, 1L);
+        long firstY = Math.addExact(candidateY, 1L);
         long firstRow = Math.max(chunkMinY, Math.floorDiv(firstY, ChunkCoordinate.SIZE_BLOCKS));
         int chunkX = Math.floorDiv(worldX, ChunkCoordinate.SIZE_BLOCKS);
         int chunkZ = Math.floorDiv(worldZ, ChunkCoordinate.SIZE_BLOCKS);

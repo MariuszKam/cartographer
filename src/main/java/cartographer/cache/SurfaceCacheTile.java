@@ -204,10 +204,6 @@ public final class SurfaceCacheTile implements CachedSurfaceTileView {
         return worldSizeX == metadata.mapSizeX() && worldSizeZ == metadata.mapSizeZ();
     }
 
-    public SurfaceClass surfaceClassAt(int localX, int localZ) {
-        return SurfaceClassCode.decode(surfaceClassCodes[index(localX, localZ)]);
-    }
-
     /**
      * Converts a request tile only after proving it contains the complete
      * world-valid mapchunk domain. Request-clipped tiles are rejected.
@@ -372,7 +368,7 @@ public final class SurfaceCacheTile implements CachedSurfaceTileView {
 
     private static long checkedTileStart(int coordinate, String axis) {
         try {
-            return Math.multiplyExact((long) coordinate, (long) MapChunk.SIZE);
+            return Math.multiplyExact(coordinate, (long) MapChunk.SIZE);
         } catch (ArithmeticException exception) {
             throw new IllegalArgumentException("mapchunk " + axis + " coordinate overflows", exception);
         }
@@ -383,7 +379,7 @@ public final class SurfaceCacheTile implements CachedSurfaceTileView {
         if (remaining <= 0 || remaining > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("derived Surface tile dimension is invalid");
         }
-        return (int) Math.min((long) MapChunk.SIZE, remaining);
+        return (int) Math.min(MapChunk.SIZE, remaining);
     }
 
     record Geometry(int width, int height) {

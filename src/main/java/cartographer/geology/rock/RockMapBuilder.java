@@ -108,7 +108,6 @@ final class RockMapBuilder {
                 throw new IllegalStateException("observed finalization requires a candidate");
             }
             int ordinal = layout.rockOrdinal(packed);
-            long yOffset = layout.yOffset(packed);
             countsByOrdinal[ordinal]++;
         } else {
             writePacked(index, layout.pack(state, 0, 0));

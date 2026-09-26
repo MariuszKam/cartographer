@@ -33,7 +33,6 @@ public final class ResultInspectorPane extends VBox {
     private final Label cursorInspection = new Label();
     private final VBox content = new VBox(8);
     private final DiagnosticsPane diagnostics = new DiagnosticsPane();
-    private final LayerPanel layerPanel;
     private final TabPane tabs = new TabPane();
     private final Tab inspectTab = new Tab("Inspect");
     private final Tab resultsTab = new Tab("Results");
@@ -42,7 +41,7 @@ public final class ResultInspectorPane extends VBox {
 
     public ResultInspectorPane(LayerPanel layerPanel) {
         super(8);
-        this.layerPanel = java.util.Objects.requireNonNull(
+        java.util.Objects.requireNonNull(
                 layerPanel,
                 "layerPanel is required"
         );
@@ -351,15 +350,6 @@ public final class ResultInspectorPane extends VBox {
                 key1 + ": " + value1,
                 key2 + ": " + value2,
                 key3 + ": " + value3));
-    }
-
-    private VBox card(String title, String key1, String value1, String key2, String value2,
-                      String key3, String value3, String key4, String value4) {
-        return card(title, List.of(
-                key1 + ": " + value1,
-                key2 + ": " + value2,
-                key3 + ": " + value3,
-                key4 + ": " + value4));
     }
 
     private VBox card(String title, List<String> rows) {

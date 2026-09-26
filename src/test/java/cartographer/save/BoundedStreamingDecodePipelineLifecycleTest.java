@@ -4,18 +4,13 @@ import cartographer.testing.ConcurrencyTest;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -24,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BoundedStreamingDecodePipelineLifecycleTest extends BoundedStreamingDecodePipelineTestSupport {
 
     @Test
-    void consumerFailureRemainsPrimaryAndStopsCallbacks() throws Exception {
+    void consumerFailureRemainsPrimaryAndStopsCallbacks() {
         RuntimeException cause = new RuntimeException("consumer failure");
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
@@ -52,7 +47,7 @@ class BoundedStreamingDecodePipelineLifecycleTest extends BoundedStreamingDecode
     }
 
     @Test
-    void closeCancelsAndInterruptsOutstandingWork() throws Exception {
+    void closeCancelsAndInterruptsOutstandingWork() {
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch interrupted = new CountDownLatch(1);
         BoundedStreamingDecodePipeline<Integer> pipeline =
@@ -73,7 +68,7 @@ class BoundedStreamingDecodePipelineLifecycleTest extends BoundedStreamingDecode
     }
 
     @Test
-    void interruptedCompletionWaitRestoresInterruptStatusAndAborts() throws Exception {
+    void interruptedCompletionWaitRestoresInterruptStatusAndAborts() {
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch blocked = new CountDownLatch(1);
         CountDownLatch finishStarted = new CountDownLatch(1);

@@ -39,10 +39,6 @@ public final class WorldSnapshotPreparationSummaryStore {
                 .resolve(FILE_NAME);
     }
 
-    public Path path() {
-        return path;
-    }
-
     public Optional<WorldSnapshotPreparationSummary> read() {
         if (cacheStore.find(revision).isEmpty()
                 || !Files.isRegularFile(path)) {
