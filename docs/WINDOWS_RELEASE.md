@@ -280,12 +280,12 @@ and verify that the state persists as expected. This validates the existing
 
 ### Uninstall test
 
-The user + ChatGPT will verify that uninstall completes, installed program files
+The user + ChatGPT will verify that uninstallation completes, installed program files
 are removed as expected, and the Start Menu and Desktop shortcuts are removed.
 They will also verify that the Vintage Story save remains untouched and that
 user-owned Cartographer configuration is not destructively removed unless the
 existing application behavior explicitly provides otherwise. No custom
-uninstall cleanup is added by Stage 5.
+uninstallation cleanup is added by Stage 5.
 
 ## Stage 6: GitHub Actions Windows release automation
 
@@ -425,9 +425,9 @@ and its current gate is:
 ```
 
 The workflow has `contents: read` permissions. It allows one active run per PR;
-when a newer commit is pushed to the same PR, the superseded run is cancelled.
+when a newer commit is pushed to the same PR, the superseded run is canceled.
 
-PR CI validates the canonical software quality gate before merge but does not
+PR CI validates the canonical software quality gate before merge. It does not
 install WiX, run jpackage, build the portable ZIP, build the installer EXE, run
 Windows release artifact validation, publish artifacts, launch the GUI, or
 access a real Vintage Story save.

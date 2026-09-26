@@ -9,7 +9,7 @@ It does not add a sixth runtime updater subsystem. Stages 1–4 already provide:
 - release publication;
 - update detection;
 - secure installer download;
-- verified install bootstrap;
+- verified installation bootstrap;
 - restart and outcome handling.
 
 Stage 5 proves that those pieces work together on Windows against real packaged
@@ -17,7 +17,7 @@ releases and that the update does not damage Vintage Story saves or
 Cartographer-owned user state.
 
 The stage remains reviewer-controlled. GitHub Actions cannot prove interactive
-installer behavior, Windows shortcuts, GUI state, uninstall behavior, or real
+installer behavior, Windows shortcuts, GUI state, uninstallation behavior, or real
 save integrity.
 
 ## Stage 5 gates
@@ -108,7 +108,7 @@ The protected-state baseline deliberately excludes:
 `lastSuccessfulCheck` is expected to change during the campaign. Its
 `autoCheck` preference is checked separately.
 
-If there is no persistent protected Cartographer state, the baseline fails.
+If there is no protected Cartographer state that persists across launches, the baseline fails.
 Create a HOME or user marker first so persistence is actually being tested.
 
 ### Campaign order
@@ -195,9 +195,9 @@ Pre-existing WAL/SHM files are recorded but are not deleted by the helper.
 Stage 5 does not replace the existing release-validation helper. The older
 `tools/validate-windows-release.ps1` remains useful for package structure and
 standalone before/after release checks. The Stage 5 helper adds one campaign
-baseline spanning upgrade and uninstall.
+baseline spanning upgrade and uninstallation.
 
-## S5.4 — Installer, shortcuts and uninstall
+## S5.4 — Installer, shortcuts and uninstallation
 
 After the upgraded target version has passed normal GUI checks, uninstall VS
 Cartographer through the normal Windows uninstall UI.
@@ -210,9 +210,9 @@ powershell -ExecutionPolicy Bypass -File tools\validate-auto-update-stage5.ps1 `
   -SavePath "<path-to-save.vcdbs>"
 ```
 
-The automated uninstall gate requires:
+The automated uninstallation gate requires:
 
-- no VS Cartographer uninstall registration remains;
+- VS Cartographer has no remaining uninstallation registration;
 - Desktop shortcut is removed;
 - Start Menu shortcut is removed;
 - the installed launcher path recorded during the campaign no longer exists;
@@ -221,7 +221,7 @@ The automated uninstall gate requires:
 - persisted `autoCheck` remains unchanged when it existed at baseline.
 
 Stage 5 intentionally does not require deleting `~/.vs-cartographer`.
-User-owned Cartographer state is expected to survive uninstall.
+User-owned Cartographer state is expected to survive uninstallation.
 
 ## S5.5 — Failure scenarios
 
@@ -259,7 +259,7 @@ Do not restart the application before clicking `Restart & update` for this
 scenario. A fresh Stage 3 download attempt is allowed to detect the invalid
 cached installer and replace it, which would test a different contract.
 
-Restore the original staged file afterwards:
+Restore the original staged file afterward:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools\validate-auto-update-stage5.ps1 `
@@ -311,14 +311,14 @@ Stage 5 does not automate network-interface changes.
 
 Record the final campaign with explicit evidence:
 
-| Gate | Required evidence | Status before reviewer run |
-| --- | --- | --- |
-| S5.1 old -> new | real packaged release upgrade + target runtime version | PENDING MANUAL VALIDATION |
-| S5.2 state persistence | AfterUpgrade helper + HOME/marker GUI check | PENDING MANUAL VALIDATION |
-| S5.3 save integrity | baseline/AfterUpgrade/AfterUninstall hashes and sidecars | PENDING MANUAL VALIDATION |
-| S5.4 installer lifecycle | registry + shortcuts + uninstall helper | PENDING MANUAL VALIDATION |
-| S5.5 failures | tamper, silent installer result handling, unavailable network | PENDING MANUAL VALIDATION |
-| tests | final branch `.\gradlew.bat test` | NOT RUN until CI/reviewer evidence exists |
+| Gate                     | Required evidence                                             | Status before reviewer run                |
+| ------------------------ | ------------------------------------------------------------- | ----------------------------------------- |
+| S5.1 old -> new          | real packaged release upgrade + target runtime version        | PENDING MANUAL VALIDATION                 |
+| S5.2 state persistence   | AfterUpgrade helper + HOME/marker GUI check                   | PENDING MANUAL VALIDATION                 |
+| S5.3 save integrity      | baseline/AfterUpgrade/AfterUninstall hashes and sidecars      | PENDING MANUAL VALIDATION                 |
+| S5.4 installer lifecycle | registry + shortcuts + uninstall helper                       | PENDING MANUAL VALIDATION                 |
+| S5.5 failures            | tamper, silent installer result handling, unavailable network | PENDING MANUAL VALIDATION                 |
+| tests                    | final branch `.\gradlew.bat test`                             | NOT RUN until CI/reviewer evidence exists |
 
 Do not mark Auto Update Stage 5 or Auto Update v1 DONE from static review alone.
 

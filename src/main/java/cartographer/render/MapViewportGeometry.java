@@ -4,7 +4,7 @@ package cartographer.render;
  * Affine mapping between an image and the absolute world area represented by
  * its content rectangle.
  *
- * <p>Image coordinates are natural image coordinates, with the origin at the
+ * <p>Image coordinates are natural image coordinates, with the origin in the
  * upper-left corner. World maximum bounds are exclusive.</p>
  */
 public record MapViewportGeometry(

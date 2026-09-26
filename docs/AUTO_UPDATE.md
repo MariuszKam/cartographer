@@ -3,7 +3,7 @@
 ## Purpose
 
 VS Cartographer Auto Update is implemented as five application-level stages.
-This numbering is independent from the older Windows packaging stages in
+This numbering is independent of the older Windows packaging stages in
 `docs/WINDOWS_RELEASE.md`.
 
 ```text
@@ -91,7 +91,7 @@ A failed check is not interpreted as "up to date".
 ### S2.3 Non-blocking startup check
 
 The desktop application shows the JavaFX window first and performs update I/O
-on a dedicated daemon executor afterwards.
+on a dedicated daemon executor afterward.
 
 The JavaFX Application Thread is not used for network I/O.
 
@@ -440,7 +440,7 @@ result data never blocks application startup.
 After installer completion the bootstrap attempts to start the same packaged
 `VS Cartographer.exe` path that launched the update.
 
-A successful recorded install is accepted by the UI only when the running
+A successful recorded installation is accepted by the UI only when the running
 application version is at least the recorded target version. If the installer
 reported success but the old version is still running, the application reports
 the mismatch instead of pretending the upgrade succeeded.
@@ -487,7 +487,7 @@ a compatible installed VS Cartographer version.
 
 ## Stage 4 validation gates
 
-Stage 4 implementation is not considered runtime validated until all of the
+Stage 4 implementation is not considered runtime validated until all the
 following are checked on the exact final Stage 4 candidate:
 
 1. independent controller review of the exact branch/PR diff;
@@ -502,7 +502,7 @@ following are checked on the exact final Stage 4 candidate:
 7. tampering with the staged installer between Ready and execution is rejected;
 8. Cartographer-owned configuration remains present across the upgrade.
 
-Vintage Story save-integrity, shortcuts/uninstall, and the complete
+Vintage Story save-integrity, shortcuts/uninstallation, and the complete
 old-version-to-new-version release campaign remain part of Stage 5 final
 validation. Static implementation alone is not a Stage 4 runtime PASS.
 
@@ -527,7 +527,7 @@ A real installed old stable version must detect, download, verify, install and
 relaunch into a newer stable GitHub Release.
 
 The authoritative runtime check is the version shown by the relaunched
-application. Windows uninstall registration and shortcuts are additional
+application. Windows uninstallation registration and shortcuts are additional
 packaging evidence.
 
 ### S5.2 Cartographer-owned state persistence

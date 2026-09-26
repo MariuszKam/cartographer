@@ -88,7 +88,7 @@ Derived data must not silently become the source of truth merely because it is c
 
 When information is inferred, estimated, cached, transformed, or incomplete, preserve that semantic status across boundaries.
 
-## 8. Prefer explicit boundaries over hidden coupling
+## 8. Prefer explicit boundaries to hidden coupling
 
 Architectural boundaries must be visible in normal code structure and contracts.
 
