@@ -1,6 +1,5 @@
 package cartographer.save;
 
-import cartographer.progress.ProgressReporter;
 import cartographer.model.BlockInfo;
 import cartographer.model.WorldMetadata;
 import org.junit.jupiter.api.Test;
@@ -96,10 +95,7 @@ class SaveSessionLifecycleProbeTest {
         };
         WorldMetadataReader metadata = new WorldMetadataReader() {
             @Override
-            protected WorldMetadata read(
-                    Connection connection,
-                    ProgressReporter progress
-            ) {
+            protected WorldMetadata read(Connection connection) {
                 if (failMetadata) {
                     throw new IllegalStateException(
                             "fixture initialization failure"
