@@ -82,9 +82,9 @@ jobs:
           }
 
           if ($remote.Count -gt 0) {
-              git fetch --force origin "refs/tags/$env:RELEASE_TAG:refs/tags/$env:RELEASE_TAG"
+              git fetch --tags --force origin
               if ($LASTEXITCODE -ne 0) {
-                  throw "Cannot fetch existing release tag $env:RELEASE_TAG"
+                  throw "Cannot fetch existing release tags"
               }
               $tagCommit = (git rev-list -n 1 "$env:RELEASE_TAG").Trim()
               if ($tagCommit -ne $env:GITHUB_SHA) {
@@ -93,9 +93,16 @@ jobs:
           }
 
           $draftState = gh release view "$env:RELEASE_TAG" --repo "$env:GITHUB_REPOSITORY" --json isDraft --jq ".isDraft" 2>$null
-          if ($LASTEXITCODE -eq 0 -and $draftState -ne "true") {
-              throw "GitHub Release $env:RELEASE_TAG is already published"
+          if ($LASTEXITCODE -eq 0) {
+              if ($draftState -ne "true") {
+                  throw "GitHub Release $env:RELEASE_TAG is already published"
+              }
+              Write-Host "Existing draft release $env:RELEASE_TAG can be resumed"
+          } else {
+              Write-Host "No existing GitHub Release for $env:RELEASE_TAG"
           }
+
+          Write-Host "Publication preflight passed"
 
       - name: Set up Java 25
         uses: actions/setup-java@v6
@@ -172,9 +179,9 @@ jobs:
           }
 
           if ($remote.Count -gt 0) {
-              git fetch --force origin "refs/tags/$env:RELEASE_TAG:refs/tags/$env:RELEASE_TAG"
+              git fetch --tags --force origin
               if ($LASTEXITCODE -ne 0) {
-                  throw "Cannot fetch existing release tag $env:RELEASE_TAG"
+                  throw "Cannot fetch existing release tags"
               }
               $tagCommit = (git rev-list -n 1 "$env:RELEASE_TAG").Trim()
               if ($tagCommit -ne $env:GITHUB_SHA) {
