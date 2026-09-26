@@ -25,8 +25,8 @@ class RockStreamingSessionTest {
 
     @Test
     void reducesVerticalChunksIndependentOfCompletionOrder() {
-        SelectiveChunkVisit lower = decoded(0, 0, 0, 10, 1);
-        SelectiveChunkVisit upper = decoded(0, 1, 0, 8, 2);
+        SelectiveChunkVisit lower = decoded(0, 10, 1);
+        SelectiveChunkVisit upper = decoded(1, 8, 2);
         RockMap first = mapWith(List.of(lower, upper));
         RockMap second = mapWith(List.of(upper, lower));
         assertEquals(RockMapTestOracle.snapshot(first), RockMapTestOracle.snapshot(second));
@@ -177,12 +177,12 @@ class RockStreamingSessionTest {
     @Test
     void unknownAboveCandidateInvalidatesLowerCandidateButUnknownBelowDoesNot() {
         RockStreamingSession lowerOnly = session();
-        lowerOnly.accept(decoded(0, 0, 0, 10, 1));
+        lowerOnly.accept(decoded(0, 10, 1));
         lowerOnly.accept(SelectiveChunkVisit.missing(position(0, 1, 0)));
         assertEquals(RockColumnState.UNAVAILABLE, lowerOnly.finish().stateAt(0, 0));
 
         RockStreamingSession upperOnly = session();
-        upperOnly.accept(decoded(0, 1, 0, 8, 2));
+        upperOnly.accept(decoded(1, 8, 2));
         upperOnly.accept(SelectiveChunkVisit.missing(position(0, 0, 0)));
         assertEquals(RockColumnState.OBSERVED, upperOnly.finish().stateAt(0, 0));
     }
@@ -217,7 +217,7 @@ class RockStreamingSessionTest {
         assertEquals(5, knownEmpty.finish().noRockCount());
 
         RockStreamingSession knownUpper = session();
-        knownUpper.accept(decoded(0, 0, 0, 10, 1));
+        knownUpper.accept(decoded(0, 10, 1));
         knownUpper.accept(SelectiveChunkVisit.paletteRejected(position(0, 1, 0)));
         assertEquals(RockColumnState.OBSERVED, knownUpper.finish().stateAt(0, 0));
     }
@@ -233,13 +233,13 @@ class RockStreamingSessionTest {
         RockStreamingSession crossStatus = session();
         crossStatus.accept(SelectiveChunkVisit.failed(position(0, 0, 0), "decode failure"));
         assertThrows(IllegalArgumentException.class,
-                () -> crossStatus.accept(decoded(0, 0, 0, 10, 1)));
+                () -> crossStatus.accept(decoded(0, 10, 1)));
 
         assertCrossStatus(SelectiveChunkVisit.paletteRejected(position(0, 0, 0)),
                 SelectiveChunkVisit.missing(position(0, 0, 0)));
         assertCrossStatus(SelectiveChunkVisit.missing(position(0, 0, 0)),
                 SelectiveChunkVisit.paletteRejected(position(0, 0, 0)));
-        assertCrossStatus(decoded(0, 0, 0, 10, 1),
+        assertCrossStatus(decoded(0, 10, 1),
                 SelectiveChunkVisit.failed(position(0, 0, 0), "decode failure"));
     }
 
@@ -276,7 +276,7 @@ class RockStreamingSessionTest {
                 () -> session.accept(SelectiveChunkVisit.missing(position(0, 0, 0))));
         RockStreamingSession atY = RockStreamingSession.open(
                 new WorldPosition(0, 0, 0), 1, 31, 32, 0, RockMapMode.AT_Y, CATALOG);
-        atY.accept(decoded(0, 0, 0, 31, 1));
+        atY.accept(decoded(0, 31, 1));
         assertEquals(RockColumnState.OBSERVED, atY.finish().stateAt(0, 0));
         assertThrows(IllegalArgumentException.class, () -> RockStreamingSession.open(
                 new WorldPosition(0, 0, 0), 1, 0, 2, 0, RockMapMode.AT_Y, CATALOG));

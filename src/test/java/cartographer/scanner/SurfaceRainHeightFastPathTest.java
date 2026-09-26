@@ -29,7 +29,7 @@ class SurfaceRainHeightFastPathTest {
 
     @Test
     void plansStableUniqueServerChunkPositionsWithoutColumnTargets() {
-        SurfaceRainHeightPlanner.StreamingSession planner = planner(16, 16, 2);
+        SurfaceRainHeightPlanner.StreamingSession planner = planner(16, 16);
         planner.accept(mapChunk(1));
 
         SurfaceRainHeightPlan plan = planner.finish();
@@ -44,7 +44,7 @@ class SurfaceRainHeightFastPathTest {
                 new int[0],
                 filledHeights(-1),
                 filledHeights(256))) {
-            SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1, 2);
+            SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1);
             planner.accept(new MapChunk(
                     new MapChunkCoordinate(0, 0), heights, new int[0]));
 
@@ -59,7 +59,7 @@ class SurfaceRainHeightFastPathTest {
     void invalidCandidateAfterEarlierCellsStillPromotesWholeMapchunk() {
         int[] heights = filledHeights(1);
         heights[1 + MapChunk.SIZE] = 256;
-        SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1, 2);
+        SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1);
         planner.accept(new MapChunk(
                 new MapChunkCoordinate(0, 0), heights, new int[0]));
 
@@ -125,7 +125,7 @@ class SurfaceRainHeightFastPathTest {
     void decodedArrivalOrderProducesSameCompactFingerprint() {
         int[] heights = filledHeights(31);
         heights[1 + MapChunk.SIZE] = 32;
-        SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1, 2);
+        SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1);
         planner.accept(new MapChunk(new MapChunkCoordinate(0, 0), heights, new int[0]));
         SurfaceRainHeightPlan plan = planner.finish();
 
@@ -146,7 +146,7 @@ class SurfaceRainHeightFastPathTest {
 
     @Test
     void missingMapchunkCanBePromotedBeforePlanFinish() {
-        SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1, 2);
+        SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1);
         planner.promoteMissing(new MapChunkCoordinate(0, 0));
 
         SurfaceRainHeightPlan plan = planner.finish();
@@ -156,7 +156,7 @@ class SurfaceRainHeightFastPathTest {
     }
 
     private SurfaceRainHeightPlan planned() {
-        SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1, 2);
+        SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1);
         planner.accept(mapChunk(1));
         return planner.finish();
     }

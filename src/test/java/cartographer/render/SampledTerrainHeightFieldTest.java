@@ -111,8 +111,8 @@ class SampledTerrainHeightFieldTest {
                         sampling,
                         2
                 );
-        builder.accept(flatChunk(0, 0, 1));
-        builder.accept(flatChunk(0, 0, 100));
+        builder.accept(flatChunk(1));
+        builder.accept(flatChunk(100));
         SampledTerrainHeightField field = builder.finish();
 
         assertEquals(100, field.minHeight());
@@ -137,7 +137,7 @@ class SampledTerrainHeightFieldTest {
                         sampling,
                         1
                 );
-        builder.accept(flatChunk(0, 0, 10));
+        builder.accept(flatChunk(10));
         SampledTerrainHeightField field = builder.finish();
 
         assertFalse(field.hasHeightAt(-1, 0));

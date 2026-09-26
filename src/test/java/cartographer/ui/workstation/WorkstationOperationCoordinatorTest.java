@@ -219,7 +219,7 @@ class WorkstationOperationCoordinatorTest {
                     ignored -> { }
             ));
             discovery.awaitStarted("discovery progress operation start");
-            discovery.report("discovery-visible", 1, 10);
+            discovery.report("discovery-visible", 1);
             flushFxEvents();
             assertEquals("discovery-visible", view.lastStatus());
             assertEquals(0.1, view.lastProgress());
@@ -232,12 +232,12 @@ class WorkstationOperationCoordinatorTest {
                     ignored -> { }
             ));
             local.awaitStarted("local progress operation start");
-            local.report("local-visible", 2, 10);
+            local.report("local-visible", 2);
             flushFxEvents();
             assertEquals("local-visible", view.lastStatus());
             assertEquals(0.2, view.lastProgress());
 
-            discovery.report("discovery-suppressed", 9, 10);
+            discovery.report("discovery-suppressed", 9);
             flushFxEvents();
             assertEquals("local-visible", view.lastStatus());
             assertEquals(0.2, view.lastProgress());
@@ -250,13 +250,13 @@ class WorkstationOperationCoordinatorTest {
                     ignored -> { }
             ));
             foreground.awaitStarted("foreground progress operation start");
-            foreground.report("foreground-visible", 3, 10);
+            foreground.report("foreground-visible", 3);
             flushFxEvents();
             assertEquals("foreground-visible", view.lastStatus());
             assertEquals(0.3, view.lastProgress());
 
-            local.report("local-suppressed", 8, 10);
-            discovery.report("discovery-still-suppressed", 8, 10);
+            local.report("local-suppressed", 8);
+            discovery.report("discovery-still-suppressed", 8);
             flushFxEvents();
             assertEquals("foreground-visible", view.lastStatus());
             assertEquals(0.3, view.lastProgress());
@@ -288,7 +288,7 @@ class WorkstationOperationCoordinatorTest {
                     ignored -> { }
             ));
             discovery.awaitStarted("discovery progress operation start");
-            discovery.report("discovery-initial", 1, 10);
+            discovery.report("discovery-initial", 1);
 
             onFx(() -> coordinator.submitProgress(
                     WorkstationOperationScope.LOCAL,
@@ -298,7 +298,7 @@ class WorkstationOperationCoordinatorTest {
                     ignored -> { }
             ));
             local.awaitStarted("local progress operation start");
-            local.report("local-initial", 2, 10);
+            local.report("local-initial", 2);
 
             onFx(() -> coordinator.submitProgress(
                     WorkstationOperationScope.FOREGROUND,
@@ -308,20 +308,20 @@ class WorkstationOperationCoordinatorTest {
                     ignored -> { }
             ));
             foreground.awaitStarted("foreground progress operation start");
-            foreground.report("foreground", 3, 10);
+            foreground.report("foreground", 3);
             flushFxEvents();
             assertEquals("foreground", view.lastStatus());
 
             foreground.complete();
             awaitLatch(foregroundSucceeded, "foreground success callback");
-            local.report("local-resumed", 4, 10);
+            local.report("local-resumed", 4);
             flushFxEvents();
             assertEquals("local-resumed", view.lastStatus());
             assertEquals(0.4, view.lastProgress());
 
             local.complete();
             awaitLatch(localSucceeded, "local success callback");
-            discovery.report("discovery-resumed", 5, 10);
+            discovery.report("discovery-resumed", 5);
             flushFxEvents();
             assertEquals("discovery-resumed", view.lastStatus());
             assertEquals(0.5, view.lastProgress());
