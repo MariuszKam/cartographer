@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -38,11 +39,30 @@ public class HomeStore {
             Path savePath,
             DisplayPosition home
     ) {
+        requireHorizontalDisplayPosition(home);
         saveTo(
                 perSaveConfigPath(savePath),
                 home,
                 savePath
         );
+    }
+
+    private void requireHorizontalDisplayPosition(
+            DisplayPosition position
+    ) {
+        Objects.requireNonNull(position, "HOME display position is required");
+        if (!Double.isFinite(position.x())
+                || !Double.isFinite(position.y())
+                || !Double.isFinite(position.z())) {
+            throw new IllegalArgumentException(
+                    "HOME display coordinates must be finite"
+            );
+        }
+        if (position.y() != 0.0) {
+            throw new IllegalArgumentException(
+                    "HOME display Y must be zero"
+            );
+        }
     }
 
     private Optional<DisplayPosition> loadFrom(
