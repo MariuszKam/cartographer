@@ -224,6 +224,7 @@ class HttpUpdateInstallerSourceTest {
         ));
     }
 
+    @SuppressWarnings("HttpUrlsUsage")
     @Test
     void rejectsNonHttpsAndNonGithubTargets() {
         assertFalse(TrustedUpdateUriPolicy.isTrustedGithubHttpsUri(
@@ -271,6 +272,7 @@ class HttpUpdateInstallerSourceTest {
         assertFalse(Files.exists(destination));
     }
 
+    @SuppressWarnings("HttpUrlsUsage")
     @Test
     void rejectsRedirectThatDoesNotRemainOnHttps() {
         byte[] bytes = "installer-payload".getBytes();

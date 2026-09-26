@@ -1,38 +1,63 @@
 package cartographer.ui.workstation;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
 
 class SurfaceObjectDiscoveryStateTest {
     @Test
     void onlyReadyWithSelectionAllowsObjectRendering() {
-        assertTrue(SurfaceObjectDiscoveryState.READY.allowsRender(false, true));
-        assertFalse(SurfaceObjectDiscoveryState.READY.allowsRender(true, true));
-        assertFalse(SurfaceObjectDiscoveryState.READY.allowsRender(false, false));
-        assertFalse(SurfaceObjectDiscoveryState.EMPTY.allowsRender(false, true));
-        assertFalse(SurfaceObjectDiscoveryState.FAILED.allowsRender(false, true));
-        assertFalse(SurfaceObjectDiscoveryState.NOT_SCANNED.allowsRender(false, true));
-        assertFalse(SurfaceObjectDiscoveryState.SCANNING.allowsRender(false, true));
+        assertAllowsRender(SurfaceObjectDiscoveryState.READY, false, true, true);
+        assertAllowsRender(SurfaceObjectDiscoveryState.READY, true, true, false);
+        assertAllowsRender(SurfaceObjectDiscoveryState.READY, false, false, false);
+        assertAllowsRender(SurfaceObjectDiscoveryState.EMPTY, false, true, false);
+        assertAllowsRender(SurfaceObjectDiscoveryState.FAILED, false, true, false);
+        assertAllowsRender(SurfaceObjectDiscoveryState.NOT_SCANNED, false, true, false);
+        assertAllowsRender(SurfaceObjectDiscoveryState.SCANNING, false, true, false);
     }
 
     @Test
     void multipleObjectRenderAvailabilityFollowsSelectionCount() {
-        int selectedResources = 2;
-        assertTrue(SurfaceObjectDiscoveryState.READY.allowsRender(false, selectedResources > 0));
-
-        selectedResources = 0;
-        assertFalse(SurfaceObjectDiscoveryState.READY.allowsRender(false, selectedResources > 0));
+        assertAllowsRenderForSelectionCount(2, true);
+        assertAllowsRenderForSelectionCount(0, false);
     }
 
     @Test
     void emptyAndFailedRemainCurrentOnlyForTheSameKey() {
-        assertTrue(SurfaceObjectDiscoveryState.EMPTY.isCurrentFor(true));
-        assertTrue(SurfaceObjectDiscoveryState.FAILED.isCurrentFor(true));
-        assertTrue(SurfaceObjectDiscoveryState.READY.isCurrentFor(true));
-        assertFalse(SurfaceObjectDiscoveryState.EMPTY.isCurrentFor(false));
-        assertFalse(SurfaceObjectDiscoveryState.NOT_SCANNED.isCurrentFor(true));
-        assertFalse(SurfaceObjectDiscoveryState.SCANNING.isCurrentFor(true));
+        assertCurrentFor(SurfaceObjectDiscoveryState.EMPTY, true, true);
+        assertCurrentFor(SurfaceObjectDiscoveryState.FAILED, true, true);
+        assertCurrentFor(SurfaceObjectDiscoveryState.READY, true, true);
+        assertCurrentFor(SurfaceObjectDiscoveryState.EMPTY, false, false);
+        assertCurrentFor(SurfaceObjectDiscoveryState.NOT_SCANNED, true, false);
+        assertCurrentFor(SurfaceObjectDiscoveryState.SCANNING, true, false);
+    }
+
+    private static void assertAllowsRender(
+            SurfaceObjectDiscoveryState state,
+            boolean globallyBusy,
+            boolean hasSelection,
+            boolean expected
+    ) {
+        assertEquals(expected, state.allowsRender(globallyBusy, hasSelection));
+    }
+
+    private static void assertAllowsRenderForSelectionCount(
+            int selectedResources,
+            boolean expected
+    ) {
+        assertAllowsRender(
+                SurfaceObjectDiscoveryState.READY,
+                false,
+                selectedResources > 0,
+                expected
+        );
+    }
+
+    private static void assertCurrentFor(
+            SurfaceObjectDiscoveryState state,
+            boolean keyMatches,
+            boolean expected
+    ) {
+        assertEquals(expected, state.isCurrentFor(keyMatches));
     }
 }
