@@ -570,7 +570,8 @@ class VcdbsReaderSelectiveChunkLookupTest {
                     positions,
                     wantedBlockIds,
                     diagnostics,
-                    consumer
+                    consumer,
+                    ProgressReporter.NONE
             );
         }
     }
@@ -604,8 +605,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
                     positions,
                     wantedBlockIds,
                     diagnostics,
-                    consumer,
-                    ProgressReporter.NONE
+                    consumer
             );
         }
     }
