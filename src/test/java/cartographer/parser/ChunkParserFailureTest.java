@@ -2,19 +2,15 @@ package cartographer.parser;
 
 import com.github.luben.zstd.Zstd;
 import cartographer.model.ChunkCoordinate;
-import cartographer.model.DecodedChunkLayer;
 import cartographer.model.ParsedChunk;
 import cartographer.model.ParseResult;
 import org.junit.jupiter.api.Test;
 
-import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 

@@ -1,12 +1,10 @@
 package cartographer.application;
 
 import cartographer.progress.ProgressReporter;
-import cartographer.geology.rock.RockColumnState;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
 import cartographer.model.MapChunkCoordinate;
-import cartographer.model.ParsedChunk;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.parser.ChunkParser;
