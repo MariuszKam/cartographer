@@ -558,7 +558,7 @@ public class VcdbsReader {
         for (SaveRecord record :
                 readRecords(
                         connection,
-                        SaveTable.GAMEDATA.tableName(),
+                        SaveTable.GAMEDATA,
                         500,
                         ProgressReporter.NONE
                 )) {
