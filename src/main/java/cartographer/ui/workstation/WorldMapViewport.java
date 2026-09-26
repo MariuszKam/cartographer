@@ -1,0 +1,264 @@
+package cartographer.ui.workstation;
+
+import cartographer.model.WorldPosition;
+import cartographer.render.RenderTileBounds;
+import cartographer.render.RenderTileCoordinate;
+import cartographer.render.RenderTileLayout;
+import cartographer.render.RenderedMapTile;
+import javafx.application.Platform;
+import javafx.embed.swing.SwingFXUtils;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.Image;
+import javafx.scene.input.MouseButton;
+import javafx.scene.layout.Region;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+
+/**
+ * Virtualized progressive world-map viewport backed by one screen-sized Canvas.
+ */
+public final class WorldMapViewport extends Region {
+    private static final double ZOOM_STEP = 1.25;
+    private static final int PREFETCH_TILE_MARGIN = 1;
+
+    private final RenderTileLayout layout;
+    private final WorldMapViewportModel model;
+    private final Canvas canvas = new Canvas();
+    private final int maxCachedTiles;
+    private final Map<RenderTileCoordinate, CachedTile> tiles;
+    private final AtomicBoolean redrawPending = new AtomicBoolean();
+
+    private Consumer<WorldMapViewportDemand> demandListener =
+            ignored -> { };
+    private Consumer<Optional<MapCursorPosition>> cursorListener =
+            ignored -> { };
+    private Optional<WorldPosition> player = Optional.empty();
+    private double dragX;
+    private double dragY;
+    private boolean dragging;
+
+    public WorldMapViewport(
+            RenderTileLayout layout,
+            int maxCachedTiles
+    ) {
+        this.layout = Objects.requireNonNull(layout, "layout is required");
+        if (maxCachedTiles <= 0) {
+            throw new IllegalArgumentException(
+                    "maxCachedTiles must be positive"
+            );
+        }
+        this.maxCachedTiles = maxCachedTiles;
+        this.model = new WorldMapViewportModel(layout);
+        this.tiles = new LinkedHashMap<>(16, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(
+                    Map.Entry<RenderTileCoordinate, CachedTile> eldest
+            ) {
+                return size() > WorldMapViewport.this.maxCachedTiles;
+            }
+        };
+
+        getChildren().add(canvas);
+        setMinSize(0, 0);
+
+        setOnMousePressed(event -> {
+            if (event.getButton() == MouseButton.PRIMARY) {
+                dragging = true;
+                dragX = event.getX();
+                dragY = event.getY();
+            }
+        });
+        setOnMouseDragged(event -> {
+            if (!dragging) {
+                return;
+            }
+            double nextX = event.getX();
+            double nextY = event.getY();
+            model.panByPixels(nextX - dragX, nextY - dragY);
+            dragX = nextX;
+            dragY = nextY;
+            requestRedrawAndDemand();
+        });
+        setOnMouseReleased(event -> dragging = false);
+        setOnMouseMoved(event -> cursorListener.accept(
+                Optional.of(model.worldAt(event.getX(), event.getY()))
+        ));
+        setOnMouseExited(event -> cursorListener.accept(Optional.empty()));
+        addEventFilter(javafx.scene.input.ScrollEvent.SCROLL, event -> {
+            if (!event.isControlDown()) {
+                return;
+            }
+            model.zoomAt(
+                    event.getDeltaY() >= 0.0
+                            ? ZOOM_STEP
+                            : 1.0 / ZOOM_STEP,
+                    event.getX(),
+                    event.getY()
+            );
+            requestRedrawAndDemand();
+            event.consume();
+        });
+    }
+
+    public void setOnTileDemand(
+            Consumer<WorldMapViewportDemand> listener
+    ) {
+        demandListener = listener == null ? ignored -> { } : listener;
+        publishDemand();
+    }
+
+    public void setOnCursorPositionChanged(
+            Consumer<Optional<MapCursorPosition>> listener
+    ) {
+        cursorListener = listener == null ? ignored -> { } : listener;
+    }
+
+    public void setPlayer(Optional<WorldPosition> player) {
+        this.player = Objects.requireNonNull(player, "player is required");
+    }
+
+    public void centerPlayer() {
+        player.ifPresent(position -> {
+            model.centerOn(position);
+            requestRedrawAndDemand();
+        });
+    }
+
+    public void centerOn(WorldPosition position) {
+        model.centerOn(Objects.requireNonNull(position, "position is required"));
+        requestRedrawAndDemand();
+    }
+
+    public void fitKnownWorld(RenderTileBounds bounds) {
+        model.fit(Objects.requireNonNull(bounds, "bounds is required"), 24.0);
+        requestRedrawAndDemand();
+    }
+
+    public void acceptTile(RenderedMapTile tile) {
+        Objects.requireNonNull(tile, "tile is required");
+        if (!Platform.isFxApplicationThread()) {
+            Platform.runLater(() -> acceptTile(tile));
+            return;
+        }
+        tiles.put(
+                tile.coordinate(),
+                new CachedTile(
+                        tile.worldBounds(),
+                        SwingFXUtils.toFXImage(tile.image(), null)
+                )
+        );
+        requestRedraw();
+    }
+
+    public void clearTiles() {
+        if (!Platform.isFxApplicationThread()) {
+            Platform.runLater(this::clearTiles);
+            return;
+        }
+        tiles.clear();
+        requestRedraw();
+    }
+
+    public int cachedTileCount() {
+        return tiles.size();
+    }
+
+    public double pixelsPerBlock() {
+        return model.pixelsPerBlock();
+    }
+
+    @Override
+    protected void layoutChildren() {
+        double width = getWidth();
+        double height = getHeight();
+        canvas.setWidth(Math.max(0.0, width));
+        canvas.setHeight(Math.max(0.0, height));
+        model.setViewportSize(
+                canvas.getWidth(),
+                canvas.getHeight()
+        );
+        redraw();
+        publishDemand();
+    }
+
+    @Override
+    protected double computePrefWidth(double height) {
+        return 640.0;
+    }
+
+    @Override
+    protected double computePrefHeight(double width) {
+        return 480.0;
+    }
+
+    private void requestRedrawAndDemand() {
+        requestRedraw();
+        publishDemand();
+    }
+
+    private void requestRedraw() {
+        if (redrawPending.compareAndSet(false, true)) {
+            Platform.runLater(() -> {
+                redrawPending.set(false);
+                redraw();
+            });
+        }
+    }
+
+    private void redraw() {
+        if (!Platform.isFxApplicationThread()) {
+            requestRedraw();
+            return;
+        }
+        GraphicsContext graphics = canvas.getGraphicsContext2D();
+        graphics.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
+
+        WorldMapViewportDemand demand = model.demand(0);
+        for (RenderTileCoordinate coordinate : demand.visible()) {
+            CachedTile tile = tiles.get(coordinate);
+            if (tile == null) {
+                continue;
+            }
+            WorldMapViewportModel.ViewportPoint topLeft = model.viewportAt(
+                    tile.bounds().worldMinX(),
+                    tile.bounds().worldMinZ()
+            );
+            double width = tile.bounds().widthBlocks()
+                    * model.pixelsPerBlock();
+            double height = tile.bounds().heightBlocks()
+                    * model.pixelsPerBlock();
+            graphics.drawImage(
+                    tile.image(),
+                    topLeft.x(),
+                    topLeft.y(),
+                    width,
+                    height
+            );
+        }
+    }
+
+    private void publishDemand() {
+        if (getWidth() <= 0.0 || getHeight() <= 0.0) {
+            return;
+        }
+        demandListener.accept(
+                model.demand(PREFETCH_TILE_MARGIN)
+        );
+    }
+
+    private record CachedTile(
+            RenderTileBounds bounds,
+            Image image
+    ) {
+        private CachedTile {
+            Objects.requireNonNull(bounds, "bounds is required");
+            Objects.requireNonNull(image, "image is required");
+        }
+    }
+}

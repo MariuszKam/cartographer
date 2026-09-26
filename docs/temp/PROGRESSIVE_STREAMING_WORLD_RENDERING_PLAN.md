@@ -1071,18 +1071,22 @@ Concrete SaveSession/cache/renderer wiring is deliberately deferred to the autom
 
 ### Phase 7 — Virtualized WorldMapViewport
 
-Introduce the new presentation path alongside legacy MapPanel behavior if needed for migration.
+Status: IMPLEMENTED
 
-Requirements:
+Added the progressive viewport alongside the still-active legacy `MapPanel`:
 
-- draw independent ready tiles;
-- camera in world coordinates;
-- pan/zoom without whole-image scaling;
-- cursor absolute-world mapping;
-- center player;
-- viewport tile-demand callback;
-- bounded image cache;
-- JavaFX repaint/update coalescing.
+- `WorldMapViewportModel` owns camera center in absolute world coordinates, continuous pixels-per-block zoom, pan math, cursor transforms, fit-known-world behavior, and visible/prefetch tile calculation without any JavaFX dependency;
+- negative world coordinates and half-open viewport edges map through the Phase-1 render-tile coordinate semantics;
+- `WorldMapViewportDemand` separates currently visible tiles from a one-tile prefetch margin;
+- `WorldMapViewport` renders ready tiles onto one screen-sized JavaFX `Canvas`; canvas memory therefore follows the control size rather than world extent;
+- ready raster tiles are held in an access-ordered bounded LRU by render-tile coordinate;
+- pan/zoom changes publish viewport demand and never rescale or recreate a whole-world image;
+- cursor reporting maps directly from viewport pixels into absolute world coordinates;
+- player centering and fit-known-world are camera operations;
+- worker-thread tile delivery is marshalled to the JavaFX application thread;
+- repeated tile updates coalesce repaint requests through a single pending `Platform.runLater` pulse.
+
+JavaFX-independent tests cover transform round trips, zoom-anchor stability, negative-coordinate visible-tile calculation, prefetch separation, and fit-known-world behavior. Product wiring remains on the legacy MapPanel until the automatic-start/cutover phases.
 
 ### Phase 8 — Automatic MAP startup
 
