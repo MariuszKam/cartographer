@@ -1,6 +1,6 @@
 package cartographer.navigation;
 
-import cartographer.model.HomeLocation;
+import cartographer.model.DisplayPosition;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,7 +26,7 @@ public class HomeStore {
                 legacyConfigPath;
     }
 
-    public Optional<HomeLocation> load(
+    public Optional<DisplayPosition> load(
             Path savePath
     ) {
         return loadFrom(
@@ -36,7 +36,7 @@ public class HomeStore {
 
     public void save(
             Path savePath,
-            HomeLocation home
+            DisplayPosition home
     ) {
         saveTo(
                 perSaveConfigPath(savePath),
@@ -45,7 +45,7 @@ public class HomeStore {
         );
     }
 
-    private Optional<HomeLocation> loadFrom(
+    private Optional<DisplayPosition> loadFrom(
             Path configPath
     ) {
         if (!Files.exists(configPath)) {
@@ -61,13 +61,14 @@ public class HomeStore {
             properties.load(input);
 
             return Optional.of(
-                    new HomeLocation(
+                    new DisplayPosition(
                             Double.parseDouble(
                                     required(
                                             properties,
                                             "x"
                                     )
                             ),
+                            0.0,
                             Double.parseDouble(
                                     required(
                                             properties,
@@ -92,7 +93,7 @@ public class HomeStore {
 
     private void saveTo(
             Path configPath,
-            HomeLocation home,
+            DisplayPosition home,
             Path savePath
     ) {
         Properties properties =
