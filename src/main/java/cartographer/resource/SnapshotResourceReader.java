@@ -18,7 +18,6 @@ import cartographer.scanner.MultiActualBlockMapScanner;
 import cartographer.scanner.OreCodeMatcher;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;

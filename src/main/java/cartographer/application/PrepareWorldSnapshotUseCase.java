@@ -4,7 +4,6 @@ import cartographer.cache.RenderDataCacheStore;
 import cartographer.geology.rock.RockCatalog;
 import cartographer.index.ResourceBlockCatalog;
 import cartographer.model.BlockInfo;
-import cartographer.model.MapChunkCoordinate;
 import cartographer.model.WorldMetadata;
 import cartographer.progress.ProgressReporter;
 import cartographer.save.ReadDiagnostics;
@@ -15,7 +14,6 @@ import cartographer.snapshot.WorldDataSnapshot;
 import cartographer.snapshot.WorldSnapshotHeader;
 import cartographer.snapshot.WorldSnapshotPreparationSummary;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;

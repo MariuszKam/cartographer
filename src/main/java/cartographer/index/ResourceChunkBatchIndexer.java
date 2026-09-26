@@ -5,7 +5,6 @@ import cartographer.model.ChunkPosition;
 import cartographer.model.ParsedChunk;
 import cartographer.model.WorldMetadata;
 import cartographer.save.SelectiveChunkVisit;
-import cartographer.save.SelectiveChunkVisitStatus;
 
 import java.util.ArrayList;
 import java.util.Collection;

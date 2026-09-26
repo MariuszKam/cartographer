@@ -1,8 +1,6 @@
 package cartographer.render;
 
 import cartographer.resource.SurfaceMaterialAnalysis;
-import cartographer.resource.SurfaceObjectAnalysis;
-import cartographer.resource.SurfaceObjectPresentation;
 import cartographer.resource.SurfaceRenderAnalysis;
 
 import java.util.List;
