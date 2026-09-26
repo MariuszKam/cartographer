@@ -18,6 +18,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: windows-release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   windows-release:
     runs-on: windows-latest
@@ -93,7 +97,12 @@ jobs:
           }
 
           $draftState = gh release view "$env:RELEASE_TAG" --repo "$env:GITHUB_REPOSITORY" --json isDraft --jq ".isDraft" 2>$null
-          if ($LASTEXITCODE -eq 0) {
+          $releaseExists = $LASTEXITCODE -eq 0
+          if (-not $releaseExists) {
+              $global:LASTEXITCODE = 0
+          }
+
+          if ($releaseExists) {
               if ($draftState -ne "true") {
                   throw "GitHub Release $env:RELEASE_TAG is already published"
               }
