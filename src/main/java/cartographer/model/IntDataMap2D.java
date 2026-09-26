@@ -58,14 +58,6 @@ public record IntDataMap2D(
                 );
     }
 
-    public int width() {
-        return size;
-    }
-
-    public int height() {
-        return size;
-    }
-
     public int valueAt(
             int localX,
             int localZ
@@ -84,10 +76,6 @@ public record IntDataMap2D(
                 localZ * size
                         + localX
                 ];
-    }
-
-    public int valueCount() {
-        return data.length;
     }
 
     public int innerSize() {

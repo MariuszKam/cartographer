@@ -7,7 +7,6 @@ final class RockCellLayout {
     private static final int STATE_BITS = 2;
 
     private final int rockOrdinalBits;
-    private final int yBits;
     private final int totalBits;
     private final int rockCount;
     private final long yRangeHeight;
@@ -46,7 +45,6 @@ final class RockCellLayout {
             }
         }
         this.rockOrdinalBits = rockOrdinalBits;
-        this.yBits = yBits;
         this.rockCount = rockCount;
         this.yRangeHeight = yRangeHeight;
         this.intBacked = totalBits <= Integer.SIZE;
@@ -99,19 +97,6 @@ final class RockCellLayout {
 
     long yOffset(long packed) {
         return (packed >>> (STATE_BITS + rockOrdinalBits)) & yMask;
-    }
-
-    void validate(long packed) {
-        RockColumnState state = state(packed);
-        int ordinal = rockOrdinal(packed);
-        long yOffset = yOffset(packed);
-        if (state == RockColumnState.OBSERVED) {
-            if (ordinal <= 0 || ordinal > rockCount || yOffset >= yRangeHeight) {
-                throw new IllegalArgumentException("invalid observed packed cell");
-            }
-        } else if (ordinal != 0 || yOffset != 0) {
-            throw new IllegalArgumentException("non-observed packed cell has payload");
-        }
     }
 
     private static int stateCode(RockColumnState state) {

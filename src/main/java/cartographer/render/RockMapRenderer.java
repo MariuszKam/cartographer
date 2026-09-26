@@ -20,10 +20,6 @@ public final class RockMapRenderer {
         this(new RockPalette(), MapRasterContract.MAX_RASTER_SIZE);
     }
 
-    public RockMapRenderer(RockPalette palette) {
-        this(palette, MapRasterContract.MAX_RASTER_SIZE);
-    }
-
     RockMapRenderer(RockPalette palette, int maxRasterSize) {
         this.palette = Objects.requireNonNull(palette, "rock palette is required");
         this.colors = new RockRenderColors(this.palette);

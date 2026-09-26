@@ -269,14 +269,6 @@ public final class DecodedChunkLayer {
             return this;
         }
 
-        public Builder fill(int value) {
-            Arrays.fill(
-                    writableValues(),
-                    value
-            );
-            return this;
-        }
-
         public DecodedChunkLayer build() {
             int[] ownedValues =
                     writableValues();
