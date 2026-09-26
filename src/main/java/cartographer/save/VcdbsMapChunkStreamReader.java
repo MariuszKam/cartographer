@@ -166,50 +166,6 @@ final class VcdbsMapChunkStreamReader {
         }
     }
 
-    MapChunkStreamStats forEachObservedMapChunk(
-            SaveSession session,
-            ReadDiagnostics diagnostics,
-            Consumer<MapChunk> consumer,
-            ProgressReporter progress
-    ) {
-        return forEachObservedMapChunk(
-                session,
-                diagnostics,
-                ignored -> { },
-                consumer,
-                progress
-        );
-    }
-
-    MapChunkStreamStats forEachObservedMapChunk(
-            SaveSession session,
-            ReadDiagnostics diagnostics,
-            Consumer<MapChunkCoordinate> observedCoordinateConsumer,
-            Consumer<MapChunk> consumer
-    ) {
-        return forEachObservedMapChunk(
-                session,
-                diagnostics,
-                observedCoordinateConsumer,
-                consumer,
-                ProgressReporter.NONE
-        );
-    }
-
-    MapChunkStreamStats forEachObservedMapChunk(
-            SaveSession session,
-            ReadDiagnostics diagnostics,
-            Consumer<MapChunk> consumer
-    ) {
-        return forEachObservedMapChunk(
-                session,
-                diagnostics,
-                ignored -> { },
-                consumer,
-                ProgressReporter.NONE
-        );
-    }
-
     MapChunkStreamStats forEachMapChunkByCoordinate(
             SaveSession session,
             Collection<MapChunkCoordinate> coordinates,

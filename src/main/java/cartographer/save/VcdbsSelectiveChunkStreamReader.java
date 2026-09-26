@@ -90,19 +90,6 @@ final class VcdbsSelectiveChunkStreamReader {
         }
     }
 
-    public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
-            SaveSession session,
-            Collection<ChunkPosition> positions,
-            int[] wantedBlockIds,
-            ReadDiagnostics diagnostics,
-            Consumer<ParsedChunk> consumer
-    ) {
-        return forEachChunkByPositionMatchingBlockIdsAdaptive(
-                session, positions, wantedBlockIds, diagnostics, consumer,
-                ProgressReporter.NONE
-        );
-    }
-
     private SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
             Connection connection,
             Set<Long> packedPositions,

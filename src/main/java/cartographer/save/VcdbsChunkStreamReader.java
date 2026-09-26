@@ -145,17 +145,6 @@ final class VcdbsChunkStreamReader {
         );
     }
 
-    public ChunkStreamStats forEachChunkByPositionAdaptive(
-            SaveSession session,
-            Collection<ChunkPosition> positions,
-            ReadDiagnostics diagnostics,
-            Consumer<ParsedChunk> consumer
-    ) {
-        return forEachChunkByPositionAdaptive(
-                session, positions, diagnostics, consumer, ProgressReporter.NONE
-        );
-    }
-
     private ChunkStreamStats forEachChunkByPositionAdaptive(
             Connection connection,
             Set<Long> packedPositions,
