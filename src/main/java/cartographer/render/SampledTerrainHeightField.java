@@ -13,8 +13,8 @@ import java.util.Objects;
  * Render-sized Terrain height state.
  *
  * <p>The field retains only height cells that can influence the final raster:
- * regular Terrain samples plus their hillshade neighbours, and optional final
- * Surface source cells plus their hillshade neighbours. Palette min/max still
+ * regular Terrain samples plus their hillshade neighbors, and optional final
+ * Surface source cells plus their hillshade neighbors. Palette min/max still
  * come from every effective height in the requested world window so visual
  * semantics remain unchanged.</p>
  */

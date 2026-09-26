@@ -15,7 +15,7 @@ import java.util.function.Supplier;
  * UI-owned coordinator for bounded Workstation operations.
  *
  * <p>One active operation is allowed per scope. Starting a replacement
- * operation cancels/interupts the previous operation in that scope. Completion
+ * operation cancels/interrupts the previous operation in that scope. Completion
  * callbacks are generation-gated so stale results cannot update the UI.</p>
  */
 public final class WorkstationOperationCoordinator {

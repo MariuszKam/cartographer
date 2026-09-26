@@ -120,7 +120,7 @@ final class VcdbsSelectiveChunkStreamReader {
 
     /**
      * Visits exact chunk positions with the selective decoder and reports
-     * availability independently from whether a ParsedChunk was delivered.
+     * availability independently of whether a ParsedChunk was delivered.
      *
      * <p>The session connection is borrowed and never closed by this reader.</p>
      */

@@ -5,7 +5,7 @@ package cartographer.render;
  *
  * <p>Implementations may retain exact block-resolution viewport state or only
  * the world columns observable by the current raster plus hillshade
- * neighbours.</p>
+ * neighbors.</p>
  */
 interface TerrainHeightField {
     boolean hasHeightAt(int worldX, int worldZ);

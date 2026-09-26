@@ -157,7 +157,7 @@ public final class TreeAttributeSkipper {
          * Vintage Story ItemStack:
          *
          * int Class
-         * int Id
+         * int ID
          * int StackSize
          * TreeAttribute Attributes
          */
