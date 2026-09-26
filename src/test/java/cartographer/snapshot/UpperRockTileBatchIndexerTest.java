@@ -117,16 +117,14 @@ class UpperRockTileBatchIndexerTest {
     private static ParsedChunk chunkWithRock(
             int chunkX,
             int chunkY,
-            int chunkZ,
-            int localY,
-            int blockId
+            int localY
     ) {
         int size = ChunkCoordinate.SIZE_BLOCKS;
         int[] blocks = new int[size * size * size];
         int index = (localY * size) * size;
-        blocks[index] = blockId;
+        blocks[index] = 7;
         return cartographer.model.ParsedChunkFixtures.create(
-                new ChunkCoordinate(chunkX, chunkY, chunkZ),
+                new ChunkCoordinate(chunkX, chunkY, 0),
                 chunkY * size,
                 size,
                 size,

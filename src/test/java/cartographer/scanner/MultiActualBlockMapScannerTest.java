@@ -279,7 +279,7 @@ class MultiActualBlockMapScannerTest {
         int[] blocks = new int[size * size * size];
         Arrays.fill(blocks, 0);
         for (BlockAt block : blocksAt) {
-            blocks[(block.y() * size + block.z()) * size + block.x()] = block.id();
+            blocks[(block.y() * size + 0) * size + block.x()] = block.id();
         }
         return cartographer.model.ParsedChunkFixtures.create(
                 new ChunkCoordinate(0, 0, 0),
@@ -291,6 +291,6 @@ class MultiActualBlockMapScannerTest {
         );
     }
 
-    private record BlockAt(int x, int y, int z, int id) {
+    private record BlockAt(int x, int y, int id) {
     }
 }

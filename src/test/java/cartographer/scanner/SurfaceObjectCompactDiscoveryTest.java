@@ -365,9 +365,9 @@ class SurfaceObjectCompactDiscoveryTest {
     }
 
     private SurfaceObjectCompactPlan compactPlan(MapChunk mapChunk, WorldMetadata world,
-                                                  int centerX, int centerZ, int radius) {
+                                                  int centerX, int centerZ) {
         SurfaceObjectCompactPlanner.StreamingSession session =
-                new SurfaceObjectCompactPlanner().begin(world, centerX, centerZ, radius);
+                new SurfaceObjectCompactPlanner().begin(world, centerX, centerZ, 1);
         session.accept(mapChunk);
         return session.finish();
     }
@@ -454,12 +454,12 @@ class SurfaceObjectCompactDiscoveryTest {
         return fingerprint;
     }
 
-    private ParsedChunk chunk(int chunkY, int worldY, int worldX, int worldZ, int blockId) {
+    private ParsedChunk chunk(int chunkY, int worldY, int blockId) {
         int[] blocks = new int[ChunkCoordinate.SIZE_BLOCKS
                 * ChunkCoordinate.SIZE_BLOCKS * ChunkCoordinate.SIZE_BLOCKS];
         int localY = worldY - chunkY * ChunkCoordinate.SIZE_BLOCKS;
-        int index = (localY * ChunkCoordinate.SIZE_BLOCKS + worldZ % ChunkCoordinate.SIZE_BLOCKS)
-                * ChunkCoordinate.SIZE_BLOCKS + worldX % ChunkCoordinate.SIZE_BLOCKS;
+        int index = (localY * ChunkCoordinate.SIZE_BLOCKS + 16 % ChunkCoordinate.SIZE_BLOCKS)
+                * ChunkCoordinate.SIZE_BLOCKS + 16 % ChunkCoordinate.SIZE_BLOCKS;
         blocks[index] = blockId;
         return cartographer.model.ParsedChunkFixtures.create(
                 new ChunkCoordinate(0, chunkY, 0),

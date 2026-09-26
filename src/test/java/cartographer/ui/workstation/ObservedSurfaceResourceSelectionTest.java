@@ -105,10 +105,8 @@ class ObservedSurfaceResourceSelectionTest {
 
     private SurfaceObjectCompactFixtures.Observation surface(
             int x,
-            int y,
-            int z,
             int blockId
     ) {
-        return observation(x, y, z, blockId);
+        return observation(x, 0, 0, blockId);
     }
 }

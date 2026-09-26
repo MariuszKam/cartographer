@@ -493,12 +493,12 @@ class WorkstationOperationCoordinatorTest {
             awaitLatch(started, description);
         }
 
-        private void report(String stage, int current, int total) {
+        private void report(String stage, int current) {
             CountDownLatch reported = new CountDownLatch(1);
             commands.add(new ProgressCommand(
                     stage,
                     current,
-                    total,
+                    10,
                     false,
                     reported
             ));
