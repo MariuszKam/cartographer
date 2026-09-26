@@ -21,7 +21,6 @@ import cartographer.resource.SurfaceObjectSelectionAnalysis;
 import cartographer.resource.SurfaceObjectAnalyzer;
 import cartographer.resource.SurfaceRenderAnalysis;
 import cartographer.save.ReadDiagnostics;
-import cartographer.save.SaveSession;
 import cartographer.save.SaveSessionFactory;
 import cartographer.save.VcdbsReader;
 import cartographer.scanner.SurfaceMapScanResult;
@@ -33,8 +32,6 @@ import java.util.Optional;
 
 public class RenderSurfaceResourceMapUseCase {
 
-    private final VcdbsReader reader;
-    private final SaveSessionFactory sessionFactory;
     private final HomeStore homeStore;
     private final MarkerStore markerStore;
     private final MapRenderer renderer;
@@ -105,8 +102,8 @@ public class RenderSurfaceResourceMapUseCase {
             SurfaceResourceOverlayRenderer overlayRenderer,
             Optional<RenderDataCacheStore> renderDataCacheStore
     ) {
-        this.reader = Objects.requireNonNull(reader, "reader is required");
-        this.sessionFactory = Objects.requireNonNull(sessionFactory, "sessionFactory is required");
+        Objects.requireNonNull(reader, "reader is required");
+        Objects.requireNonNull(sessionFactory, "sessionFactory is required");
         this.homeStore = Objects.requireNonNull(homeStore, "homeStore is required");
         this.markerStore = Objects.requireNonNull(markerStore, "markerStore is required");
         this.renderer = Objects.requireNonNull(renderer, "renderer is required");
@@ -145,45 +142,6 @@ public class RenderSurfaceResourceMapUseCase {
         Objects.requireNonNull(progress, "progress is required");
 
         PreparedMapData prepared = mapDataUseCase.execute(
-                new PrepareMapDataRequest(
-                        request.savePath(),
-                        request.radius(),
-                        request.pixelsPerBlock(),
-                        request.style(),
-                        request.layers(),
-                        request.center(),
-                        SurfaceDataRequirement.ANALYSIS
-                ),
-                progress
-        );
-        WorldMetadata metadata = prepared.metadata();
-        RenderOptions options = prepared.options();
-        HomeState home = absoluteHome(request.savePath(), metadata);
-        MapDecorationState decorations =
-                decorationState(request.savePath(), home, options);
-        return renderPrepared(
-                request,
-                prepared,
-                decorations,
-                prepared.mapChunkDiagnostics(),
-                prepared.chunkDiagnostics(),
-                prepared.renderDataCacheReport(),
-                progress
-        );
-    }
-
-    public RenderSurfaceResourceMapResult execute(
-            SaveSession session,
-            RenderSurfaceResourceMapRequest request,
-            ProgressReporter progress
-    ) {
-        Objects.requireNonNull(session, "session is required");
-        Objects.requireNonNull(request, "request is required");
-        Objects.requireNonNull(progress, "progress is required");
-        session.requireSameSave(request.savePath());
-
-        PreparedMapData prepared = mapDataUseCase.execute(
-                session,
                 new PrepareMapDataRequest(
                         request.savePath(),
                         request.radius(),

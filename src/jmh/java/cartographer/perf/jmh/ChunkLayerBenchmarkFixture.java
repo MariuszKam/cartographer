@@ -21,7 +21,7 @@ public final class ChunkLayerBenchmarkFixture {
 
     public static FixtureData create(String variant) {
         int[] palette = palette();
-        byte[] bitPlanes = compressedBitPlanes(palette);
+        byte[] bitPlanes = compressedBitPlanes();
         byte[] payload;
 
         if (RAW_PALETTE_19.equals(variant)) {
@@ -99,7 +99,7 @@ public final class ChunkLayerBenchmarkFixture {
         return payload.array();
     }
 
-    private static byte[] compressedBitPlanes(int[] palette) {
+    private static byte[] compressedBitPlanes() {
         ByteBuffer bitPlanes = ByteBuffer.allocate(
                         5 * SLICE_COUNT * Integer.BYTES
                 )

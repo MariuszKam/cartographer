@@ -18,31 +18,6 @@ public final class PrepareMapDataUseCase {
     private final Optional<SnapshotPreparedMapDataReader> snapshotReader;
     private final LiveMapDataPreparer livePreparer;
 
-    public PrepareMapDataUseCase(
-            VcdbsReader reader,
-            SaveSessionFactory sessionFactory
-    ) {
-        this(
-                reader,
-                sessionFactory,
-                Optional.empty()
-        );
-    }
-
-    public PrepareMapDataUseCase(
-            VcdbsReader reader,
-            SaveSessionFactory sessionFactory,
-            RenderDataCacheStore renderDataCacheStore
-    ) {
-        this(
-                reader,
-                sessionFactory,
-                Optional.of(Objects.requireNonNull(
-                        renderDataCacheStore,
-                        "render data cache store is required"
-                ))
-        );
-    }
 
     PrepareMapDataUseCase(
             VcdbsReader reader,

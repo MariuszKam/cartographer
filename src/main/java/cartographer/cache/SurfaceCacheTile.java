@@ -204,10 +204,6 @@ public final class SurfaceCacheTile implements CachedSurfaceTileView {
         return worldSizeX == metadata.mapSizeX() && worldSizeZ == metadata.mapSizeZ();
     }
 
-    public SurfaceClass surfaceClassAt(int localX, int localZ) {
-        return SurfaceClassCode.decode(surfaceClassCodes[index(localX, localZ)]);
-    }
-
     /**
      * Converts a request tile only after proving it contains the complete
      * world-valid mapchunk domain. Request-clipped tiles are rejected.
