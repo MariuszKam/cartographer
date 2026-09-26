@@ -1,5 +1,8 @@
 package cartographer.scanner;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkPosition;
 import cartographer.model.ParsedChunk;

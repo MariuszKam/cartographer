@@ -1,5 +1,6 @@
 package cartographer.render;
 
+import cartographer.model.WorldPosition;
 import cartographer.progress.ProgressReporter;
 import cartographer.model.HomeState;
 import cartographer.model.MapChunk;

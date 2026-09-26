@@ -1,5 +1,6 @@
 package cartographer.render;
 
+import cartographer.model.WorldPosition;
 import cartographer.model.HomeState;
 import cartographer.resource.SurfaceMaterialAnalysis;
 import cartographer.resource.SurfaceMaterialDeposit;
