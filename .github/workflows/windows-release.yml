@@ -2,6 +2,15 @@ name: Windows Release Build
 
 on:
   workflow_dispatch:
+    inputs:
+      release_mode:
+        description: "Validate packages only, or publish the stable release"
+        required: true
+        default: validate
+        type: choice
+        options:
+          - validate
+          - publish
   push:
     tags:
       - 'v*.*.*'
@@ -20,15 +29,72 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
-      - name: Verify release commit belongs to master history
-        if: github.event_name == 'push'
+      - name: Resolve release metadata
+        id: release_meta
         shell: pwsh
         run: |
+          $versionLine = Get-Content -LiteralPath "gradle.properties" |
+            Where-Object { $_ -match "^version=(.+)$" }
+          if (@($versionLine).Count -ne 1) {
+              throw "gradle.properties must contain exactly one version entry"
+          }
+
+          $version = ($versionLine -replace "^version=", "").Trim()
+          if ([string]::IsNullOrWhiteSpace($version)) {
+              throw "gradle.properties version cannot be blank"
+          }
+
+          $releaseTag = if ($env:GITHUB_EVENT_NAME -eq "push") {
+              $env:GITHUB_REF_NAME
+          } else {
+              "v$version"
+          }
+
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "tag=$releaseTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RELEASE_TAG=$releaseTag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Verify release commit belongs to master history
+        if: github.event_name == 'push' || inputs.release_mode == 'publish'
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_EVENT_NAME -eq "workflow_dispatch" -and
+              $env:GITHUB_REF -ne "refs/heads/master") {
+              throw "Stable publication must be dispatched from the master branch"
+          }
+
           git fetch origin master:refs/remotes/origin/master
           git merge-base --is-ancestor HEAD origin/master
           if ($LASTEXITCODE -ne 0) {
-              throw "Release tag commit is not contained in master history"
+              throw "Release commit is not contained in master history"
+          }
+
+      - name: Preflight publication target
+        if: github.event_name == 'push' || inputs.release_mode == 'publish'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $remote = @(git ls-remote --tags origin "refs/tags/$env:RELEASE_TAG")
+          if ($LASTEXITCODE -ne 0) {
+              throw "Cannot inspect release tag $env:RELEASE_TAG"
+          }
+
+          if ($remote.Count -gt 0) {
+              git fetch --force origin "refs/tags/$env:RELEASE_TAG:refs/tags/$env:RELEASE_TAG"
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Cannot fetch existing release tag $env:RELEASE_TAG"
+              }
+              $tagCommit = (git rev-list -n 1 "$env:RELEASE_TAG").Trim()
+              if ($tagCommit -ne $env:GITHUB_SHA) {
+                  throw "Release tag $env:RELEASE_TAG already points to $tagCommit instead of $env:GITHUB_SHA"
+              }
+          }
+
+          $draftState = gh release view "$env:RELEASE_TAG" --repo "$env:GITHUB_REPOSITORY" --json isDraft --jq ".isDraft" 2>$null
+          if ($LASTEXITCODE -eq 0 -and $draftState -ne "true") {
+              throw "GitHub Release $env:RELEASE_TAG is already published"
           }
 
       - name: Set up Java 25
