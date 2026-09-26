@@ -66,7 +66,7 @@ class VcdbsReaderDirectChunkLookupTest {
         StubChunkParser parser =
                 new StubChunkParser();
 
-        VcdbsReader reader = new VcdbsReader(null, null, parser, null);
+        VcdbsReader reader = VcdbsReaderFixtures.withChunkParser(parser);
         ChunkStreamStats stats = adaptive(
                 reader,
                 new SqliteSaveConnection(),
@@ -92,12 +92,7 @@ class VcdbsReaderDirectChunkLookupTest {
         StubChunkParser parser =
                 new StubChunkParser();
         VcdbsReader reader =
-                new VcdbsReader(
-                        null,
-                        null,
-                        parser,
-                        null
-                );
+                VcdbsReaderFixtures.withChunkParser(parser);
         SaveSnapshot snapshot =
                 new SaveSnapshot(
                         new WorldMetadata(
@@ -161,7 +156,7 @@ class VcdbsReaderDirectChunkLookupTest {
         CountingSqliteSaveConnection connections = new CountingSqliteSaveConnection();
 
         ChunkStreamStats stats = adaptive(
-                new VcdbsReader(null, null, new StubChunkParser(), null),
+                VcdbsReaderFixtures.withChunkParser(new StubChunkParser()),
                 connections,
                 database,
                 List.of(first, second),
@@ -184,7 +179,7 @@ class VcdbsReaderDirectChunkLookupTest {
         CountingSqliteSaveConnection connections = new CountingSqliteSaveConnection();
 
         ChunkStreamStats stats = adaptive(
-                new VcdbsReader(null, null, new StubChunkParser(), null),
+                VcdbsReaderFixtures.withChunkParser(new StubChunkParser()),
                 connections,
                 database,
                 requested,
@@ -207,7 +202,7 @@ class VcdbsReaderDirectChunkLookupTest {
         CountingSqliteSaveConnection connections = new CountingSqliteSaveConnection();
 
         ChunkStreamStats stats = adaptive(
-                new VcdbsReader(null, null, new StubChunkParser(), null),
+                VcdbsReaderFixtures.withChunkParser(new StubChunkParser()),
                 connections,
                 database,
                 spacedPositions(320),
@@ -230,7 +225,7 @@ class VcdbsReaderDirectChunkLookupTest {
         Path database = databaseWithRows(requested.toArray(ChunkPosition[]::new));
 
         ChunkStreamStats stats = adaptive(
-                new VcdbsReader(null, null, new StubChunkParser(), null),
+                VcdbsReaderFixtures.withChunkParser(new StubChunkParser()),
                 new CountingSqliteSaveConnection(),
                 database,
                 requested,
@@ -253,7 +248,7 @@ class VcdbsReaderDirectChunkLookupTest {
         CountingSqliteSaveConnection connections = new CountingSqliteSaveConnection();
 
         ChunkStreamStats stats = adaptive(
-                new VcdbsReader(null, null, new StubChunkParser(), null),
+                VcdbsReaderFixtures.withChunkParser(new StubChunkParser()),
                 connections,
                 databaseWithRows(first, second),
                 requested,
@@ -272,12 +267,7 @@ class VcdbsReaderDirectChunkLookupTest {
         ChunkPosition second = new ChunkPosition(2, 0, 0, 0);
         Path database = databaseWithRows(first, second);
 
-        VcdbsReader reader = new VcdbsReader(
-                null,
-                null,
-                new StubChunkParser(),
-                null
-        );
+        VcdbsReader reader = VcdbsReaderFixtures.withChunkParser(new StubChunkParser());
         ChunkStreamStats stats = adaptive(
                 reader,
                 new SqliteSaveConnection(),
@@ -301,12 +291,7 @@ class VcdbsReaderDirectChunkLookupTest {
     void metricsRemainAttachedToTheirProducingTraversal() throws Exception {
         List<ChunkPosition> existing = spacedPositions(300);
         Path database = databaseWithRows(existing.toArray(ChunkPosition[]::new));
-        VcdbsReader reader = new VcdbsReader(
-                null,
-                null,
-                new StubChunkParser(),
-                null
-        );
+        VcdbsReader reader = VcdbsReaderFixtures.withChunkParser(new StubChunkParser());
 
         ChunkStreamStats directStats = adaptive(
                 reader,
@@ -343,12 +328,7 @@ class VcdbsReaderDirectChunkLookupTest {
     void adaptiveTableStreamPublishesChosenStrategyMetrics() throws Exception {
         List<ChunkPosition> existing = spacedPositions(300);
         Path database = databaseWithRows(existing.toArray(ChunkPosition[]::new));
-        VcdbsReader reader = new VcdbsReader(
-                null,
-                null,
-                new StubChunkParser(),
-                null
-        );
+        VcdbsReader reader = VcdbsReaderFixtures.withChunkParser(new StubChunkParser());
 
         ChunkStreamStats stats = adaptive(
                 reader,
@@ -373,12 +353,7 @@ class VcdbsReaderDirectChunkLookupTest {
         Path database = databaseWithRows(
                 requested.toArray(ChunkPosition[]::new)
         );
-        VcdbsReader reader = new VcdbsReader(
-                null,
-                null,
-                new StubChunkParser(),
-                null
-        );
+        VcdbsReader reader = VcdbsReaderFixtures.withChunkParser(new StubChunkParser());
 
         ChunkStreamStats stats = adaptive(
                 reader,
@@ -409,12 +384,7 @@ class VcdbsReaderDirectChunkLookupTest {
                 allRows.toArray(ChunkPosition[]::new)
         );
         StubChunkParser parser = new StubChunkParser();
-        VcdbsReader reader = new VcdbsReader(
-                null,
-                null,
-                parser,
-                null
-        );
+        VcdbsReader reader = VcdbsReaderFixtures.withChunkParser(parser);
 
         ChunkStreamStats stats = adaptive(
                 reader,
@@ -441,12 +411,7 @@ class VcdbsReaderDirectChunkLookupTest {
         Path database = databaseWithRows(
                 requested.toArray(ChunkPosition[]::new)
         );
-        VcdbsReader reader = new VcdbsReader(
-                null,
-                null,
-                new StubChunkParser(),
-                null
-        );
+        VcdbsReader reader = VcdbsReaderFixtures.withChunkParser(new StubChunkParser());
 
         ChunkStreamStats stats = direct(
                 reader,
@@ -475,7 +440,7 @@ class VcdbsReaderDirectChunkLookupTest {
 
         ChunkStreamStats direct = read(database, directParser, List.of(first, second));
         ChunkStreamStats table = tableStream(
-                new VcdbsReader(null, null, tableParser, null),
+                VcdbsReaderFixtures.withChunkParser(tableParser),
                 database,
                 List.of(first, second),
                 new ReadDiagnostics(),
@@ -500,7 +465,7 @@ class VcdbsReaderDirectChunkLookupTest {
         StubChunkParser parser = new StubChunkParser();
 
         tableStream(
-                new VcdbsReader(null, null, parser, null),
+                VcdbsReaderFixtures.withChunkParser(parser),
                 database,
                 List.of(requested),
                 new ReadDiagnostics(),
@@ -519,7 +484,7 @@ class VcdbsReaderDirectChunkLookupTest {
         ReadDiagnostics diagnostics = new ReadDiagnostics();
 
         ChunkStreamStats stats = tableStream(
-                new VcdbsReader(null, null, new StubChunkParser(), null),
+                VcdbsReaderFixtures.withChunkParser(new StubChunkParser()),
                 database,
                 List.of(position),
                 diagnostics,
@@ -546,7 +511,7 @@ class VcdbsReaderDirectChunkLookupTest {
         Path database = databaseWithRows(existing);
 
         ChunkStreamStats stats = tableStream(
-                new VcdbsReader(null, null, new StubChunkParser(), null),
+                VcdbsReaderFixtures.withChunkParser(new StubChunkParser()),
                 database,
                 List.of(existing, missing),
                 new ReadDiagnostics(),
@@ -566,9 +531,7 @@ class VcdbsReaderDirectChunkLookupTest {
         ChunkPosition second = new ChunkPosition(3, 0, 4, 0);
         Path database = databaseWithRows(first, second);
         BlockingChunkParser parser = new BlockingChunkParser();
-        VcdbsReader reader = new VcdbsReader(
-                null, null, parser, null, 2, 4
-        );
+        VcdbsReader reader = VcdbsReaderFixtures.withChunkParser(parser, 2, 4);
         AtomicReference<Thread> callerThread = new AtomicReference<>();
         AtomicReference<Thread> consumerThread = new AtomicReference<>();
         AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -611,9 +574,7 @@ class VcdbsReaderDirectChunkLookupTest {
         ChunkPosition second = new ChunkPosition(3, 0, 4, 0);
         Path database = databaseWithRows(first, second);
         BlockingChunkParser parser = new BlockingChunkParser();
-        VcdbsReader reader = new VcdbsReader(
-                null, null, parser, null, 2, 4
-        );
+        VcdbsReader reader = VcdbsReaderFixtures.withChunkParser(parser, 2, 4);
         AtomicReference<Thread> callerThread = new AtomicReference<>();
         AtomicReference<Thread> consumerThread = new AtomicReference<>();
         AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -767,7 +728,7 @@ class VcdbsReaderDirectChunkLookupTest {
         RecordingProgressReporter progress = new RecordingProgressReporter();
 
         ChunkStreamStats stats = direct(
-                new VcdbsReader(null, null, new StubChunkParser(), null),
+                VcdbsReaderFixtures.withChunkParser(new StubChunkParser()),
                 database,
                 List.of(new ChunkPosition(1, 0, 2, 0)),
                 diagnostics,
@@ -791,7 +752,7 @@ class VcdbsReaderDirectChunkLookupTest {
             List<ChunkPosition> positions
     ) {
         return direct(
-                new VcdbsReader(null, null, parser, null),
+                VcdbsReaderFixtures.withChunkParser(parser),
                 database,
                 positions,
                 new ReadDiagnostics(),

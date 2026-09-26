@@ -39,9 +39,7 @@ class VcdbsReaderSessionConnectionOwnershipTest {
                     connection,
                     new SaveSnapshot(new WorldMetadata(128, 256, 128), Map.of())
             );
-            VcdbsReader reader = new VcdbsReader(
-                    null, new FixtureMapChunkParser(), null, null
-            );
+            VcdbsReader reader = VcdbsReaderFixtures.withMapChunkParser(new FixtureMapChunkParser());
             List<MapChunk> first = new ArrayList<>();
             List<MapChunk> second = new ArrayList<>();
 

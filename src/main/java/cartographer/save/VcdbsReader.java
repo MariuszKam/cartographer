@@ -279,29 +279,42 @@ public class VcdbsReader {
                     "chunkDecodeMaxInFlight must be greater than worker count"
             );
         }
-        this.playerDataParser =
-                playerDataParser;
+        this.playerDataParser = Objects.requireNonNull(
+                playerDataParser,
+                "playerDataParser is required"
+        );
 
-        this.registryParser =
-                registryParser;
+        this.registryParser = Objects.requireNonNull(
+                registryParser,
+                "registryParser is required"
+        );
+
+        MapChunkParser requiredMapChunkParser = Objects.requireNonNull(
+                mapChunkParser,
+                "mapChunkParser is required"
+        );
+        ChunkParser requiredChunkParser = Objects.requireNonNull(
+                chunkParser,
+                "chunkParser is required"
+        );
 
         this.serverMapRegionParser =
                 new ServerMapRegionParser();
 
         this.chunkStreamReader = new VcdbsChunkStreamReader(
-                chunkParser,
+                requiredChunkParser,
                 chunkDecodeWorkerCount,
                 chunkDecodeMaxInFlight
         );
 
         this.selectiveChunkStreamReader = new VcdbsSelectiveChunkStreamReader(
-                chunkParser,
+                requiredChunkParser,
                 chunkDecodeWorkerCount,
                 chunkDecodeMaxInFlight
         );
 
         this.mapChunkStreamReader = new VcdbsMapChunkStreamReader(
-                mapChunkParser
+                requiredMapChunkParser
         );
     }
 

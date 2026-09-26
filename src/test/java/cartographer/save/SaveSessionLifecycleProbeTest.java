@@ -81,7 +81,12 @@ class SaveSessionLifecycleProbeTest {
                 );
             }
         };
-        VcdbsReader reader = new VcdbsReader(null, null, null, null) {
+        VcdbsReader reader = new VcdbsReader(
+                new cartographer.parser.PlayerDataParser(),
+                new cartographer.parser.MapChunkParser(),
+                new cartographer.parser.ChunkParser(),
+                new cartographer.parser.RegistryParser()
+        ) {
             @Override
             protected Map<Integer, BlockInfo> readBlockRegistry(
                     Connection connection
