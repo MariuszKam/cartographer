@@ -319,13 +319,6 @@ public final class SurfaceCacheTile implements CachedSurfaceTileView {
         }
     }
 
-    private int index(int localX, int localZ) {
-        if (localX < 0 || localX >= width || localZ < 0 || localZ >= height) {
-            throw new IndexOutOfBoundsException("local cell is outside Surface tile");
-        }
-        return localZ * width + localX;
-    }
-
     private static byte[] prepare(
             byte[] values,
             int expected,
