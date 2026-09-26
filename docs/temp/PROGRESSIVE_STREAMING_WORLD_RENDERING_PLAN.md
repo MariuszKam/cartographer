@@ -1015,16 +1015,21 @@ Tests verify multi-page scanning, zero parser calls during discovery, main-world
 
 ### Phase 4 — Tile data loader
 
-Extract a tile-oriented loader using existing TerrainTileStore and SurfaceTileStore.
+Status: IMPLEMENTED
 
-Requirements:
+Added a tile-oriented application seam:
 
-- cache-first;
-- exact source fallback;
-- no SaveSession leakage;
-- per-coordinate terminal status preserved;
-- source reads only for missing/corrupt derived entries that require repair;
-- deterministic returned tile data.
+- `MapTileDataLoader` accepts `RenderTileBounds`, clips them to authoritative world bounds, enumerates source mapchunks deterministically, and returns detached `MapTileData`;
+- Terrain is cache-first through the existing `TerrainTileStore`;
+- only MISS/CORRUPT Terrain entries trigger the strong exact source API from Phase 2;
+- successfully decoded source rows are converted to `TerrainHeightTile` and republished into the existing revision-scoped cache;
+- `ABSENT`, `PRESENT_UNREADABLE`, and `NOT_COMPLETED` source states are preserved in the returned tile data instead of being flattened into a generic miss;
+- optional Surface loading reuses `SurfaceSnapshotPreparer` and `SurfaceTileStore` rather than introducing a competing Surface cache or scanner;
+- `MapTileDataRequirement` currently distinguishes Terrain-only from Terrain+Surface materialization;
+- `MapTileData` copies all collection state and does not retain `SaveSession`, JDBC resources, or decoded source `MapChunk` payload objects;
+- the loader is operation-stateless, so future session concurrency cannot cross-contaminate source status between tile loads.
+
+Tests cover exact fallback followed by cache reuse, preservation of unreadable/absent source states, compatible cached Surface reuse, and clipped/out-of-world semantics through the Phase-1 bounds contract.
 
 ### Phase 5 — MapTileRenderer
 
