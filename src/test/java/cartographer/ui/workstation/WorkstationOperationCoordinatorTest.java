@@ -10,7 +10,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
@@ -78,9 +80,12 @@ class WorkstationOperationCoordinatorTest {
         WorkstationOperationCoordinator coordinator = coordinator();
         List<WorkstationOperationScope> cancelled =
                 Collections.synchronizedList(new ArrayList<>());
+        Map<WorkstationOperationScope, CountDownLatch> cancellationEvents =
+                cancellationEvents();
         CountDownLatch cancellations = new CountDownLatch(3);
         coordinator.setOnCancelled(scope -> {
             cancelled.add(scope);
+            cancellationEvents.get(scope).countDown();
             cancellations.countDown();
         });
 
@@ -115,16 +120,25 @@ class WorkstationOperationCoordinatorTest {
         foreground.awaitStarted("foreground start");
 
         assertTrue(onFx(coordinator::cancelPreferred));
-        awaitLatch(foreground.cancelled, "foreground cancellation");
+        awaitLatch(
+                cancellationEvents.get(WorkstationOperationScope.FOREGROUND),
+                "foreground coordinator cancellation"
+        );
         assertTrue(coordinator.isActive(WorkstationOperationScope.LOCAL));
         assertTrue(coordinator.isActive(WorkstationOperationScope.DISCOVERY));
 
         assertTrue(onFx(coordinator::cancelPreferred));
-        awaitLatch(local.cancelled, "local cancellation");
+        awaitLatch(
+                cancellationEvents.get(WorkstationOperationScope.LOCAL),
+                "local coordinator cancellation"
+        );
         assertTrue(coordinator.isActive(WorkstationOperationScope.DISCOVERY));
 
         assertTrue(onFx(coordinator::cancelPreferred));
-        awaitLatch(discovery.cancelled, "discovery cancellation");
+        awaitLatch(
+                cancellationEvents.get(WorkstationOperationScope.DISCOVERY),
+                "discovery coordinator cancellation"
+        );
         awaitLatch(cancellations, "cancel callbacks");
         flushFxEvents();
 
@@ -142,6 +156,8 @@ class WorkstationOperationCoordinatorTest {
     @Test
     void cancelAllLeavesEveryScopeInactive() {
         WorkstationOperationCoordinator coordinator = coordinator();
+        CountDownLatch cancellations = new CountDownLatch(3);
+        coordinator.setOnCancelled(ignored -> cancellations.countDown());
         BlockingOperation foreground = blockingOperation();
         BlockingOperation discovery = blockingOperation();
         BlockingOperation local = blockingOperation();
@@ -176,9 +192,7 @@ class WorkstationOperationCoordinatorTest {
             coordinator.cancelAll();
             return null;
         });
-        awaitLatch(foreground.cancelled, "foreground cancellation");
-        awaitLatch(discovery.cancelled, "discovery cancellation");
-        awaitLatch(local.cancelled, "local cancellation");
+        awaitLatch(cancellations, "cancel-all coordinator callbacks");
         flushFxEvents();
 
         assertFalse(coordinator.isActive(WorkstationOperationScope.FOREGROUND));
@@ -191,7 +205,16 @@ class WorkstationOperationCoordinatorTest {
     }
 
     private static BlockingOperation blockingOperation() {
-        return new BlockingOperation(new CountDownLatch(1), new CountDownLatch(1));
+        return new BlockingOperation(new CountDownLatch(1));
+    }
+
+    private static Map<WorkstationOperationScope, CountDownLatch> cancellationEvents() {
+        Map<WorkstationOperationScope, CountDownLatch> events =
+                new EnumMap<>(WorkstationOperationScope.class);
+        for (WorkstationOperationScope scope : WorkstationOperationScope.values()) {
+            events.put(scope, new CountDownLatch(1));
+        }
+        return events;
     }
 
     private static String waitIgnoringInterrupt(
@@ -242,14 +265,9 @@ class WorkstationOperationCoordinatorTest {
 
     private static final class BlockingOperation {
         private final CountDownLatch started;
-        private final CountDownLatch cancelled;
 
-        private BlockingOperation(
-                CountDownLatch started,
-                CountDownLatch cancelled
-        ) {
+        private BlockingOperation(CountDownLatch started) {
             this.started = started;
-            this.cancelled = cancelled;
         }
 
         private String run() {
@@ -259,7 +277,6 @@ class WorkstationOperationCoordinatorTest {
                 throw new AssertionError("blocking operation unexpectedly resumed");
             } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
-                cancelled.countDown();
                 throw new CancellationException("cancelled by coordinator");
             }
         }
