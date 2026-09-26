@@ -14,7 +14,7 @@ evidence shows a real benefit without weakening determinism or isolation.
 
 ## Core invariants
 
-Tests must satisfy all of the following unless a documented exception applies:
+Tests must satisfy all the following unless a documented exception applies:
 
 - one test must not depend on another test having run before it;
 - one test must not leave state that changes a later test;

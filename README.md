@@ -10,14 +10,14 @@ It turns explored world data into an interactive workstation for mapping terrain
 
 ## What you can do
 
-| Tool | Purpose |
-| --- | --- |
-| **Map** | Render explored terrain with optional surface, soil-fertility, environment, geology and marker layers. |
-| **Coverage** | Visualize observed mapregion coverage and holes inside the explored bounds. |
-| **Ores** | Scan authoritative saved CHUNK data for one or multiple ore resources, with optional Y filtering. |
-| **Surface** | Analyze discovered surface objects or surface materials around the selected area. |
-| **Geology** | Render the upper rock layer or inspect rock at a selected world Y level. |
-| **Prospecting** | Combine saved geology and ore evidence into resource assessments. |
+| Tool            | Purpose                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------ |
+| **Map**         | Render explored terrain with optional surface, soil-fertility, environment, geology and marker layers. |
+| **Coverage**    | Visualize observed mapregion coverage and holes inside the explored bounds.                            |
+| **Ores**        | Scan authoritative saved CHUNK data for one or multiple ore resources, with optional Y filtering.      |
+| **Surface**     | Analyze discovered surface objects or surface materials around the selected area.                      |
+| **Geology**     | Render the upper rock layer or inspect rock at a selected world Y level.                               |
+| **Prospecting** | Combine saved geology and ore evidence into resource assessments.                                      |
 
 The workstation also provides configurable radii, player centering, zoom/navigation, result inspection, technical diagnostics, HOME/user markers, and reusable derived world snapshots for faster repeated analysis.
 

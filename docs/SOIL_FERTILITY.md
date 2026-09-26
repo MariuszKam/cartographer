@@ -15,14 +15,14 @@ It is not:
 
 The supported nominal tiers are:
 
-| Tier | Nominal value |
-| --- | ---: |
-| Bony | 0% |
-| Barren | 5% |
-| Low | 25% |
-| Medium | 50% |
-| High | 65% |
-| Terra Preta | 80% |
+| Tier        | Nominal value |
+| ----------- | ------------: |
+| Bony        | 0%            |
+| Barren      | 5%            |
+| Low         | 25%           |
+| Medium      | 50%           |
+| High        | 65%           |
+| Terra Preta | 80%           |
 
 These are nominal tier values used by the visualization. They are not live
 farmland nutrient percentages.
