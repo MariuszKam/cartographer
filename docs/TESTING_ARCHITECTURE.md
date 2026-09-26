@@ -268,9 +268,11 @@ it must not silently alter the production baseline.
 
 ### Current Gradle verification tasks
 
-TEST-PERF build logic lives in `gradle/test-architecture.gradle.kts`. The root
-`build.gradle.kts` applies that script but does not own the audit, timing,
-parallel-probe, category-task, budget, or quality-gate implementation.
+Verification build logic is split by responsibility. Static test/production
+architecture audits and guards live in `gradle/test-architecture.gradle.kts`.
+Test execution topology, timing reports, performance budgets, diagnostic subsets,
+and `testQualityGate` live in `gradle/test-performance.gradle.kts`. The root
+`build.gradle.kts` applies both scripts and does not own those implementations.
 
 The default `test` task intentionally uses one Gradle test worker. This is
 the selected production topology for the current suite because repeated
