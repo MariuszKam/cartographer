@@ -717,15 +717,14 @@ class MapRendererTest {
             HomeState home,
             List<MapChunk> chunks,
             List<SurfaceCell> surfaceBlocks,
-            RenderOptions options,
-            ProgressReporter progress
+            RenderOptions options
     ) {
         MapTerrainPreparation.Builder terrain =
                 MapTerrainPreparation.builder(
                         center,
                         options,
                         chunks.size(),
-                        progress
+                        ProgressReporter.NONE
                 );
         chunks.forEach(terrain::accept);
 
@@ -767,7 +766,7 @@ class MapRendererTest {
                 surface,
                 registry,
                 options,
-                progress
+                ProgressReporter.NONE
         );
     }
 
@@ -782,14 +781,12 @@ class MapRendererTest {
     ) {
         private SurfaceCell(
                 int worldX,
-                int y,
-                int worldZ,
                 BlockInfo blockInfo
         ) {
             this(
                     worldX,
-                    y,
-                    worldZ,
+                    80,
+                    16,
                     blockInfo,
                     0,
                     BlockInfo.unknown(0),

@@ -22,7 +22,7 @@ class ChunkPaletteFilterTest {
 
     @Test
     void matchesWantedIdInCompressedPalette() {
-        byte[] payload = compressedPalette(11, 22, 33);
+        byte[] payload = compressedPalette();
 
         assertTrue(contains(payload, 2, 33));
         assertFalse(contains(payload, 2, 44));
@@ -107,7 +107,8 @@ class ChunkPaletteFilterTest {
         return buffer.array();
     }
 
-    private byte[] compressedPalette(int... values) {
+    private byte[] compressedPalette() {
+        int[] values = {11, 22, 33};
         byte[] paletteBytes = rawPalette(values);
         ByteBuffer palette =
                 ByteBuffer.wrap(paletteBytes)

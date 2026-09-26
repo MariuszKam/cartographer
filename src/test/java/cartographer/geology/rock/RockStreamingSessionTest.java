@@ -399,9 +399,9 @@ class RockStreamingSessionTest {
         return RockStreamingSession.open(new WorldPosition(0, 0, 0), 1, 0, 64, 0, CATALOG);
     }
 
-    private SelectiveChunkVisit decoded(int chunkX, int chunkY, int chunkZ, int localY, int blockId) {
-        ParsedChunk chunk = chunk(chunkX, chunkY, chunkZ, localY, blockId);
-        return SelectiveChunkVisit.decoded(position(chunkX, chunkY, chunkZ), chunk);
+    private SelectiveChunkVisit decoded(int chunkY, int localY, int blockId) {
+        ParsedChunk chunk = chunk(0, chunkY, 0, localY, blockId);
+        return SelectiveChunkVisit.decoded(position(0, chunkY, 0), chunk);
     }
 
     private ParsedChunk chunk(int chunkX, int chunkY, int chunkZ, int localY, int blockId) {
