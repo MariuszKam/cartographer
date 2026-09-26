@@ -1,7 +1,3 @@
-plugins {
-    java
-}
-
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import org.gradle.api.GradleException
@@ -10,6 +6,10 @@ import org.gradle.api.tasks.testing.Test
 import org.gradle.api.tasks.testing.TestDescriptor
 import org.gradle.api.tasks.testing.TestListener
 import org.gradle.api.tasks.testing.TestResult
+
+plugins {
+    java
+}
 
 val testSourceSet = extensions.getByType<SourceSetContainer>()["test"]
 
