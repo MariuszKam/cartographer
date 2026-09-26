@@ -598,7 +598,6 @@ final class VcdbsSelectiveChunkStreamReader {
                                 diagnostics,
                                 pipeline,
                                 workspaces,
-                                consumer,
                                 rowsFound,
                                 counters
                         );
