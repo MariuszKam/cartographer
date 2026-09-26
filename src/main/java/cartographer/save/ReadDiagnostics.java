@@ -172,17 +172,7 @@ public class ReadDiagnostics {
                 .toList();
     }
 
-    public Map<String, Integer> failureReasons() {
-        return Map.copyOf(
-                failureReasons
-        );
-    }
 
-    public Map<String, Integer> liquidFailureReasons() {
-        return Map.copyOf(
-                liquidFailureReasons
-        );
-    }
 
     public List<String> failureReasonLines() {
         return failureReasons.entrySet()
@@ -217,38 +207,6 @@ public class ReadDiagnostics {
                 .toList();
     }
 
-    public List<String> liquidFailureReasonLines() {
-        return liquidFailureReasons.entrySet()
-                .stream()
-                .sorted(
-                        (left, right) -> {
-                            int countComparison =
-                                    Integer.compare(
-                                            right.getValue(),
-                                            left.getValue()
-                                    );
-
-                            if (countComparison != 0) {
-                                return countComparison;
-                            }
-
-                            return left.getKey()
-                                    .compareTo(
-                                            right.getKey()
-                                    );
-                        }
-                )
-                .limit(
-                        SAMPLE_LIMIT
-                )
-                .map(
-                        entry ->
-                                entry.getValue()
-                                        + " x "
-                                        + entry.getKey()
-                )
-                .toList();
-    }
 
     private String normalizedReason(
             String reason

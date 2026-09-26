@@ -30,16 +30,6 @@ public class SurfaceResourceOverlayRenderer {
     private final SurfaceObjectMarkerStylePolicy objectMarkerStyles =
             new SurfaceObjectMarkerStylePolicy();
 
-    public int drawMaterial(
-            BufferedImage image,
-            WorldPosition center,
-            int radiusBlocks,
-            SurfaceMaterialAnalysis analysis,
-            WorldPosition player,
-            HomeState home
-    ) {
-        return drawMaterial(image, center, radiusBlocks, analysis, player, home, true);
-    }
 
     public int drawMaterial(
             BufferedImage image,

@@ -153,9 +153,6 @@ public final class UpperRockTile {
         return height;
     }
 
-    public int cellCount() {
-        return states.length;
-    }
 
     public RockColumnState stateAt(int localX, int localZ) {
         return decodeState(states[index(localX, localZ)]);

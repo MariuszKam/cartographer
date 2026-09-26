@@ -12,8 +12,6 @@ import java.util.Objects;
 
 /** Standalone completion-order-independent streaming UPPER ROCK analyzer. */
 public final class RockStreamingSession {
-    private final WorldPosition center;
-    private final int radius;
     private final int minY;
     private final int maxYExclusive;
     private final RockMapMode mode;
@@ -26,7 +24,6 @@ public final class RockStreamingSession {
     private final int chunkMaxZ;
     private final int chunkMinY;
     private final int chunkMaxY;
-    private final int verticalChunkCount;
     private final int wordsPerHorizontalColumn;
     private final long[] terminalSeenWords;
     private final long[] availableWords;
@@ -43,8 +40,7 @@ public final class RockStreamingSession {
             RockMapMode mode,
             RockCatalog catalog
     ) {
-        this.center = Objects.requireNonNull(center, "center is required");
-        this.radius = radius;
+        Objects.requireNonNull(center, "center is required");
         this.minY = minY;
         this.maxYExclusive = maxYExclusive;
         this.dimension = dimension;
@@ -64,7 +60,6 @@ public final class RockStreamingSession {
         this.chunkMinY = checkedChunk(Math.floorDiv((long) minY, size));
         this.chunkMaxY = checkedChunk(Math.floorDiv(Math.subtractExact(maxYExclusive, 1L), size));
         long verticalCount = Math.addExact(Math.subtractExact((long) chunkMaxY, chunkMinY), 1L);
-        this.verticalChunkCount = Math.toIntExact(verticalCount);
         this.wordsPerHorizontalColumn = Math.toIntExact(Math.addExact(verticalCount, 63L) / 64L);
         long horizontalCount = Math.multiplyExact(
                 Math.addExact((long) chunkMaxX - chunkMinX, 1L),

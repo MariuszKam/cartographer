@@ -7,7 +7,6 @@ final class RockCellLayout {
     private static final int STATE_BITS = 2;
 
     private final int rockOrdinalBits;
-    private final int totalBits;
     private final int rockCount;
     private final long yRangeHeight;
     private final boolean intBacked;
@@ -24,7 +23,7 @@ final class RockCellLayout {
                 || yBits < 0 || yBits > 62) {
             throw new IllegalArgumentException("packed field width is invalid");
         }
-        this.totalBits = Math.addExact(STATE_BITS,
+        int totalBits = Math.addExact(STATE_BITS,
                 Math.addExact(rockOrdinalBits, yBits));
         if (totalBits > Long.SIZE) {
             throw new IllegalArgumentException(

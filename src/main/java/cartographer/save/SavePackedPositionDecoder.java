@@ -1,6 +1,5 @@
 package cartographer.save;
 
-import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
@@ -20,19 +19,7 @@ final class SavePackedPositionDecoder {
                 .map(position -> new MapChunkCoordinate(position.x(), position.z()));
     }
 
-    static Optional<MapChunkCoordinate> mapChunkCoordinate(Object rawValue) {
-        return decode(rawValue)
-                .map(position -> new MapChunkCoordinate(position.x(), position.z()));
-    }
 
-    static Optional<ChunkCoordinate> chunkCoordinate(Object rawValue) {
-        return decode(rawValue)
-                .map(position -> new ChunkCoordinate(
-                        position.x(),
-                        position.y(),
-                        position.z()
-                ));
-    }
 
     static Optional<MapRegionCoordinate> mapRegionCoordinate(Object rawValue) {
         return decode(rawValue)
