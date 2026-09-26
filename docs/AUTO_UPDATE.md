@@ -502,7 +502,7 @@ following are checked on the exact final Stage 4 candidate:
 7. tampering with the staged installer between Ready and execution is rejected;
 8. Cartographer-owned configuration remains present across the upgrade.
 
-Vintage Story save-integrity, shortcuts/uninstall, and the complete
+Vintage Story save-integrity, shortcuts/uninstallation, and the complete
 old-version-to-new-version release campaign remain part of Stage 5 final
 validation. Static implementation alone is not a Stage 4 runtime PASS.
 
@@ -527,7 +527,7 @@ A real installed old stable version must detect, download, verify, install and
 relaunch into a newer stable GitHub Release.
 
 The authoritative runtime check is the version shown by the relaunched
-application. Windows uninstall registration and shortcuts are additional
+application. Windows uninstallation registration and shortcuts are additional
 packaging evidence.
 
 ### S5.2 Cartographer-owned state persistence

@@ -296,7 +296,7 @@ public final class WorkstationOperationCoordinator {
                 || task.isCancelled()
                 || Thread.currentThread().isInterrupted()) {
             throw new CancellationException(
-                    "workstation operation cancelled or superseded"
+                    "workstation operation canceled or superseded"
             );
         }
     }
