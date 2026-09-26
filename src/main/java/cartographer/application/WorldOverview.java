@@ -18,14 +18,14 @@ public record WorldOverview(
         List<String> resourceKeys
 ) {
     public WorldOverview {
-        metadata = Objects.requireNonNull(metadata, "world metadata is required");
+        Objects.requireNonNull(metadata, "world metadata is required");
         Map<Integer, BlockInfo> copiedRegistry = new LinkedHashMap<>(
                 Objects.requireNonNull(blockRegistry, "block registry is required")
         );
         copiedRegistry.replaceAll((id, block) ->
                 Objects.requireNonNull(block, "block registry cannot contain null values"));
         blockRegistry = Map.copyOf(copiedRegistry);
-        playerAbsolute = Objects.requireNonNull(
+        Objects.requireNonNull(
                 playerAbsolute,
                 "player position option is required"
         );

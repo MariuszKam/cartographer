@@ -78,8 +78,12 @@ public record RenderDataCacheStore(Path cacheRoot) {
                     StandardOpenOption.TRUNCATE_EXISTING
             )) {
                 ByteBuffer buffer = ByteBuffer.wrap(content);
+                int writtenBytes = 0;
                 while (buffer.hasRemaining()) {
-                    channel.write(buffer);
+                    writtenBytes += channel.write(buffer);
+                }
+                if (writtenBytes != content.length) {
+                    throw new IOException("Incomplete render-data manifest write");
                 }
                 channel.force(true);
             }

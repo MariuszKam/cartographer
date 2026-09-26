@@ -18,18 +18,16 @@ final class VcdbsReaderFixtures {
         );
     }
 
-    static VcdbsReader withChunkParser(
-            ChunkParser chunkParser,
-            int workerCount,
-            int maxInFlight
+    static VcdbsReader withTwoDecodeWorkers(
+            ChunkParser chunkParser
     ) {
         return new VcdbsReader(
                 new PlayerDataParser(),
                 new MapChunkParser(),
                 chunkParser,
                 new RegistryParser(),
-                workerCount,
-                maxInFlight
+                2,
+                4
         );
     }
 

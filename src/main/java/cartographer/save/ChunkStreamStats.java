@@ -32,7 +32,7 @@ public record ChunkStreamStats(
     }
 
     public ChunkStreamStats {
-        metrics = Objects.requireNonNull(metrics, "metrics is required");
+        Objects.requireNonNull(metrics, "metrics is required");
         if (uniquePositionsRequested < 0) {
             throw new IllegalArgumentException(
                     "uniquePositionsRequested cannot be negative"

@@ -307,13 +307,12 @@ class UpdateDownloadServiceTest {
             );
 
             assertEquals(UpdateDownloadResult.Status.FAILED, result.status());
-            assertTrue(Thread.currentThread().isInterrupted());
             assertFalse(Files.exists(
                     updates.resolve("1.1.0")
                             .resolve(manifest.installerFile() + ".part")
             ));
         } finally {
-            Thread.interrupted();
+            assertTrue(Thread.interrupted());
         }
     }
 

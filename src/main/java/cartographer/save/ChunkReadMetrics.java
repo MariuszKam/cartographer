@@ -26,7 +26,7 @@ public record ChunkReadMetrics(
         long totalNanos
 ) {
     public ChunkReadMetrics {
-        strategy = Objects.requireNonNull(strategy, "strategy is required");
+        Objects.requireNonNull(strategy, "strategy is required");
         if (uniquePositionsRequested < 0
                 || batchesExecuted < 0
                 || statementsPrepared < 0

@@ -39,25 +39,25 @@ public record MapFrame(
         savePath = Objects.requireNonNull(savePath, "savePath is required")
                 .toAbsolutePath()
                 .normalize();
-        tool = Objects.requireNonNull(tool, "tool is required");
-        geometry = Objects.requireNonNull(geometry, "geometry is required");
-        preparedMapData = Objects.requireNonNull(
+        Objects.requireNonNull(tool, "tool is required");
+        Objects.requireNonNull(geometry, "geometry is required");
+        Objects.requireNonNull(
                 preparedMapData,
                 "prepared map data option is required"
         );
         actualOreOverlays = List.copyOf(
                 Objects.requireNonNull(actualOreOverlays, "actual ore overlays are required")
         );
-        surfaceAnalysis = Objects.requireNonNull(
+        Objects.requireNonNull(
                 surfaceAnalysis,
                 "surface analysis option is required"
         );
-        rockMap = Objects.requireNonNull(rockMap, "rock map option is required");
-        decorationState = Objects.requireNonNull(
+        Objects.requireNonNull(rockMap, "rock map option is required");
+        Objects.requireNonNull(
                 decorationState,
                 "decoration state option is required"
         );
-        mapRegionOverlayState = Objects.requireNonNull(
+        Objects.requireNonNull(
                 mapRegionOverlayState,
                 "map-region overlay state option is required"
         );

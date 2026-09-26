@@ -22,7 +22,7 @@ public record WorldSnapshotHeader(
         Optional<WorldPosition> player
 ) {
     public WorldSnapshotHeader {
-        metadata = Objects.requireNonNull(metadata, "metadata is required");
+        Objects.requireNonNull(metadata, "metadata is required");
         Map<Integer, BlockInfo> copy = new LinkedHashMap<>(
                 Objects.requireNonNull(
                         blockRegistry,
@@ -34,6 +34,6 @@ public record WorldSnapshotHeader(
                 "blockRegistry cannot contain null values"
         ));
         blockRegistry = Map.copyOf(copy);
-        player = Objects.requireNonNull(player, "player is required");
+        Objects.requireNonNull(player, "player is required");
     }
 }

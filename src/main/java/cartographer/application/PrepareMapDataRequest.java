@@ -51,7 +51,7 @@ public record PrepareMapDataRequest(
         }
         Objects.requireNonNull(style, "style is required");
         layers = Set.copyOf(Objects.requireNonNull(layers, "layers are required"));
-        center = Objects.requireNonNull(center, "center is required");
+        Objects.requireNonNull(center, "center is required");
         Objects.requireNonNull(
                 surfaceDataRequirement,
                 "surfaceDataRequirement is required"

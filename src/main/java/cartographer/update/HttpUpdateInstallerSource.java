@@ -48,18 +48,13 @@ public final class HttpUpdateInstallerSource implements UpdateInstallerSource {
     }
 
     private static Sender createSender(Duration connectTimeout) {
-        Objects.requireNonNull(
-                connectTimeout,
-                "connectTimeout is required"
-        );
-        HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(connectTimeout)
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .build();
-        return request -> client.send(
-                request,
-                HttpResponse.BodyHandlers.ofInputStream()
-        );
+        return new HttpClientSender(connectTimeout);
+    }
+
+    public void close() {
+        if (sender instanceof HttpClientSender httpClientSender) {
+            httpClientSender.close();
+        }
     }
 
     @Override
@@ -152,6 +147,34 @@ public final class HttpUpdateInstallerSource implements UpdateInstallerSource {
                     );
                 }
             }
+        }
+    }
+
+    private static final class HttpClientSender implements Sender {
+        private final HttpClient client;
+
+        private HttpClientSender(Duration connectTimeout) {
+            Objects.requireNonNull(
+                    connectTimeout,
+                    "connectTimeout is required"
+            );
+            client = HttpClient.newBuilder()
+                    .connectTimeout(connectTimeout)
+                    .followRedirects(HttpClient.Redirect.NORMAL)
+                    .build();
+        }
+
+        @Override
+        public HttpResponse<InputStream> send(HttpRequest request)
+                throws IOException, InterruptedException {
+            return client.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofInputStream()
+            );
+        }
+
+        private void close() {
+            client.close();
         }
     }
 

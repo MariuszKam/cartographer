@@ -26,9 +26,9 @@ public record UpdateManifest(
                     "Unsupported update channel: " + channel
             );
         }
-        version = Objects.requireNonNull(version, "version is required");
+        Objects.requireNonNull(version, "version is required");
         installerFile = requireInstallerFile(installerFile);
-        installerUri = requireHttpsGithubUri(installerUri, "installerUrl");
+        requireHttpsGithubUri(installerUri, "installerUrl");
         if (!installerUri.getPath().endsWith("/" + installerFile)) {
             throw new IllegalArgumentException(
                     "installerUrl must end with installerFile"
@@ -40,7 +40,7 @@ public record UpdateManifest(
                     "installerSize must be greater than zero"
             );
         }
-        releaseUri = requireHttpsGithubUri(releaseUri, "releaseUrl");
+        requireHttpsGithubUri(releaseUri, "releaseUrl");
     }
 
     private static String requireText(String value, String field) {

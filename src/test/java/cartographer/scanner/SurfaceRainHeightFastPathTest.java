@@ -29,7 +29,7 @@ class SurfaceRainHeightFastPathTest {
 
     @Test
     void plansStableUniqueServerChunkPositionsWithoutColumnTargets() {
-        SurfaceRainHeightPlanner.StreamingSession planner = planner(16, 16, 2);
+        SurfaceRainHeightPlanner.StreamingSession planner = planner(16, 16);
         planner.accept(mapChunk(1));
 
         SurfaceRainHeightPlan plan = planner.finish();
@@ -44,7 +44,7 @@ class SurfaceRainHeightFastPathTest {
                 new int[0],
                 filledHeights(-1),
                 filledHeights(256))) {
-            SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1, 2);
+            SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1);
             planner.accept(new MapChunk(
                     new MapChunkCoordinate(0, 0), heights, new int[0]));
 
@@ -59,7 +59,7 @@ class SurfaceRainHeightFastPathTest {
     void invalidCandidateAfterEarlierCellsStillPromotesWholeMapchunk() {
         int[] heights = filledHeights(1);
         heights[1 + MapChunk.SIZE] = 256;
-        SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1, 2);
+        SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1);
         planner.accept(new MapChunk(
                 new MapChunkCoordinate(0, 0), heights, new int[0]));
 
@@ -71,8 +71,8 @@ class SurfaceRainHeightFastPathTest {
 
     @Test
     void waterResolvesAirCandidateAndMissingLiquidPromotes() {
-        SurfaceRainHeightPlan waterPlan = planned(1);
-        SurfaceRainHeightScanner.StreamingSession waterScanner = scanner(waterPlan, true);
+        SurfaceRainHeightPlan waterPlan = planned();
+        SurfaceRainHeightScanner.StreamingSession waterScanner = scanner(waterPlan);
         waterScanner.accept(chunkWith(3, true));
         SurfaceRainHeightScanResult water = waterScanner.finish();
 
@@ -80,7 +80,7 @@ class SurfaceRainHeightFastPathTest {
         assertEquals(SurfaceClass.WATER, water.surface().surfaceClassAt(1, 1));
         assertTrue(water.fallbackMapChunks().isEmpty());
 
-        SurfaceRainHeightScanner.StreamingSession unavailableScanner = scanner(waterPlan, true);
+        SurfaceRainHeightScanner.StreamingSession unavailableScanner = scanner(waterPlan);
         unavailableScanner.accept(chunkWith(1, false));
         SurfaceRainHeightScanResult unavailable = unavailableScanner.finish();
 
@@ -90,9 +90,9 @@ class SurfaceRainHeightFastPathTest {
 
     @Test
     void airAndIgnoredFoliagePromoteWholeMapchunk() {
-        SurfaceRainHeightPlan plan = planned(1);
+        SurfaceRainHeightPlan plan = planned();
         for (int blockId : List.of(0, 2)) {
-            SurfaceRainHeightScanner.StreamingSession scanner = scanner(plan, true);
+            SurfaceRainHeightScanner.StreamingSession scanner = scanner(plan);
             scanner.accept(chunkWith(blockId, true));
             SurfaceRainHeightScanResult result = scanner.finish();
             assertTrue(result.fallbackMapChunks().contains(new MapChunkCoordinate(0, 0)));
@@ -102,11 +102,11 @@ class SurfaceRainHeightFastPathTest {
 
     @Test
     void duplicateDeliveryDoesNotDuplicateOrChangeFastResult() {
-        SurfaceRainHeightPlan plan = planned(1);
+        SurfaceRainHeightPlan plan = planned();
         ParsedChunk chunk = chunkWith(1, true);
-        SurfaceRainHeightScanner.StreamingSession once = scanner(plan, true);
+        SurfaceRainHeightScanner.StreamingSession once = scanner(plan);
         once.accept(chunk);
-        SurfaceRainHeightScanner.StreamingSession twice = scanner(plan, true);
+        SurfaceRainHeightScanner.StreamingSession twice = scanner(plan);
         twice.accept(chunk);
         twice.accept(chunk);
 
@@ -125,16 +125,16 @@ class SurfaceRainHeightFastPathTest {
     void decodedArrivalOrderProducesSameCompactFingerprint() {
         int[] heights = filledHeights(31);
         heights[1 + MapChunk.SIZE] = 32;
-        SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1, 2);
+        SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1);
         planner.accept(new MapChunk(new MapChunkCoordinate(0, 0), heights, new int[0]));
         SurfaceRainHeightPlan plan = planner.finish();
 
         ParsedChunk lower = chunkWithSection(0, 1, true);
         ParsedChunk upper = chunkWithSection(1, 1, true);
-        SurfaceRainHeightScanner.StreamingSession first = scanner(plan, true);
+        SurfaceRainHeightScanner.StreamingSession first = scanner(plan);
         first.accept(lower);
         first.accept(upper);
-        SurfaceRainHeightScanner.StreamingSession second = scanner(plan, true);
+        SurfaceRainHeightScanner.StreamingSession second = scanner(plan);
         second.accept(upper);
         second.accept(lower);
 
@@ -146,7 +146,7 @@ class SurfaceRainHeightFastPathTest {
 
     @Test
     void missingMapchunkCanBePromotedBeforePlanFinish() {
-        SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1, 2);
+        SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1);
         planner.promoteMissing(new MapChunkCoordinate(0, 0));
 
         SurfaceRainHeightPlan plan = planner.finish();
@@ -155,22 +155,21 @@ class SurfaceRainHeightFastPathTest {
         assertTrue(plan.chunkPositions().isEmpty());
     }
 
-    private SurfaceRainHeightPlan planned(int rainHeight) {
-        SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1, 2);
-        planner.accept(mapChunk(rainHeight));
+    private SurfaceRainHeightPlan planned() {
+        SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1);
+        planner.accept(mapChunk(1));
         return planner.finish();
     }
 
-    private SurfaceRainHeightPlanner.StreamingSession planner(int x, int z, int radius) {
-        return new SurfaceRainHeightPlanner().begin(WORLD, x, z, radius);
+    private SurfaceRainHeightPlanner.StreamingSession planner(int x, int z) {
+        return new SurfaceRainHeightPlanner().begin(WORLD, x, z, 2);
     }
 
     private SurfaceRainHeightScanner.StreamingSession scanner(
-            SurfaceRainHeightPlan plan,
-            boolean requireLiquid
+            SurfaceRainHeightPlan plan
     ) {
         return new SurfaceRainHeightScanner().begin(
-                plan, REGISTRY, true, requireLiquid);
+                plan, REGISTRY, true, true);
     }
 
     private MapChunk mapChunk(int height) {

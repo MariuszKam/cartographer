@@ -8,6 +8,7 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Stable semantic version used by the application and release/update pipeline.
@@ -98,7 +99,7 @@ public record ApplicationVersion(int major, int minor, int patch)
     }
 
     @Override
-    public int compareTo(ApplicationVersion other) {
+    public int compareTo(@NotNull ApplicationVersion other) {
         Objects.requireNonNull(other, "other is required");
 
         int majorComparison = Integer.compare(major, other.major);
@@ -115,7 +116,7 @@ public record ApplicationVersion(int major, int minor, int patch)
     }
 
     @Override
-    public String toString() {
+    public @NotNull String toString() {
         return major + "." + minor + "." + patch;
     }
 }

@@ -22,13 +22,11 @@ public final class UpdateManifestParser {
             );
         }
 
-        int schemaVersion = parseInteger(
-                required(properties, "schemaVersion"),
-                "schemaVersion"
+        int schemaVersion = parseSchemaVersion(
+                required(properties, "schemaVersion")
         );
-        long installerSize = parseLong(
-                required(properties, "installerSize"),
-                "installerSize"
+        long installerSize = parseInstallerSize(
+                required(properties, "installerSize")
         );
 
         return new UpdateManifest(
@@ -53,23 +51,23 @@ public final class UpdateManifestParser {
         return value.trim();
     }
 
-    private int parseInteger(String value, String field) {
+    private int parseSchemaVersion(String value) {
         try {
             return Integer.parseInt(value);
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException(
-                    field + " must be an integer",
+                    "schemaVersion must be an integer",
                     exception
             );
         }
     }
 
-    private long parseLong(String value, String field) {
+    private long parseInstallerSize(String value) {
         try {
             return Long.parseLong(value);
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException(
-                    field + " must be an integer",
+                    "installerSize must be an integer",
                     exception
             );
         }

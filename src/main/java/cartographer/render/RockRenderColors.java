@@ -29,7 +29,7 @@ final class RockRenderColors {
             Optional<String> highlightRockCode
     ) {
         Objects.requireNonNull(state, "rock state is required");
-        highlightRockCode = Objects.requireNonNull(
+        Objects.requireNonNull(
                 highlightRockCode,
                 "highlight rock code is required"
         );

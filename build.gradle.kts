@@ -146,6 +146,7 @@ dependencies {
     implementation("org.xerial:sqlite-jdbc:3.46.1.0")
     implementation("com.github.luben:zstd-jni:1.5.6-9")
     implementation("org.slf4j:slf4j-api:2.0.16")
+    compileOnly("org.jetbrains:annotations:26.1.0")
     runtimeOnly("ch.qos.logback:logback-classic:1.5.16")
 
     testImplementation(platform("org.junit:junit-bom:6.0.0"))

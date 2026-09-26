@@ -202,7 +202,6 @@ public final class SearchPanel extends VBox {
         prospectingPane.setBusy(busy);
         radiusPane.setBusy(foregroundBusy || discoveryBusy);
         // Rock highlight works entirely from retained RockMap state and remains local.
-        rockHighlightPane.setBusy(false);
         updateRenderAvailability();
     }
 

@@ -102,10 +102,7 @@ class LoadWorldOverviewUseCaseTest {
     private WorldMetadataReader metadataReader(WorldMetadata metadata) {
         return new WorldMetadataReader() {
             @Override
-            protected WorldMetadata read(
-                    Connection connection,
-                    ProgressReporter progress
-            ) {
+            protected WorldMetadata read(Connection connection) {
                 return metadata;
             }
         };

@@ -15,8 +15,8 @@ public record SelectiveChunkParseResult(
         Optional<String> error
 ) {
     public SelectiveChunkParseResult {
-        chunk = Objects.requireNonNull(chunk, "chunk is required");
-        error = Objects.requireNonNull(error, "error is required");
+        Objects.requireNonNull(chunk, "chunk is required");
+        Objects.requireNonNull(error, "error is required");
 
         if (paletteRejected) {
             if (!payloadParsed || chunk.isPresent() || error.isPresent()) {

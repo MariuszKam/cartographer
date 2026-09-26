@@ -41,7 +41,7 @@ class UpperRockTileBatchIndexerTest {
         ));
         indexer.accept(SelectiveChunkVisit.decoded(
                 new cartographer.model.ChunkPosition(0, 0, 0, 0),
-                chunkWithRock(0, 0, 0, 10, 7)
+                chunkWithRock(0, 0, 10)
         ));
 
         indexer.accept(SelectiveChunkVisit.missing(
@@ -49,7 +49,7 @@ class UpperRockTileBatchIndexerTest {
         ));
         indexer.accept(SelectiveChunkVisit.decoded(
                 new cartographer.model.ChunkPosition(1, 0, 0, 0),
-                chunkWithRock(1, 0, 0, 10, 7)
+                chunkWithRock(1, 0, 10)
         ));
 
         indexer.accept(SelectiveChunkVisit.paletteRejected(
@@ -105,7 +105,7 @@ class UpperRockTileBatchIndexerTest {
         ));
         indexer.accept(SelectiveChunkVisit.decoded(
                 new cartographer.model.ChunkPosition(0, 1, 0, 0),
-                chunkWithRock(0, 1, 0, 18, 7)
+                chunkWithRock(0, 1, 18)
         ));
 
         UpperRockTile tile = indexer.finish().getFirst();
@@ -117,16 +117,14 @@ class UpperRockTileBatchIndexerTest {
     private static ParsedChunk chunkWithRock(
             int chunkX,
             int chunkY,
-            int chunkZ,
-            int localY,
-            int blockId
+            int localY
     ) {
         int size = ChunkCoordinate.SIZE_BLOCKS;
         int[] blocks = new int[size * size * size];
         int index = (localY * size) * size;
-        blocks[index] = blockId;
+        blocks[index] = 7;
         return cartographer.model.ParsedChunkFixtures.create(
-                new ChunkCoordinate(chunkX, chunkY, chunkZ),
+                new ChunkCoordinate(chunkX, chunkY, 0),
                 chunkY * size,
                 size,
                 size,

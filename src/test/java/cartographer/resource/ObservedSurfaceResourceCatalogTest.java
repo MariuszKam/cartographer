@@ -112,10 +112,12 @@ class ObservedSurfaceResourceCatalogTest {
                 scan(surface(1, 1, 1, 1))
         );
 
-        assertThrows(UnsupportedOperationException.class,
-                () -> observed.resources().clear());
-        assertThrows(UnsupportedOperationException.class,
-                () -> observed.resources().getFirst().observations().clear());
+        assertImmutable(observed.resources());
+        assertImmutable(observed.resources().getFirst().observations());
+    }
+
+    private static void assertImmutable(List<?> values) {
+        assertThrows(UnsupportedOperationException.class, values::clear);
     }
 
     private BlockInfo block(int id, String code) {

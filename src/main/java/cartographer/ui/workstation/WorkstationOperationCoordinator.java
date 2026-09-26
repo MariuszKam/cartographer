@@ -54,7 +54,7 @@ public final class WorkstationOperationCoordinator {
         ActiveOperation<T> activeOperation = new ActiveOperation<>(
                 token,
                 scope,
-                normalized(type, "type"),
+                normalizedType(type),
                 task
         );
         register(activeOperation);
@@ -82,7 +82,7 @@ public final class WorkstationOperationCoordinator {
         ActiveOperation<T> activeOperation = new ActiveOperation<>(
                 token,
                 scope,
-                normalized(type, "type"),
+                normalizedType(type),
                 task
         );
         register(activeOperation);
@@ -308,10 +308,13 @@ public final class WorkstationOperationCoordinator {
         }
     }
 
-    private String normalized(String value, String label) {
-        String normalized = Objects.requireNonNull(value, label + " is required").trim();
+    private String normalizedType(String value) {
+        String normalized = Objects.requireNonNull(
+                value,
+                "type is required"
+        ).trim();
         if (normalized.isEmpty()) {
-            throw new IllegalArgumentException(label + " must not be blank");
+            throw new IllegalArgumentException("type must not be blank");
         }
         return normalized;
     }
