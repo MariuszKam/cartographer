@@ -89,7 +89,7 @@ class SnapshotBackedMapRoutingTest {
                         new MultiActualBlockMapScanner(),
                         new OreChunkPositionPlanner(),
                         forbiddenSource,
-                        cache
+                        Optional.of(cache)
                 );
 
         RenderActualOreMapResult result = useCase.execute(
