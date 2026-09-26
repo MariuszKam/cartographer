@@ -27,7 +27,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public final class DesktopUpdateController {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DesktopUpdateController.class);
+
     public static final Duration DEFAULT_AUTOMATIC_CHECK_INTERVAL =
             Duration.ofHours(24);
 
@@ -209,9 +214,10 @@ public final class DesktopUpdateController {
                 }
             }
             case CHECK_FAILED -> {
+                String message = result.failureMessage()
+                        .orElse("Update check failed");
+                LOGGER.warn("Update check failed: {}", message);
                 if (manual) {
-                    String message = result.failureMessage()
-                            .orElse("Update check failed");
                     uiDispatcher.accept(() ->
                             view.showUpdateCheckFailed(message)
                     );
@@ -243,6 +249,7 @@ public final class DesktopUpdateController {
         try {
             backgroundExecutor.execute(() -> runDownload(manifest));
         } catch (RuntimeException exception) {
+            LOGGER.error("Cannot schedule update download", exception);
             operationInProgress.set(false);
             uiDispatcher.accept(() ->
                     view.showUpdateDownloadFailed(
@@ -274,6 +281,11 @@ public final class DesktopUpdateController {
                 readyUpdate.set(null);
                 String message = result.failureMessage()
                         .orElse("Update download failed");
+                LOGGER.warn(
+                        "Update download failed for {}: {}",
+                        manifest.version(),
+                        message
+                );
                 uiDispatcher.accept(() ->
                         view.showUpdateDownloadFailed(
                                 manifest.version(),
@@ -301,6 +313,7 @@ public final class DesktopUpdateController {
         try {
             backgroundExecutor.execute(() -> runInstall(ready));
         } catch (RuntimeException exception) {
+            LOGGER.error("Cannot schedule update installation", exception);
             operationInProgress.set(false);
             uiDispatcher.accept(() ->
                     view.showUpdateInstallFailed(
@@ -322,6 +335,11 @@ public final class DesktopUpdateController {
                     readyUpdate.compareAndSet(ready, null);
                     String message = result.failureMessage()
                             .orElse("Installer verification failed");
+                    LOGGER.warn(
+                            "Installer verification failed for {}: {}",
+                            version,
+                            message
+                    );
                     uiDispatcher.accept(() ->
                             view.showUpdateDownloadFailed(
                                     version,
@@ -332,6 +350,11 @@ public final class DesktopUpdateController {
                 case FAILED -> {
                     String message = result.failureMessage()
                             .orElse("Update installation could not start");
+                    LOGGER.warn(
+                            "Update installation could not start for {}: {}",
+                            version,
+                            message
+                    );
                     uiDispatcher.accept(() ->
                             view.showUpdateInstallFailed(
                                     version,
@@ -341,6 +364,7 @@ public final class DesktopUpdateController {
                 }
             }
         } catch (RuntimeException exception) {
+            LOGGER.error("Update installation failed", exception);
             uiDispatcher.accept(() ->
                     view.showUpdateInstallFailed(
                             version,
@@ -419,7 +443,8 @@ public final class DesktopUpdateController {
     private void persistSuccessfulCheck(UpdatePreferences preferences) {
         try {
             preferencesStore.save(preferences);
-        } catch (IOException ignored) {
+        } catch (IOException failure) {
+            LOGGER.warn("Cannot persist update preferences", failure);
             // Preference persistence must never turn a successful update check
             // into an application-visible failure.
         }
