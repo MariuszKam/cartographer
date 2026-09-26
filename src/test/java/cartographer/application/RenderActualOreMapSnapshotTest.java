@@ -68,6 +68,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @IntegrationTest
 class RenderActualOreMapSnapshotTest extends RenderActualOreMapUseCaseTestSupport {
 
+    @TempDir
+    Path temporaryDirectory;
+
+    @Override
+    Path temporaryDirectory() {
+        return temporaryDirectory;
+    }
+
     @Test
     void retainedOreRenderSkipsBasePreparationButStillScansOreAuthoritatively() {
         FakeReader reader = new FakeReader(
