@@ -331,7 +331,9 @@ public final class WorkstationController {
                 return;
             }
             if (searchPanel.selectedMode() == WorkstationTool.MAP) {
-                renderMap();
+                workstation.setStatus(
+                        "Map streams automatically from the selected save."
+                );
                 return;
             }
             RenderActualOreMapRequest request = requestFromControls();
@@ -399,56 +401,6 @@ public final class WorkstationController {
                 "coverage-render",
                 progress -> coverageUseCase.execute(request, progress),
                 result -> mapFrameController.showCoverageResult(result, request),
-                this::showFailure
-        );
-    }
-
-    private void renderMap() {
-        RenderActualOreMapRequest request = mapRequestFromControls();
-        boolean requireSurfaceData =
-                request.layers().contains(cartographer.render.RenderLayer.SURFACE)
-                        || request.layers().contains(
-                        cartographer.render.RenderLayer.SOIL_FERTILITY
-                );
-        Optional<MapFrame> reusable = mapFrameController.current()
-                .filter(frame -> frame.canReusePreparedMap(
-                        request.savePath(),
-                        request.radius(),
-                        request.pixelsPerBlock(),
-                        request.style(),
-                        request.center(),
-                        requireSurfaceData
-                ))
-                .filter(frame -> !request.layers().contains(
-                        cartographer.render.RenderLayer.MARKERS
-                ) || frame.decorationState().orElseThrow().userMarkersAvailable());
-        setBusy(true);
-        if (reusable.isPresent()) {
-            MapFrame frame = reusable.orElseThrow();
-            workstation.setStatus("Rendering map with retained base data...");
-            operationCoordinator.submitProgress(
-                    WorkstationOperationScope.FOREGROUND,
-                    "map-retained-render",
-                    progress -> useCase.executeRetained(
-                            request,
-                            frame.savePath(),
-                            frame.preparedMapData().orElseThrow(),
-                            frame.decorationState().orElseThrow(),
-                            frame.mapRegionOverlayState(),
-                            progress
-                    ),
-                    result -> mapFrameController.showMapResult(result, request),
-                    this::showFailure
-            );
-            return;
-        }
-
-        workstation.setStatus("Rendering map...");
-        operationCoordinator.submitProgress(
-                WorkstationOperationScope.FOREGROUND,
-                "map-render",
-                progress -> useCase.execute(request, progress),
-                result -> mapFrameController.showMapResult(result, request),
                 this::showFailure
         );
     }
@@ -549,23 +501,6 @@ public final class WorkstationController {
                 new ActualBlockYFilter(min, max),
                 Optional.empty(),
                 overlays
-        );
-    }
-
-    private RenderActualOreMapRequest mapRequestFromControls() {
-        if (worldPanel.savePathText().isBlank()) {
-            throw new IllegalArgumentException("Select a .vcdbs save.");
-        }
-        return new RenderActualOreMapRequest(
-                Path.of(worldPanel.savePathText()),
-                searchPanel.selectedRadius(),
-                1,
-                RenderStyle.TOPOGRAPHIC,
-                workstation.selectedRenderLayers(),
-                Optional.empty(),
-                ActualBlockYFilter.unbounded(),
-                Optional.empty(),
-                List.of()
         );
     }
 

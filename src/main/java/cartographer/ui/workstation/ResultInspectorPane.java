@@ -187,22 +187,6 @@ public final class ResultInspectorPane extends VBox {
         tabs.getSelectionModel().select(resultsTab);
     }
 
-    public void showMapResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
-        List<javafx.scene.Node> nodes = new ArrayList<>();
-        nodes.add(sectionTitle("Map"));
-        nodes.add(label("Radius: " + request.radius()));
-        nodes.add(label("Layers: " + result.renderReport().layers()));
-        nodes.add(label("User markers: " + result.userMarkersDrawn()));
-        if (requiresSurfaceData(request)) {
-            nodes.add(label("Surface columns: " + result.surface().columnsScanned()));
-            nodes.add(label("Water columns: " + result.surface().waterColumns()));
-            nodes.add(label("Unknown surface blocks: " + result.surface().unknownSurfaceBlocks()));
-        }
-        content.getChildren().setAll(nodes);
-        diagnostics.show(mapDiagnostics(result, request));
-        tabs.getSelectionModel().select(resultsTab);
-    }
-
     public void showCoverageResult(RenderCoverageMapResult result) {
         RegionCoverageSummary summary = result.summary();
         List<javafx.scene.Node> nodes = new ArrayList<>();

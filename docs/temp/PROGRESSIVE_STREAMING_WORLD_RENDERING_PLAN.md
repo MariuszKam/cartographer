@@ -1110,16 +1110,19 @@ Phase 8 deliberately leaves the old MAP render action/radius controls in place a
 
 ### Phase 9 — Base MAP cutover
 
-Make the progressive viewport the default MAP path.
+Status: IMPLEMENTED
 
-Remove MAP-specific use of:
+MAP is now cut over to the progressive path:
 
-- radius selection;
-- one-shot map Render action;
-- bounded whole-map PreparedMapData as presentation state;
-- full-raster local recomposition.
+- `SearchPanel` hides the global radius control in MAP mode while retaining it for bounded analysis tools that still own a meaningful analysis scope;
+- the one-shot Render action is hidden in MAP mode and any defensive invocation reports that MAP streams automatically instead of building a bounded request;
+- the status-bar radius telemetry is hidden for MAP;
+- `WorkstationController.renderMap()` and its MAP-only bounded request assembly were removed;
+- the production `WorkstationMapFrameController.showMapResult(...)` and corresponding bounded MAP result-inspector path were removed, so MAP no longer retains a `PreparedMapData` whole-frame as its presentation state;
+- the progressive `WorldMapViewport` is the MAP presentation surface whenever a save session is available;
+- ORE, SURFACE, GEOLOGY, PROSPECTING and COVERAGE remain on their existing specialized paths until their Phase-10 migration decisions are applied.
 
-Keep legacy code temporarily only where still used by unmigrated tools.
+The old whole-map renderer and `MapFrame.map(...)` compatibility surface remain temporarily because non-MAP tools and parity tests still use shared bounded rendering infrastructure. They are cleanup candidates only after their final real consumer disappears.
 
 ### Phase 10 — Progressive layers
 

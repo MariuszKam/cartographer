@@ -82,7 +82,7 @@ public final class SearchPanel extends VBox {
             case PROSPECTING -> "PROSPECTING";
         });
         contextSubtitle.setText(switch (selected) {
-            case MAP -> "Base map source request";
+            case MAP -> "Progressive world stream";
             case COVERAGE -> "Observed mapregion coverage";
             case ORE -> "Authoritative ore scan";
             case SURFACE -> "Surface analysis";
@@ -97,9 +97,14 @@ public final class SearchPanel extends VBox {
             case GEOLOGY -> geologyPane;
             case PROSPECTING -> prospectingPane;
         });
-        boolean radiusVisible = selected != WorkstationTool.COVERAGE;
+        boolean radiusVisible = selected != WorkstationTool.COVERAGE
+                && selected != WorkstationTool.MAP;
         radiusPane.setManaged(radiusVisible);
         radiusPane.setVisible(radiusVisible);
+
+        boolean actionVisible = selected != WorkstationTool.MAP;
+        renderButton.setManaged(actionVisible);
+        renderButton.setVisible(actionVisible);
         renderButton.setText(
                 selected == WorkstationTool.PROSPECTING ? "Analyze" : "Render"
         );

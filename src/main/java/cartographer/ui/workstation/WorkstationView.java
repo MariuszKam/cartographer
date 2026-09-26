@@ -245,7 +245,10 @@ public final class WorkstationView implements UpdateCheckView, WorkstationProgre
                 || mode == WorkstationTool.ORE
                 || mode == WorkstationTool.SURFACE;
         resultInspectorPane.setLayersAvailable(layersAvailable);
-        statusBar.setRadiusVisible(mode != WorkstationTool.COVERAGE);
+        statusBar.setRadiusVisible(
+                mode != WorkstationTool.COVERAGE
+                        && mode != WorkstationTool.MAP
+        );
         modeListener.accept(mode);
     }
 
