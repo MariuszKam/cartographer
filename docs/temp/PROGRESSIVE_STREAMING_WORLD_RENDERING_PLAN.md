@@ -1033,15 +1033,20 @@ Tests cover exact fallback followed by cache reuse, preservation of unreadable/a
 
 ### Phase 5 — MapTileRenderer
 
-Create one-render-tile output path while legacy MapRenderer remains available.
+Status: IMPLEMENTED
 
-Requirements:
+Added an independent base-terrain tile renderer while keeping legacy `MapRenderer` as the parity oracle:
 
-- pixel/semantic parity tests for equivalent bounded regions;
-- seam tests;
-- optional halo support where rendering math requires neighbors;
-- fixed, benchmarkable tile size/layout;
-- no dependency from lower rendering/data layers on JavaFX.
+- `MapTileRenderer` renders directly from `MapTileData` and absolute `RenderTileBounds`; it has no radius, `MapRasterContract`, or whole-map `RenderSamplingPlan` dependency;
+- Phase 5 uses one world block per output pixel. LOD is still deferred to Phase 11;
+- `RenderedMapTile` is an independently placeable raster artifact keyed by `RenderTileCoordinate` and half-open world bounds;
+- `TerrainColorRange` makes height normalization explicit and shareable between tiles, preventing each tile from silently choosing its own palette range;
+- hillshade can consume neighboring `TerrainHeightTile` context without expanding the tile's output bounds, so adjacent tiles can render seam-consistent boundary pixels when halo/context is available;
+- no JavaFX type appears in the data or render layer;
+- parity tests compare every world block of a tile against the legacy renderer and separately verify hillshade continuity across a tile boundary;
+- `MapTileRendererBenchmark` benchmarks candidate 4x4 and 8x8 mapchunk tile spans, with CSV output available through `progressiveTileRenderingBenchmark`.
+
+The production render-tile span remains intentionally undecided until benchmark evidence is collected; the renderer consumes the Phase-1 layout rather than hard-coding that decision.
 
 ### Phase 6 — ProgressiveMapSession scheduler
 
