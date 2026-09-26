@@ -297,11 +297,23 @@ Stage 6 uses:
 
 for both manual package validation and tag-driven stable releases.
 
-A manual `workflow_dispatch` builds and validates the selected ref, generates
-the same stable `update.properties` contract using the canonical version, and
-uploads the Windows deliverables as a short-lived Actions artifact. It does not
-publish a GitHub Release. This provides a safe release-pipeline dry run without
-creating a tag.
+A manual `workflow_dispatch` exposes two explicit modes:
+
+```text
+validate
+publish
+```
+
+`validate` builds and validates the selected ref, generates the same stable
+`update.properties` contract using the canonical version, and uploads the
+Windows deliverables as a short-lived Actions artifact. It creates neither a
+tag nor a GitHub Release.
+
+`publish` is the normal stable-release path. It is allowed only when the
+workflow is dispatched from `master`. CI first runs the complete quality,
+packaging, and artifact-validation pipeline. Only after those gates pass does it
+create `v<project version>` on the validated commit, create or resume a draft
+GitHub Release, upload all stable assets, and publish the draft.
 
 A pushed stable tag matching:
 
@@ -353,22 +365,36 @@ The workflow creates the GitHub Release as a draft first, uploads all four
 release assets, and only then publishes the draft. A failed publication therefore
 does not intentionally expose an incomplete release through the stable channel.
 
-Creating a tag is the publication boundary:
+Publication is retry-safe for CI-created state: an existing tag is accepted only
+when it resolves to the exact validated commit, and an existing GitHub Release
+is resumed only while it is still a draft. A tag pointing elsewhere or an
+already-published Release fails closed instead of being overwritten.
+
+The normal publication boundary is the explicit Actions `publish` mode:
 
 ```text
 master
   -> set canonical version
   -> validation/review
-  -> tag vX.Y.Z
-  -> Windows Release Build
-  -> tests
+  -> Actions / Windows Release Build / Run workflow
+  -> release_mode=publish
+  -> testQualityGate
   -> portable ZIP
   -> installer EXE
   -> structural/checksum validation
   -> update manifest
+  -> create tag vX.Y.Z on the validated commit
   -> draft GitHub Release
+  -> upload/replace all release assets
   -> published GitHub Release
 ```
+
+The workflow is the single owner of GitHub Release publication. Do not use
+GitHub's `Releases -> Draft a new release` UI as a second publication path.
+
+Pushing an already-created stable tag remains supported as an advanced/legacy
+trigger. That path still delegates GitHub Release creation to this workflow and
+requires the tagged commit to belong to `master`.
 
 CI still does not run against the user's real save, run Stage 5 Before/After
 modes, automate GUI interaction, install or uninstall the installer, or prove
@@ -401,10 +427,10 @@ and its current gate is:
 The workflow has `contents: read` permissions. It allows one active run per PR;
 when a newer commit is pushed to the same PR, the superseded run is cancelled.
 
-PR CI is deliberately lightweight. It validates application tests before merge
-but does not install WiX, run jpackage, build the portable ZIP, build the
-installer EXE, run Windows release artifact validation, publish artifacts,
-launch the GUI, or access a real Vintage Story save.
+PR CI validates the canonical software quality gate before merge but does not
+install WiX, run jpackage, build the portable ZIP, build the installer EXE, run
+Windows release artifact validation, publish artifacts, launch the GUI, or
+access a real Vintage Story save.
 
 The heavier release pipeline remains:
 
@@ -412,17 +438,23 @@ The heavier release pipeline remains:
 .github/workflows/windows-release.yml
 ```
 
-Normal pull requests continue to use lightweight test-only CI. Windows packaging
+Normal pull requests continue to use the non-packaging quality gate. Windows packaging
 runs only when explicitly dispatched or when a release tag is pushed, so normal
 code changes do not pay the WiX/jpackage cost.
 
 ```text
-Pull request -> PR CI -> Java 25 -> Gradle tests -> merge eligibility
+Pull request -> PR CI -> Java 25 -> testQualityGate -> merge eligibility
 
-manual dispatch -> tests -> Windows packages -> artifact validation -> Actions artifact
+manual validate -> testQualityGate -> Windows packages -> artifact validation
+                -> Actions artifact
 
-tag vX.Y.Z -> tag/version gate -> tests -> Windows packages -> artifact validation
-            -> update manifest -> published GitHub Release
+manual publish on master -> testQualityGate -> Windows packages -> artifact validation
+                         -> update manifest -> create tag -> draft release
+                         -> upload assets -> publish release
+
+pre-existing tag vX.Y.Z -> tag/version gate -> testQualityGate -> Windows packages
+                        -> artifact validation -> update manifest
+                        -> draft release -> upload assets -> publish release
 ```
 
 This documentation does not claim that PR CI has executed successfully or that
