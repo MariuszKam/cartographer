@@ -437,12 +437,7 @@ class WorkstationOperationCoordinatorTest {
         }
     }
 
-    private static final class BlockingOperation {
-        private final CountDownLatch started;
-
-        private BlockingOperation(CountDownLatch started) {
-            this.started = started;
-        }
+    private record BlockingOperation(CountDownLatch started) {
 
         private String run() {
             started.countDown();

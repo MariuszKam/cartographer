@@ -38,10 +38,10 @@ public final class SnapshotMapRegionReader {
                 return Optional.empty();
             }
             List<EnvironmentProfile> environment = read.entries().stream()
-                    .map(entry -> entry.environmentProfile())
+                    .map(MapRegionSnapshotEntry::environmentProfile)
                     .toList();
             List<GeologicProvinceSummary> geology = read.entries().stream()
-                    .map(entry -> entry.geologySummary())
+                    .map(MapRegionSnapshotEntry::geologySummary)
                     .flatMap(Optional::stream)
                     .toList();
             List<ServerMapRegion> resourceRegions = read.entries().stream()
