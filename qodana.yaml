@@ -4,7 +4,8 @@
 
 version: "1.0"
 linter: qodana-jvm
+failThreshold: 0
 profile:
-  name: qodana.recommended
+  name: "Project Default"
 include:
   - name: CheckDependencyLicenses

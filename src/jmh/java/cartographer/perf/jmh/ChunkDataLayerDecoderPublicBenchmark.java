@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 @Fork(value = 2, jvmArgsAppend = "--enable-native-access=ALL-UNNAMED")
 @Threads(1)
 @State(Scope.Thread)
+@SuppressWarnings("unused")
 public class ChunkDataLayerDecoderPublicBenchmark {
     @Param({
             ChunkLayerBenchmarkFixture.RAW_PALETTE_19,

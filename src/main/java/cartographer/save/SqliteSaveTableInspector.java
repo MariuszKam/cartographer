@@ -14,9 +14,9 @@ final class SqliteSaveTableInspector {
 
     static int countRows(
             Connection connection,
-            String tableName
+            SaveTable table
     ) throws SQLException {
-        String sql = "SELECT COUNT(*) FROM \"" + tableName + "\"";
+        String sql = "SELECT COUNT(*) FROM \"" + table.tableName() + "\"";
         try (Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery(sql)) {
             return resultSet.next() ? resultSet.getInt(1) : 0;

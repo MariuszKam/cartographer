@@ -14,7 +14,7 @@ val testArchitecturePatterns = linkedMapOf(
     "THREAD_CREATION" to Regex("""\b(?:new\s+Thread\s*\(|Thread\.of(?:Platform|Virtual)\s*\()"""),
     "UNBOUNDED_THREAD_JOIN" to Regex("""\.join\s*\(\s*\)"""),
     "MUTABLE_STATIC" to Regex(
-        """\bstatic\s+(?!final\b)(?!class\b)(?!interface\b)(?!enum\b)[^();{}]+\s+\w+\s*(?:=|;)"""
+        """\bstatic\s+(?!final\b)(?!class\b)(?!interface\b)(?!enum\b)[^();{}]+\s+\w+\s*[=;]"""
     ),
     "NETWORK_FIXTURE" to Regex("""\b(?:ServerSocket|HttpServer|localhost|127\.0\.0\.1)\b"""),
     "RESOURCE_LOCK" to Regex("""@ResourceLock\b"""),
@@ -216,14 +216,11 @@ tasks.register("productionArchitectureGuard") {
                     .relativeTo(project.projectDir)
                     .invariantSeparatorsPath
                 val lines = source.readLines()
-                val sourcePackage = lines.asSequence()
-                    .mapNotNull { line ->
-                        productionPackagePattern.find(line)
-                            ?.groupValues
-                            ?.get(1)
-                    }
-                    .firstOrNull()
-                    ?: return@forEach
+                val sourcePackage = lines.firstNotNullOfOrNull { line ->
+                    productionPackagePattern.find(line)
+                        ?.groupValues
+                        ?.get(1)
+                } ?: return@forEach
 
                 graph.getOrPut(sourcePackage) { sortedSetOf() }
 
@@ -323,7 +320,7 @@ tasks.register("productionArchitectureGuard") {
 
                 if (reason != null) {
                     forbidden.add(
-                        "${sourcePackage} -> ${targetPackage}: ${reason} " +
+                        "$sourcePackage -> $targetPackage: $reason " +
                             "[${filesForEdge.joinToString(", ")}]"
                     )
                 }
@@ -336,7 +333,7 @@ tasks.register("productionArchitectureGuard") {
             writer.appendLine()
             graph.forEach { (sourcePackage, targets) ->
                 writer.appendLine(
-                    "${sourcePackage} -> " +
+                    "$sourcePackage -> " +
                         targets.sorted().joinToString(", ")
                 )
             }
@@ -346,23 +343,23 @@ tasks.register("productionArchitectureGuard") {
                     if (cycles.isEmpty()) "0" else cycles.size
             )
             cycles.forEach { cycle ->
-                writer.appendLine("CYCLE ${cycle}")
+                writer.appendLine("CYCLE $cycle")
             }
             writer.appendLine(
                 "Forbidden edges: " +
                     forbidden.size
             )
             forbidden.forEach { violation ->
-                writer.appendLine("FORBIDDEN ${violation}")
+                writer.appendLine("FORBIDDEN $violation")
             }
         }
 
         val violations = mutableListOf<String>()
         cycles.forEach { cycle ->
-            violations.add("package cycle: ${cycle}")
+            violations.add("package cycle: $cycle")
         }
         forbidden.forEach { violation ->
-            violations.add("forbidden dependency: ${violation}")
+            violations.add("forbidden dependency: $violation")
         }
 
         if (violations.isNotEmpty()) {
