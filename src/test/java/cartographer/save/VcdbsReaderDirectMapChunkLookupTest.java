@@ -177,9 +177,7 @@ class VcdbsReaderDirectMapChunkLookupTest {
 
         MapChunkStreamStats stats;
         try (SaveSession session = openSession(database)) {
-            stats = new VcdbsReader(
-                    null, new StubMapChunkParser(), null, null
-            ).forEachMapChunkByCoordinate(
+            stats = VcdbsReaderFixtures.withMapChunkParser(new StubMapChunkParser()).forEachMapChunkByCoordinate(
                     session,
                     List.of(new MapChunkCoordinate(1, 2)),
                     new ReadDiagnostics(),
@@ -200,9 +198,7 @@ class VcdbsReaderDirectMapChunkLookupTest {
     ) {
         if (coordinates.isEmpty()) {
             try (SaveSession session = emptySession(database)) {
-                return new VcdbsReader(
-                        null, parser, null, null
-                ).forEachMapChunkByCoordinate(
+                return VcdbsReaderFixtures.withMapChunkParser(parser).forEachMapChunkByCoordinate(
                         session,
                         coordinates,
                         new ReadDiagnostics(),
@@ -211,9 +207,7 @@ class VcdbsReaderDirectMapChunkLookupTest {
             }
         }
         try (SaveSession session = openSession(database)) {
-            return new VcdbsReader(
-                    null, parser, null, null
-            ).forEachMapChunkByCoordinate(
+            return VcdbsReaderFixtures.withMapChunkParser(parser).forEachMapChunkByCoordinate(
                     session,
                     coordinates,
                     new ReadDiagnostics(),
