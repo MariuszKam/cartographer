@@ -700,4 +700,3 @@ abstract class RenderActualOreMapUseCaseTestSupport {
         }
     }
 }
-}
