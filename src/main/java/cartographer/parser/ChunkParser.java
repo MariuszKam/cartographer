@@ -6,7 +6,6 @@ import cartographer.model.ParseResult;
 import cartographer.model.ParsedChunk;
 import cartographer.binary.ProtobufWireReader;
 
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -120,8 +119,9 @@ public class ChunkParser {
         );
     }
 
-    /** Palette probe directly from source protobuf bytes. */
     /**
+     * Palette probe directly from source protobuf bytes.
+     *
      * Selective hot path: parse the protobuf once, inspect the block palette,
      * and only decode the full block layer when one of the wanted IDs exists.
      *
@@ -461,25 +461,6 @@ public class ChunkParser {
             }
         }
 
-        static PayloadSlice whole(byte[] source) {
-            Objects.requireNonNull(
-                    source,
-                    "slice source is required"
-            );
-            return new PayloadSlice(
-                    source,
-                    0,
-                    source.length
-            );
-        }
-
-        byte[] copy() {
-            return Arrays.copyOfRange(
-                    source,
-                    offset,
-                    offset + length
-            );
-        }
     }
 
     private record DecodedLiquids(

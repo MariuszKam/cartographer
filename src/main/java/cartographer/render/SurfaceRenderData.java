@@ -92,14 +92,8 @@ public final class SurfaceRenderData {
                 || surfacePresent.isEmpty();
     }
 
-    int surfaceWorldXAt(int imageX, int imageY) {
-        long packed = requiredSource(pixelIndex(imageX, imageY));
-        return (int) (packed >> 32);
-    }
-
-    int surfaceWorldZAt(int imageX, int imageY) {
-        long packed = requiredSource(pixelIndex(imageX, imageY));
-        return (int) packed;
+    long surfaceSourceAt(int imageX, int imageY) {
+        return requiredSource(pixelIndex(imageX, imageY));
     }
 
     public SurfaceClass surfaceClassAt(int imageX, int imageY) {
