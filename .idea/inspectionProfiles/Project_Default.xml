@@ -25,5 +25,9 @@
          flow can belong to intentionally separate architectural responsibilities,
          so it is reviewed deliberately instead of enforced as a zero-warning gate. -->
     <inspection_tool class="DuplicatedCode" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
+
+    <!-- Markdown table alignment is presentation-only formatting and can differ
+         between renderers; valid tables are not a code-quality defect. -->
+    <inspection_tool class="MarkdownIncorrectTableFormatting" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
   </profile>
 </component>
