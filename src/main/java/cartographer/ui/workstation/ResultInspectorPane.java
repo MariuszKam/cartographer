@@ -34,10 +34,8 @@ public final class ResultInspectorPane extends VBox {
     private final VBox content = new VBox(8);
     private final DiagnosticsPane diagnostics = new DiagnosticsPane();
     private final TabPane tabs = new TabPane();
-    private final Tab inspectTab = new Tab("Inspect");
     private final Tab resultsTab = new Tab("Results");
     private final Tab layersTab = new Tab("Layers");
-    private final Tab diagnosticsTab = new Tab("Diagnostics");
 
     public ResultInspectorPane(LayerPanel layerPanel) {
         super(8);
@@ -52,6 +50,8 @@ public final class ResultInspectorPane extends VBox {
         cursorInspection.setWrapText(true);
         cursorInspection.getStyleClass().add("cursor-inspection");
 
+        Tab inspectTab = new Tab("Inspect");
+        Tab diagnosticsTab = new Tab("Diagnostics");
         inspectTab.setClosable(false);
         resultsTab.setClosable(false);
         layersTab.setClosable(false);
