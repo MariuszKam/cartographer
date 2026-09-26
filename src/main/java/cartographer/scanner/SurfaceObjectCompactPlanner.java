@@ -118,22 +118,15 @@ public final class SurfaceObjectCompactPlanner {
         private void ensureMutable() { if (finished) throw new IllegalStateException("compact object planner is finished"); }
     }
 
-    private static final class TileBuilder {
+    private record TileBuilder(
+            MapChunkCoordinate coordinate,
+            boolean hasTerrain,
+            boolean hasRain,
+            int[] terrain,
+            int[] rain
+    ) {
         private static final byte TERRAIN_PRESENT = 1;
         private static final byte RAIN_PRESENT = 1 << 1;
-        private final MapChunkCoordinate coordinate;
-        private final boolean hasTerrain;
-        private final boolean hasRain;
-        private final int[] terrain;
-        private final int[] rain;
-
-        private TileBuilder(MapChunkCoordinate coordinate, boolean hasTerrain, boolean hasRain, int[] terrain, int[] rain) {
-            this.coordinate = coordinate;
-            this.hasTerrain = hasTerrain;
-            this.hasRain = hasRain;
-            this.terrain = terrain;
-            this.rain = rain;
-        }
 
         static TileBuilder copyOf(MapChunk mapChunk) {
             return new TileBuilder(mapChunk.coordinate(), mapChunk.hasWorldGenTerrainHeightMap(), mapChunk.hasRainHeightMap(),

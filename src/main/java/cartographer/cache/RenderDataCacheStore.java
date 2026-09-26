@@ -15,19 +15,13 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Persistent manifest store for the render-data cache manifest. */
-public final class RenderDataCacheStore {
+public record RenderDataCacheStore(Path cacheRoot) {
     private static final String MANIFEST_FILE = "manifest.properties";
 
-    private final Path cacheRoot;
-
-    public RenderDataCacheStore(Path cacheRoot) {
-        this.cacheRoot = Objects.requireNonNull(cacheRoot, "cache root is required")
+    public RenderDataCacheStore {
+        cacheRoot = Objects.requireNonNull(cacheRoot, "cache root is required")
                 .toAbsolutePath()
                 .normalize();
-    }
-
-    public Path cacheRoot() {
-        return cacheRoot;
     }
 
     public RenderDataCacheRevision observe(Path savePath) {
