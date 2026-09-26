@@ -15,8 +15,8 @@ public record UpdateInstallLaunchResult(
     }
 
     public UpdateInstallLaunchResult {
-        status = Objects.requireNonNull(status, "status is required");
-        failureMessage = Objects.requireNonNull(
+        Objects.requireNonNull(status, "status is required");
+        Objects.requireNonNull(
                 failureMessage,
                 "failureMessage is required"
         );

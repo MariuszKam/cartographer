@@ -32,11 +32,11 @@ public record RenderSurfaceResourceMapResult(
         Objects.requireNonNull(mapChunkDiagnostics, "mapChunkDiagnostics is required");
         Objects.requireNonNull(chunkDiagnostics, "chunkDiagnostics is required");
         Objects.requireNonNull(renderDataCacheReport, "renderDataCacheReport is required");
-        preparedMapData = Objects.requireNonNull(
+        Objects.requireNonNull(
                 preparedMapData,
                 "preparedMapData is required; use Optional.empty() when unavailable"
         );
-        decorationState = Objects.requireNonNull(
+        Objects.requireNonNull(
                 decorationState,
                 "decorationState is required; use Optional.empty() when unavailable"
         );

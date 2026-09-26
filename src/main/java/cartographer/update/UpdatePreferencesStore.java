@@ -45,9 +45,12 @@ public final class UpdatePreferencesStore {
 
     public void save(UpdatePreferences preferences) throws IOException {
         Path parent = path.getParent();
-        if (parent != null) {
-            Files.createDirectories(parent);
+        if (parent == null) {
+            throw new IOException(
+                    "Update preferences path must have a parent directory: " + path
+            );
         }
+        Files.createDirectories(parent);
 
         Properties properties = new Properties();
         properties.setProperty(

@@ -18,7 +18,7 @@ public record ProspectingAreaResult(
         Objects.requireNonNull(center, "center is required");
         Objects.requireNonNull(assessments, "assessments are required");
         assessments = List.copyOf(assessments);
-        rockMap = Objects.requireNonNull(
+        Objects.requireNonNull(
                 rockMap,
                 "rockMap is required; use Optional.empty() when unavailable"
         );

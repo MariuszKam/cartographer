@@ -21,7 +21,7 @@ public record RenderRockMapResult(
         int maxYExclusive
 ) {
     public RenderRockMapResult {
-        retainedMap = Objects.requireNonNull(
+        Objects.requireNonNull(
                 retainedMap,
                 "retained rock map option is required"
         );

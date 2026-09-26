@@ -1,6 +1,7 @@
 package cartographer.ui;
 
 import java.util.Objects;
+import org.jetbrains.annotations.NotNull;
 
 public record OreResource(
         String displayName,
@@ -35,7 +36,7 @@ public record OreResource(
     }
 
     @Override
-    public String toString() {
+    public @NotNull String toString() {
         return displayName;
     }
 }

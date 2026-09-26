@@ -17,15 +17,15 @@ public record MapRegionSnapshotEntry(
         Map<String, IntDataMap2D> oreMaps
 ) {
     public MapRegionSnapshotEntry {
-        coordinate = Objects.requireNonNull(
+        Objects.requireNonNull(
                 coordinate,
                 "coordinate is required"
         );
-        environmentProfile = Objects.requireNonNull(
+        Objects.requireNonNull(
                 environmentProfile,
                 "environmentProfile is required"
         );
-        geologySummary = Objects.requireNonNull(
+        Objects.requireNonNull(
                 geologySummary,
                 "geologySummary is required"
         );
