@@ -63,8 +63,7 @@ class DesktopUpdateControllerTest {
     }
 
     @Test
-    void automaticCheckShowsAvailableUpdateAndPersistsSuccess()
-            throws Exception {
+    void automaticCheckShowsAvailableUpdateAndPersistsSuccess() {
         Instant now = Instant.parse("2026-09-20T10:00:00Z");
         UpdatePreferencesStore store = store();
         AtomicInteger loads = new AtomicInteger();

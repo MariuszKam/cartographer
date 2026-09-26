@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BoundedStreamingDecodePipelineFailureTest extends BoundedStreamingDecodePipelineTestSupport {
 
     @Test
-    void workerFailurePreservesCauseAndAbortsOutstandingWork() throws Exception {
+    void workerFailurePreservesCauseAndAbortsOutstandingWork() {
         IllegalArgumentException cause = new IllegalArgumentException("known");
         CountDownLatch started = new CountDownLatch(1);
         AtomicBoolean interrupted = new AtomicBoolean();
@@ -50,7 +50,7 @@ class BoundedStreamingDecodePipelineFailureTest extends BoundedStreamingDecodePi
     }
 
     @Test
-    void fastLaterFailureIsObservedWithoutWaitingForSlowFirstTask() throws Exception {
+    void fastLaterFailureIsObservedWithoutWaitingForSlowFirstTask() {
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
         IllegalStateException cause = new IllegalStateException("later failure");
@@ -77,7 +77,7 @@ class BoundedStreamingDecodePipelineFailureTest extends BoundedStreamingDecodePi
     }
 
     @Test
-    void abortWaitsForNonCooperativeWorkerBeforePropagatingFailure() throws Exception {
+    void abortWaitsForNonCooperativeWorkerBeforePropagatingFailure() {
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch interruptObserved = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
@@ -128,7 +128,7 @@ class BoundedStreamingDecodePipelineFailureTest extends BoundedStreamingDecodePi
     }
 
     @Test
-    void interruptedWorkerCleanupPreservesPrimaryFailureAndQuiesces() throws Exception {
+    void interruptedWorkerCleanupPreservesPrimaryFailureAndQuiesces() {
         IllegalStateException cause = new IllegalStateException("worker failure");
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch interruptObserved = new CountDownLatch(1);
@@ -188,7 +188,7 @@ class BoundedStreamingDecodePipelineFailureTest extends BoundedStreamingDecodePi
     }
 
     @Test
-    void interruptedConsumerCleanupPreservesPrimaryFailureAndQuiesces() throws Exception {
+    void interruptedConsumerCleanupPreservesPrimaryFailureAndQuiesces() {
         RuntimeException cause = new RuntimeException("consumer failure");
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch interruptObserved = new CountDownLatch(1);
@@ -254,7 +254,7 @@ class BoundedStreamingDecodePipelineFailureTest extends BoundedStreamingDecodePi
     }
 
     @Test
-    void closeWaitsForNonCooperativeWorkerQuiescence() throws Exception {
+    void closeWaitsForNonCooperativeWorkerQuiescence() {
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch interruptObserved = new CountDownLatch(1);
         CountDownLatch releaseWorker = new CountDownLatch(1);
@@ -303,7 +303,7 @@ class BoundedStreamingDecodePipelineFailureTest extends BoundedStreamingDecodePi
     }
 
     @Test
-    void closeCancelsRunningAndQueuedWorkWithoutCallbacks() throws Exception {
+    void closeCancelsRunningAndQueuedWorkWithoutCallbacks() {
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch firstBlocked = new CountDownLatch(1);
         CountDownLatch firstInterrupted = new CountDownLatch(1);
@@ -365,7 +365,7 @@ class BoundedStreamingDecodePipelineFailureTest extends BoundedStreamingDecodePi
     }
 
     @Test
-    void interruptedCloseRestoresInterruptAfterWorkerQuiescence() throws Exception {
+    void interruptedCloseRestoresInterruptAfterWorkerQuiescence() {
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch interruptObserved = new CountDownLatch(1);
         CountDownLatch releaseWorker = new CountDownLatch(1);
@@ -425,7 +425,7 @@ class BoundedStreamingDecodePipelineFailureTest extends BoundedStreamingDecodePi
     }
 
     @Test
-    void fatalWorkerFailureStopsCallbacksAfterFailureBoundary() throws Exception {
+    void fatalWorkerFailureStopsCallbacksAfterFailureBoundary() {
         IllegalArgumentException cause = new IllegalArgumentException("decode exploded");
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch allowFailure = new CountDownLatch(1);

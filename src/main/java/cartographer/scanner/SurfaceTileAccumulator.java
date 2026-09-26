@@ -45,16 +45,14 @@ public final class SurfaceTileAccumulator {
         tile.state[cell] |= SurfaceTile.CONSIDERED;
     }
 
-    public boolean markLiquidUnavailable(int worldX, int worldZ) {
+    public void markLiquidUnavailable(int worldX, int worldZ) {
         ensureMutable();
         int cell = activeCell(worldX, worldZ);
         if (cell < 0) {
-            return false;
+            return;
         }
         TileState tile = tileFor(worldX, worldZ);
-        boolean wasSet = (tile.state[cell] & SurfaceTile.LIQUID_UNAVAILABLE) != 0;
         tile.state[cell] |= SurfaceTile.CONSIDERED | SurfaceTile.LIQUID_UNAVAILABLE;
-        return !wasSet;
     }
 
     public void recordSurface(

@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BoundedStreamingDecodePipelineSchedulingTest extends BoundedStreamingDecodePipelineTestSupport {
 
     @Test
-    void laterCompletionIsConsumedBeforeSlowFirstTask() throws Exception {
+    void laterCompletionIsConsumedBeforeSlowFirstTask() {
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
         CountDownLatch secondDone = new CountDownLatch(1);
@@ -72,7 +72,7 @@ class BoundedStreamingDecodePipelineSchedulingTest extends BoundedStreamingDecod
     }
 
     @Test
-    void newSubmissionDoesNotWaitForSlowOldestTask() throws Exception {
+    void newSubmissionDoesNotWaitForSlowOldestTask() {
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
         CountDownLatch secondDone = new CountDownLatch(1);
@@ -154,7 +154,7 @@ class BoundedStreamingDecodePipelineSchedulingTest extends BoundedStreamingDecod
     }
 
     @Test
-    void twoWorkersCanRunConcurrently() throws Exception {
+    void twoWorkersCanRunConcurrently() {
         CountDownLatch active = new CountDownLatch(2);
         CountDownLatch release = new CountDownLatch(1);
 
@@ -177,7 +177,7 @@ class BoundedStreamingDecodePipelineSchedulingTest extends BoundedStreamingDecod
     }
 
     @Test
-    void inFlightNeverExceedsConfiguredMaximum() throws Exception {
+    void inFlightNeverExceedsConfiguredMaximum() {
         CountDownLatch release = new CountDownLatch(1);
         try (BoundedStreamingDecodePipeline<Integer> pipeline =
                      new BoundedStreamingDecodePipeline<>(2, 3, value -> { })) {
@@ -201,7 +201,7 @@ class BoundedStreamingDecodePipelineSchedulingTest extends BoundedStreamingDecod
     }
 
     @Test
-    void completedResultRetainsCapacityUntilConsumerReturns() throws Exception {
+    void completedResultRetainsCapacityUntilConsumerReturns() {
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
         CountDownLatch secondReady = new CountDownLatch(1);
@@ -273,7 +273,7 @@ class BoundedStreamingDecodePipelineSchedulingTest extends BoundedStreamingDecod
     }
 
     @Test
-    void producerBackpressureUsesTotalOutstandingWork() throws Exception {
+    void producerBackpressureUsesTotalOutstandingWork() {
         CountDownLatch releaseFirst = new CountDownLatch(1);
         CountDownLatch releaseSecond = new CountDownLatch(1);
         CountDownLatch submitReturned = new CountDownLatch(1);
@@ -318,7 +318,7 @@ class BoundedStreamingDecodePipelineSchedulingTest extends BoundedStreamingDecod
     }
 
     @Test
-    void nonOldestCompletionReleasesCapacity() throws Exception {
+    void nonOldestCompletionReleasesCapacity() {
         CountDownLatch releaseFirst = new CountDownLatch(1);
         CountDownLatch releaseSecond = new CountDownLatch(1);
         CountDownLatch releaseThird = new CountDownLatch(1);

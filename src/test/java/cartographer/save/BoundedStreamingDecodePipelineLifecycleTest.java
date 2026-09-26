@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BoundedStreamingDecodePipelineLifecycleTest extends BoundedStreamingDecodePipelineTestSupport {
 
     @Test
-    void consumerFailureRemainsPrimaryAndStopsCallbacks() throws Exception {
+    void consumerFailureRemainsPrimaryAndStopsCallbacks() {
         RuntimeException cause = new RuntimeException("consumer failure");
         CountDownLatch firstStarted = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
@@ -47,7 +47,7 @@ class BoundedStreamingDecodePipelineLifecycleTest extends BoundedStreamingDecode
     }
 
     @Test
-    void closeCancelsAndInterruptsOutstandingWork() throws Exception {
+    void closeCancelsAndInterruptsOutstandingWork() {
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch interrupted = new CountDownLatch(1);
         BoundedStreamingDecodePipeline<Integer> pipeline =
@@ -68,7 +68,7 @@ class BoundedStreamingDecodePipelineLifecycleTest extends BoundedStreamingDecode
     }
 
     @Test
-    void interruptedCompletionWaitRestoresInterruptStatusAndAborts() throws Exception {
+    void interruptedCompletionWaitRestoresInterruptStatusAndAborts() {
         CountDownLatch started = new CountDownLatch(1);
         CountDownLatch blocked = new CountDownLatch(1);
         CountDownLatch finishStarted = new CountDownLatch(1);

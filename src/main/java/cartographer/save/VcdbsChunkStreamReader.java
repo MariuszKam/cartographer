@@ -360,7 +360,7 @@ final class VcdbsChunkStreamReader {
         int rowsFound = 0;
         long sourceReadNanos = 0L;
         long pipelineWaitNanos = 0L;
-        long finalDrainNanos = 0L;
+        long finalDrainNanos;
         ChunkDecodeCounters counters = new ChunkDecodeCounters();
 
         if (SqliteSaveTableInspector.tableMissing(connection, SaveTable.CHUNK.tableName())) {
@@ -500,8 +500,8 @@ final class VcdbsChunkStreamReader {
         ChunkDecodeCounters counters = new ChunkDecodeCounters();
         int rowsFound = 0;
         long pipelineWaitNanos = 0L;
-        long sourceReadNanos = 0L;
-        long finalDrainNanos = 0L;
+        long sourceReadNanos;
+        long finalDrainNanos;
         if (SqliteSaveTableInspector.tableMissing(connection, SaveTable.CHUNK.tableName())) {
             diagnostics.missingTable(SaveTable.CHUNK.tableName());
             progress.done("Exact chunk table scan unavailable: chunk table missing");
@@ -607,7 +607,7 @@ final class VcdbsChunkStreamReader {
         int rowsFound = 0;
         long sourceReadNanos = 0L;
         long pipelineWaitNanos = 0L;
-        long finalDrainNanos = 0L;
+        long finalDrainNanos;
         ChunkDecodeCounters counters = new ChunkDecodeCounters();
         if (SqliteSaveTableInspector.tableMissing(connection, SaveTable.CHUNK.tableName())) {
             diagnostics.missingTable(SaveTable.CHUNK.tableName());

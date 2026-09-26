@@ -677,7 +677,7 @@ public final class ResourceIndexStore {
         return current;
     }
 
-    private static int bindBlockIds(
+    private static void bindBlockIds(
             PreparedStatement statement,
             List<Integer> blockIds,
             int parameter
@@ -686,7 +686,6 @@ public final class ResourceIndexStore {
         for (int blockId : blockIds) {
             statement.setInt(current++, blockId);
         }
-        return current;
     }
 
     private static String placeholders(int count) {
