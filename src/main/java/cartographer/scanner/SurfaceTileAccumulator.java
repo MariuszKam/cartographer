@@ -28,10 +28,6 @@ public final class SurfaceTileAccumulator {
         }
     }
 
-    public SurfaceTileLayout layout() {
-        return layout;
-    }
-
     public void consider(int worldX, int worldZ) {
         ensureMutable();
         int cell = activeCell(worldX, worldZ);

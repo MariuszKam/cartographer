@@ -7,8 +7,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
-import java.util.TreeSet;
 
 /** Compact production Surface result and diagnostics for Surface scanning. */
 public record SurfaceMapScanResult(
@@ -71,24 +69,6 @@ public record SurfaceMapScanResult(
                 .toList();
     }
 
-    public Set<String> distinctSurfaceBlockCodes(int limit) {
-        if (limit <= 0) {
-            return Set.of();
-        }
-        SurfaceRegistryLookup lookup = new SurfaceRegistryLookup(registry);
-        PrimitiveIdSet ids = new PrimitiveIdSet();
-        Set<String> codes = new TreeSet<>();
-        map.forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
-            if (codes.size() < limit) {
-                ids.add(blockId);
-            }
-        });
-        for (int index = 0; index < ids.size && codes.size() < limit; index++) {
-            codes.add(lookup.code(ids.ids[index]));
-        }
-        return Set.copyOf(codes);
-    }
-
     public record BlockCodeCount(String code, long count) {
     }
 
@@ -118,18 +98,4 @@ public record SurfaceMapScanResult(
         }
     }
 
-    private static final class PrimitiveIdSet {
-        private int[] ids = new int[8];
-        private int size;
-
-        private void add(int id) {
-            for (int index = 0; index < size; index++) {
-                if (ids[index] == id) return;
-            }
-            if (size == ids.length) {
-                ids = java.util.Arrays.copyOf(ids, Math.multiplyExact(size, 2));
-            }
-            ids[size++] = id;
-        }
-    }
 }

@@ -10,8 +10,6 @@ import java.util.Objects;
 
 /** Compact, immutable output of tile-based RainHeight planning. */
 public final class SurfaceRainHeightPlan {
-    private static final int NO_CANDIDATE = 0;
-
     private final SurfaceTileLayout layout;
     private final int[][] rainHeights;
     private final boolean[][] candidatePresent;

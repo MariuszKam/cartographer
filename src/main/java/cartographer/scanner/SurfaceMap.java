@@ -36,10 +36,6 @@ public final class SurfaceMap {
         return layout.isActive(worldX, worldZ);
     }
 
-    public boolean isActive(int worldX, int worldZ) {
-        return contains(worldX, worldZ);
-    }
-
     public boolean isConsidered(int worldX, int worldZ) {
         if (!contains(worldX, worldZ)) {
             return false;

@@ -23,11 +23,6 @@ public record ActualBlockYFilter(
         );
     }
 
-    public boolean enabled() {
-        return minInclusive != null
-                || maxInclusive != null;
-    }
-
     public boolean includes(
             int worldY
     ) {
