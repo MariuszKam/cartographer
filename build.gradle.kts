@@ -190,6 +190,33 @@ tasks.register<JavaExec>("jmh") {
     jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
 
+val progressiveRenderingBaselineReport = layout.buildDirectory.file(
+    "reports/progressive-rendering/legacy-map-renderer-jmh.csv"
+)
+
+tasks.register<JavaExec>("progressiveRenderingBaseline") {
+    group = "verification"
+    description = "Measures the legacy whole-map renderer baseline for the progressive-rendering migration"
+    dependsOn("jmhClasses")
+    classpath = jmhSourceSet.runtimeClasspath
+    mainClass.set("org.openjdk.jmh.Main")
+    javaLauncher.set(jmhJavaLauncher)
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    outputs.file(progressiveRenderingBaselineReport)
+
+    doFirst {
+        val report = progressiveRenderingBaselineReport.get().asFile
+        report.parentFile.mkdirs()
+        setArgs(
+            listOf(
+                "cartographer.perf.jmh.LegacyMapRendererBenchmark",
+                "-rf", "csv",
+                "-rff", report.absolutePath
+            )
+        )
+    }
+}
+
 tasks.register<Sync>("prepareJpackageInput") {
     group = "distribution"
     description = "Stages the application JAR and runtime dependencies for future jpackage use"

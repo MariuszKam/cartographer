@@ -900,6 +900,8 @@ Each phase should land as a coherent commit/PR-sized change with tests. Do not d
 
 ### Phase 0 — Baseline and measurement harness
 
+Status: IMPLEMENTED
+
 Goals:
 
 - preserve audit baseline in this document;
@@ -909,9 +911,28 @@ Goals:
 
 No product behavior change.
 
+Implemented baseline:
+
+- `LegacyMapRenderBaselineFixture` defines a deterministic, in-memory terrain fixture centered at world `(0, 0)`, with radius `256` blocks, `16 x 16` source mapchunks, TOPOGRAPHIC style, TERRAIN only, and a deterministic height formula spanning negative and positive coordinates;
+- `LegacyMapRenderBaselineTest` freezes the current legacy output at `513 x 513` pixels, `256` input mapchunks, `263169` drawn terrain samples, and image fingerprint `0x22a97e92ba808c50`;
+- the fingerprint is a compact deterministic regression oracle, not a visual-quality score; future tile-renderer parity tests should additionally keep focused seam/pixel assertions where a failure needs better localization;
+- `LegacyMapRendererBenchmark` is an opt-in JMH baseline for radius `128`, `256`, and `512` using the same deterministic terrain shape;
+- because the legacy renderer exposes no usable map image before `MapRenderer.render(...)` returns, legacy whole-render completion latency is also the legacy rendering model's time to first visible map for this in-memory benchmark;
+- the `progressiveRenderingBaseline` Gradle task runs only that benchmark and writes CSV evidence to `build/reports/progressive-rendering/legacy-map-renderer-jmh.csv`;
+- this benchmark deliberately excludes SQLite/source I/O. Existing `MapChunkStreamStats` and `RenderDataCacheReport` remain the current counters for requested rows, batches, payload bytes, source loads, and cache behavior. Progressive TTFT measurement will compose those counters with session timing once Phase 6 introduces an actual first-tile lifecycle;
+- no real Vintage Story save is committed as a performance fixture. Current automated baseline evidence is deterministic synthetic rendering plus the repository's existing SQLite integration fixtures. Real-save performance claims require an explicitly identified external/private fixture and must be reported separately.
+
 Exit gate:
 
-- current behavior has enough automated evidence to detect unintended visual/semantic changes during extraction.
+- current behavior has enough automated evidence to detect unintended visual/semantic changes during extraction;
+- the legacy parity oracle exists before Phase 1 changes spatial contracts;
+- an opt-in, machine-readable renderer baseline exists before tile-size and TTFT comparisons are made.
+
+Validation note:
+
+- the frozen image fingerprint was independently reproduced from the audited legacy renderer implementation before this phase was committed;
+- benchmark timing values are intentionally not hard-coded into this document because they are environment-dependent;
+- the repository quality gate and JMH baseline must only be reported as passed after they actually execute in a Java 25 / Gradle environment with required dependencies available.
 
 ### Phase 1 — Spatial render-tile foundation
 
