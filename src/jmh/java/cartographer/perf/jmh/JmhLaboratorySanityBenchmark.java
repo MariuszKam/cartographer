@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 @Measurement(iterations = 3, time = 100, timeUnit = TimeUnit.MILLISECONDS)
 @Fork(1)
 @State(Scope.Thread)
+@SuppressWarnings("unused")
 public class JmhLaboratorySanityBenchmark {
     private int[] values;
 
@@ -34,10 +35,6 @@ public class JmhLaboratorySanityBenchmark {
 
     @Benchmark
     public long deterministicChecksum() {
-        long checksum = 0;
-        for (int value : values) {
-            checksum = checksum * 31 + value;
-        }
-        return checksum;
+        return ChunkLayerBenchmarkFixture.checksum(values);
     }
 }

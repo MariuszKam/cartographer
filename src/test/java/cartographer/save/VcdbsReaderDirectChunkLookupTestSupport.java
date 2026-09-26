@@ -184,6 +184,7 @@ abstract class VcdbsReaderDirectChunkLookupTestSupport {
         return database;
     }
 
+    @SuppressWarnings("SqlSourceToSinkFlow")
     void createDatabase(Path database, String schema) throws Exception {
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database);
              Statement statement = connection.createStatement()) {

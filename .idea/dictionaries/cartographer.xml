@@ -90,6 +90,18 @@
       <w>worldgen</w>
       <w>Worldgen</w>
       <w>zstd</w>
+      <w>ChunkPos</w>
+      <w>compileJmhJava</w>
+      <w>EntityPos</w>
+      <w>ExpectedSha</w>
+      <w>installerSha</w>
+      <w>jmhAnnotationProcessor</w>
+      <w>jmhClasses</w>
+      <w>jmhImplementation</w>
+      <w>norestart</w>
+      <w>pwsh</w>
+      <w>setlocal</w>
+      <w>wixext</w>
     </words>
   </dictionary>
 </component>

@@ -65,7 +65,7 @@ final class VcdbsMapChunkStreamReader {
 
             int expectedRows = SqliteSaveTableInspector.countRows(
                     connection,
-                    SaveTable.MAPCHUNK.tableName()
+                    SaveTable.MAPCHUNK
             );
             String sql = "SELECT position, data FROM \""
                     + SaveTable.MAPCHUNK.tableName()

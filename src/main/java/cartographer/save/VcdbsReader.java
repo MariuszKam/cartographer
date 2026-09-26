@@ -338,7 +338,7 @@ public class VcdbsReader {
         ensurePlayerDataTable(connection);
         List<SaveRecord> records = readRecords(
                 connection,
-                SaveTable.PLAYERDATA.tableName(),
+                SaveTable.PLAYERDATA,
                 250,
                 progress
         );
@@ -439,7 +439,7 @@ public class VcdbsReader {
 
             int expectedRows = SqliteSaveTableInspector.countRows(
                     connection,
-                    SaveTable.MAPREGION.tableName()
+                    SaveTable.MAPREGION
             );
             String sql = "SELECT position, data FROM \""
                     + SaveTable.MAPREGION.tableName()
@@ -584,7 +584,7 @@ public class VcdbsReader {
         int expectedRows =
                 SqliteSaveTableInspector.countRows(
                         connection,
-                        SaveTable.MAPREGION.tableName()
+                        SaveTable.MAPREGION
                 );
 
         String sql =
@@ -679,18 +679,19 @@ public class VcdbsReader {
 
     private List<SaveRecord> readRecords(
             Connection connection,
-            String tableName,
+            SaveTable table,
             int limit,
             ProgressReporter progress
     ) throws SQLException {
         List<SaveRecord> records =
                 new ArrayList<>();
+        String tableName = table.tableName();
 
         int expectedRows =
                 Math.min(
                         SqliteSaveTableInspector.countRows(
                                 connection,
-                                tableName
+                                table
                         ),
                         limit
                 );
