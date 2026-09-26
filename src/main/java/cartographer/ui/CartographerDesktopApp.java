@@ -49,6 +49,8 @@ import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -59,11 +61,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class CartographerDesktopApp extends Application {
+    private static final Logger LOGGER = LoggerFactory.getLogger(CartographerDesktopApp.class);
+
     private ExecutorService updateExecutor;
     private WorkstationController workstationController;
 
     @Override
     public void start(Stage stage) {
+        LOGGER.info("Initializing desktop application");
         VcdbsReader reader = createReader();
         WorldMetadataReader metadataReader = new WorldMetadataReader();
         SaveSessionFactory sessionFactory = new SaveSessionFactory(
@@ -162,16 +167,19 @@ public class CartographerDesktopApp extends Application {
         stage.show();
 
         startUpdateDetection(controller, config);
+        LOGGER.info("Desktop application started");
     }
 
     @Override
     public void stop() {
+        LOGGER.info("Stopping desktop application");
         if (workstationController != null) {
             workstationController.shutdown();
         }
         if (updateExecutor != null) {
             updateExecutor.shutdownNow();
         }
+        LOGGER.info("Desktop application stopped");
     }
 
     private void startUpdateDetection(
