@@ -67,6 +67,8 @@ public class CartographerDesktopApp extends Application {
 
     private ExecutorService updateExecutor;
     private WorkstationController workstationController;
+    private HttpUpdateManifestSource updateManifestSource;
+    private HttpUpdateInstallerSource updateInstallerSource;
 
     @Override
     public void start(Stage stage) {
@@ -183,6 +185,12 @@ public class CartographerDesktopApp extends Application {
         if (updateExecutor != null) {
             updateExecutor.shutdownNow();
         }
+        if (updateManifestSource != null) {
+            updateManifestSource.close();
+        }
+        if (updateInstallerSource != null) {
+            updateInstallerSource.close();
+        }
         LOGGER.info("Desktop application stopped");
     }
 
@@ -191,13 +199,14 @@ public class CartographerDesktopApp extends Application {
             Path config
     ) {
         ApplicationVersion currentVersion = ApplicationVersion.current();
+        updateManifestSource = new HttpUpdateManifestSource(
+                UpdateEndpoints.latestStableManifest(),
+                Duration.ofSeconds(3),
+                Duration.ofSeconds(5)
+        );
         UpdateCheckService updateCheckService = new UpdateCheckService(
                 currentVersion,
-                new HttpUpdateManifestSource(
-                        UpdateEndpoints.latestStableManifest(),
-                        Duration.ofSeconds(3),
-                        Duration.ofSeconds(5)
-                ),
+                updateManifestSource,
                 new UpdateManifestParser()
         );
 
@@ -219,15 +228,16 @@ public class CartographerDesktopApp extends Application {
                         bootstrapper.outcomePath()
                 );
 
+        updateInstallerSource = new HttpUpdateInstallerSource(
+                Duration.ofSeconds(5),
+                Duration.ofMinutes(30)
+        );
         DesktopUpdateController updateController =
                 new DesktopUpdateController(
                         updateCheckService,
                         new UpdateDownloadService(
                                 updatesRoot,
-                                new HttpUpdateInstallerSource(
-                                        Duration.ofSeconds(5),
-                                        Duration.ofMinutes(30)
-                                ),
+                                updateInstallerSource,
                                 verifier
                         ),
                         new UpdateInstallService(
