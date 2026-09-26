@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -56,7 +57,7 @@ class MapTerrainPreparationTest {
         builder.accept(chunk(0, 0, 55));
         MapTerrainPreparation terrain = builder.finish();
 
-        assertTrue(terrain.heights() instanceof SampledTerrainHeightField);
+        assertInstanceOf(SampledTerrainHeightField.class, terrain.heights());
         assertEquals(55, terrain.heights().minHeight());
         assertEquals(55, terrain.heights().maxHeight());
     }
@@ -77,7 +78,7 @@ class MapTerrainPreparationTest {
         builder.accept(chunk(0, 0, 55));
         MapTerrainPreparation terrain = builder.finish();
 
-        assertTrue(terrain.heights() instanceof DenseHeightGrid);
+        assertInstanceOf(DenseHeightGrid.class, terrain.heights());
         assertEquals(1024, terrain.heights().sampleCount());
     }
 
@@ -119,7 +120,7 @@ class MapTerrainPreparationTest {
         builder.accept(chunk(0, 0, 55));
         MapTerrainPreparation terrain = builder.finish();
 
-        assertTrue(terrain.heights() instanceof SampledTerrainHeightField);
+        assertInstanceOf(SampledTerrainHeightField.class, terrain.heights());
         assertTrue(terrain.heights().hasHeightAt(16, 16));
         assertTrue(terrain.heights().hasHeightAt(15, 16));
         assertTrue(terrain.heights().hasHeightAt(17, 16));
