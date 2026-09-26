@@ -2,7 +2,6 @@ package cartographer.application;
 
 import cartographer.marker.MarkerStore;
 import cartographer.model.DisplayPosition;
-import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
@@ -58,16 +57,10 @@ final class MapDecorationResolver {
             Path savePath,
             WorldMetadata metadata
     ) {
-        Optional<HomeLocation> displayHome = homeStore.load(savePath);
-        if (displayHome.isEmpty()) {
-            return HomeState.absent();
-        }
-        HomeLocation location = displayHome.orElseThrow();
-        WorldPosition absolute = metadata.toAbsolute(
-                new DisplayPosition(location.x(), 0.0, location.z())
-        );
-        return HomeState.present(
-                new HomeLocation(absolute.x(), absolute.z())
-        );
+        Optional<DisplayPosition> displayHome = homeStore.load(savePath);
+        return displayHome
+                .map(metadata::toAbsolute)
+                .map(HomeState::present)
+                .orElseGet(HomeState::absent);
     }
 }
