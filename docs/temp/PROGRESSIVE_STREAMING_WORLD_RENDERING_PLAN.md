@@ -1050,21 +1050,24 @@ The production render-tile span remains intentionally undecided until benchmark 
 
 ### Phase 6 — ProgressiveMapSession scheduler
 
-Introduce save/revision-scoped session lifecycle.
+Status: IMPLEMENTED
 
-Implement:
+Added the generation-scoped progressive scheduling core:
 
-- bootstrap player tile;
-- tile registry and deduplication;
-- viewport priority;
-- prefetch priority;
-- player-ring background priority;
-- observed-world completion queue;
-- cancellation/session generation;
-- stale-event rejection;
-- bounded source I/O and render worker queues.
+- `ProgressiveMapSession` owns one serialized source-loading executor and a bounded CPU render pool;
+- `ProgressiveTilePipeline` enforces the lifecycle split: `load(...)` runs only on the source thread, while `render(...)` receives detached `MapTileData` and runs on CPU workers;
+- `ProgressiveTileScheduler` provides a bounded priority queue, deduplicates coordinates, upgrades queued priority, and allows higher-priority viewport work to displace lower-priority queued background work when capacity is full;
+- priority order is VIEWPORT -> PREFETCH -> BOOTSTRAP -> PLAYER_RING -> BACKGROUND;
+- session startup queues the player bootstrap tile; deterministic Phase-1 square rings can be queued independently; discovered mapchunks are coalesced into render-tile BACKGROUND requests;
+- a semaphore bounds detached load results/render work in flight in addition to the bounded render executor queue;
+- `ProgressiveMapEvent` carries the session generation on every READY/FAILED/discovery/closed event;
+- session close clears queued work, interrupts executors, and suppresses late READY/FAILED publication from obsolete work;
+- one tile failure is terminal for that tile but does not terminate the session or unrelated tiles;
+- no JavaFX dependency exists in the scheduler/session layer.
 
-Required concurrency tests must synchronize on explicit lifecycle events, never sleep timing.
+Concurrency tests use latches/events rather than sleep timing and cover bootstrap order, viewport preemption, duplicate coalescing, local-failure isolation, bounded-queue displacement, and suppression of late events after close.
+
+Concrete SaveSession/cache/renderer wiring is deliberately deferred to the automatic MAP startup integration phase; this phase establishes and tests the scheduler lifecycle independently.
 
 ### Phase 7 — Virtualized WorldMapViewport
 
