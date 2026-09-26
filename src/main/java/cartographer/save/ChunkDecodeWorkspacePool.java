@@ -17,10 +17,14 @@ final class ChunkDecodeWorkspacePool implements AutoCloseable {
         all = new ChunkDecodeWorkspace[size];
         borrowed = new AtomicBoolean[size];
         for (int i = 0; i < size; i++) {
-            all[i] = new ChunkDecodeWorkspace();
+            all[i] = createWorkspace();
             borrowed[i] = new AtomicBoolean();
             available.add(all[i]);
         }
+    }
+
+    private static ChunkDecodeWorkspace createWorkspace() {
+        return new ChunkDecodeWorkspace();
     }
 
     ChunkDecodeWorkspace borrow() {

@@ -7,7 +7,7 @@ public record SurfaceTileDiagnosticSummary(
         int liquidUnavailableColumns
 ) {
     public SurfaceTileDiagnosticSummary {
-        if (columnsScanned < 0 || emptyColumns < 0 || liquidUnavailableColumns < 0
+        if (emptyColumns < 0 || liquidUnavailableColumns < 0
                 || emptyColumns > columnsScanned
                 || liquidUnavailableColumns > columnsScanned) {
             throw new IllegalArgumentException("invalid Surface fallback diagnostics");

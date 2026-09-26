@@ -514,7 +514,7 @@ public final class SnapshotPreparedMapDataReader {
     ) {
         private SurfaceRead {
             Objects.requireNonNull(data, "prepared Surface data is required");
-            if (requested < 0 || hits < 0 || hits > requested) {
+            if (hits < 0 || hits > requested) {
                 throw new IllegalArgumentException(
                         "invalid Surface snapshot counters"
                 );

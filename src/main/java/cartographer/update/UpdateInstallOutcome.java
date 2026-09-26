@@ -24,9 +24,9 @@ public record UpdateInstallOutcome(
     }
 
     public UpdateInstallOutcome {
-        status = Objects.requireNonNull(status, "status is required");
-        version = Objects.requireNonNull(version, "version is required");
-        reason = Objects.requireNonNull(reason, "reason is required");
+        Objects.requireNonNull(status, "status is required");
+        Objects.requireNonNull(version, "version is required");
+        Objects.requireNonNull(reason, "reason is required");
 
         if (status == Status.SUCCESS) {
             if (reason != Reason.SUCCESS
