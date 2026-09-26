@@ -7,12 +7,26 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HomeStoreTest {
 
     @TempDir
     Path tempDir;
+
+    @Test
+    void rejectsNonHorizontalDisplayPosition() {
+        HomeStore store = new HomeStore(tempDir.resolve("home.properties"));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> store.save(
+                        tempDir.resolve("world.vcdbs"),
+                        new DisplayPosition(10.0, 1.0, 20.0)
+                )
+        );
+    }
 
     @Test
     void storesDifferentHomesForDifferentSaves() {
