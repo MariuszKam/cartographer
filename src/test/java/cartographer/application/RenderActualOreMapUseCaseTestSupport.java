@@ -212,7 +212,7 @@ abstract class RenderActualOreMapUseCaseTestSupport {
     ) {
         WorldMetadataReader metadataReader = new WorldMetadataReader() {
             @Override
-            protected WorldMetadata read(Connection connection, ProgressReporter progress) {
+            protected WorldMetadata read(Connection connection) {
                 return metadata;
             }
         };
@@ -239,7 +239,7 @@ abstract class RenderActualOreMapUseCaseTestSupport {
     ) {
         WorldMetadataReader metadataReader = new WorldMetadataReader() {
             @Override
-            protected WorldMetadata read(Connection connection, ProgressReporter progress) {
+            protected WorldMetadata read(Connection connection) {
                 return metadata;
             }
         };
@@ -266,7 +266,7 @@ abstract class RenderActualOreMapUseCaseTestSupport {
     ) {
         WorldMetadataReader metadataReader = new WorldMetadataReader() {
             @Override
-            protected WorldMetadata read(Connection connection, ProgressReporter progress) {
+            protected WorldMetadata read(Connection connection) {
                 return metadata;
             }
         };

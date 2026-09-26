@@ -658,10 +658,7 @@ class PrepareWorldSnapshotUseCaseTest {
 
     private static final class TestMetadataReader extends WorldMetadataReader {
         @Override
-        protected WorldMetadata read(
-                Connection connection,
-                ProgressReporter progress
-        ) {
+        protected WorldMetadata read(Connection connection) {
             return new WorldMetadata(96, 64, 32);
         }
     }

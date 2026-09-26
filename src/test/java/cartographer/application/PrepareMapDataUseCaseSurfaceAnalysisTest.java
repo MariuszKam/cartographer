@@ -166,10 +166,7 @@ class PrepareMapDataUseCaseSurfaceAnalysisTest {
     private static final class FixedMetadataReader
             extends WorldMetadataReader {
         @Override
-        protected WorldMetadata read(
-                Connection connection,
-                ProgressReporter progress
-        ) {
+        protected WorldMetadata read(Connection connection) {
             return new WorldMetadata(64, 64, 64);
         }
     }

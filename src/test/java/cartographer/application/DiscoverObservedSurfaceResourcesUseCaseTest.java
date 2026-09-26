@@ -173,10 +173,7 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
     private WorldMetadataReader metadataReader() {
         return new WorldMetadataReader() {
             @Override
-            protected WorldMetadata read(
-                    Connection connection,
-                    ProgressReporter progress
-            ) {
+            protected WorldMetadata read(Connection connection) {
                 return new WorldMetadata(32, 64, 32);
             }
         };
