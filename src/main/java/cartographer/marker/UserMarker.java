@@ -17,7 +17,7 @@ public record UserMarker(
             );
         }
         name = name.trim();
-        position = Objects.requireNonNull(
+        Objects.requireNonNull(
                 position,
                 "Marker display position is required"
         );
