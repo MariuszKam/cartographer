@@ -311,7 +311,7 @@ public final class ResultInspectorPane extends VBox {
     }
 
     public void showRockCursor(Optional<RockColumnSample> sample) {
-        sample = java.util.Objects.requireNonNull(sample, "sample is required");
+        java.util.Objects.requireNonNull(sample, "sample is required");
         if (sample.isEmpty()) {
             clearCursorInspection();
             return;
