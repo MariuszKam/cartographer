@@ -19,13 +19,13 @@ import java.util.function.Supplier;
  * callbacks are generation-gated so stale results cannot update the UI.</p>
  */
 public final class WorkstationOperationCoordinator {
-    private final WorkstationView workstation;
+    private final WorkstationProgressView workstation;
     private final Map<WorkstationOperationScope, ActiveOperation<?>> active =
             new EnumMap<>(WorkstationOperationScope.class);
     private long generation;
     private Consumer<WorkstationOperationScope> cancelledListener = ignored -> { };
 
-    public WorkstationOperationCoordinator(WorkstationView workstation) {
+    public WorkstationOperationCoordinator(WorkstationProgressView workstation) {
         this.workstation = Objects.requireNonNull(workstation, "workstation is required");
     }
 

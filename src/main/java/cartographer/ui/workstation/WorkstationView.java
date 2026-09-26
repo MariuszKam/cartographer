@@ -19,7 +19,7 @@ import javafx.scene.layout.VBox;
 import java.util.Set;
 import java.util.function.Consumer;
 
-public final class WorkstationView implements UpdateCheckView {
+public final class WorkstationView implements UpdateCheckView, WorkstationProgressView {
     private final BorderPane root = new BorderPane();
     private final BorderPane workspace = new BorderPane();
     private final WorldPanel worldPanel;
