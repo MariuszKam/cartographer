@@ -33,6 +33,8 @@ import cartographer.ui.workstation.WorkstationView;
 import cartographer.ui.update.UpdateCheckView;
 import cartographer.ui.workstation.WorldPanel;
 import javafx.scene.Parent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -49,6 +51,8 @@ import java.util.function.Supplier;
  * orchestration and result presentation.</p>
  */
 public final class WorkstationController {
+    private static final Logger LOGGER = LoggerFactory.getLogger(WorkstationController.class);
+
     private final Supplier<Optional<Path>> saveChooser;
     private final WorkstationView workstation;
     private final SearchPanel searchPanel;
@@ -218,6 +222,7 @@ public final class WorkstationController {
                     snapshotStatusUseCase.execute(savePath);
             workstation.setSnapshotStatus(status);
         } catch (RuntimeException failure) {
+            LOGGER.warn("Snapshot status refresh failed for {}", savePath, failure);
             workstation.setSnapshotPreparing(false);
             workstation.setStatus(
                     "Snapshot status unavailable: "
@@ -595,6 +600,7 @@ public final class WorkstationController {
     }
 
     private void showFailure(Throwable failure) {
+        LOGGER.error("Workstation operation failed", failure);
         workstation.setStatus("Error: " + conciseMessage(failure));
         resultInspector.showError(failure);
         setBusy(false);
