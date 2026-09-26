@@ -96,7 +96,7 @@ class FusedProspectingEngineSaveSessionTest {
 
     private static final class TestMetadataReader extends WorldMetadataReader {
         @Override
-        protected WorldMetadata read(Connection connection, ProgressReporter progress) {
+        protected WorldMetadata read(Connection connection) {
             return new WorldMetadata(64, 64, 64);
         }
     }

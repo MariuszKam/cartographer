@@ -151,7 +151,7 @@ public final class WorkstationWorldBar extends HBox {
                 availableVersion,
                 "availableVersion is required"
         );
-        int boundedPercent = Math.max(0, Math.min(100, percent));
+        int boundedPercent = Math.clamp(percent, 0, 100);
         downloadUpdate.setVisible(true);
         downloadUpdate.setManaged(true);
         downloadUpdate.setDisable(true);

@@ -29,14 +29,13 @@ public class ChunkDataLayerDecoder {
 
     DecodedChunkLayer decodeOwned(
             byte[] payload,
-            int savedCompressionVersion,
             ChunkDecodeWorkspace workspace
     ) {
         return decodeOwned(
                 payload,
                 0,
                 payloadLength(payload),
-                savedCompressionVersion,
+                SUPPORTED_COMPRESSION_VERSION,
                 workspace
         );
     }

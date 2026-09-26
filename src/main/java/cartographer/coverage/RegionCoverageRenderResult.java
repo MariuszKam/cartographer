@@ -12,7 +12,7 @@ public record RegionCoverageRenderResult(
 ) {
     public RegionCoverageRenderResult {
         Objects.requireNonNull(image, "coverage image is required");
-        geometry = Objects.requireNonNull(geometry, "coverage geometry is required");
+        Objects.requireNonNull(geometry, "coverage geometry is required");
         geometry.ifPresent(value -> {
             if (value.imageWidth() != image.getWidth()
                     || value.imageHeight() != image.getHeight()) {

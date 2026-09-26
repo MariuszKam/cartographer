@@ -55,10 +55,7 @@ class RenderRockMapCancellationTest {
         );
         WorldMetadataReader metadata = new WorldMetadataReader() {
             @Override
-            protected WorldMetadata read(
-                    Connection connection,
-                    ProgressReporter progress
-            ) {
+            protected WorldMetadata read(Connection connection) {
                 return new WorldMetadata(64, 64, 64);
             }
         };
@@ -93,14 +90,14 @@ class RenderRockMapCancellationTest {
             awaitLatch(scanStarted, "rock scan started");
             operation.interrupt();
             awaitLatch(scanInterrupted, "rock scan interrupted");
-            joinThread(operation, "rock render operation");
+            joinRockRenderThread(operation);
 
             assertTrue(failure.get() instanceof CancellationException);
             assertEquals(1, connections.opened());
             assertEquals(1, connections.closed());
         } finally {
             operation.interrupt();
-            joinThread(operation, "rock render operation");
+            joinRockRenderThread(operation);
         }
     }
 
@@ -114,12 +111,11 @@ class RenderRockMapCancellationTest {
         );
     }
 
-    private static void joinThread(
-            Thread thread,
-            String description
+    private static void joinRockRenderThread(
+            Thread thread
     ) throws InterruptedException {
         thread.join(TimeUnit.SECONDS.toMillis(TEST_DEADLOCK_TIMEOUT_SECONDS));
-        assertFalse(thread.isAlive(), description + " did not terminate");
+        assertFalse(thread.isAlive(), "rock render operation did not terminate");
     }
 
     private static final class BlockingRockReader extends VcdbsReader {

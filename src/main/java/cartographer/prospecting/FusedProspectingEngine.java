@@ -20,6 +20,7 @@ import cartographer.save.SelectiveChunkVisitStatus;
 import cartographer.save.VcdbsReader;
 import cartographer.scanner.ActualBlockYFilter;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,7 +76,7 @@ public final class FusedProspectingEngine {
         rocks.accept(visit);
         if (visit.status() != SelectiveChunkVisitStatus.DECODED) {
             if (visit.status() == SelectiveChunkVisitStatus.FAILED || visit.status() == SelectiveChunkVisitStatus.MISSING) {
-                for (int i = 0; i < unavailable.length; i++) unavailable[i] = true;
+                Arrays.fill(unavailable, true);
             }
             return;
         }

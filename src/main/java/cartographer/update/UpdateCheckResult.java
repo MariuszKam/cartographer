@@ -16,13 +16,13 @@ public record UpdateCheckResult(
     }
 
     public UpdateCheckResult {
-        status = Objects.requireNonNull(status, "status is required");
-        currentVersion = Objects.requireNonNull(
+        Objects.requireNonNull(status, "status is required");
+        Objects.requireNonNull(
                 currentVersion,
                 "currentVersion is required"
         );
-        manifest = Objects.requireNonNull(manifest, "manifest is required");
-        failureMessage = Objects.requireNonNull(
+        Objects.requireNonNull(manifest, "manifest is required");
+        Objects.requireNonNull(
                 failureMessage,
                 "failureMessage is required"
         );

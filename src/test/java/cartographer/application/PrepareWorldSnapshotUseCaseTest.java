@@ -65,8 +65,8 @@ class PrepareWorldSnapshotUseCaseTest {
         Files.write(save, new byte[]{1, 2, 3, 4});
 
         TestReader reader = new TestReader(List.of(
-                mapChunk(0, 0),
-                mapChunk(1, 0)
+                mapChunk(0),
+                mapChunk(1)
         ));
         WorldMetadataReader metadataReader = new TestMetadataReader();
         SaveSessionFactory sessionFactory = new SaveSessionFactory(
@@ -282,7 +282,7 @@ class PrepareWorldSnapshotUseCaseTest {
         Files.createDirectories(save.getParent());
         Files.write(save, new byte[]{9, 8, 7});
 
-        TestReader reader = new TestReader(List.of(mapChunk(0, 0)));
+        TestReader reader = new TestReader(List.of(mapChunk(0)));
         WorldMetadataReader metadataReader = new TestMetadataReader();
         RenderDataCacheStore cacheStore =
                 new RenderDataCacheStore(root.resolve("header-cancel-cache"));
@@ -336,7 +336,7 @@ class PrepareWorldSnapshotUseCaseTest {
         Files.createDirectories(save.getParent());
         Files.write(save, new byte[]{3, 1, 4});
 
-        TestReader reader = new TestReader(List.of(mapChunk(0, 0))) {
+        TestReader reader = new TestReader(List.of(mapChunk(0))) {
             @Override
             public WorldPosition readPlayerPosition(
                     SaveSession session,
@@ -390,8 +390,8 @@ class PrepareWorldSnapshotUseCaseTest {
         Files.write(save, new byte[]{7, 8, 9});
 
         TestReader reader = new TestReader(List.of(
-                mapChunk(0, 0),
-                mapChunk(1, 0)
+                mapChunk(0),
+                mapChunk(1)
         ));
         WorldMetadataReader metadataReader = new TestMetadataReader();
         SaveSessionFactory sessionFactory = new SaveSessionFactory(
@@ -453,11 +453,11 @@ class PrepareWorldSnapshotUseCaseTest {
         );
     }
 
-    private static MapChunk mapChunk(int x, int z) {
+    private static MapChunk mapChunk(int x) {
         int[] heights = new int[MapChunk.HEIGHT_VALUE_COUNT];
         Arrays.fill(heights, 0);
         return new MapChunk(
-                new MapChunkCoordinate(x, z),
+                new MapChunkCoordinate(x, 0),
                 heights,
                 heights
         );
@@ -658,10 +658,7 @@ class PrepareWorldSnapshotUseCaseTest {
 
     private static final class TestMetadataReader extends WorldMetadataReader {
         @Override
-        protected WorldMetadata read(
-                Connection connection,
-                ProgressReporter progress
-        ) {
+        protected WorldMetadata read(Connection connection) {
             return new WorldMetadata(96, 64, 32);
         }
     }
@@ -735,7 +732,7 @@ class PrepareWorldSnapshotUseCaseTest {
             if (fractions.isEmpty()) {
                 throw new AssertionError("no numeric progress was reported");
             }
-            return fractions.get(fractions.size() - 1);
+            return fractions.getLast();
         }
     }
 

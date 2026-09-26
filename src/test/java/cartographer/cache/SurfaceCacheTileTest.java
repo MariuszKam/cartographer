@@ -99,7 +99,7 @@ class SurfaceCacheTileTest {
     @Test
     void codecRoundTripAndMalformedPayloadsAreRejected() {
         SurfaceCacheTile tile = resolvedTile(new MapChunkCoordinate(7, 9),
-                SurfaceCacheTile.SourceMode.FALLBACK, 4, 1, 2);
+                SurfaceCacheTile.SourceMode.FALLBACK, 1, 2);
         byte[] encoded = SurfaceCacheTileCodec.encode(tile);
         SurfaceCacheTile decoded = SurfaceCacheTileCodec.decode(encoded);
         assertEquals(tile.coordinate(), decoded.coordinate());
@@ -165,7 +165,7 @@ class SurfaceCacheTileTest {
         SurfaceTileStore firstStore = new SurfaceTileStore(cacheStore, first);
         SurfaceTileStore secondStore = new SurfaceTileStore(cacheStore, second);
         MapChunkCoordinate coordinate = new MapChunkCoordinate(3, 4);
-        SurfaceCacheTile tile = resolvedTile(coordinate, SurfaceCacheTile.SourceMode.RAIN_HEIGHT_FAST, 4, 0, 0);
+        SurfaceCacheTile tile = resolvedTile(coordinate, SurfaceCacheTile.SourceMode.RAIN_HEIGHT_FAST, 0, 0);
 
         firstStore.publish(List.of(tile));
         Map<MapChunkCoordinate, SurfaceTileLookup> result = firstStore.read(
@@ -208,14 +208,12 @@ class SurfaceCacheTileTest {
                 resolvedTile(
                         first,
                         SurfaceCacheTile.SourceMode.RAIN_HEIGHT_FAST,
-                        4,
                         0,
                         0
                 ),
                 resolvedTile(
                         third,
                         SurfaceCacheTile.SourceMode.RAIN_HEIGHT_FAST,
-                        4,
                         0,
                         0
                 )
@@ -245,8 +243,8 @@ class SurfaceCacheTileTest {
 
     private static SurfaceCacheTile resolvedTile(MapChunkCoordinate coordinate,
                                                   SurfaceCacheTile.SourceMode mode,
-                                                  int scanned, int empty, int unavailable) {
-        return resolvedTile(coordinate, mode, scanned, empty, unavailable, 256, 320);
+                                                  int empty, int unavailable) {
+        return resolvedTile(coordinate, mode, 4, empty, unavailable, 256, 320);
     }
 
     private static SurfaceCacheTile resolvedTile(MapChunkCoordinate coordinate,

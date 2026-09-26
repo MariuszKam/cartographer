@@ -33,8 +33,8 @@ class SurfaceMapScanResultTest {
 
         assertEquals(1, result.waterColumns());
         assertEquals(3, result.unknownSurfaceBlocks());
-        assertEquals("unknown:404", result.topUnknownSurfaceBlockCodes(1).get(0).code());
-        assertEquals(2, result.topUnknownSurfaceBlockCodes(1).get(0).count());
+        assertEquals("unknown:404", result.topUnknownSurfaceBlockCodes(1).getFirst().code());
+        assertEquals(2, result.topUnknownSurfaceBlockCodes(1).getFirst().count());
         assertEquals(1, result.map().tileCount());
     }
 }

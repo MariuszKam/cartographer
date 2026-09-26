@@ -73,7 +73,7 @@ class RockMapCompactTest {
         RockMap map = builder.finish();
         assertEquals(List.of("game:rock-granite", "game:rock-shale"),
                 map.ordinalTable().stream().map(RockIdentity::code).toList());
-        assertEquals(GRANITE.blockId(), map.ordinalTable().get(0).blockId());
+        assertEquals(GRANITE.blockId(), map.ordinalTable().getFirst().blockId());
         assertEquals(map.sampleAt(0, 0).orElseThrow().rock().orElseThrow().code(), GRANITE.code());
         assertEquals(List.of(0L, 1L, 1L), java.util.Arrays.stream(map.countsByOrdinal()).boxed().toList());
     }

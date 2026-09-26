@@ -41,7 +41,7 @@ class UpperRockTileBatchIndexerTest {
         ));
         indexer.accept(SelectiveChunkVisit.decoded(
                 new cartographer.model.ChunkPosition(0, 0, 0, 0),
-                chunkWithRock(0, 0, 0, 10, 7)
+                chunkWithRock(0, 0, 10)
         ));
 
         indexer.accept(SelectiveChunkVisit.missing(
@@ -49,7 +49,7 @@ class UpperRockTileBatchIndexerTest {
         ));
         indexer.accept(SelectiveChunkVisit.decoded(
                 new cartographer.model.ChunkPosition(1, 0, 0, 0),
-                chunkWithRock(1, 0, 0, 10, 7)
+                chunkWithRock(1, 0, 10)
         ));
 
         indexer.accept(SelectiveChunkVisit.paletteRejected(
@@ -64,13 +64,13 @@ class UpperRockTileBatchIndexerTest {
         assertEquals(3, tiles.size());
         assertEquals(
                 RockColumnState.OBSERVED,
-                tiles.get(0).stateAt(0, 0)
+                tiles.getFirst().stateAt(0, 0)
         );
-        assertEquals(7, tiles.get(0).blockIdAt(0, 0));
-        assertEquals(10, tiles.get(0).rockYAt(0, 0));
+        assertEquals(7, tiles.getFirst().blockIdAt(0, 0));
+        assertEquals(10, tiles.getFirst().rockYAt(0, 0));
         assertEquals(
                 RockColumnState.NO_ROCK,
-                tiles.get(0).stateAt(1, 0)
+                tiles.getFirst().stateAt(1, 0)
         );
 
         assertEquals(
@@ -105,7 +105,7 @@ class UpperRockTileBatchIndexerTest {
         ));
         indexer.accept(SelectiveChunkVisit.decoded(
                 new cartographer.model.ChunkPosition(0, 1, 0, 0),
-                chunkWithRock(0, 1, 0, 18, 7)
+                chunkWithRock(0, 1, 18)
         ));
 
         UpperRockTile tile = indexer.finish().getFirst();
@@ -117,16 +117,14 @@ class UpperRockTileBatchIndexerTest {
     private static ParsedChunk chunkWithRock(
             int chunkX,
             int chunkY,
-            int chunkZ,
-            int localY,
-            int blockId
+            int localY
     ) {
         int size = ChunkCoordinate.SIZE_BLOCKS;
         int[] blocks = new int[size * size * size];
         int index = (localY * size) * size;
-        blocks[index] = blockId;
+        blocks[index] = 7;
         return cartographer.model.ParsedChunkFixtures.create(
-                new ChunkCoordinate(chunkX, chunkY, chunkZ),
+                new ChunkCoordinate(chunkX, chunkY, 0),
                 chunkY * size,
                 size,
                 size,

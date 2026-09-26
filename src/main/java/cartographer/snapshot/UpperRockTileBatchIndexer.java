@@ -230,12 +230,10 @@ public final class UpperRockTileBatchIndexer {
             TileState state,
             ParsedChunk chunk
     ) {
-        int maxLocalY = Math.min(
-                chunk.sizeY(),
-                Math.max(
-                        0,
-                        metadata.mapSizeY() - chunk.minY()
-                )
+        int maxLocalY = Math.clamp(
+                metadata.mapSizeY() - chunk.minY(),
+                0,
+                chunk.sizeY()
         );
         int maxLocalX = Math.min(state.width, chunk.sizeX());
         int maxLocalZ = Math.min(state.height, chunk.sizeZ());

@@ -16,7 +16,7 @@ public record RenderCoverageMapResult(
 ) {
     public RenderCoverageMapResult {
         Objects.requireNonNull(image, "rendered image is required");
-        geometry = Objects.requireNonNull(geometry, "coverage geometry is required");
+        Objects.requireNonNull(geometry, "coverage geometry is required");
         Objects.requireNonNull(summary, "coverage summary is required");
         Objects.requireNonNull(mapRegionDiagnostics, "mapregion diagnostics are required");
     }

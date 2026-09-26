@@ -30,6 +30,8 @@ import java.util.concurrent.CancellationException;
  * rebuilt in bounded batches.</p>
  */
 public final class PrepareWorldSnapshotUseCase {
+    private static final int PREPARATION_PHASES = 6;
+
     private final VcdbsReader reader;
     private final SaveSessionFactory sessionFactory;
     private final RenderDataCacheStore cacheStore;
@@ -109,7 +111,7 @@ public final class PrepareWorldSnapshotUseCase {
         WorldMetadata metadata = session.snapshot().metadata();
         Map<Integer, BlockInfo> registry = session.snapshot().blockRegistry();
 
-        ProgressReporter headerProgress = phase(progress, 1, 6, "Header");
+        ProgressReporter headerProgress = phase(progress, 1, "Header");
         headerProgress.start("Checking snapshot header");
         if (snapshot.headerStore().read().isEmpty()) {
             Optional<cartographer.model.WorldPosition> player;
@@ -153,7 +155,7 @@ public final class PrepareWorldSnapshotUseCase {
                 snapshot.terrainStore(),
                 snapshot.indexCatalogStore(),
                 mapChunkDiagnostics,
-                phase(progress, 2, 6, "Terrain")
+                phase(progress, 2, "Terrain")
         );
         publishPreparationSummary(
                 snapshot,
@@ -174,7 +176,7 @@ public final class PrepareWorldSnapshotUseCase {
                 snapshot.surfaceStore(),
                 terrain.observed(),
                 chunkDiagnostics,
-                phase(progress, 3, 6, "Surface")
+                phase(progress, 3, "Surface")
         );
         publishPreparationSummary(
                 snapshot,
@@ -191,7 +193,7 @@ public final class PrepareWorldSnapshotUseCase {
                 session,
                 snapshot.mapRegionStore(),
                 mapRegionDiagnostics,
-                phase(progress, 4, 6, "Map regions")
+                phase(progress, 4, "Map regions")
         );
         publishPreparationSummary(
                 snapshot,
@@ -211,7 +213,7 @@ public final class PrepareWorldSnapshotUseCase {
                 RockCatalog.from(registry),
                 snapshot.upperRockTileStore(),
                 rockDiagnostics,
-                phase(progress, 5, 6, "Geology")
+                phase(progress, 5, "Geology")
         );
         publishPreparationSummary(
                 snapshot,
@@ -231,7 +233,7 @@ public final class PrepareWorldSnapshotUseCase {
                 ResourceBlockCatalog.from(registry),
                 snapshot.resourceIndexStore(),
                 resourceDiagnostics,
-                phase(progress, 6, 6, "Resources")
+                phase(progress, 6, "Resources")
         );
 
         PrepareWorldSnapshotResult result = new PrepareWorldSnapshotResult(
@@ -307,19 +309,18 @@ public final class PrepareWorldSnapshotUseCase {
     private ProgressReporter phase(
             ProgressReporter delegate,
             int phase,
-            int totalPhases,
             String label
     ) {
         Objects.requireNonNull(delegate, "delegate is required");
-        if (phase <= 0 || phase > totalPhases) {
+        if (phase <= 0 || phase > PREPARATION_PHASES) {
             throw new IllegalArgumentException(
-                    "phase must be inside totalPhases"
+                    "phase must be inside preparation phases"
             );
         }
-        String prefix = "[" + phase + "/" + totalPhases + "] " + label;
+        String prefix = "[" + phase + "/" + PREPARATION_PHASES + "] " + label;
         final int unitsPerPhase = 1_000;
         final int totalUnits = Math.multiplyExact(
-                totalPhases,
+                PREPARATION_PHASES,
                 unitsPerPhase
         );
         final int baseUnits = Math.multiplyExact(

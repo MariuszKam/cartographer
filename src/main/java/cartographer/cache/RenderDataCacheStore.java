@@ -15,19 +15,13 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Persistent manifest store for the render-data cache manifest. */
-public final class RenderDataCacheStore {
+public record RenderDataCacheStore(Path cacheRoot) {
     private static final String MANIFEST_FILE = "manifest.properties";
 
-    private final Path cacheRoot;
-
-    public RenderDataCacheStore(Path cacheRoot) {
-        this.cacheRoot = Objects.requireNonNull(cacheRoot, "cache root is required")
+    public RenderDataCacheStore {
+        cacheRoot = Objects.requireNonNull(cacheRoot, "cache root is required")
                 .toAbsolutePath()
                 .normalize();
-    }
-
-    public Path cacheRoot() {
-        return cacheRoot;
     }
 
     public RenderDataCacheRevision observe(Path savePath) {
@@ -84,8 +78,12 @@ public final class RenderDataCacheStore {
                     StandardOpenOption.TRUNCATE_EXISTING
             )) {
                 ByteBuffer buffer = ByteBuffer.wrap(content);
+                int writtenBytes = 0;
                 while (buffer.hasRemaining()) {
-                    channel.write(buffer);
+                    writtenBytes += channel.write(buffer);
+                }
+                if (writtenBytes != content.length) {
+                    throw new IOException("Incomplete render-data manifest write");
                 }
                 channel.force(true);
             }

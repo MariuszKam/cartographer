@@ -2,7 +2,6 @@ package cartographer.prospecting;
 
 import cartographer.resource.ActualOreObservation;
 import cartographer.spatial.OreChunkPositionPlanner;
-import cartographer.progress.ProgressReporter;
 import cartographer.geology.rock.RockColumnState;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
@@ -283,10 +282,7 @@ class SavedOreObservationProviderSnapshotTest {
 
     private static final class MetadataReader extends WorldMetadataReader {
         @Override
-        protected WorldMetadata read(
-                Connection connection,
-                ProgressReporter progress
-        ) {
+        protected WorldMetadata read(Connection connection) {
             return new WorldMetadata(32, 64, 32);
         }
     }

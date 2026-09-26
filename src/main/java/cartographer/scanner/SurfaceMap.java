@@ -83,8 +83,7 @@ public final class SurfaceMap {
     /** Deterministic tile-Z/tile-X then local-Z/local-X primitive traversal. */
     public void forEachCell(CellConsumer consumer) {
         Objects.requireNonNull(consumer, "consumer is required");
-        for (int tileIndex = 0; tileIndex < tiles.length; tileIndex++) {
-            SurfaceTile tile = tiles[tileIndex];
+        for (SurfaceTile tile : tiles) {
             for (int localZ = 0; localZ < tile.height(); localZ++) {
                 for (int localX = 0; localX < tile.width(); localX++) {
                     int worldX = layout.worldXForTileLocal(tile.tileX(), localX);

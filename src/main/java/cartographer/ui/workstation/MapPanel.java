@@ -87,8 +87,8 @@ public final class MapPanel extends BorderPane {
             Optional<WorldPosition> player
     ) {
         Objects.requireNonNull(image, "image is required");
-        geometry = Objects.requireNonNull(geometry, "geometry is required");
-        player = Objects.requireNonNull(player, "player is required");
+        Objects.requireNonNull(geometry, "geometry is required");
+        Objects.requireNonNull(player, "player is required");
         geometry.ifPresent(value -> {
             if (value.imageWidth() != image.getWidth()
                     || value.imageHeight() != image.getHeight()) {
@@ -110,8 +110,8 @@ public final class MapPanel extends BorderPane {
             Optional<WorldPosition> player
     ) {
         Objects.requireNonNull(image, "image is required");
-        geometry = Objects.requireNonNull(geometry, "geometry is required");
-        player = Objects.requireNonNull(player, "player is required");
+        Objects.requireNonNull(geometry, "geometry is required");
+        Objects.requireNonNull(player, "player is required");
         geometry.ifPresent(value -> {
             if (value.imageWidth() != image.getWidth()
                     || value.imageHeight() != image.getHeight()) {

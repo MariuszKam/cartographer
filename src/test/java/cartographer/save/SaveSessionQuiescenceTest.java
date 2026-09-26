@@ -26,21 +26,24 @@ class SaveSessionQuiescenceTest {
     @Test
     void unchangedSourceClosesNormally() throws Exception {
         Path database = createDatabase("unchanged.vcdbs");
-        SaveSession session = monitoredSession(database);
-
-        assertDoesNotThrow(session::close);
+        assertDoesNotThrow(() -> {
+            try (SaveSession ignored = monitoredSession(database)) {
+                // Closing an unchanged source must succeed.
+            }
+        });
     }
 
     @Test
     void changedDatabaseTimestampIsRejectedOnClose() throws Exception {
         Path database = createDatabase("changed.vcdbs");
-        SaveSession session = monitoredSession(database);
-        FileTime changed = FileTime.fromMillis(
-                Files.getLastModifiedTime(database).toMillis() + 2_000L
-        );
-        Files.setLastModifiedTime(database, changed);
-
-        SaveException failure = assertThrows(SaveException.class, session::close);
+        SaveException failure = assertThrows(SaveException.class, () -> {
+            try (SaveSession ignored = monitoredSession(database)) {
+                FileTime changed = FileTime.fromMillis(
+                        Files.getLastModifiedTime(database).toMillis() + 2_000L
+                );
+                Files.setLastModifiedTime(database, changed);
+            }
+        });
 
         assertTrue(failure.getMessage().contains("changed during analysis"));
     }
@@ -48,10 +51,14 @@ class SaveSessionQuiescenceTest {
     @Test
     void newlyCreatedWalSidecarIsRejectedOnClose() throws Exception {
         Path database = createDatabase("wal-change.vcdbs");
-        SaveSession session = monitoredSession(database);
-        Files.writeString(Path.of(database.toString() + "-wal"), "changed");
-
-        SaveException failure = assertThrows(SaveException.class, session::close);
+        SaveException failure = assertThrows(SaveException.class, () -> {
+            try (SaveSession ignored = monitoredSession(database)) {
+                Files.writeString(
+                        Path.of(database.toString() + "-wal"),
+                        "changed"
+                );
+            }
+        });
 
         assertTrue(failure.getMessage().contains("changed during analysis"));
     }

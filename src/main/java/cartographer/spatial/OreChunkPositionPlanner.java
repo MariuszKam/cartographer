@@ -122,6 +122,6 @@ public class OreChunkPositionPlanner {
     }
 
     private long clamp(long value, long min, long max) {
-        return Math.max(min, Math.min(max, value));
+        return Math.clamp(value, min, max);
     }
 }

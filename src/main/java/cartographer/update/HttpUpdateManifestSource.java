@@ -55,15 +55,13 @@ public final class HttpUpdateManifestSource implements UpdateManifestSource {
     }
 
     private static Sender createSender(Duration connectTimeout) {
-        Objects.requireNonNull(connectTimeout, "connectTimeout is required");
-        HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(connectTimeout)
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .build();
-        return request -> client.send(
-                request,
-                HttpResponse.BodyHandlers.ofString()
-        );
+        return new HttpClientSender(connectTimeout);
+    }
+
+    public void close() {
+        if (sender instanceof HttpClientSender httpClientSender) {
+            httpClientSender.close();
+        }
     }
 
     @Override
@@ -80,5 +78,32 @@ public final class HttpUpdateManifestSource implements UpdateManifestSource {
                 "Update manifest redirect left trusted GitHub HTTPS hosts"
         );
         return response.body();
+    }
+    private static final class HttpClientSender implements Sender {
+        private final HttpClient client;
+
+        private HttpClientSender(Duration connectTimeout) {
+            Objects.requireNonNull(
+                    connectTimeout,
+                    "connectTimeout is required"
+            );
+            client = HttpClient.newBuilder()
+                    .connectTimeout(connectTimeout)
+                    .followRedirects(HttpClient.Redirect.NORMAL)
+                    .build();
+        }
+
+        @Override
+        public HttpResponse<String> send(HttpRequest request)
+                throws IOException, InterruptedException {
+            return client.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofString()
+            );
+        }
+
+        private void close() {
+            client.close();
+        }
     }
 }
