@@ -36,7 +36,8 @@ public record OreResource(
     }
 
     @Override
-    public @NotNull String toString() {
+    @NotNull
+    public String toString() {
         return displayName;
     }
 }

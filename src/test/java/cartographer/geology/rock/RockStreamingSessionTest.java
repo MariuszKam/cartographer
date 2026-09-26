@@ -12,6 +12,7 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -387,9 +388,9 @@ class RockStreamingSessionTest {
     @Test
     void sessionHasNoDecodedChunkOrBoxedCoverageStateFields() throws NoSuchFieldException {
         for (Field field : RockStreamingSession.class.getDeclaredFields()) {
-            assertEquals(false, ParsedChunk.class.isAssignableFrom(field.getType()));
-            assertEquals(false, Map.class.isAssignableFrom(field.getType()));
-            assertEquals(false, List.class.isAssignableFrom(field.getType()));
+            assertFalse(ParsedChunk.class.isAssignableFrom(field.getType()));
+            assertFalse(Map.class.isAssignableFrom(field.getType()));
+            assertFalse(List.class.isAssignableFrom(field.getType()));
         }
         assertEquals(long[].class, RockStreamingSession.class.getDeclaredField("terminalSeenWords").getType());
         assertEquals(long[].class, RockStreamingSession.class.getDeclaredField("availableWords").getType());

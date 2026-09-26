@@ -18,7 +18,4 @@ public final class SurfaceDiscoveryPolicy {
         return sameKeyScanInFlight ? Activation.ALREADY_SCANNING : Activation.START_SCAN;
     }
 
-    public static boolean shouldCacheCompletion(boolean tokenAccepted) {
-        return tokenAccepted;
-    }
 }

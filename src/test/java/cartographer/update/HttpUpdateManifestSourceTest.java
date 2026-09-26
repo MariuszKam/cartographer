@@ -81,6 +81,7 @@ class HttpUpdateManifestSourceTest {
         assertThrows(IOException.class, source::load);
     }
 
+    @SuppressWarnings("HttpUrlsUsage")
     @Test
     void rejectsSuccessfulResponseThatDoesNotRemainOnHttps() {
         HttpUpdateManifestSource source = sourceReturning(
@@ -95,6 +96,7 @@ class HttpUpdateManifestSourceTest {
         assertThrows(IOException.class, source::load);
     }
 
+    @SuppressWarnings("HttpUrlsUsage")
     @Test
     void rejectsInitialManifestUriOutsideGithubHttps() {
         assertThrows(

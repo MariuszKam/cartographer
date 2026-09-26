@@ -293,8 +293,7 @@ final class SurfaceToolController {
                 ),
                 result -> {
                     workstation.setDiscoveryBusy(false);
-                    if (!SurfaceDiscoveryPolicy.shouldCacheCompletion(
-                            discoveryGate.accepts(token, currentDiscoveryKey()))) {
+                    if (!discoveryGate.accepts(token, currentDiscoveryKey())) {
                         return;
                     }
                     if (discoveryCenter.isEmpty()) {

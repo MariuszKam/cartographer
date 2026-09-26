@@ -162,15 +162,16 @@ class MapFrameTest {
     void retainedPreparedMapReuseRequiresMatchingGeometryAndSurfaceAvailability() {
         MapDecorationState decorations =
                 new MapDecorationState(HomeState.absent(), List.of(), true);
+        Path savePath = Path.of("reuse.vcdbs");
         MapFrame frame = MapFrame.map(
-                Path.of("reuse.vcdbs"),
+                savePath,
                 MapViewportGeometry.fullImage(64, 64, 16, 16, 48, 48),
                 prepared(Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE)),
                 decorations
         );
 
         assertTrue(frame.canReusePreparedMap(
-                Path.of("reuse.vcdbs"),
+                savePath,
                 16,
                 1,
                 RenderStyle.TOPOGRAPHIC,
@@ -178,7 +179,7 @@ class MapFrameTest {
                 true
         ));
         assertFalse(frame.canReusePreparedMap(
-                Path.of("reuse.vcdbs"),
+                savePath,
                 32,
                 1,
                 RenderStyle.TOPOGRAPHIC,
@@ -187,13 +188,13 @@ class MapFrameTest {
         ));
 
         MapFrame withoutSurface = MapFrame.map(
-                Path.of("reuse.vcdbs"),
+                savePath,
                 MapViewportGeometry.fullImage(64, 64, 16, 16, 48, 48),
                 prepared(Set.of(RenderLayer.TERRAIN)),
                 decorations
         );
         assertFalse(withoutSurface.canReusePreparedMap(
-                Path.of("reuse.vcdbs"),
+                savePath,
                 16,
                 1,
                 RenderStyle.TOPOGRAPHIC,

@@ -1,8 +1,6 @@
 package cartographer.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -21,9 +19,4 @@ class SurfaceDiscoveryPolicyTest {
                 SurfaceDiscoveryPolicy.activation(false, false));
     }
 
-    @Test
-    void staleCompletionMustNotBeCached() {
-        assertFalse(SurfaceDiscoveryPolicy.shouldCacheCompletion(false));
-        assertTrue(SurfaceDiscoveryPolicy.shouldCacheCompletion(true));
-    }
 }

@@ -140,7 +140,7 @@ class SurfaceCacheTileTest {
         assertThrows(IllegalArgumentException.class,
                 () -> SurfaceCacheTileCodec.decode(invalidCount));
         SurfaceCacheTile edgeTile = resolvedTile(new MapChunkCoordinate(1, 1),
-                SurfaceCacheTile.SourceMode.FALLBACK, 4, 1, 2, 34, 34);
+                SurfaceCacheTile.SourceMode.FALLBACK, 1, 2, 34, 34);
         byte[] tamperedWorld = SurfaceCacheTileCodec.encode(edgeTile);
         ByteBuffer.wrap(tamperedWorld).order(ByteOrder.BIG_ENDIAN).putInt(20, 35);
         assertThrows(IllegalArgumentException.class,
@@ -244,19 +244,19 @@ class SurfaceCacheTileTest {
     private static SurfaceCacheTile resolvedTile(MapChunkCoordinate coordinate,
                                                   SurfaceCacheTile.SourceMode mode,
                                                   int empty, int unavailable) {
-        return resolvedTile(coordinate, mode, 4, empty, unavailable, 256, 320);
+        return resolvedTile(coordinate, mode, empty, unavailable, 256, 320);
     }
 
     private static SurfaceCacheTile resolvedTile(MapChunkCoordinate coordinate,
                                                   SurfaceCacheTile.SourceMode mode,
-                                                  int scanned, int empty, int unavailable,
+                                                  int empty, int unavailable,
                                                   int worldSizeX, int worldSizeZ) {
         int cells = Math.min(32, worldSizeX - coordinate.x() * 32)
                 * Math.min(32, worldSizeZ - coordinate.z() * 32);
         return new SurfaceCacheTile(coordinate, worldSizeX, worldSizeZ,
                 resolvedState(cells), filled(cells, 42), filled(cells, 7),
                 filled(cells, 8), filledBytes(cells, SurfaceClassCode.encode(SurfaceClass.GRASS)),
-                mode, scanned, empty, unavailable);
+                mode, 4, empty, unavailable);
     }
 
     private static byte[] resolvedState(int count) {

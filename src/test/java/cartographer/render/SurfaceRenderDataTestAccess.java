@@ -18,7 +18,7 @@ public final class SurfaceRenderDataTestAccess {
             int imageX,
             int imageY
     ) {
-        return data.surfaceWorldXAt(imageX, imageY);
+        return (int) (data.surfaceSourceAt(imageX, imageY) >> 32);
     }
 
 }

@@ -30,7 +30,7 @@ class SurfaceRainHeightFastPathTest {
     @Test
     void plansStableUniqueServerChunkPositionsWithoutColumnTargets() {
         SurfaceRainHeightPlanner.StreamingSession planner = planner(16, 16);
-        planner.accept(mapChunk(1));
+        planner.accept(mapChunk());
 
         SurfaceRainHeightPlan plan = planner.finish();
 
@@ -157,7 +157,7 @@ class SurfaceRainHeightFastPathTest {
 
     private SurfaceRainHeightPlan planned() {
         SurfaceRainHeightPlanner.StreamingSession planner = planner(1, 1);
-        planner.accept(mapChunk(1));
+        planner.accept(mapChunk());
         return planner.finish();
     }
 
@@ -172,8 +172,8 @@ class SurfaceRainHeightFastPathTest {
                 plan, REGISTRY, true, true);
     }
 
-    private MapChunk mapChunk(int height) {
-        return new MapChunk(new MapChunkCoordinate(0, 0), filledHeights(height), new int[0]);
+    private MapChunk mapChunk() {
+        return new MapChunk(new MapChunkCoordinate(0, 0), filledHeights(1), new int[0]);
     }
 
     private ParsedChunk chunkWith(int blockId, boolean liquidAvailable) {

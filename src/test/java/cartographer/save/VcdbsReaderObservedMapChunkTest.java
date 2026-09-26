@@ -100,11 +100,7 @@ class VcdbsReaderObservedMapChunkTest {
     @Test
     void missingMapchunkTableCannotBeMarkedAsCompleteDiscovery() throws Exception {
         Path database = root.resolve("missing-mapchunk.vcdbs");
-        try (Connection ignored = DriverManager.getConnection(
-                "jdbc:sqlite:" + database
-        )) {
-            // Intentionally empty database.
-        }
+        DriverManager.getConnection("jdbc:sqlite:" + database).close();
 
         VcdbsReader reader = new VcdbsReader(
                 new PlayerDataParser(),

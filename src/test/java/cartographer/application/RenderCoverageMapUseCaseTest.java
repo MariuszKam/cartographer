@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.testing.TestConnections;
 import cartographer.progress.ProgressReporter;
 import cartographer.coverage.RegionCoverageAnalyzer;
 import cartographer.coverage.RegionCoverageRenderer;
@@ -28,7 +29,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.awt.image.BufferedImage;
-import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.util.List;
@@ -177,11 +177,7 @@ class RenderCoverageMapUseCaseTest {
         public Connection openReadOnly(
                 Path savePath
         ) {
-            return (Connection) Proxy.newProxyInstance(
-                    Connection.class.getClassLoader(),
-                    new Class<?>[]{Connection.class},
-                    (proxy, method, args) -> null
-            );
+            return TestConnections.noOp();
         }
     }
 

@@ -280,8 +280,7 @@ class ChunkParserBehaviorTest extends ChunkParserTestSupport {
 
     @Test
     void reusingWorkspaceCannotMutatePublishedLayers() {
-        ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace();
-        try {
+        try (ChunkDecodeWorkspace workspace = new ChunkDecodeWorkspace()) {
             ParsedChunk first = new ChunkParser().parse(
                     new ChunkCoordinate(0, 0, 0),
                     serverChunk(
@@ -308,8 +307,6 @@ class ChunkParserBehaviorTest extends ChunkParserTestSupport {
             assertEquals(21, first.liquidIdAt(0, 0, 0));
             assertEquals(31, second.blockIdAt(0, 0, 0));
             assertEquals(41, second.liquidIdAt(0, 0, 0));
-        } finally {
-            workspace.close();
         }
     }
 

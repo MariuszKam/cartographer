@@ -116,7 +116,8 @@ public record ApplicationVersion(int major, int minor, int patch)
     }
 
     @Override
-    public @NotNull String toString() {
+    @NotNull
+    public String toString() {
         return major + "." + minor + "." + patch;
     }
 }

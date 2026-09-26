@@ -1,6 +1,5 @@
 package cartographer.save;
 
-import cartographer.progress.ProgressReporter;
 import cartographer.testing.IntegrationTest;
 import cartographer.model.ChunkPosition;
 import cartographer.model.ParsedChunk;

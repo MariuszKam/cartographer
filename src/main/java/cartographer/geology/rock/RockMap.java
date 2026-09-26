@@ -14,7 +14,6 @@ public final class RockMap {
     private final int radius;
     private final RockCircleGeometry geometry;
     private final int minY;
-    private final int maxYExclusive;
     private final RockMapMode mode;
     private final RockCellLayout layout;
     private final List<RockIdentity> ordinalTable;
@@ -35,7 +34,6 @@ public final class RockMap {
         this.radius = radius;
         this.geometry = Objects.requireNonNull(geometry, "geometry is required");
         this.minY = minY;
-        this.maxYExclusive = maxYExclusive;
         this.mode = Objects.requireNonNull(mode, "mode is required");
         this.layout = Objects.requireNonNull(layout, "layout is required");
         this.ordinalTable = List.copyOf(ordinalTable);

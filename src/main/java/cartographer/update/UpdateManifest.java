@@ -64,7 +64,7 @@ public record UpdateManifest(
         return fileName;
     }
 
-    private static URI requireHttpsGithubUri(URI uri, String field) {
+    private static void requireHttpsGithubUri(URI uri, String field) {
         Objects.requireNonNull(uri, field + " is required");
         if (!"https".equalsIgnoreCase(uri.getScheme())
                 || !"github.com".equalsIgnoreCase(uri.getHost())) {
@@ -72,7 +72,6 @@ public record UpdateManifest(
                     field + " must use https://github.com"
             );
         }
-        return uri;
     }
 
     private static String requireSha256(String value) {

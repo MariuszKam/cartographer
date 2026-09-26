@@ -43,6 +43,7 @@ class UpdateManifestParserTest {
         );
     }
 
+    @SuppressWarnings("HttpUrlsUsage")
     @Test
     void rejectsMissingOrUnsafeFields() {
         assertThrows(

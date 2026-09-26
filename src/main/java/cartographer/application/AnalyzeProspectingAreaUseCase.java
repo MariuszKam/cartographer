@@ -277,11 +277,10 @@ public final class AnalyzeProspectingAreaUseCase {
                 resource,
                 0.0
         );
-        OptionalDouble maximum = cells.stream()
+        return cells.stream()
                 .filter(cell -> inArea(cell, center, radius))
                 .mapToDouble(ResourceOverlayCell::relativeIntensity)
                 .max();
-        return maximum;
     }
 
     private boolean inArea(

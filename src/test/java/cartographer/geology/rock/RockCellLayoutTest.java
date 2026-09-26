@@ -2,6 +2,8 @@ package cartographer.geology.rock;
 
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -27,8 +29,8 @@ class RockCellLayoutTest {
                 IllegalArgumentException.class,
                 () -> RockCellLayout.forCatalog((1 << 30) - 1, 1L << 33)
         );
-        assertEquals(true, RockCellLayout.forCatalog((1 << 30) - 1, 1).intBacked());
-        assertEquals(false, RockCellLayout.forCatalog(1 << 30, 1).intBacked());
+        assertTrue(RockCellLayout.forCatalog((1 << 30) - 1, 1).intBacked());
+        assertFalse(RockCellLayout.forCatalog(1 << 30, 1).intBacked());
     }
 
     @Test

@@ -11,6 +11,8 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -62,7 +64,7 @@ class BoundedStreamingDecodePipelineSchedulingTest extends BoundedStreamingDecod
 
             releaseFirst.countDown();
             joinThread(controller, "controller");
-            assertEquals(null, failure.get());
+            assertNull(failure.get());
         } finally {
             releaseFirst.countDown();
             joinThread(controller, "controller");
@@ -132,7 +134,7 @@ class BoundedStreamingDecodePipelineSchedulingTest extends BoundedStreamingDecod
         }
 
         assertSame(control, consumer.get());
-        assertTrue(worker.get() != consumer.get());
+        assertNotSame(worker.get(), consumer.get());
     }
 
     @Test
@@ -260,7 +262,7 @@ class BoundedStreamingDecodePipelineSchedulingTest extends BoundedStreamingDecod
             releaseConsumer.countDown();
             allowSecondComplete.countDown();
             awaitLatch(submitReturned, "submitReturned");
-            assertEquals(null, submitFailure.get());
+            assertNull(submitFailure.get());
             releaseFirst.countDown();
             joinThread(control, "control");
         } finally {

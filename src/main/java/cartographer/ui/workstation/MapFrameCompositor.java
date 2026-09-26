@@ -151,15 +151,12 @@ public final class MapFrameCompositor {
             case MAP -> {
                 // Base map is complete after MapRenderer.
             }
-            case ORE -> {
-                oreOverlayPainter.paint(
-                        image,
-                        frame.actualOreOverlays(),
-                        prepared.center(),
-                        options.radiusBlocks()
-                );
-
-            }
+            case ORE -> oreOverlayPainter.paint(
+                    image,
+                    frame.actualOreOverlays(),
+                    prepared.center(),
+                    options.radiusBlocks()
+            );
             case SURFACE -> {
                 var analysis = frame.surfaceAnalysis().orElseThrow();
                 if (analysis instanceof SurfaceMaterialAnalysis material) {

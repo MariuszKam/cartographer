@@ -188,7 +188,7 @@ class MapRendererTest {
         );
         int color = new SemanticTerrainPalette().color(SurfaceClass.ROCK, 0.0);
         RenderedMap rendered = renderWithSurface(new WorldPosition(16.0, 0.0, 16.0), HomeState.absent(), List.of(), List.of(new SurfaceCell(
-                        16, 80, 16, BlockInfo.unknown(1), 0,
+                        16, 16, BlockInfo.unknown(1), 0,
                         BlockInfo.unknown(0), SurfaceClass.ROCK
                 )), options);
         assertEquals(color, rendered.image().getRGB(32, 32));
@@ -242,7 +242,7 @@ class MapRendererTest {
                 Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE, RenderLayer.SOIL_FERTILITY)
         );
         SurfaceCell block = new SurfaceCell(
-                16, 80, 16,
+                16, 16,
                 new BlockInfo(1, "game:soil-medium-normal"),
                 0,
                 BlockInfo.unknown(0),
@@ -273,7 +273,7 @@ class MapRendererTest {
         );
         int background = new TerrainPalette().background(RenderStyle.SIMPLE);
         RenderedMap rendered = renderWithSurface(new WorldPosition(128.0, 0.0, 128.0), HomeState.absent(), List.of(), List.of(new SurfaceCell(
-                        128, 80, 128,
+                        128, 128,
                         new BlockInfo(1, "game:soil-medium-normal"),
                         0,
                         BlockInfo.unknown(0),
@@ -369,7 +369,7 @@ class MapRendererTest {
     @Test
     void hillshadeFallsBackToZeroWhenNeighborSampleMissing() {
         RenderedMap rendered = renderWithSurface(new WorldPosition(16.0, 0.0, 16.0), HomeState.absent(), List.of(chunk(0, 0, 80)), List.of(new SurfaceCell(
-                        0, 80, 16, BlockInfo.unknown(1), 0,
+                        0, 16, BlockInfo.unknown(1), 0,
                         BlockInfo.unknown(0), SurfaceClass.UNKNOWN
                 )), new RenderOptions(
                         16, 1, RenderStyle.SIMPLE,
@@ -539,7 +539,6 @@ class MapRendererTest {
                                 ), HomeState.absent(), List.of(), List.of(
                                         new SurfaceCell(
                                                 16,
-                                                80,
                                                 16,
                                                 new BlockInfo(
                                                         10,
@@ -589,7 +588,6 @@ class MapRendererTest {
                                 ), HomeState.absent(), List.of(), List.of(
                                         new SurfaceCell(
                                                 128,
-                                                80,
                                                 128,
                                                 new BlockInfo(
                                                         99,
@@ -657,7 +655,7 @@ class MapRendererTest {
             accumulator.recordSurface(
                     block.worldX(),
                     block.worldZ(),
-                    block.y(),
+                    80,
                     block.blockInfo().id(),
                     block.liquidBlockId(),
                     block.surfaceClass()
@@ -687,7 +685,6 @@ class MapRendererTest {
 
     private record SurfaceCell(
             int worldX,
-            int y,
             int worldZ,
             BlockInfo blockInfo,
             int liquidBlockId,
@@ -700,7 +697,6 @@ class MapRendererTest {
         ) {
             this(
                     worldX,
-                    80,
                     16,
                     blockInfo,
                     0,

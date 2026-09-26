@@ -24,8 +24,9 @@ class SurfaceRenderDataTest {
         SurfaceRenderData data = builder.finish();
 
         assertEquals(SurfaceClass.ROCK, data.surfaceClassAt(33, 32));
-        assertEquals(21, data.surfaceWorldXAt(33, 32));
-        assertEquals(20, data.surfaceWorldZAt(33, 32));
+        long source = data.surfaceSourceAt(33, 32);
+        assertEquals(21, (int) (source >> 32));
+        assertEquals(20, (int) source);
         assertTrue(data.surfaceClasses().contains(SurfaceClass.GRASS));
         assertTrue(data.surfaceClasses().contains(SurfaceClass.ROCK));
     }

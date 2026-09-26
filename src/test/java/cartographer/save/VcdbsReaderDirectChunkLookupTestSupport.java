@@ -1,5 +1,6 @@
 package cartographer.save;
 
+import cartographer.testing.TestConnections;
 import cartographer.model.ChunkCoordinate;
 import cartographer.model.ChunkPosition;
 import cartographer.model.ParseResult;
@@ -11,7 +12,6 @@ import cartographer.parser.ChunkDecodeProfile;
 import cartographer.parser.ChunkDecodeWorkspace;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -25,6 +25,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 abstract class VcdbsReaderDirectChunkLookupTestSupport {
@@ -103,8 +104,7 @@ abstract class VcdbsReaderDirectChunkLookupTestSupport {
                     session,
                     positions,
                     diagnostics,
-                    consumer,
-                    ProgressReporter.NONE
+                    consumer
             );
         }
     }
@@ -118,11 +118,7 @@ abstract class VcdbsReaderDirectChunkLookupTestSupport {
     }
 
     SaveSession emptySession(Path database) {
-        Connection connection = (Connection) Proxy.newProxyInstance(
-                Connection.class.getClassLoader(),
-                new Class<?>[]{Connection.class},
-                (proxy, method, args) -> null
-        );
+        Connection connection = TestConnections.noOp();
         return new SaveSession(database, connection, snapshot());
     }
 
@@ -208,7 +204,7 @@ abstract class VcdbsReaderDirectChunkLookupTestSupport {
     static void joinCaller(Thread thread)
             throws InterruptedException {
         thread.join(TimeUnit.SECONDS.toMillis(TEST_DEADLOCK_TIMEOUT_SECONDS));
-        assertTrue(!thread.isAlive(), "caller did not terminate");
+        assertFalse(thread.isAlive(), "caller did not terminate");
     }
 
     static final class StubChunkParser extends ChunkParser {

@@ -304,17 +304,15 @@ public class ChunkDataLayerDecoder {
             );
         }
 
-        int compressedPaletteLength =
-                paletteByteLengthMarker;
         validateCompressedPaletteLength(
-                compressedPaletteLength,
+                paletteByteLengthMarker,
                 sourceLimit - paletteOffset
         );
         return readCompressedPalette(
                 payload,
                 paletteOffset,
                 sourceLimit,
-                compressedPaletteLength,
+                paletteByteLengthMarker,
                 workspace
         );
     }

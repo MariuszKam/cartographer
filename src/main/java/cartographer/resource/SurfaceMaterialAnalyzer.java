@@ -263,7 +263,7 @@ public final class SurfaceMaterialAnalyzer {
 
         private int slot(long key) {
             long mixed = key ^ (key >>> 33);
-            mixed *= 0xff51afd7ed558ccdl;
+            mixed *= 0xff51afd7ed558ccdL;
             mixed ^= mixed >>> 33;
             return (int) mixed & (keys.length - 1);
         }

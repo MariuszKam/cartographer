@@ -98,7 +98,7 @@ public final class MapTerrainPreparation {
                     collectSurface && surfaceRenderData == null;
 
             if (collectExactHeights) {
-                int width = Math.multiplyExact(
+                int sideLength = Math.multiplyExact(
                         options.radiusBlocks(),
                         2
                 );
@@ -109,8 +109,8 @@ public final class MapTerrainPreparation {
                 exactHeights = DenseHeightGrid.builder(
                         minX,
                         minZ,
-                        width,
-                        width,
+                        sideLength,
+                        sideLength,
                         progress,
                         expectedMapChunks
                 );
@@ -122,7 +122,6 @@ public final class MapTerrainPreparation {
                     !collectExactHeights
                             && (collectTerrain
                             || (collectSurface
-                            && surfaceRenderData != null
                             && !surfaceRenderData.isEmpty()));
             if (collectSampledHeights) {
                 RenderSamplingPlan sampling =

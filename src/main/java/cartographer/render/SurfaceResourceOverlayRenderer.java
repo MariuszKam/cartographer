@@ -31,7 +31,7 @@ public class SurfaceResourceOverlayRenderer {
             new SurfaceObjectMarkerStylePolicy();
 
 
-    public int drawMaterial(
+    public void drawMaterial(
             BufferedImage image,
             WorldPosition center,
             int radiusBlocks,
@@ -91,9 +91,6 @@ public class SurfaceResourceOverlayRenderer {
 
         Graphics2D graphics =
                 image.createGraphics();
-
-        int drawnBlocks =
-                0;
 
         try {
             graphics.setRenderingHint(
@@ -193,7 +190,6 @@ public class SurfaceResourceOverlayRenderer {
                         )
                 );
 
-                drawnBlocks++;
             }
 
             drawDepositCenters(
@@ -229,7 +225,6 @@ public class SurfaceResourceOverlayRenderer {
             graphics.dispose();
         }
 
-        return drawnBlocks;
     }
 
     public int drawObjects(

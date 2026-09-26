@@ -9,7 +9,7 @@ public final class CartographerDesktopLauncher {
     private CartographerDesktopLauncher() {
     }
 
-    public static void main(String[] args) {
+    static void main(String[] args) {
         Logger logger = LoggerFactory.getLogger(CartographerDesktopLauncher.class);
         Thread.setDefaultUncaughtExceptionHandler((thread, failure) ->
                 logger.error(

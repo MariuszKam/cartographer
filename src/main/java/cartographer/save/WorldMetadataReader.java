@@ -45,20 +45,16 @@ public class WorldMetadataReader {
                             payload
                     );
 
-            WorldMetadata metadata =
-                    result.value()
-                            .orElseThrow(
-                                    () ->
-                                            new IllegalStateException(
-                                                    result.error()
-                                                            .orElse(
-                                                                    "Unable to read world metadata"
-                                                            )
-                                            )
-                            );
-
-
-            return metadata;
+            return result.value()
+                    .orElseThrow(
+                            () ->
+                                    new IllegalStateException(
+                                            result.error()
+                                                    .orElse(
+                                                            "Unable to read world metadata"
+                                                    )
+                                    )
+                    );
 
         } catch (SQLException exception) {
             throw new IllegalStateException(

@@ -150,18 +150,19 @@ public final class HttpUpdateInstallerSource implements UpdateInstallerSource {
         }
     }
 
-    private static final class HttpClientSender implements Sender {
-        private final HttpClient client;
-
+    private record HttpClientSender(HttpClient client) implements Sender {
         private HttpClientSender(Duration connectTimeout) {
-            Objects.requireNonNull(
-                    connectTimeout,
-                    "connectTimeout is required"
-            );
-            client = HttpClient.newBuilder()
-                    .connectTimeout(connectTimeout)
+            this(HttpClient.newBuilder()
+                    .connectTimeout(Objects.requireNonNull(
+                            connectTimeout,
+                            "connectTimeout is required"
+                    ))
                     .followRedirects(HttpClient.Redirect.NORMAL)
-                    .build();
+                    .build());
+        }
+
+        private HttpClientSender {
+            Objects.requireNonNull(client, "client is required");
         }
 
         @Override

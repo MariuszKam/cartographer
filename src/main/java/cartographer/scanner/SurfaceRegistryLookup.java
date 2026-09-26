@@ -19,8 +19,6 @@ public final class SurfaceRegistryLookup {
     private final SurfaceClass[] classes;
     private final SoilFertilityClassification[] fertility;
     private final String[] codes;
-    private final String[] materialTypes;
-    private final String[] rockFamilies;
 
     public SurfaceRegistryLookup(Map<Integer, BlockInfo> registry) {
         Objects.requireNonNull(registry, "registry is required");
@@ -29,8 +27,7 @@ public final class SurfaceRegistryLookup {
         ids = new int[entries.length]; air = new boolean[entries.length]; foliage = new boolean[entries.length];
         water = new boolean[entries.length]; classes = new SurfaceClass[entries.length];
         fertility = new SoilFertilityClassification[entries.length];
-        codes = new String[entries.length]; materialTypes = new String[entries.length];
-        rockFamilies = new String[entries.length];
+        codes = new String[entries.length];
         SurfaceClassifier classifier = new SurfaceClassifier();
         SoilFertilityClassifier fertilityClassifier = new SoilFertilityClassifier();
         BlockInfo unknownLiquid = BlockInfo.unknown(0);
@@ -42,8 +39,6 @@ public final class SurfaceRegistryLookup {
                     ? SurfaceClass.UNKNOWN : classifier.classify(info, unknownLiquid);
             fertility[i] = fertilityClassifier.classify(info).orElse(null);
             codes[i] = info.code();
-            materialTypes[i] = info.materialType();
-            rockFamilies[i] = rockFamily(codes[i]);
         }
     }
 
@@ -75,17 +70,4 @@ public final class SurfaceRegistryLookup {
 
     private int index(int id) { return Arrays.binarySearch(ids, id); }
 
-    private String rockFamily(String code) {
-        if (code == null || code.isBlank()) return "unknown";
-        String normalized = code.toLowerCase(java.util.Locale.ROOT);
-        if (normalized.contains("granite")) return "granite";
-        if (normalized.contains("andesite")) return "andesite";
-        if (normalized.contains("basalt")) return "basalt";
-        if (normalized.contains("limestone")) return "limestone";
-        if (normalized.contains("sandstone")) return "sandstone";
-        if (normalized.contains("shale")) return "shale";
-        if (normalized.contains("slate")) return "slate";
-        if (normalized.contains("rock") || normalized.contains("stone")) return "rock";
-        return "unknown";
-    }
 }

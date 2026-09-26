@@ -257,26 +257,27 @@ public class RenderSurfaceResourceMapUseCase {
         );
 
         progress.start("Painting surface resource overlay");
-        if (analysis instanceof SurfaceMaterialAnalysis materialAnalysis) {
-            overlayRenderer.drawMaterial(
-                    rendered.image(),
-                    center,
-                    request.radius(),
-                    materialAnalysis,
-                    player,
-                    decorations.home(),
-                    options.layers().contains(RenderLayer.MARKERS)
-            );
-        } else if (analysis instanceof SurfaceObjectSelectionAnalysis objectAnalysis) {
-            overlayRenderer.drawObjects(
-                    rendered.image(),
-                    center,
-                    request.radius(),
-                    objectAnalysis,
-                    player,
-                    decorations.home(),
-                    options.layers().contains(RenderLayer.MARKERS)
-            );
+        switch (analysis) {
+            case SurfaceMaterialAnalysis materialAnalysis ->
+                    overlayRenderer.drawMaterial(
+                            rendered.image(),
+                            center,
+                            request.radius(),
+                            materialAnalysis,
+                            player,
+                            decorations.home(),
+                            options.layers().contains(RenderLayer.MARKERS)
+                    );
+            case SurfaceObjectSelectionAnalysis objectAnalysis ->
+                    overlayRenderer.drawObjects(
+                            rendered.image(),
+                            center,
+                            request.radius(),
+                            objectAnalysis,
+                            player,
+                            decorations.home(),
+                            options.layers().contains(RenderLayer.MARKERS)
+                    );
         }
 
         int userMarkersDrawn = 0;

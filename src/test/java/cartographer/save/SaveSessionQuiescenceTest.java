@@ -26,11 +26,7 @@ class SaveSessionQuiescenceTest {
     @Test
     void unchangedSourceClosesNormally() throws Exception {
         Path database = createDatabase("unchanged.vcdbs");
-        assertDoesNotThrow(() -> {
-            try (SaveSession ignored = monitoredSession(database)) {
-                // Closing an unchanged source must succeed.
-            }
-        });
+        assertDoesNotThrow(() -> monitoredSession(database).close());
     }
 
     @Test
@@ -54,7 +50,7 @@ class SaveSessionQuiescenceTest {
         SaveException failure = assertThrows(SaveException.class, () -> {
             try (SaveSession ignored = monitoredSession(database)) {
                 Files.writeString(
-                        Path.of(database.toString() + "-wal"),
+                        Path.of(database + "-wal"),
                         "changed"
                 );
             }

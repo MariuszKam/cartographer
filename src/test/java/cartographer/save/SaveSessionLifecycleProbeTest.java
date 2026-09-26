@@ -1,10 +1,10 @@
 package cartographer.save;
 
+import cartographer.testing.TestConnections;
 import cartographer.model.BlockInfo;
 import cartographer.model.WorldMetadata;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.util.Map;
@@ -31,12 +31,11 @@ class SaveSessionLifecycleProbeTest {
     void failedSnapshotInitializationStillClosesOwnedConnection() {
         ConnectionCounters counters = new ConnectionCounters();
 
-        assertThrows(IllegalStateException.class, () -> {
-            try (SaveSession ignored = factory(counters, true)
-                    .open(Path.of("fixture.vcdbs"))) {
-                // Opening is expected to fail after acquiring the connection.
-            }
-        });
+        assertThrows(IllegalStateException.class, () ->
+                factory(counters, true)
+                        .open(Path.of("fixture.vcdbs"))
+                        .close()
+        );
 
         assertEquals(1, counters.opened.get());
         assertEquals(1, counters.closed.get());
@@ -68,17 +67,7 @@ class SaveSessionLifecycleProbeTest {
             @Override
             public Connection openReadOnly(Path savePath) {
                 counters.opened.incrementAndGet();
-                return (Connection) Proxy.newProxyInstance(
-                        Connection.class.getClassLoader(),
-                        new Class<?>[]{Connection.class},
-                        (proxy, method, args) -> {
-                            if (method.getName().equals("close")
-                                    && method.getParameterCount() == 0) {
-                                counters.closed.incrementAndGet();
-                            }
-                            return null;
-                        }
-                );
+                return TestConnections.onClose(counters.closed::incrementAndGet);
             }
         };
         VcdbsReader reader = new VcdbsReader(

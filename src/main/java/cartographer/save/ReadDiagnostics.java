@@ -29,9 +29,6 @@ public class ReadDiagnostics {
     private final List<String> liquidFailureSamples =
             new ArrayList<>();
 
-    private final Map<String, Integer> liquidFailureReasons =
-            new LinkedHashMap<>();
-
     private final Set<String> generalNotes =
             new LinkedHashSet<>();
 
@@ -80,12 +77,6 @@ public class ReadDiagnostics {
                         reason
                 );
 
-        liquidFailureReasons.merge(
-                normalized,
-                1,
-                Integer::sum
-        );
-
         if (liquidFailureSamples.size()
                 < SAMPLE_LIMIT) {
 
@@ -131,6 +122,10 @@ public class ReadDiagnostics {
 
         notes.addAll(
                 skippedNotes()
+        );
+
+        notes.addAll(
+                liquidFailureSamples
         );
 
         return List.copyOf(

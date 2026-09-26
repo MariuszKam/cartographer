@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.testing.TestConnections;
 import cartographer.resource.SurfaceMaterialMatch;
 import cartographer.progress.ProgressReporter;
 import cartographer.marker.MarkerStore;
@@ -40,7 +41,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -63,7 +63,7 @@ class RenderSurfaceResourceMapUseCaseTest {
     Path temporaryDirectory;
 
     @Test
-    void surfaceToolUsesSharedPersistentTerrainAndSurfaceCache() throws Exception {
+    void surfaceToolUsesSharedPersistentTerrainAndSurfaceCache() throws java.io.IOException {
         Path savePath = temporaryDirectory.resolve("surface-cache-save.vcdbs");
         Files.write(savePath, new byte[]{1});
         MapChunkCoordinate mapChunkCoordinate = new MapChunkCoordinate(0, 0);
@@ -503,11 +503,7 @@ class RenderSurfaceResourceMapUseCaseTest {
     private static final class TestConnectionFactory extends SqliteSaveConnection {
         @Override
         public Connection openReadOnly(Path savePath) {
-            return (Connection) Proxy.newProxyInstance(
-                    Connection.class.getClassLoader(),
-                    new Class<?>[]{Connection.class},
-                    (proxy, method, args) -> null
-            );
+            return TestConnections.noOp();
         }
     }
 
