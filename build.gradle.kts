@@ -12,6 +12,8 @@ plugins {
     application
     id("java")
     id("org.openjfx.javafxplugin") version "0.1.0"
+    id("cartographer.test-architecture")
+    id("cartographer.test-performance")
 }
 
 group = "cartographer"
@@ -162,8 +164,6 @@ application {
     applicationDefaultJvmArgs = listOf("--enable-native-access=ALL-UNNAMED")
 }
 
-apply(from = "gradle/test-architecture.gradle.kts")
-apply(from = "gradle/test-performance.gradle.kts")
 
 java {
     toolchain {
