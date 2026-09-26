@@ -69,61 +69,8 @@ public class RenderActualOreMapUseCase {
         );
     }
 
-    public RenderActualOreMapUseCase(
-            VcdbsReader reader,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            ActualOreOverlayPainter actualOreOverlayPainter,
-            MultiActualBlockMapScanner multiActualBlockMapScanner,
-            OreChunkPositionPlanner oreChunkPositionPlanner,
-            SaveSessionFactory sessionFactory
-    ) {
-        this(
-                reader,
-                homeStore,
-                markerStore,
-                renderer,
-                userMarkerRenderer,
-                actualOreOverlayPainter,
-                multiActualBlockMapScanner,
-                oreChunkPositionPlanner,
-                sessionFactory,
-                Optional.empty()
-        );
-    }
 
-    public RenderActualOreMapUseCase(
-            VcdbsReader reader,
-            HomeStore homeStore,
-            MarkerStore markerStore,
-            MapRenderer renderer,
-            UserMarkerRenderer userMarkerRenderer,
-            ActualOreOverlayPainter actualOreOverlayPainter,
-            MultiActualBlockMapScanner multiActualBlockMapScanner,
-            OreChunkPositionPlanner oreChunkPositionPlanner,
-            SaveSessionFactory sessionFactory,
-            RenderDataCacheStore renderDataCacheStore
-    ) {
-        this(
-                reader,
-                homeStore,
-                markerStore,
-                renderer,
-                userMarkerRenderer,
-                actualOreOverlayPainter,
-                multiActualBlockMapScanner,
-                oreChunkPositionPlanner,
-                sessionFactory,
-                Optional.of(Objects.requireNonNull(
-                        renderDataCacheStore,
-                        "render data cache store is required"
-                ))
-        );
-    }
-
-    private RenderActualOreMapUseCase(
+    RenderActualOreMapUseCase(
             VcdbsReader reader,
             HomeStore homeStore,
             MarkerStore markerStore,

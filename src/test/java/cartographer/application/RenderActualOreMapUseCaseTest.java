@@ -1550,7 +1550,8 @@ class RenderActualOreMapUseCaseTest {
                 new ActualOreOverlayPainter(),
                 new cartographer.scanner.MultiActualBlockMapScanner(),
                 new OreChunkPositionPlanner(),
-                new SaveSessionFactory(new TestConnectionFactory(), reader, metadataReader)
+                new SaveSessionFactory(new TestConnectionFactory(), reader, metadataReader),
+                Optional.empty()
         );
     }
 
@@ -1577,7 +1578,7 @@ class RenderActualOreMapUseCaseTest {
                 new cartographer.scanner.MultiActualBlockMapScanner(),
                 new OreChunkPositionPlanner(),
                 new SaveSessionFactory(new TestConnectionFactory(), reader, metadataReader),
-                renderDataCacheStore
+                Optional.of(renderDataCacheStore)
         );
     }
 
@@ -1599,7 +1600,8 @@ class RenderActualOreMapUseCaseTest {
                 new MapRenderer(), new UserMarkerRenderer(),
                 new ActualOreOverlayPainter(), new cartographer.scanner.MultiActualBlockMapScanner(),
                 new OreChunkPositionPlanner(),
-                new SaveSessionFactory(connections, reader, metadataReader)
+                new SaveSessionFactory(connections, reader, metadataReader),
+                Optional.empty()
         );
     }
 
