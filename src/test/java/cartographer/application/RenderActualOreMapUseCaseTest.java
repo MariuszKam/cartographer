@@ -1836,7 +1836,12 @@ class RenderActualOreMapUseCaseTest {
         }
 
         private FakeReader(Map<Integer, BlockInfo> registry, int fakeBlockId) {
-            super(null, null, null, null);
+            super(
+                    new cartographer.parser.PlayerDataParser(),
+                    new cartographer.parser.MapChunkParser(),
+                    new cartographer.parser.ChunkParser(),
+                    new cartographer.parser.RegistryParser()
+            );
             this.registry = registry;
             this.fakeBlockId = fakeBlockId;
         }
