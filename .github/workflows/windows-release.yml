@@ -2,12 +2,25 @@ name: Windows Release Build
 
 on:
   workflow_dispatch:
+    inputs:
+      release_mode:
+        description: "Validate packages only, or publish the stable release"
+        required: true
+        default: validate
+        type: choice
+        options:
+          - validate
+          - publish
   push:
     tags:
       - 'v*.*.*'
 
 permissions:
   contents: read
+
+concurrency:
+  group: windows-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   windows-release:
@@ -20,16 +33,85 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
-      - name: Verify release commit belongs to master history
-        if: github.event_name == 'push'
+      - name: Resolve release metadata
+        id: release_meta
         shell: pwsh
         run: |
+          $versionLine = Get-Content -LiteralPath "gradle.properties" |
+            Where-Object { $_ -match "^version=(.+)$" }
+          if (@($versionLine).Count -ne 1) {
+              throw "gradle.properties must contain exactly one version entry"
+          }
+
+          $version = ($versionLine -replace "^version=", "").Trim()
+          if ([string]::IsNullOrWhiteSpace($version)) {
+              throw "gradle.properties version cannot be blank"
+          }
+
+          $releaseTag = if ($env:GITHUB_EVENT_NAME -eq "push") {
+              $env:GITHUB_REF_NAME
+          } else {
+              "v$version"
+          }
+
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "tag=$releaseTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RELEASE_TAG=$releaseTag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Verify release commit belongs to master history
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.release_mode == 'publish')
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_EVENT_NAME -eq "workflow_dispatch" -and
+              $env:GITHUB_REF -ne "refs/heads/master") {
+              throw "Stable publication must be dispatched from the master branch"
+          }
+
           git fetch origin master:refs/remotes/origin/master
           git merge-base --is-ancestor HEAD origin/master
           if ($LASTEXITCODE -ne 0) {
-              throw "Release tag commit is not contained in master history"
+              throw "Release commit is not contained in master history"
           }
+
+      - name: Preflight publication target
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.release_mode == 'publish')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $remote = @(git ls-remote --tags origin "refs/tags/$env:RELEASE_TAG")
+          if ($LASTEXITCODE -ne 0) {
+              throw "Cannot inspect release tag $env:RELEASE_TAG"
+          }
+
+          if ($remote.Count -gt 0) {
+              git fetch --tags --force origin
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Cannot fetch existing release tags"
+              }
+              $tagCommit = (git rev-list -n 1 "$env:RELEASE_TAG").Trim()
+              if ($tagCommit -ne $env:GITHUB_SHA) {
+                  throw "Release tag $env:RELEASE_TAG already points to $tagCommit instead of $env:GITHUB_SHA"
+              }
+          }
+
+          $draftState = gh release view "$env:RELEASE_TAG" --repo "$env:GITHUB_REPOSITORY" --json isDraft --jq ".isDraft" 2>$null
+          $releaseExists = $LASTEXITCODE -eq 0
+          if (-not $releaseExists) {
+              $global:LASTEXITCODE = 0
+          }
+
+          if ($releaseExists) {
+              if ($draftState -ne "true") {
+                  throw "GitHub Release $env:RELEASE_TAG is already published"
+              }
+              Write-Host "Existing draft release $env:RELEASE_TAG can be resumed"
+          } else {
+              Write-Host "No existing GitHub Release for $env:RELEASE_TAG"
+          }
+
+          Write-Host "Publication preflight passed"
 
       - name: Set up Java 25
         uses: actions/setup-java@v6
@@ -59,13 +141,12 @@ jobs:
           wix extension list --global
 
       - name: Verify release tag matches project version
-        if: github.event_name == 'push'
         shell: pwsh
-        run: .\gradlew.bat verifyReleaseTag -PreleaseTag="$env:GITHUB_REF_NAME"
+        run: .\gradlew.bat verifyReleaseTag -PreleaseTag="$env:RELEASE_TAG"
 
-      - name: Run tests
+      - name: Run test quality gate
         shell: pwsh
-        run: .\gradlew.bat test
+        run: .\gradlew.bat testQualityGate
 
       - name: Build portable Windows package
         shell: pwsh
@@ -82,26 +163,13 @@ jobs:
       - name: Generate stable update manifest
         shell: pwsh
         run: |
-          $versionLine = Get-Content -LiteralPath "gradle.properties" |
-            Where-Object { $_ -match "^version=(.+)$" }
-          if (@($versionLine).Count -ne 1) {
-              throw "gradle.properties must contain exactly one version entry"
-          }
-          $version = ($versionLine -replace "^version=", "").Trim()
-          $releaseTag = if ($env:GITHUB_EVENT_NAME -eq "push") {
-              $env:GITHUB_REF_NAME
-          } else {
-              "v$version"
-          }
-
           .\gradlew.bat generateUpdateManifest `
-            -PreleaseTag="$releaseTag" `
+            -PreleaseTag="$env:RELEASE_TAG" `
             -PreleaseRepository="$env:GITHUB_REPOSITORY"
-
       - name: Upload Windows release artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: VS-Cartographer-${{ github.ref_name }}-Windows
+          name: VS-Cartographer-${{ steps.release_meta.outputs.tag }}-Windows
           retention-days: 14
           if-no-files-found: error
           path: |
@@ -110,8 +178,40 @@ jobs:
             build/release-validation/SHA256SUMS.txt
             build/release-validation/update.properties
 
+      - name: Create stable release tag
+        if: github.event_name == 'workflow_dispatch' && inputs.release_mode == 'publish'
+        shell: pwsh
+        run: |
+          $remote = @(git ls-remote --tags origin "refs/tags/$env:RELEASE_TAG")
+          if ($LASTEXITCODE -ne 0) {
+              throw "Cannot inspect release tag $env:RELEASE_TAG"
+          }
+
+          if ($remote.Count -gt 0) {
+              git fetch --tags --force origin
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Cannot fetch existing release tags"
+              }
+              $tagCommit = (git rev-list -n 1 "$env:RELEASE_TAG").Trim()
+              if ($tagCommit -ne $env:GITHUB_SHA) {
+                  throw "Release tag $env:RELEASE_TAG already points to $tagCommit instead of $env:GITHUB_SHA"
+              }
+              Write-Host "Release tag $env:RELEASE_TAG already points to this validated commit"
+              exit 0
+          }
+
+          git tag "$env:RELEASE_TAG" "$env:GITHUB_SHA"
+          if ($LASTEXITCODE -ne 0) {
+              throw "Cannot create release tag $env:RELEASE_TAG"
+          }
+
+          git push origin "refs/tags/$env:RELEASE_TAG"
+          if ($LASTEXITCODE -ne 0) {
+              throw "Cannot push release tag $env:RELEASE_TAG"
+          }
+
       - name: Publish GitHub Release
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.release_mode == 'publish')
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -134,19 +234,25 @@ jobs:
               $manifest.Path
           )
 
-          gh release create "$env:GITHUB_REF_NAME" @assets `
-            --repo "$env:GITHUB_REPOSITORY" `
-            --verify-tag `
-            --draft `
-            --generate-notes `
-            --title "VS Cartographer $env:GITHUB_REF_NAME"
-          if ($LASTEXITCODE -ne 0) {
-              throw "GitHub draft release creation failed"
+          $draftState = gh release view "$env:RELEASE_TAG" --repo "$env:GITHUB_REPOSITORY" --json isDraft --jq ".isDraft" 2>$null
+          if ($LASTEXITCODE -eq 0) {
+              if ($draftState -ne "true") {
+                  throw "GitHub Release $env:RELEASE_TAG is already published"
+              }
+              Write-Host "Resuming existing draft release $env:RELEASE_TAG"
+          } else {
+              gh release create "$env:RELEASE_TAG" --repo "$env:GITHUB_REPOSITORY" --verify-tag --draft --generate-notes --title "VS Cartographer $env:RELEASE_TAG"
+              if ($LASTEXITCODE -ne 0) {
+                  throw "GitHub draft release creation failed"
+              }
           }
 
-          gh release edit "$env:GITHUB_REF_NAME" `
-            --repo "$env:GITHUB_REPOSITORY" `
-            --draft=false
+          gh release upload "$env:RELEASE_TAG" @assets --repo "$env:GITHUB_REPOSITORY" --clobber
+          if ($LASTEXITCODE -ne 0) {
+              throw "GitHub release asset upload failed; the draft was left unpublished"
+          }
+
+          gh release edit "$env:RELEASE_TAG" --repo "$env:GITHUB_REPOSITORY" --draft=false
           if ($LASTEXITCODE -ne 0) {
               throw "GitHub release publication failed; the draft was left unpublished"
           }
