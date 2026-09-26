@@ -96,7 +96,7 @@ public final class SurfaceDiagnosticsSummary {
                         result.liquidUnavailableColumns()
                 );
         result.map().forEachResolvedCell(
-                (x, z, y, blockId, liquidId, surfaceClass) ->
+                (x, z, y, blockId, surfaceClass) ->
                         builder.acceptResolved(blockId, surfaceClass)
         );
         return builder.build();

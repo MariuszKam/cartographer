@@ -56,7 +56,7 @@ public final class SurfaceRenderData {
                 map.layout()
         );
         map.forEachResolvedCell(
-                (worldX, worldZ, y, blockId, liquidId, surfaceClass) ->
+                (worldX, worldZ, y, blockId, surfaceClass) ->
                         builder.acceptResolved(
                                 worldX,
                                 worldZ,

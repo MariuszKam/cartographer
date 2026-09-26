@@ -110,7 +110,7 @@ public final class SurfaceMap {
         forEachCell((worldX, worldZ, state, surfaceY, blockId, liquidBlockId, surfaceClass) -> {
             if ((state & SurfaceTile.RESOLVED) != 0) {
                 consumer.accept(
-                        worldX, worldZ, surfaceY, blockId, liquidBlockId, surfaceClass);
+                        worldX, worldZ, surfaceY, blockId, surfaceClass);
             }
         });
     }
@@ -135,7 +135,6 @@ public final class SurfaceMap {
                 int worldZ,
                 int surfaceY,
                 int blockId,
-                int liquidBlockId,
                 SurfaceClass surfaceClass
         );
     }

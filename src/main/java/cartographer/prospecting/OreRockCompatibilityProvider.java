@@ -2,6 +2,8 @@ package cartographer.prospecting;
 
 import cartographer.geology.rock.RockIdentity;
 
+import java.util.Objects;
+
 @FunctionalInterface
 public interface OreRockCompatibilityProvider {
     OreRockCompatibility compatibility(
@@ -10,6 +12,10 @@ public interface OreRockCompatibilityProvider {
     );
 
     static OreRockCompatibilityProvider unknown() {
-        return (resourceKey, rock) -> OreRockCompatibility.UNKNOWN;
+        return (resourceKey, rock) -> {
+            Objects.requireNonNull(resourceKey, "resourceKey is required");
+            Objects.requireNonNull(rock, "rock is required");
+            return OreRockCompatibility.UNKNOWN;
+        };
     }
 }

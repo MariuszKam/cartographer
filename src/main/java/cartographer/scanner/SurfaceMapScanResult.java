@@ -28,7 +28,7 @@ public record SurfaceMapScanResult(
 
     public long waterColumns() {
         Counter counter = new Counter();
-        map.forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
+        map.forEachResolvedCell((x, z, y, blockId, surfaceClass) -> {
             if (surfaceClass == SurfaceClass.WATER) {
                 counter.value++;
             }
@@ -38,7 +38,7 @@ public record SurfaceMapScanResult(
 
     public long unknownSurfaceBlocks() {
         Counter counter = new Counter();
-        map.forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
+        map.forEachResolvedCell((x, z, y, blockId, surfaceClass) -> {
             if (surfaceClass == SurfaceClass.UNKNOWN) {
                 counter.value++;
             }
@@ -52,7 +52,7 @@ public record SurfaceMapScanResult(
         }
         SurfaceRegistryLookup lookup = new SurfaceRegistryLookup(registry);
         PrimitiveIdCounts counts = new PrimitiveIdCounts();
-        map.forEachResolvedCell((x, z, y, blockId, liquidId, surfaceClass) -> {
+        map.forEachResolvedCell((x, z, y, blockId, surfaceClass) -> {
             if (surfaceClass == SurfaceClass.UNKNOWN) {
                 counts.increment(blockId);
             }

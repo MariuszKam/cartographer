@@ -46,7 +46,7 @@ public final class SurfaceMaterialAnalyzer {
 
         PrimitiveMatches matches = new PrimitiveMatches();
         surface.map().forEachResolvedCell(
-                (x, z, y, blockId, liquidId, surfaceClass) -> {
+                (x, z, y, blockId, surfaceClass) -> {
                     int matchIndex = Arrays.binarySearch(
                             matchingIds,
                             blockId
