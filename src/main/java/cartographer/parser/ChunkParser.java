@@ -122,7 +122,7 @@ public class ChunkParser {
     /**
      * Palette probe directly from source protobuf bytes.
      *
-     * Selective hot path: parse the protobuf once, inspect the block palette,
+     * <p>Selective hot path: parse the protobuf once, inspect the block palette,
      * and only decode the full block layer when one of the wanted IDs exists.
      *
      * <p>Success with Optional.empty() means an authoritative palette reject,
