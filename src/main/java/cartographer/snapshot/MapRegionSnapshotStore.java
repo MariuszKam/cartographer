@@ -60,7 +60,7 @@ public final class MapRegionSnapshotStore {
         }
         try (Connection connection = openDatabase(false)) {
             ensureSchema(connection);
-            boolean complete = metaFlag(connection, SCAN_COMPLETE);
+            boolean complete = scanComplete(connection);
             List<MapRegionSnapshotEntry> entries = new ArrayList<>();
             int corrupt = 0;
             try (PreparedStatement statement = connection.prepareStatement(
@@ -160,7 +160,7 @@ public final class MapRegionSnapshotStore {
         if (!compatibleStoreAvailable()) return false;
         try (Connection connection = openDatabase(false)) {
             ensureSchema(connection);
-            return metaFlag(connection, SCAN_COMPLETE);
+            return scanComplete(connection);
         } catch (SQLException exception) {
             return false;
         }
@@ -185,14 +185,14 @@ public final class MapRegionSnapshotStore {
     }
 
     public void markScanIncomplete() {
-        writeMeta(SCAN_COMPLETE, "false");
+        writeScanComplete("false");
     }
 
     public void markScanComplete() {
-        writeMeta(SCAN_COMPLETE, "true");
+        writeScanComplete("true");
     }
 
-    private void writeMeta(String key, String value) {
+    private void writeScanComplete(String value) {
         requirePublishedRevision();
         try {
             Files.createDirectories(databasePath.getParent());
@@ -203,7 +203,7 @@ public final class MapRegionSnapshotStore {
                                 + "VALUES (?, ?) "
                                 + "ON CONFLICT(key) DO UPDATE SET value = excluded.value"
                 )) {
-                    statement.setString(1, key);
+                    statement.setString(1, SCAN_COMPLETE);
                     statement.setString(2, value);
                     statement.executeUpdate();
                 }
@@ -217,12 +217,12 @@ public final class MapRegionSnapshotStore {
         }
     }
 
-    private boolean metaFlag(Connection connection, String key)
+    private boolean scanComplete(Connection connection)
             throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT value FROM mapregion_snapshot_meta WHERE key = ?"
         )) {
-            statement.setString(1, key);
+            statement.setString(1, SCAN_COMPLETE);
             try (ResultSet resultSet = statement.executeQuery()) {
                 return resultSet.next()
                         && Boolean.parseBoolean(resultSet.getString("value"));

@@ -398,18 +398,18 @@ public final class ResourceIndexStore {
         }
         try (Connection connection = openDatabase(false)) {
             ensureSchema(connection);
-            return metaFlag(connection, SCAN_COMPLETE);
+            return scanComplete(connection);
         } catch (SQLException exception) {
             return false;
         }
     }
 
     public void markScanIncomplete() {
-        writeMeta(SCAN_COMPLETE, "false");
+        writeScanComplete("false");
     }
 
     public void markScanComplete() {
-        writeMeta(SCAN_COMPLETE, "true");
+        writeScanComplete("true");
     }
 
     private void readCoverageBatch(
@@ -423,7 +423,7 @@ public final class ResourceIndexStore {
                 + placeholders(positions.size()) + ")";
         try (PreparedStatement statement =
                      connection.prepareStatement(sql)) {
-            bindPositions(statement, positions, 1);
+            bindPositions(statement, positions);
             try (ResultSet rows = statement.executeQuery()) {
                 while (rows.next()) {
                     long packed = rows.getLong("packed_position");
@@ -474,7 +474,7 @@ public final class ResourceIndexStore {
                 + ")";
         try (PreparedStatement statement =
                      connection.prepareStatement(sql)) {
-            int parameter = bindPositions(statement, positions, 1);
+            int parameter = bindPositions(statement, positions);
             bindBlockIds(statement, blockIds, parameter);
             try (ResultSet rows = statement.executeQuery()) {
                 while (rows.next()) {
@@ -505,7 +505,7 @@ public final class ResourceIndexStore {
         }
     }
 
-    private void writeMeta(String key, String value) {
+    private void writeScanComplete(String value) {
         requirePublishedRevision();
         try {
             Files.createDirectories(databasePath.getParent());
@@ -518,7 +518,7 @@ public final class ResourceIndexStore {
                                              + "ON CONFLICT(key) DO UPDATE "
                                              + "SET value = excluded.value"
                              )) {
-                    statement.setString(1, key);
+                    statement.setString(1, SCAN_COMPLETE);
                     statement.setString(2, value);
                     statement.executeUpdate();
                 }
@@ -532,12 +532,12 @@ public final class ResourceIndexStore {
         }
     }
 
-    private boolean metaFlag(Connection connection, String key)
+    private boolean scanComplete(Connection connection)
             throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT value FROM resource_index_meta WHERE key = ?"
         )) {
-            statement.setString(1, key);
+            statement.setString(1, SCAN_COMPLETE);
             try (ResultSet rows = statement.executeQuery()) {
                 return rows.next()
                         && Boolean.parseBoolean(rows.getString("value"));
@@ -664,10 +664,9 @@ public final class ResourceIndexStore {
 
     private static int bindPositions(
             PreparedStatement statement,
-            List<ChunkPosition> positions,
-            int parameter
+            List<ChunkPosition> positions
     ) throws SQLException {
-        int current = parameter;
+        int current = 1;
         for (ChunkPosition position : positions) {
             statement.setLong(
                     current++,
