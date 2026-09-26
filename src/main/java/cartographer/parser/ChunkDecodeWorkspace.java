@@ -69,7 +69,7 @@ public final class ChunkDecodeWorkspace implements AutoCloseable {
         while (capacity < required && capacity <= maximum / 2) {
             capacity <<= 1;
         }
-        return Math.min(Math.max(capacity, required), maximum);
+        return Math.clamp(capacity, required, maximum);
     }
 
     private void ensureOpen() {

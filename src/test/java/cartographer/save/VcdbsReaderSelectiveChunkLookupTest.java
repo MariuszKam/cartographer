@@ -277,8 +277,8 @@ class VcdbsReaderSelectiveChunkLookupTest {
 
         assertEquals(1, stats.uniquePositionsRequested());
         assertEquals(1, visits.size());
-        assertEquals(position, visits.get(0).position());
-        assertEquals(SelectiveChunkVisitStatus.DECODED, visits.get(0).status());
+        assertEquals(position, visits.getFirst().position());
+        assertEquals(SelectiveChunkVisitStatus.DECODED, visits.getFirst().status());
     }
 
     @Test
@@ -298,8 +298,8 @@ class VcdbsReaderSelectiveChunkLookupTest {
         );
 
         assertEquals(1, visits.size());
-        assertEquals(SelectiveChunkVisitStatus.FAILED, visits.get(0).status());
-        assertEquals("chunk row has null payload", visits.get(0).error());
+        assertEquals(SelectiveChunkVisitStatus.FAILED, visits.getFirst().status());
+        assertEquals("chunk row has null payload", visits.getFirst().error());
         assertEquals(1, diagnostics.skipped());
         assertEquals(0, diagnostics.failed());
         assertTrue(diagnostics.skippedNotes().contains(
@@ -325,7 +325,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
 
         assertEquals(1, visits.size());
         assertEquals(SelectiveChunkVisitStatus.PALETTE_REJECTED,
-                visits.get(0).status());
+                visits.getFirst().status());
     }
 
     @Test
@@ -346,8 +346,8 @@ class VcdbsReaderSelectiveChunkLookupTest {
         );
 
         assertEquals(1, visits.size());
-        assertEquals(SelectiveChunkVisitStatus.FAILED, visits.get(0).status());
-        assertEquals("malformed palette", visits.get(0).error());
+        assertEquals(SelectiveChunkVisitStatus.FAILED, visits.getFirst().status());
+        assertEquals("malformed palette", visits.getFirst().error());
     }
 
     @Test

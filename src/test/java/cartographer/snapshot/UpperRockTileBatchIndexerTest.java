@@ -64,13 +64,13 @@ class UpperRockTileBatchIndexerTest {
         assertEquals(3, tiles.size());
         assertEquals(
                 RockColumnState.OBSERVED,
-                tiles.get(0).stateAt(0, 0)
+                tiles.getFirst().stateAt(0, 0)
         );
-        assertEquals(7, tiles.get(0).blockIdAt(0, 0));
-        assertEquals(10, tiles.get(0).rockYAt(0, 0));
+        assertEquals(7, tiles.getFirst().blockIdAt(0, 0));
+        assertEquals(10, tiles.getFirst().rockYAt(0, 0));
         assertEquals(
                 RockColumnState.NO_ROCK,
-                tiles.get(0).stateAt(1, 0)
+                tiles.getFirst().stateAt(1, 0)
         );
 
         assertEquals(

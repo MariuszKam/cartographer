@@ -64,8 +64,8 @@ abstract class BoundedStreamingDecodePipelineTestSupport {
                 throw new AssertionError("worker did not terminate");
             }
             try {
-                workerThread.join(Math.max(1L, Math.min(
-                        TimeUnit.NANOSECONDS.toMillis(remaining), 100L)));
+                workerThread.join(Math.clamp(
+                        TimeUnit.NANOSECONDS.toMillis(remaining), 1L, 100L));
             } catch (InterruptedException interruption) {
                 interrupted = true;
             }

@@ -59,11 +59,11 @@ class SurfaceDiagnosticsSummaryTest {
         assertEquals(3, summary.unknownSurfaceBlocks());
         assertEquals(
                 "unknown:404",
-                summary.topUnknownSurfaceBlockCodes(1).get(0).code()
+                summary.topUnknownSurfaceBlockCodes(1).getFirst().code()
         );
         assertEquals(
                 2,
-                summary.topUnknownSurfaceBlockCodes(1).get(0).count()
+                summary.topUnknownSurfaceBlockCodes(1).getFirst().count()
         );
     }
 }

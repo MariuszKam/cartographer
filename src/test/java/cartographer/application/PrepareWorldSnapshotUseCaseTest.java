@@ -732,7 +732,7 @@ class PrepareWorldSnapshotUseCaseTest {
             if (fractions.isEmpty()) {
                 throw new AssertionError("no numeric progress was reported");
             }
-            return fractions.get(fractions.size() - 1);
+            return fractions.getLast();
         }
     }
 
