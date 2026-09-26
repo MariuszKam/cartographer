@@ -31,6 +31,12 @@ update.properties
 installer SHA-256 and size metadata
 ```
 
+Stable GitHub Releases are published by the Windows Release Build workflow.
+The normal release path is the explicit Actions `publish` mode; it creates the
+stable tag only after the quality, packaging, and artifact-validation gates
+pass, then publishes the complete draft Release. The GitHub Releases creation
+UI is not a second release-authoring path for this project.
+
 The latest stable manifest is available through the GitHub latest-release asset
 endpoint:
 
