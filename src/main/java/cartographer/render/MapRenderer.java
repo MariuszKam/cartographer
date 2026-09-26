@@ -1,7 +1,7 @@
 package cartographer.render;
 
 import cartographer.progress.ProgressReporter;
-import cartographer.model.HomeLocation;
+import cartographer.model.WorldPosition;
 import cartographer.model.HomeState;
 import cartographer.model.MapChunk;
 import cartographer.model.SurfaceClass;
@@ -353,7 +353,7 @@ public class MapRenderer {
 
                 markerCount++;
 
-                if (home instanceof HomeState.Present(HomeLocation location)) {
+                if (home instanceof HomeState.Present(WorldPosition location)) {
 
                     int homeX =
                             (int) Math.round(
