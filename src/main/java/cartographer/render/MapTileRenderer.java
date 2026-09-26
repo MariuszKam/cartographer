@@ -1,23 +1,36 @@
 package cartographer.render;
 
 import cartographer.application.MapTileData;
+import cartographer.cache.SurfaceCacheTile;
 import cartographer.cache.TerrainHeightTile;
+import cartographer.model.BlockInfo;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
+import cartographer.model.SurfaceClass;
+import cartographer.model.SurfaceClassCode;
+import cartographer.scanner.SurfaceRegistryLookup;
+import cartographer.soil.SoilFertilityClassification;
 
+import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Renders one independent progressive base-map tile.
  *
- * <p>Phase 5 renders one world block per output pixel. LOD changes this later;
- * no global radius or {@link MapRasterContract} participates in this path.</p>
+ * <p>Phase 10 supports Terrain, semantic Surface and soil-fertility raster
+ * layers. Markers are intentionally kept out of this raster and are drawn by
+ * the viewport as vector overlays.</p>
  */
 public final class MapTileRenderer {
     private final TerrainPalette palette = new TerrainPalette();
+    private final SemanticTerrainPalette semanticPalette =
+            new SemanticTerrainPalette();
+    private final SoilFertilityPalette soilPalette =
+            new SoilFertilityPalette();
 
     public RenderedMapTile renderTerrain(
             RenderTileCoordinate coordinate,
@@ -26,11 +39,33 @@ public final class MapTileRenderer {
             TerrainColorRange colorRange,
             RenderStyle style
     ) {
+        return render(
+                coordinate,
+                data,
+                terrainContext,
+                colorRange,
+                style,
+                Set.of(RenderLayer.TERRAIN),
+                Map.of()
+        );
+    }
+
+    public RenderedMapTile render(
+            RenderTileCoordinate coordinate,
+            MapTileData data,
+            Map<MapChunkCoordinate, TerrainHeightTile> terrainContext,
+            TerrainColorRange colorRange,
+            RenderStyle style,
+            Set<RenderLayer> layers,
+            Map<Integer, BlockInfo> registry
+    ) {
         Objects.requireNonNull(coordinate, "coordinate is required");
         Objects.requireNonNull(data, "data is required");
         Objects.requireNonNull(terrainContext, "terrainContext is required");
         Objects.requireNonNull(colorRange, "colorRange is required");
         Objects.requireNonNull(style, "style is required");
+        Objects.requireNonNull(layers, "layers are required");
+        Objects.requireNonNull(registry, "registry is required");
 
         RenderTileBounds bounds = data.effectiveWorldBounds()
                 .orElseThrow(
@@ -56,6 +91,13 @@ public final class MapTileRenderer {
                 new LinkedHashMap<>(terrainContext);
         samples.putAll(data.terrainTiles());
 
+        boolean drawTerrain = layers.contains(RenderLayer.TERRAIN);
+        boolean drawSurface = layers.contains(RenderLayer.SURFACE);
+        boolean drawSoil = layers.contains(RenderLayer.SOIL_FERTILITY);
+        SurfaceRegistryLookup registryLookup = drawSoil
+                ? new SurfaceRegistryLookup(registry)
+                : null;
+
         int drawn = 0;
         for (int imageY = 0; imageY < height; imageY++) {
             int worldZ = Math.toIntExact(
@@ -65,27 +107,71 @@ public final class MapTileRenderer {
                 int worldX = Math.toIntExact(
                         bounds.worldMinX() + imageX
                 );
-                TerrainSample sample = sampleAt(
+                TerrainSample terrain = sampleAt(
                         samples,
                         worldX,
                         worldZ
                 );
-                if (sample == null) {
-                    continue;
+                double shade = hillshade(
+                        samples,
+                        worldX,
+                        worldZ
+                );
+
+                if (drawTerrain && terrain != null) {
+                    raster.setArgb(
+                            imageX,
+                            imageY,
+                            palette.terrainColor(
+                                    terrain.height(),
+                                    colorRange.minHeight(),
+                                    colorRange.maxHeight(),
+                                    shade,
+                                    style
+                            )
+                    );
+                    drawn++;
                 }
 
-                raster.setArgb(
-                        imageX,
-                        imageY,
-                        palette.terrainColor(
-                                sample.height(),
-                                colorRange.minHeight(),
-                                colorRange.maxHeight(),
-                                hillshade(samples, worldX, worldZ),
-                                style
-                        )
+                SurfaceSample surface = surfaceAt(
+                        data,
+                        worldX,
+                        worldZ
                 );
-                drawn++;
+                if (drawSurface && surface != null) {
+                    raster.setArgb(
+                            imageX,
+                            imageY,
+                            semanticPalette.color(
+                                    surface.surfaceClass(),
+                                    shade
+                            )
+                    );
+                }
+
+                if (drawSoil
+                        && surface != null
+                        && surface.surfaceClass() != SurfaceClass.WATER
+                        && surface.surfaceClass() != SurfaceClass.SNOW) {
+                    SoilFertilityClassification fertility =
+                            registryLookup.fertility(surface.blockId());
+                    if (fertility != null) {
+                        int overlay = soilPalette.color(
+                                fertility.tier()
+                        ).getRGB();
+                        raster.setArgb(
+                                imageX,
+                                imageY,
+                                blend(
+                                        raster.argbAt(
+                                                imageX,
+                                                imageY
+                                        ),
+                                        overlay
+                                )
+                        );
+                    }
+                }
             }
         }
 
@@ -96,6 +182,37 @@ public final class MapTileRenderer {
                 1,
                 drawn,
                 style
+        );
+    }
+
+    private SurfaceSample surfaceAt(
+            MapTileData data,
+            int worldX,
+            int worldZ
+    ) {
+        MapChunkCoordinate coordinate =
+                MapChunkCoordinate.fromWorld(worldX, worldZ);
+        SurfaceCacheTile tile =
+                data.surfaceTiles().get(coordinate);
+        if (tile == null) {
+            return null;
+        }
+
+        int localX = Math.floorMod(worldX, MapChunk.SIZE);
+        int localZ = Math.floorMod(worldZ, MapChunk.SIZE);
+        if (localX >= tile.width() || localZ >= tile.height()) {
+            return null;
+        }
+
+        int index = localZ * tile.width() + localX;
+        if ((tile.stateAtIndex(index) & SurfaceCacheTile.RESOLVED) == 0) {
+            return null;
+        }
+        return new SurfaceSample(
+                tile.blockIdAtIndex(index),
+                SurfaceClassCode.decode(
+                        tile.surfaceClassCodeAtIndex(index)
+                )
         );
     }
 
@@ -140,6 +257,31 @@ public final class MapTileRenderer {
         return new TerrainSample(tile.effectiveHeightAt(localX, localZ));
     }
 
+    private int blend(int background, int overlay) {
+        int alpha = (overlay >>> 24) & 0xFF;
+        if (alpha == 255) {
+            return overlay;
+        }
+        if (alpha == 0) {
+            return background;
+        }
+
+        int inverse = 255 - alpha;
+        int red = (((overlay >>> 16) & 0xFF) * alpha
+                + ((background >>> 16) & 0xFF) * inverse) / 255;
+        int green = (((overlay >>> 8) & 0xFF) * alpha
+                + ((background >>> 8) & 0xFF) * inverse) / 255;
+        int blue = ((overlay & 0xFF) * alpha
+                + (background & 0xFF) * inverse) / 255;
+        return 0xFF000000 | (red << 16) | (green << 8) | blue;
+    }
+
     private record TerrainSample(int height) {
+    }
+
+    private record SurfaceSample(
+            int blockId,
+            SurfaceClass surfaceClass
+    ) {
     }
 }

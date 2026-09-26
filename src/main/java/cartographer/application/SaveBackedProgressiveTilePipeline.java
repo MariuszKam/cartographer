@@ -3,6 +3,7 @@ package cartographer.application;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.progress.ProgressReporter;
 import cartographer.render.MapTileRenderer;
+import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.render.RenderTileCoordinate;
 import cartographer.render.RenderTileLayout;
@@ -20,6 +21,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import java.util.OptionalLong;
+import java.util.Set;
 
 /**
  * Real source/cache implementation of the progressive tile pipeline.
@@ -40,6 +42,7 @@ final class SaveBackedProgressiveTilePipeline
     private final MapTileDataLoader dataLoader;
     private final MapTileRenderer renderer;
     private final TerrainColorRange colorRange;
+    private final Set<RenderLayer> layers;
     private final ReadDiagnostics sourceDiagnostics = new ReadDiagnostics();
     private final WorldIndexCatalogStore indexStore;
     private final boolean useCompletedCatalog;
@@ -57,7 +60,8 @@ final class SaveBackedProgressiveTilePipeline
             WorldDataSnapshot snapshot,
             RenderTileLayout layout,
             MapTileDataLoader dataLoader,
-            MapTileRenderer renderer
+            MapTileRenderer renderer,
+            Set<RenderLayer> layers
     ) {
         this.savePath = Objects.requireNonNull(
                 savePath,
@@ -85,6 +89,9 @@ final class SaveBackedProgressiveTilePipeline
                 renderer,
                 "renderer is required"
         );
+        this.layers = Set.copyOf(
+                Objects.requireNonNull(layers, "layers are required")
+        );
         this.indexStore = snapshot.indexCatalogStore();
         this.useCompletedCatalog = indexStore.mapChunkScanComplete();
         this.colorRange = new TerrainColorRange(
@@ -103,7 +110,9 @@ final class SaveBackedProgressiveTilePipeline
                 snapshot.terrainStore(),
                 snapshot.surfaceStore(),
                 layout.boundsFor(coordinate),
-                MapTileDataRequirement.TERRAIN,
+                requiresSurface()
+                        ? MapTileDataRequirement.TERRAIN_AND_SURFACE
+                        : MapTileDataRequirement.TERRAIN,
                 sourceDiagnostics,
                 ProgressReporter.NONE
         );
@@ -114,12 +123,14 @@ final class SaveBackedProgressiveTilePipeline
             RenderTileCoordinate coordinate,
             MapTileData data
     ) {
-        return renderer.renderTerrain(
+        return renderer.render(
                 coordinate,
                 data,
                 data.terrainTiles(),
                 colorRange,
-                RenderStyle.TOPOGRAPHIC
+                RenderStyle.TOPOGRAPHIC,
+                layers,
+                overview.blockRegistry()
         );
     }
 
@@ -179,6 +190,11 @@ final class SaveBackedProgressiveTilePipeline
                 batch,
                 catalogOffset >= catalogCoordinates.size()
         );
+    }
+
+    private boolean requiresSurface() {
+        return layers.contains(RenderLayer.SURFACE)
+                || layers.contains(RenderLayer.SOIL_FERTILITY);
     }
 
     private SaveSession sourceSession() {

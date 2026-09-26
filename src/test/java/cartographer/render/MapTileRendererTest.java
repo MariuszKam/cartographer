@@ -2,14 +2,18 @@ package cartographer.render;
 
 import cartographer.application.MapTileData;
 import cartographer.application.MapTileDataRequirement;
+import cartographer.cache.SurfaceCacheTile;
 import cartographer.cache.TerrainHeightTile;
 import cartographer.model.HomeState;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
+import cartographer.model.SurfaceClass;
+import cartographer.model.SurfaceClassCode;
 import cartographer.model.WorldPosition;
 import cartographer.progress.ProgressReporter;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -206,4 +210,65 @@ class MapTileRendererTest {
                 new int[0]
         );
     }
+    @Test
+    void semanticSurfaceLayerOverridesTerrainPerResolvedWorldCell() {
+        MapChunk chunk = chunk(0, 0, 70);
+        TerrainHeightTile terrain = TerrainHeightTile.from(chunk);
+        RenderTileBounds bounds = new RenderTileBounds(0, 0, 32, 32);
+
+        byte[] state = new byte[MapChunk.HEIGHT_VALUE_COUNT];
+        Arrays.fill(
+                state,
+                (byte) (SurfaceCacheTile.CONSIDERED
+                        | SurfaceCacheTile.RESOLVED)
+        );
+        byte[] classes = new byte[MapChunk.HEIGHT_VALUE_COUNT];
+        Arrays.fill(
+                classes,
+                SurfaceClassCode.encode(SurfaceClass.ROCK)
+        );
+        SurfaceCacheTile surface = new SurfaceCacheTile(
+                new MapChunkCoordinate(0, 0),
+                32,
+                32,
+                state,
+                new int[MapChunk.HEIGHT_VALUE_COUNT],
+                new int[MapChunk.HEIGHT_VALUE_COUNT],
+                new int[MapChunk.HEIGHT_VALUE_COUNT],
+                classes,
+                SurfaceCacheTile.SourceMode.RAIN_HEIGHT_FAST,
+                MapChunk.HEIGHT_VALUE_COUNT,
+                0,
+                0
+        );
+
+        MapTileData data = new MapTileData(
+                bounds,
+                Optional.of(bounds),
+                List.of(new MapChunkCoordinate(0, 0)),
+                Map.of(terrain.coordinate(), terrain),
+                Map.of(surface.coordinate(), surface),
+                Map.of(),
+                MapTileDataRequirement.TERRAIN_AND_SURFACE
+        );
+
+        RenderedMapTile rendered = new MapTileRenderer().render(
+                new RenderTileCoordinate(0, 0),
+                data,
+                data.terrainTiles(),
+                TerrainColorRange.fromTiles(List.of(terrain)),
+                RenderStyle.TOPOGRAPHIC,
+                Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE),
+                Map.of()
+        );
+
+        assertEquals(
+                new SemanticTerrainPalette().color(
+                        SurfaceClass.ROCK,
+                        0.0
+                ),
+                rendered.image().getRGB(0, 0)
+        );
+    }
+
 }

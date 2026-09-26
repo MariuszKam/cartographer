@@ -163,7 +163,9 @@ public class CartographerDesktopApp extends Application {
                         sessionFactory,
                         renderDataCacheStore,
                         new MapTileRenderer()
-                )
+                ),
+                new HomeStore(config.resolve("home.properties")),
+                new MarkerStore(config)
         );
 
         workstationController = controller;

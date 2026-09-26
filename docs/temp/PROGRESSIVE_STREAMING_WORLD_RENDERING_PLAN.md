@@ -1126,23 +1126,39 @@ The old whole-map renderer and `MapFrame.map(...)` compatibility surface remain 
 
 ### Phase 10 — Progressive layers
 
-Migrate in low-risk-to-high-risk order unless benchmarks/evidence justify another sequence:
+Status: IMPLEMENTED FOR BASE MAP; ANALYTICAL TOOLS REMAIN EXPLICITLY BOUNDED
 
-1. player/system/user markers;
-2. base Surface enrichment;
-3. environment overlays;
-4. ore overlays;
-5. geology visualization;
-6. specialized Surface analyses;
-7. prospecting visualization.
+The migration clarified an important product boundary rather than forcing every analysis into the base-map layer model.
 
-Each layer must define:
+Progressive MAP layers now implemented:
 
-- its authoritative/derived source;
-- tile key/invalidation semantics;
-- whether it is viewport-demanded or background-completed;
-- memory/cache policy;
-- partial/error presentation.
+1. **Terrain** — rendered per independent render tile from revision-scoped Terrain cache/source fallback.
+2. **Surface** — selecting the Surface layer requests `TERRAIN_AND_SURFACE` tile data and paints semantic Surface classifications directly in `MapTileRenderer`.
+3. **Soil Fertility** — uses the same cached Surface tile, authoritative block registry and existing fertility classification/palette; it is composited per tile and does not require a whole-map raster.
+4. **Markers** — player, HOME and user markers are converted to absolute world positions and drawn by `WorldMapViewport` as vector overlays. They are not baked into render tiles.
+
+Layer changes in MAP restart the generation-scoped progressive session against the same revision. Existing Terrain/Surface caches make this a derived-data operation rather than a full authoritative world reread, and generation gating prevents stale layer variants from updating the viewport.
+
+The earlier draft list treated Environment, ORE, Geology and Prospecting as if all should become ordinary base-map checkboxes. The implementation audit showed that this would erase real product semantics:
+
+- ORE is an explicit authoritative CHUNK analysis with resource/Y filters;
+- GEOLOGY is an explicit ROCK analysis;
+- PROSPECTING is a fused bounded analysis;
+- specialized Surface resource/material tools are analysis operations rather than passive world decoration;
+- Environment/Geology MAP-region overlays do not yet have a tile-indexed progressive derived representation.
+
+Therefore MAP no longer advertises Environment/Geology as active progressive base layers. ORE, GEOLOGY, PROSPECTING and specialized Surface remain bounded analysis tools with their own scope and result lifecycle. Their bounded radius is legitimate analysis scope and is not the global MAP render range being removed by this project.
+
+If a future feature wants any of those analyses as persistent progressive overlays, it must first introduce a truthful spatial derived-data contract and cache key for that analysis instead of wrapping a legacy whole-raster result.
+
+Layer implementation rules now established:
+
+- authoritative/derived ownership remains explicit;
+- Surface-derived raster state is revision scoped;
+- marker state is viewport/vector state;
+- changing marker visibility does not read or rerender terrain;
+- MAP layer rendering is tile-local and memory-bounded;
+- partial Surface availability remains partial rather than inventing classifications.
 
 ### Phase 11 — LOD
 

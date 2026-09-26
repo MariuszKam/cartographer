@@ -2,6 +2,7 @@ package cartographer.application;
 
 import cartographer.cache.RenderDataCacheStore;
 import cartographer.render.MapTileRenderer;
+import cartographer.render.RenderLayer;
 import cartographer.render.RenderTileLayout;
 import cartographer.save.SaveSessionFactory;
 import cartographer.save.VcdbsReader;
@@ -9,6 +10,7 @@ import cartographer.snapshot.WorldDataSnapshot;
 
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -69,10 +71,12 @@ public final class ProgressiveMapSessionFactory {
     public ProgressiveMapSession create(
             Path savePath,
             WorldOverview overview,
+            Set<RenderLayer> layers,
             Consumer<ProgressiveMapEvent> listener
     ) {
         Objects.requireNonNull(savePath, "savePath is required");
         Objects.requireNonNull(overview, "overview is required");
+        Objects.requireNonNull(layers, "layers are required");
         Objects.requireNonNull(listener, "listener is required");
 
         WorldDataSnapshot snapshot = WorldDataSnapshot.openOrCreate(
@@ -95,7 +99,8 @@ public final class ProgressiveMapSessionFactory {
                                 reader,
                                 new WorldIndexBatchPlanner(16)
                         ),
-                        renderer
+                        renderer,
+                        layers
                 );
 
         int renderWorkers = Math.clamp(

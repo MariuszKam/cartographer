@@ -10,10 +10,12 @@ import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
+import javafx.scene.paint.Color;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.Region;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -39,6 +41,7 @@ public final class WorldMapViewport extends Region {
     private Consumer<Optional<MapCursorPosition>> cursorListener =
             ignored -> { };
     private Optional<WorldPosition> player = Optional.empty();
+    private List<WorldMapMarker> markers = List.of();
     private double dragX;
     private double dragY;
     private boolean dragging;
@@ -121,6 +124,17 @@ public final class WorldMapViewport extends Region {
 
     public void setPlayer(Optional<WorldPosition> player) {
         this.player = Objects.requireNonNull(player, "player is required");
+    }
+
+    public void setMarkers(List<WorldMapMarker> markers) {
+        Objects.requireNonNull(markers, "markers are required");
+        if (!Platform.isFxApplicationThread()) {
+            List<WorldMapMarker> copy = List.copyOf(markers);
+            Platform.runLater(() -> setMarkers(copy));
+            return;
+        }
+        this.markers = List.copyOf(markers);
+        requestRedraw();
     }
 
     public void centerPlayer() {
@@ -240,6 +254,45 @@ public final class WorldMapViewport extends Region {
                     width,
                     height
             );
+        }
+        drawMarkers(graphics);
+    }
+
+    private void drawMarkers(GraphicsContext graphics) {
+        for (WorldMapMarker marker : markers) {
+            WorldMapViewportModel.ViewportPoint point = model.viewportAt(
+                    marker.position().x(),
+                    marker.position().z()
+            );
+            if (point.x() < -24.0
+                    || point.y() < -24.0
+                    || point.x() > canvas.getWidth() + 24.0
+                    || point.y() > canvas.getHeight() + 24.0) {
+                continue;
+            }
+
+            Color color = switch (marker.kind()) {
+                case PLAYER -> Color.WHITE;
+                case HOME -> Color.GOLD;
+                case USER -> Color.CYAN;
+            };
+            double radius = marker.kind() == WorldMapMarker.Kind.PLAYER
+                    ? 6.0
+                    : 5.0;
+            graphics.setFill(color);
+            graphics.fillOval(
+                    point.x() - radius,
+                    point.y() - radius,
+                    radius * 2.0,
+                    radius * 2.0
+            );
+            if (!marker.label().isBlank()) {
+                graphics.fillText(
+                        marker.label(),
+                        point.x() + radius + 3.0,
+                        point.y() - radius - 2.0
+                );
+            }
         }
     }
 

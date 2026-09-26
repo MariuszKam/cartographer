@@ -21,8 +21,11 @@ import cartographer.application.RenderRockMapRequest;
 import cartographer.application.RenderRockMapUseCase;
 import cartographer.application.RenderSurfaceResourceMapUseCase;
 import cartographer.geology.rock.RockMapMode;
+import cartographer.marker.MarkerStore;
 import cartographer.model.WorldMetadata;
+import cartographer.navigation.HomeStore;
 import cartographer.model.WorldPosition;
+import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.render.RenderTileCoordinate;
 import cartographer.scanner.ActualBlockYFilter;
@@ -36,6 +39,7 @@ import cartographer.ui.workstation.WorkstationTool;
 import cartographer.ui.workstation.WorkstationView;
 import cartographer.ui.workstation.WorldMapViewport;
 import cartographer.ui.workstation.WorldMapViewportDemand;
+import cartographer.ui.workstation.WorldMapMarker;
 import cartographer.ui.update.UpdateCheckView;
 import cartographer.ui.workstation.WorldPanel;
 import javafx.application.Platform;
@@ -44,6 +48,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -80,10 +85,13 @@ public final class WorkstationController {
     private final PrepareWorldSnapshotUseCase prepareWorldSnapshotUseCase;
     private final InspectWorldSnapshotStatusUseCase snapshotStatusUseCase;
     private final ProgressiveMapSessionFactory progressiveMapSessionFactory;
+    private final HomeStore homeStore;
+    private final MarkerStore markerStore;
     private final OreResourceResolver resourceResolver = new OreResourceResolver();
 
     private Optional<cartographer.model.WorldPosition> loadedPlayerAbsolute = Optional.empty();
     private Optional<WorldMetadata> loadedWorldMetadata = Optional.empty();
+    private Optional<cartographer.application.WorldOverview> loadedWorldOverview = Optional.empty();
     private ProgressiveMapSession progressiveMapSession;
     private final AtomicInteger progressiveTilesReady = new AtomicInteger();
 
@@ -98,7 +106,9 @@ public final class WorkstationController {
             LoadWorldOverviewUseCase worldOverviewUseCase,
             PrepareWorldSnapshotUseCase prepareWorldSnapshotUseCase,
             InspectWorldSnapshotStatusUseCase snapshotStatusUseCase,
-            ProgressiveMapSessionFactory progressiveMapSessionFactory
+            ProgressiveMapSessionFactory progressiveMapSessionFactory,
+            HomeStore homeStore,
+            MarkerStore markerStore
     ) {
         this.saveChooser = Objects.requireNonNull(saveChooser, "save chooser is required");
         this.useCase = Objects.requireNonNull(useCase, "map/ore use case is required");
@@ -119,6 +129,14 @@ public final class WorkstationController {
         this.progressiveMapSessionFactory = Objects.requireNonNull(
                 progressiveMapSessionFactory,
                 "progressiveMapSessionFactory is required"
+        );
+        this.homeStore = Objects.requireNonNull(
+                homeStore,
+                "homeStore is required"
+        );
+        this.markerStore = Objects.requireNonNull(
+                markerStore,
+                "markerStore is required"
         );
 
         workstation = new WorkstationView(
@@ -167,7 +185,9 @@ public final class WorkstationController {
         workstation.setOnModeChanged(this::handleModeChanged);
         workstation.setOnRadiusChanged(radius -> surfaceToolController.maybeStartDiscovery());
         workstation.setOnSurfaceModeChanged(mode -> surfaceToolController.maybeStartDiscovery());
-        workstation.setOnRenderLayersChanged(mapFrameController::handleRenderLayersChanged);
+        workstation.setOnRenderLayersChanged(
+                this::handleRenderLayersChanged
+        );
         searchPanel.setOnRockHighlightChanged(mapFrameController::handleRockHighlightChanged);
         workstation.setOnCancel(this::cancelPreferredOperation);
         operationCoordinator.setOnCancelled(this::handleOperationCancelled);
@@ -266,6 +286,7 @@ public final class WorkstationController {
         operationCoordinator.cancelAll();
         loadedPlayerAbsolute = Optional.empty();
         loadedWorldMetadata = Optional.empty();
+        loadedWorldOverview = Optional.empty();
         workstation.setSnapshotPreparing(false);
         refreshSnapshotStatus(savePath);
         mapPanel.clearNavigationContext();
@@ -288,6 +309,7 @@ public final class WorkstationController {
                     searchPanel.setResources(discovered);
                     loadedPlayerAbsolute = loaded.playerAbsolute();
                     loadedWorldMetadata = Optional.of(loaded.metadata());
+                    loadedWorldOverview = Optional.of(loaded);
                     Optional<PlayerPositionSnapshot> player = loaded.playerAbsolute()
                             .map(position -> playerSnapshot(loaded.metadata(), position));
                     worldPanel.setPlayerStatus(
@@ -512,6 +534,26 @@ public final class WorkstationController {
         surfaceToolController.maybeStartDiscovery();
     }
 
+    private void handleRenderLayersChanged(
+            java.util.Set<RenderLayer> layers
+    ) {
+        if (searchPanel.selectedMode() != WorkstationTool.MAP) {
+            mapFrameController.handleRenderLayersChanged(layers);
+            return;
+        }
+
+        Optional<cartographer.application.WorldOverview> overview =
+                loadedWorldOverview;
+        if (overview.isEmpty() || worldPanel.savePathText().isBlank()) {
+            return;
+        }
+
+        Path savePath = Path.of(worldPanel.savePathText())
+                .toAbsolutePath()
+                .normalize();
+        startProgressiveMap(savePath, overview.orElseThrow());
+    }
+
     private void startProgressiveMap(
             Path savePath,
             cartographer.application.WorldOverview overview
@@ -530,11 +572,13 @@ public final class WorkstationController {
                         )
                 );
         progressiveMapViewport.centerOn(initialCenter);
+        refreshProgressiveMarkers(savePath, overview);
 
         ProgressiveMapSession session =
                 progressiveMapSessionFactory.create(
                         savePath,
                         overview,
+                        workstation.selectedRenderLayers(),
                         this::handleProgressiveMapEvent
                 );
         progressiveMapSession = session;
@@ -548,6 +592,59 @@ public final class WorkstationController {
                         );
         session.start(bootstrap);
         session.requestPlayerRings(bootstrap, 2);
+    }
+
+    private void refreshProgressiveMarkers(
+            Path savePath,
+            cartographer.application.WorldOverview overview
+    ) {
+        if (!workstation.selectedRenderLayers().contains(
+                RenderLayer.MARKERS
+        )) {
+            progressiveMapViewport.setMarkers(List.of());
+            return;
+        }
+
+        List<WorldMapMarker> markers = new ArrayList<>();
+        overview.playerAbsolute().ifPresent(
+                player -> markers.add(
+                        new WorldMapMarker(
+                                "Player",
+                                player,
+                                WorldMapMarker.Kind.PLAYER
+                        )
+                )
+        );
+
+        try {
+            homeStore.load(savePath).ifPresent(
+                    display -> markers.add(
+                            new WorldMapMarker(
+                                    "Home",
+                                    overview.metadata().toAbsolute(display),
+                                    WorldMapMarker.Kind.HOME
+                            )
+                    )
+            );
+            markerStore.load(savePath).forEach(
+                    marker -> markers.add(
+                            new WorldMapMarker(
+                                    marker.name(),
+                                    overview.metadata().toAbsolute(
+                                            marker.position()
+                                    ),
+                                    WorldMapMarker.Kind.USER
+                            )
+                    )
+            );
+        } catch (RuntimeException failure) {
+            LOGGER.warn(
+                    "Cannot load progressive map markers for {}",
+                    savePath,
+                    failure
+            );
+        }
+        progressiveMapViewport.setMarkers(markers);
     }
 
     private void stopProgressiveMap() {

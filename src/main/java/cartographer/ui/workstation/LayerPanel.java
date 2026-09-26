@@ -79,8 +79,7 @@ public final class LayerPanel extends VBox {
         modeSupported = mode == WorkstationTool.MAP
                 || mode == WorkstationTool.ORE
                 || mode == WorkstationTool.SURFACE;
-        mapRegionSupported = mode == WorkstationTool.MAP
-                || mode == WorkstationTool.ORE;
+        mapRegionSupported = mode == WorkstationTool.ORE;
         applyDisabledState();
     }
 
