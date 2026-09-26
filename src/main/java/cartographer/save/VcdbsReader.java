@@ -107,6 +107,29 @@ public class VcdbsReader {
         );
     }
 
+    public MapChunkStreamStats forEachMapChunkByCoordinateWithResults(
+            SaveSession session,
+            Collection<MapChunkCoordinate> coordinates,
+            ReadDiagnostics diagnostics,
+            Consumer<MapChunkReadResult> consumer,
+            ProgressReporter progress
+    ) {
+        return mapChunkStreamReader.forEachMapChunkByCoordinateWithResults(
+                session, coordinates, diagnostics, consumer, progress
+        );
+    }
+
+    public MapChunkStreamStats forEachMapChunkByCoordinateWithResults(
+            SaveSession session,
+            Collection<MapChunkCoordinate> coordinates,
+            ReadDiagnostics diagnostics,
+            Consumer<MapChunkReadResult> consumer
+    ) {
+        return mapChunkStreamReader.forEachMapChunkByCoordinateWithResults(
+                session, coordinates, diagnostics, consumer
+        );
+    }
+
     public MapChunkStreamStats forEachMapChunkByCoordinate(
             SaveSession session,
             Collection<MapChunkCoordinate> coordinates,

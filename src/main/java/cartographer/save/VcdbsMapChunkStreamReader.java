@@ -1,6 +1,5 @@
 package cartographer.save;
 
-import cartographer.model.ChunkPosition;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.model.ParseResult;
@@ -13,8 +12,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -108,10 +109,6 @@ final class VcdbsMapChunkStreamReader {
                         );
                         continue;
                     }
-                    // Catalog membership describes source existence, not
-                    // parser success. Publish the coordinate before reading
-                    // or parsing the row payload so failed derived decoding
-                    // can never be misclassified as source absence.
                     observedCoordinateConsumer.accept(observed);
 
                     byte[] payload = resultSet.getBytes("data");
@@ -173,20 +170,12 @@ final class VcdbsMapChunkStreamReader {
             Consumer<MapChunk> consumer,
             ProgressReporter progress
     ) {
-        Objects.requireNonNull(session, "session is required");
-        Objects.requireNonNull(coordinates, "coordinates is required");
-        Objects.requireNonNull(diagnostics, "diagnostics is required");
         Objects.requireNonNull(consumer, "consumer is required");
-        Objects.requireNonNull(progress, "progress is required");
-        Set<Long> packedPositions = packedMapChunkPositions(coordinates);
-        if (packedPositions.isEmpty()) {
-            return new MapChunkStreamStats(0, 0, 0, 0, 0, 0);
-        }
-        return forEachMapChunkByCoordinate(
-                session.connection(),
-                packedPositions,
+        return forEachMapChunkByCoordinateWithResults(
+                session,
+                coordinates,
                 diagnostics,
-                consumer,
+                result -> result.decodedMapChunk().ifPresent(consumer),
                 progress
         );
     }
@@ -206,11 +195,54 @@ final class VcdbsMapChunkStreamReader {
         );
     }
 
-    private MapChunkStreamStats forEachMapChunkByCoordinate(
-            Connection connection,
-            Set<Long> packedPositions,
+    MapChunkStreamStats forEachMapChunkByCoordinateWithResults(
+            SaveSession session,
+            Collection<MapChunkCoordinate> coordinates,
             ReadDiagnostics diagnostics,
-            Consumer<MapChunk> consumer,
+            Consumer<MapChunkReadResult> consumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(session, "session is required");
+        Objects.requireNonNull(coordinates, "coordinates is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(consumer, "consumer is required");
+        Objects.requireNonNull(progress, "progress is required");
+
+        Map<Long, MapChunkCoordinate> requested = packedMapChunkRequests(
+                coordinates
+        );
+        if (requested.isEmpty()) {
+            return new MapChunkStreamStats(0, 0, 0, 0, 0, 0);
+        }
+        return forEachMapChunkByCoordinateWithResults(
+                session.connection(),
+                requested,
+                diagnostics,
+                consumer,
+                progress
+        );
+    }
+
+    MapChunkStreamStats forEachMapChunkByCoordinateWithResults(
+            SaveSession session,
+            Collection<MapChunkCoordinate> coordinates,
+            ReadDiagnostics diagnostics,
+            Consumer<MapChunkReadResult> consumer
+    ) {
+        return forEachMapChunkByCoordinateWithResults(
+                session,
+                coordinates,
+                diagnostics,
+                consumer,
+                ProgressReporter.NONE
+        );
+    }
+
+    private MapChunkStreamStats forEachMapChunkByCoordinateWithResults(
+            Connection connection,
+            Map<Long, MapChunkCoordinate> requestedByPackedPosition,
+            ReadDiagnostics diagnostics,
+            Consumer<MapChunkReadResult> consumer,
             ProgressReporter progress
     ) {
         progress.start("Reading mapchunks by exact position");
@@ -219,17 +251,26 @@ final class VcdbsMapChunkStreamReader {
         int parsedMapChunks = 0;
         int failedMapChunks = 0;
         long payloadBytes = 0L;
+        List<Map.Entry<Long, MapChunkCoordinate>> requested =
+                new ArrayList<>(requestedByPackedPosition.entrySet());
+
         try {
             if (SqliteSaveTableInspector.tableMissing(
                     connection,
                     SaveTable.MAPCHUNK.tableName()
             )) {
                 diagnostics.missingTable(SaveTable.MAPCHUNK.tableName());
+                for (Map.Entry<Long, MapChunkCoordinate> entry : requested) {
+                    consumer.accept(MapChunkReadResult.notCompleted(
+                            entry.getValue(),
+                            "mapchunk table is missing"
+                    ));
+                }
                 progress.done(
                         "Exact mapchunk lookup unavailable: mapchunk table missing"
                 );
                 return new MapChunkStreamStats(
-                        packedPositions.size(),
+                        requested.size(),
                         0,
                         0,
                         0,
@@ -237,10 +278,27 @@ final class VcdbsMapChunkStreamReader {
                         0
                 );
             }
-            List<Long> requested = new ArrayList<>(packedPositions);
+
             for (int start = 0;
                  start < requested.size();
                  start += DIRECT_MAPCHUNK_BATCH_SIZE) {
+                if (Thread.currentThread().isInterrupted()) {
+                    publishNotCompleted(
+                            requested.subList(start, requested.size()),
+                            consumer,
+                            "exact mapchunk lookup interrupted"
+                    );
+                    progress.done("Exact mapchunk lookup interrupted");
+                    return new MapChunkStreamStats(
+                            requested.size(),
+                            batchesExecuted,
+                            rowsFound,
+                            parsedMapChunks,
+                            failedMapChunks,
+                            payloadBytes
+                    );
+                }
+
                 int end = Math.min(
                         start + DIRECT_MAPCHUNK_BATCH_SIZE,
                         requested.size()
@@ -255,16 +313,20 @@ final class VcdbsMapChunkStreamReader {
                 rowsFound += batch.rowsFound();
                 parsedMapChunks += batch.parsedMapChunks();
                 failedMapChunks += batch.failedMapChunks();
-                payloadBytes += batch.payloadBytes();
+                payloadBytes = Math.addExact(
+                        payloadBytes,
+                        batch.payloadBytes()
+                );
                 progress.progress(
                         "Reading mapchunks by exact position",
                         end,
                         requested.size()
                 );
             }
+
             progress.done("Exact mapchunk lookup complete");
             return new MapChunkStreamStats(
-                    packedPositions.size(),
+                    requested.size(),
                     batchesExecuted,
                     rowsFound,
                     parsedMapChunks,
@@ -280,76 +342,88 @@ final class VcdbsMapChunkStreamReader {
         }
     }
 
-    private Set<Long> packedMapChunkPositions(
+    private Map<Long, MapChunkCoordinate> packedMapChunkRequests(
             Collection<MapChunkCoordinate> coordinates
     ) {
-        Set<Long> packedPositions = new LinkedHashSet<>();
+        Map<Long, MapChunkCoordinate> requested = new LinkedHashMap<>();
         for (MapChunkCoordinate coordinate : coordinates) {
             Objects.requireNonNull(
                     coordinate,
                     "coordinates cannot contain null"
             );
-            packedPositions.add(
+            requested.putIfAbsent(
                     ChunkPosEncoder.encode(
                             coordinate.x(),
                             0,
                             coordinate.z(),
                             0
-                    )
+                    ),
+                    coordinate
             );
         }
-        return packedPositions;
+        return requested;
     }
 
     private MapChunkBatchStats readMapChunkBatch(
             Connection connection,
-            List<Long> packedPositions,
+            List<Map.Entry<Long, MapChunkCoordinate>> requested,
             ReadDiagnostics diagnostics,
-            Consumer<MapChunk> consumer
+            Consumer<MapChunkReadResult> consumer
     ) throws SQLException {
         String sql =
                 "SELECT position, data FROM \""
                         + SaveTable.MAPCHUNK.tableName()
                         + "\" WHERE position IN ("
-                        + sqlPlaceholders(packedPositions.size())
+                        + sqlPlaceholders(requested.size())
                         + ")";
 
+        Map<Long, MapChunkCoordinate> requestedByPacked =
+                new LinkedHashMap<>();
+        for (Map.Entry<Long, MapChunkCoordinate> entry : requested) {
+            requestedByPacked.put(entry.getKey(), entry.getValue());
+        }
+
+        Set<Long> found = new LinkedHashSet<>();
         int rowsFound = 0;
         int parsedMapChunks = 0;
         int failedMapChunks = 0;
         long payloadBytes = 0L;
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            for (int index = 0;
-                 index < packedPositions.size();
-                 index++) {
-                statement.setLong(
-                        index + 1,
-                        packedPositions.get(index)
-                );
+            int parameterIndex = 1;
+            for (Long packedPosition : requestedByPacked.keySet()) {
+                statement.setLong(parameterIndex++, packedPosition);
             }
 
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
                     rowsFound++;
+                    long packedPosition = resultSet.getLong("position");
+                    MapChunkCoordinate coordinate =
+                            requestedByPacked.get(packedPosition);
+                    if (coordinate == null) {
+                        throw new IllegalStateException(
+                                "Exact mapchunk query returned an unrequested position"
+                        );
+                    }
+                    found.add(packedPosition);
 
-                    ChunkPosition position = ChunkPosDecoder.decode(
-                            resultSet.getLong("position")
-                    );
-                    MapChunkCoordinate coordinate = new MapChunkCoordinate(
-                            position.x(),
-                            position.z()
-                    );
                     byte[] payload = resultSet.getBytes("data");
-
                     if (payload == null) {
                         diagnostics.recordSkipped(
                                 "mapchunk row has null payload"
                         );
+                        consumer.accept(MapChunkReadResult.unreadable(
+                                coordinate,
+                                "mapchunk row has null payload"
+                        ));
                         continue;
                     }
 
-                    payloadBytes += payload.length;
+                    payloadBytes = Math.addExact(
+                            payloadBytes,
+                            payload.length
+                    );
                     ParseResult<MapChunk> parsed = mapChunkParser.parse(
                             coordinate,
                             payload
@@ -358,17 +432,26 @@ final class VcdbsMapChunkStreamReader {
                     if (parsed.isSuccess()) {
                         MapChunk mapChunk = parsed.value().orElseThrow();
                         diagnostics.recordParsed();
-                        consumer.accept(mapChunk);
+                        consumer.accept(MapChunkReadResult.decoded(mapChunk));
                         parsedMapChunks++;
                     } else {
-                        diagnostics.recordFailed(
-                                parsed.error().orElse(
-                                        "unknown mapchunk parse error"
-                                )
+                        String reason = parsed.error().orElse(
+                                "unknown mapchunk parse error"
                         );
+                        diagnostics.recordFailed(reason);
+                        consumer.accept(MapChunkReadResult.unreadable(
+                                coordinate,
+                                reason
+                        ));
                         failedMapChunks++;
                     }
                 }
+            }
+        }
+
+        for (Map.Entry<Long, MapChunkCoordinate> entry : requested) {
+            if (!found.contains(entry.getKey())) {
+                consumer.accept(MapChunkReadResult.absent(entry.getValue()));
             }
         }
 
@@ -378,6 +461,19 @@ final class VcdbsMapChunkStreamReader {
                 failedMapChunks,
                 payloadBytes
         );
+    }
+
+    private void publishNotCompleted(
+            List<Map.Entry<Long, MapChunkCoordinate>> requested,
+            Consumer<MapChunkReadResult> consumer,
+            String detail
+    ) {
+        for (Map.Entry<Long, MapChunkCoordinate> entry : requested) {
+            consumer.accept(MapChunkReadResult.notCompleted(
+                    entry.getValue(),
+                    detail
+            ));
+        }
     }
 
     private String sqlPlaceholders(int count) {

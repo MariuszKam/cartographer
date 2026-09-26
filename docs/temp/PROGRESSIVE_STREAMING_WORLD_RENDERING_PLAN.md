@@ -977,17 +977,22 @@ Validation note:
 
 ### Phase 2 — Strong exact source results
 
-Extend source-reading capability to return per-requested-mapchunk terminal status.
+Status: IMPLEMENTED
 
-Requirements:
+Added a strong exact-read contract without breaking existing consumers:
 
-- preserve read-only SaveSession ownership;
-- distinguish absent from present-but-unreadable;
-- keep bounded batch reads;
-- diagnostics remain available;
-- tests cover null payload, parser failure, absent row, valid row, cancellation.
+- `MapChunkReadStatus` distinguishes `PRESENT_DECODED`, `ABSENT`, `PRESENT_UNREADABLE`, and `NOT_COMPLETED`;
+- `MapChunkReadResult` carries one terminal result per requested unique mapchunk coordinate and only permits a `MapChunk` for `PRESENT_DECODED`;
+- `VcdbsReader.forEachMapChunkByCoordinateWithResults(...)` exposes the strong contract while the existing `Consumer<MapChunk>` API remains as a temporary migration adapter;
+- exact lookup still uses bounded batches of 256 positions and still borrows the thread-confined `SaveSession` connection rather than taking ownership of it;
+- a requested position not returned by the authoritative exact query is `ABSENT`;
+- a present row with null payload or parser failure is `PRESENT_UNREADABLE`, never `ABSENT`;
+- a missing MAPCHUNK table or an interrupted lookup before a batch starts yields `NOT_COMPLETED` for coordinates that never reached an authoritative terminal conclusion;
+- existing `MapChunkStreamStats` accounting is preserved for legacy consumers while strong per-coordinate semantics are available to the progressive pipeline.
 
-Do not weaken existing reader APIs until all consumers can migrate safely.
+Tests cover decoded, absent, null-payload, parser-failure, missing-table, deduplication through the existing exact-read path, and interruption semantics.
+
+The legacy callback API intentionally remains until Phase 4+ consumers have migrated. Its adapter only forwards `PRESENT_DECODED` results and is listed for final cleanup once no consumer requires it.
 
 ### Phase 3 — Coordinate-only observed-world discovery
 
