@@ -69,12 +69,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RenderActualOreMapLifecycleAndSurfaceTest extends RenderActualOreMapUseCaseTestSupport {
 
     @TempDir
-    Path temporaryDirectory;
-
-    @Override
-    Path temporaryDirectory() {
-        return temporaryDirectory;
-    }
+    Path suiteTemporaryDirectory;
 
     @Test
     void productionRenderUsesOneSourceConnectionAcrossMultipleReaderActions() {
@@ -82,10 +77,10 @@ class RenderActualOreMapLifecycleAndSurfaceTest extends RenderActualOreMapUseCas
         FakeReader reader = surfaceReader(true);
         RenderActualOreMapResult result = useCase(
                 reader, new WorldMetadata(32, 256, 32),
-                temporaryDirectory.resolve("lifecycle-home.properties"),
-                temporaryDirectory.resolve("lifecycle-markers.csv"), connections
+                suiteTemporaryDirectory.resolve("lifecycle-home.properties"),
+                suiteTemporaryDirectory.resolve("lifecycle-markers.csv"), connections
         ).execute(new RenderActualOreMapRequest(
-                temporaryDirectory.resolve("lifecycle-save.vcdbs"), 23, 1,
+                suiteTemporaryDirectory.resolve("lifecycle-save.vcdbs"), 23, 1,
                 RenderStyle.TOPOGRAPHIC,
                 Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE, RenderLayer.ENVIRONMENT),
                 Optional.empty(), ActualBlockYFilter.unbounded(),
@@ -103,18 +98,18 @@ class RenderActualOreMapLifecycleAndSurfaceTest extends RenderActualOreMapUseCas
         TestConnectionFactory firstConnections = new TestConnectionFactory();
         TestConnectionFactory secondConnections = new TestConnectionFactory();
         RenderActualOreMapRequest request = new RenderActualOreMapRequest(
-                temporaryDirectory.resolve("isolated-save.vcdbs"), 23, 1,
+                suiteTemporaryDirectory.resolve("isolated-save.vcdbs"), 23, 1,
                 RenderStyle.TOPOGRAPHIC, Set.of(RenderLayer.TERRAIN), Optional.empty(),
                 ActualBlockYFilter.unbounded(), Optional.of(new WorldPosition(16, 64, 16))
         );
 
         useCase(surfaceReader(true), new WorldMetadata(32, 256, 32),
-                temporaryDirectory.resolve("isolated-one-home.properties"),
-                temporaryDirectory.resolve("isolated-one-markers.csv"), firstConnections)
+                suiteTemporaryDirectory.resolve("isolated-one-home.properties"),
+                suiteTemporaryDirectory.resolve("isolated-one-markers.csv"), firstConnections)
                 .execute(request);
         useCase(surfaceReader(true), new WorldMetadata(32, 256, 32),
-                temporaryDirectory.resolve("isolated-two-home.properties"),
-                temporaryDirectory.resolve("isolated-two-markers.csv"), secondConnections)
+                suiteTemporaryDirectory.resolve("isolated-two-home.properties"),
+                suiteTemporaryDirectory.resolve("isolated-two-markers.csv"), secondConnections)
                 .execute(request);
 
         assertEquals(1, firstConnections.opened());
