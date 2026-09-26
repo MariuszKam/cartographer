@@ -162,9 +162,6 @@ abstract class VcdbsReaderDirectChunkLookupTestSupport {
         return database;
     }
 
-    Path databaseWithRowCount(int count) throws Exception {
-        return databaseWithRows(positions(count).toArray(ChunkPosition[]::new));
-    }
 
     List<ChunkPosition> positions(int count) {
         List<ChunkPosition> positions = new ArrayList<>();

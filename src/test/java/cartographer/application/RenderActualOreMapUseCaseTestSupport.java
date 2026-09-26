@@ -282,31 +282,6 @@ abstract class RenderActualOreMapUseCaseTestSupport {
         );
     }
 
-    static void assertSurfaceParity(
-            cartographer.scanner.SurfaceMap expected,
-            cartographer.scanner.SurfaceMap actual
-    ) {
-        assertEquals(expected.layout().tileCount(), actual.layout().tileCount());
-        for (int tileIndex = 0; tileIndex < expected.layout().tileCount(); tileIndex++) {
-            cartographer.scanner.SurfaceTile expectedTile = expected.tileAt(tileIndex);
-            cartographer.scanner.SurfaceTile actualTile = actual.tileAt(tileIndex);
-            assertEquals(expectedTile.width(), actualTile.width());
-            assertEquals(expectedTile.height(), actualTile.height());
-            for (int localZ = 0; localZ < expectedTile.height(); localZ++) {
-                for (int localX = 0; localX < expectedTile.width(); localX++) {
-                    assertEquals(expectedTile.isActive(localX, localZ), actualTile.isActive(localX, localZ));
-                    assertEquals(expectedTile.isConsidered(localX, localZ), actualTile.isConsidered(localX, localZ));
-                    assertEquals(expectedTile.isResolved(localX, localZ), actualTile.isResolved(localX, localZ));
-                    assertEquals(expectedTile.isLiquidUnavailable(localX, localZ), actualTile.isLiquidUnavailable(localX, localZ));
-                    assertEquals(expectedTile.surfaceYAt(localX, localZ), actualTile.surfaceYAt(localX, localZ));
-                    assertEquals(expectedTile.blockIdAt(localX, localZ), actualTile.blockIdAt(localX, localZ));
-                    assertEquals(expectedTile.liquidBlockIdAt(localX, localZ), actualTile.liquidBlockIdAt(localX, localZ));
-                    assertEquals(expectedTile.surfaceClassAt(localX, localZ), actualTile.surfaceClassAt(localX, localZ));
-                }
-            }
-        }
-    }
-
     static void corruptSurfaceRow(
             RenderDataCacheStore cacheStore,
             RenderDataCacheRevision revision

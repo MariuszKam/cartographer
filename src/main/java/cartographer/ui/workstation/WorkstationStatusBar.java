@@ -69,9 +69,6 @@ public final class WorkstationStatusBar extends HBox {
         operation.setText(text == null || text.isBlank() ? "Ready" : text);
     }
 
-    public void setBusy(boolean busy) {
-        setOperationActive(busy, false);
-    }
 
     public void setOperationActive(boolean active, boolean cancellable) {
         if (active) {

@@ -21,11 +21,4 @@ public final class SurfaceRenderDataTestAccess {
         return data.surfaceWorldXAt(imageX, imageY);
     }
 
-    public static int surfaceWorldZAt(
-            SurfaceRenderData data,
-            int imageX,
-            int imageY
-    ) {
-        return data.surfaceWorldZAt(imageX, imageY);
-    }
 }

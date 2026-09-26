@@ -67,17 +67,6 @@ public class VcdbsReader {
         );
     }
 
-    ChunkStreamStats forEachChunkByPositionAdaptive(
-            SaveSession session,
-            Collection<ChunkPosition> positions,
-            ReadDiagnostics diagnostics,
-            Consumer<ParsedChunk> consumer
-    ) {
-        return chunkStreamReader.forEachChunkByPositionAdaptive(
-                session, positions, diagnostics, consumer
-        );
-    }
-
     public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
             SaveSession session,
             Collection<ChunkPosition> positions,
@@ -91,18 +80,6 @@ public class VcdbsReader {
         );
     }
 
-    public SelectiveChunkStreamStats forEachChunkByPositionMatchingBlockIdsAdaptive(
-            SaveSession session,
-            Collection<ChunkPosition> positions,
-            int[] wantedBlockIds,
-            ReadDiagnostics diagnostics,
-            Consumer<ParsedChunk> consumer
-    ) {
-        return selectiveChunkStreamReader.forEachChunkByPositionMatchingBlockIdsAdaptive(
-                session, positions, wantedBlockIds, diagnostics, consumer
-        );
-    }
-
     public MapChunkStreamStats forEachObservedMapChunk(
             SaveSession session,
             ReadDiagnostics diagnostics,
@@ -112,38 +89,6 @@ public class VcdbsReader {
     ) {
         return mapChunkStreamReader.forEachObservedMapChunk(
                 session, diagnostics, observedCoordinateConsumer, consumer, progress
-        );
-    }
-
-    public MapChunkStreamStats forEachObservedMapChunk(
-            SaveSession session,
-            ReadDiagnostics diagnostics,
-            Consumer<MapChunk> consumer,
-            ProgressReporter progress
-    ) {
-        return mapChunkStreamReader.forEachObservedMapChunk(
-                session, diagnostics, consumer, progress
-        );
-    }
-
-    public MapChunkStreamStats forEachObservedMapChunk(
-            SaveSession session,
-            ReadDiagnostics diagnostics,
-            Consumer<MapChunkCoordinate> observedCoordinateConsumer,
-            Consumer<MapChunk> consumer
-    ) {
-        return mapChunkStreamReader.forEachObservedMapChunk(
-                session, diagnostics, observedCoordinateConsumer, consumer
-        );
-    }
-
-    public MapChunkStreamStats forEachObservedMapChunk(
-            SaveSession session,
-            ReadDiagnostics diagnostics,
-            Consumer<MapChunk> consumer
-    ) {
-        return mapChunkStreamReader.forEachObservedMapChunk(
-                session, diagnostics, consumer
         );
     }
 
@@ -447,13 +392,6 @@ public class VcdbsReader {
                     exception
             );
         }
-    }
-
-    public List<ServerMapRegion> readMapRegions(
-            SaveSession session,
-            ReadDiagnostics diagnostics
-    ) {
-        return readMapRegions(session, diagnostics, ProgressReporter.NONE);
     }
 
     private List<ServerMapRegion> readMapRegions(

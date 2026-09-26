@@ -571,7 +571,6 @@ final class VcdbsSelectiveChunkStreamReader {
                             diagnostics,
                             pipeline,
                             workspaces,
-                            consumer,
                             rowsFound,
                             counters
                     );
@@ -657,7 +656,6 @@ final class VcdbsSelectiveChunkStreamReader {
             ReadDiagnostics diagnostics,
             BoundedStreamingDecodePipeline<CoverageDecodeOutcome> pipeline,
             ChunkDecodeWorkspacePool workspaces,
-            Consumer<SelectiveChunkVisit> consumer,
             int[] rowsFound,
             SelectiveDecodeCounters counters
     ) throws SQLException {
