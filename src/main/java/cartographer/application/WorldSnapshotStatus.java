@@ -31,8 +31,8 @@ public record WorldSnapshotStatus(
                     "revisionHash must not be blank"
             );
         }
-        state = Objects.requireNonNull(state, "state is required");
-        summary = Objects.requireNonNull(summary, "summary is required");
+        Objects.requireNonNull(state, "state is required");
+        Objects.requireNonNull(summary, "summary is required");
         if (state == State.READY
                 && summary.filter(
                 WorldSnapshotPreparationSummary::complete

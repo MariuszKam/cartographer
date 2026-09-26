@@ -43,7 +43,7 @@ public final class SoilFertilityClassifier {
 
         if (normalizedPath.startsWith("bonysoil-")) {
             String suffix = normalizedPath.substring("bonysoil-".length());
-            if (isNumberBetween(suffix, 1, 7)) {
+            if (isNumberAtMostSeven(suffix, 1)) {
                 return classification(
                         originalCode,
                         normalizedPath,
@@ -56,7 +56,7 @@ public final class SoilFertilityClassifier {
 
         if (normalizedPath.startsWith("forestfloor-")) {
             String suffix = normalizedPath.substring("forestfloor-".length());
-            if (isNumberBetween(suffix, 0, 7)) {
+            if (isNumberAtMostSeven(suffix, 0)) {
                 return classification(
                         originalCode,
                         normalizedPath,
@@ -126,12 +126,12 @@ public final class SoilFertilityClassifier {
         return normalizedCode.substring(separator + 1);
     }
 
-    private boolean isNumberBetween(String value, int minimum, int maximum) {
+    private boolean isNumberAtMostSeven(String value, int minimum) {
         if (value.length() != 1 || value.charAt(0) < '0' || value.charAt(0) > '9') {
             return false;
         }
         int number = value.charAt(0) - '0';
-        return number >= minimum && number <= maximum;
+        return number >= minimum && number <= 7;
     }
 
     private boolean isSurfaceVariant(String value) {

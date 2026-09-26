@@ -20,7 +20,6 @@ public final class ToolNavigationPane extends VBox {
     private final ToggleButton surface = tool("Surface", "Surface objects and materials");
     private final ToggleButton geology = tool("Geology", "ROCK map");
     private final ToggleButton prospecting = tool("Prospect", "Fused geology + ore prospecting");
-    private final ToggleGroup group = new ToggleGroup();
     private final Button contextToggle = new Button("Controls");
     private final Button inspectorToggle = new Button("Inspector");
     private Runnable contextAction = () -> { };
@@ -40,6 +39,7 @@ public final class ToolNavigationPane extends VBox {
         getChildren().add(title);
         getChildren().addAll(map, coverage, ores, surface, geology, prospecting);
 
+        ToggleGroup group = new ToggleGroup();
         map.setToggleGroup(group);
         coverage.setToggleGroup(group);
         ores.setToggleGroup(group);

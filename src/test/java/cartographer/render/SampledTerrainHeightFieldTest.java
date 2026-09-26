@@ -30,10 +30,9 @@ class SampledTerrainHeightFieldTest {
         SampledTerrainHeightField.Builder builder =
                 SampledTerrainHeightField.builder(
                         sampling,
-                        cartographer.progress.ProgressReporter.NONE,
                         1
                 );
-        builder.accept(chunk(0, 0, 10));
+        builder.accept(chunk());
         SampledTerrainHeightField field = builder.finish();
 
         int worldX = sampling.worldXForImageColumn(32);
@@ -84,7 +83,7 @@ class SampledTerrainHeightFieldTest {
                         cartographer.progress.ProgressReporter.NONE,
                         1
                 );
-        builder.accept(chunk(0, 0, 10));
+        builder.accept(chunk());
         SampledTerrainHeightField field = builder.finish();
 
         assertTrue(field.hasHeightAt(11, 13));
@@ -110,11 +109,10 @@ class SampledTerrainHeightFieldTest {
         SampledTerrainHeightField.Builder builder =
                 SampledTerrainHeightField.builder(
                         sampling,
-                        cartographer.progress.ProgressReporter.NONE,
                         2
                 );
-        builder.accept(flatChunk(0, 0, 1));
-        builder.accept(flatChunk(0, 0, 100));
+        builder.accept(flatChunk(1));
+        builder.accept(flatChunk(100));
         SampledTerrainHeightField field = builder.finish();
 
         assertEquals(100, field.minHeight());
@@ -137,10 +135,9 @@ class SampledTerrainHeightFieldTest {
         SampledTerrainHeightField.Builder builder =
                 SampledTerrainHeightField.builder(
                         sampling,
-                        cartographer.progress.ProgressReporter.NONE,
                         1
                 );
-        builder.accept(flatChunk(0, 0, 10));
+        builder.accept(flatChunk(10));
         SampledTerrainHeightField field = builder.finish();
 
         assertFalse(field.hasHeightAt(-1, 0));
@@ -150,26 +147,26 @@ class SampledTerrainHeightFieldTest {
         );
     }
 
-    private static MapChunk chunk(int x, int z, int base) {
+    private static MapChunk chunk() {
         int[] heights = new int[MapChunk.HEIGHT_VALUE_COUNT];
         for (int localZ = 0; localZ < MapChunk.SIZE; localZ++) {
             for (int localX = 0; localX < MapChunk.SIZE; localX++) {
                 heights[localZ * MapChunk.SIZE + localX] =
-                        base + localX + localZ;
+                        10 + localX + localZ;
             }
         }
         return new MapChunk(
-                new MapChunkCoordinate(x, z),
+                new MapChunkCoordinate(0, 0),
                 heights,
                 new int[0]
         );
     }
 
-    private static MapChunk flatChunk(int x, int z, int height) {
+    private static MapChunk flatChunk(int height) {
         int[] heights = new int[MapChunk.HEIGHT_VALUE_COUNT];
         Arrays.fill(heights, height);
         return new MapChunk(
-                new MapChunkCoordinate(x, z),
+                new MapChunkCoordinate(0, 0),
                 heights,
                 new int[0]
         );

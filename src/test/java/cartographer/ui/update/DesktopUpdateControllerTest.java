@@ -673,16 +673,16 @@ class DesktopUpdateControllerTest {
                 file,
                 version,
                 file,
-                sha256(INSTALLER_BYTES),
+                installerSha256(),
                 INSTALLER_BYTES.length,
                 version
         );
     }
 
-    private static String sha256(byte[] bytes) {
+    private static String installerSha256() {
         try {
             return HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(bytes)
+                    MessageDigest.getInstance("SHA-256").digest(INSTALLER_BYTES)
             );
         } catch (Exception exception) {
             throw new IllegalStateException(exception);

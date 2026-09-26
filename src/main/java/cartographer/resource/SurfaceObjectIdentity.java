@@ -30,8 +30,8 @@ public record SurfaceObjectIdentity(
         if (displayName == null || displayName.isBlank()) {
             throw new IllegalArgumentException("Surface object display name is required");
         }
-        hostRock = Objects.requireNonNull(hostRock, "Host rock is required");
-        variant = Objects.requireNonNull(variant, "Variant is required");
+        Objects.requireNonNull(hostRock, "Host rock is required");
+        Objects.requireNonNull(variant, "Variant is required");
     }
 
     public String qualifiedResourceKey() {

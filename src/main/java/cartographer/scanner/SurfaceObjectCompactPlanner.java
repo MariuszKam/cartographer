@@ -82,7 +82,7 @@ public final class SurfaceObjectCompactPlanner {
                 }
                 compactTiles.add(new SurfaceObjectCompactPlan.Tile(tile.coordinate, metadata.mapSizeY(), terrain, rain, flags));
             }
-            List<ChunkPosition> sortedPositions = positions.sortedPositions(CHUNK_ORDER);
+            List<ChunkPosition> sortedPositions = positions.sortedPositions();
             Map<MapChunkCoordinate, Integer> tileIndexes = new TreeMap<>(TILE_ORDER);
             for (int index = 0; index < compactTiles.size(); index++) tileIndexes.put(compactTiles.get(index).coordinate(), index);
             return new SurfaceObjectCompactPlan(compactTiles, sortedPositions, tileIndexes, plannedTargets);
@@ -118,22 +118,15 @@ public final class SurfaceObjectCompactPlanner {
         private void ensureMutable() { if (finished) throw new IllegalStateException("compact object planner is finished"); }
     }
 
-    private static final class TileBuilder {
+    private record TileBuilder(
+            MapChunkCoordinate coordinate,
+            boolean hasTerrain,
+            boolean hasRain,
+            int[] terrain,
+            int[] rain
+    ) {
         private static final byte TERRAIN_PRESENT = 1;
         private static final byte RAIN_PRESENT = 1 << 1;
-        private final MapChunkCoordinate coordinate;
-        private final boolean hasTerrain;
-        private final boolean hasRain;
-        private final int[] terrain;
-        private final int[] rain;
-
-        private TileBuilder(MapChunkCoordinate coordinate, boolean hasTerrain, boolean hasRain, int[] terrain, int[] rain) {
-            this.coordinate = coordinate;
-            this.hasTerrain = hasTerrain;
-            this.hasRain = hasRain;
-            this.terrain = terrain;
-            this.rain = rain;
-        }
 
         static TileBuilder copyOf(MapChunk mapChunk) {
             return new TileBuilder(mapChunk.coordinate(), mapChunk.hasWorldGenTerrainHeightMap(), mapChunk.hasRainHeightMap(),
@@ -165,10 +158,17 @@ public final class SurfaceObjectCompactPlanner {
             }
         }
 
-        List<ChunkPosition> sortedPositions(Comparator<ChunkPosition> order) {
+        List<ChunkPosition> sortedPositions() {
             List<ChunkPosition> result = new ArrayList<>(size);
-            for (int index = 0; index < size; index++) result.add(new ChunkPosition(xs[index], ys[index], zs[index], 0));
-            result.sort(order);
+            for (int index = 0; index < size; index++) {
+                result.add(new ChunkPosition(
+                        xs[index],
+                        ys[index],
+                        zs[index],
+                        0
+                ));
+            }
+            result.sort(CHUNK_ORDER);
             return result;
         }
 

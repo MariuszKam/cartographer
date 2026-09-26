@@ -65,8 +65,7 @@ abstract class VcdbsReaderDirectChunkLookupTestSupport {
                     session,
                     positions,
                     diagnostics,
-                    consumer,
-                    ProgressReporter.NONE
+                    consumer
             );
         }
     }
@@ -97,8 +96,7 @@ abstract class VcdbsReaderDirectChunkLookupTestSupport {
             Path database,
             List<ChunkPosition> positions,
             ReadDiagnostics diagnostics,
-            java.util.function.Consumer<ParsedChunk> consumer,
-            ProgressReporter progress
+            java.util.function.Consumer<ParsedChunk> consumer
     ) {
         try (SaveSession session = openSession(database)) {
             return reader.forEachChunkByPositionTableStream(
@@ -106,7 +104,7 @@ abstract class VcdbsReaderDirectChunkLookupTestSupport {
                     positions,
                     diagnostics,
                     consumer,
-                    progress
+                    ProgressReporter.NONE
             );
         }
     }
@@ -199,18 +197,18 @@ abstract class VcdbsReaderDirectChunkLookupTestSupport {
         }
     }
 
-    static void awaitLatch(CountDownLatch latch, String description)
+    static void awaitBothWorkers(CountDownLatch latch)
             throws InterruptedException {
         assertTrue(
                 latch.await(TEST_DEADLOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS),
-                description + " was not signalled"
+                "both workers started was not signalled"
         );
     }
 
-    static void joinThread(Thread thread, String description)
+    static void joinCaller(Thread thread)
             throws InterruptedException {
         thread.join(TimeUnit.SECONDS.toMillis(TEST_DEADLOCK_TIMEOUT_SECONDS));
-        assertTrue(!thread.isAlive(), description + " did not terminate");
+        assertTrue(!thread.isAlive(), "caller did not terminate");
     }
 
     static final class StubChunkParser extends ChunkParser {

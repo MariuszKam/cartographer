@@ -17,8 +17,8 @@ class MultiActualBlockMapScannerTest {
     @Test
     void scansSeveralResourcesFromTheSameChunkPass() {
         ParsedChunk chunk = chunk(
-                new BlockAt(0, 5, 0, 1),
-                new BlockAt(1, 5, 0, 2)
+                new BlockAt(0, 5, 1),
+                new BlockAt(1, 5, 2)
         );
 
         List<ActualBlockMap> maps = scan(
@@ -34,8 +34,8 @@ class MultiActualBlockMapScannerTest {
     @Test
     void keepsResourcesInTheSameColumnIndependent() {
         ParsedChunk chunk = chunk(
-                new BlockAt(0, 5, 0, 1),
-                new BlockAt(0, 20, 0, 2)
+                new BlockAt(0, 5, 1),
+                new BlockAt(0, 20, 2)
         );
 
         List<ActualBlockMap> maps = scan(
@@ -52,10 +52,10 @@ class MultiActualBlockMapScannerTest {
     @Test
     void appliesYFilterToEveryResource() {
         ParsedChunk chunk = chunk(
-                new BlockAt(0, 5, 0, 1),
-                new BlockAt(1, 20, 0, 1),
-                new BlockAt(2, 5, 0, 2),
-                new BlockAt(3, 20, 0, 2)
+                new BlockAt(0, 5, 1),
+                new BlockAt(1, 20, 1),
+                new BlockAt(2, 5, 2),
+                new BlockAt(3, 20, 2)
         );
 
         List<ActualBlockMap> maps = scan(
@@ -72,7 +72,7 @@ class MultiActualBlockMapScannerTest {
     @Test
     void includesZeroHitResource() {
         List<ActualBlockMap> maps = scan(
-                List.of(chunk(new BlockAt(0, 5, 0, 1))),
+                List.of(chunk(new BlockAt(0, 5, 1))),
                 ActualBlockYFilter.unbounded()
         );
 
@@ -100,7 +100,7 @@ class MultiActualBlockMapScannerTest {
     @Test
     void ignoresNonOreRegistryBlocksInMultiMode() {
         List<ActualBlockMap> maps = new MultiActualBlockMapScanner().scan(
-                List.of(chunk(new BlockAt(0, 5, 0, 3))),
+                List.of(chunk(new BlockAt(0, 5, 3))),
                 Map.of(
                         3, new BlockInfo(3, "forest-nativecopper")
                 ),
@@ -118,8 +118,8 @@ class MultiActualBlockMapScannerTest {
     void supportsNamespacedOreRegistryCodes() {
         List<ActualBlockMap> maps = new MultiActualBlockMapScanner().scan(
                 List.of(chunk(
-                        new BlockAt(0, 5, 0, 1),
-                        new BlockAt(1, 5, 0, 2)
+                        new BlockAt(0, 5, 1),
+                        new BlockAt(1, 5, 2)
                 )),
                 Map.of(
                         1, new BlockInfo(1, "game:ore-nativecopper-granite"),
@@ -139,7 +139,7 @@ class MultiActualBlockMapScannerTest {
     @Test
     void ignoresOreSubstringOutsideOrePath() {
         List<ActualBlockMap> maps = new MultiActualBlockMapScanner().scan(
-                List.of(chunk(new BlockAt(0, 5, 0, 3))),
+                List.of(chunk(new BlockAt(0, 5, 3))),
                 Map.of(
                         3, new BlockInfo(3, "game:decorative-ore-nativecopper")
                 ),
@@ -156,8 +156,8 @@ class MultiActualBlockMapScannerTest {
     @Test
     void streamingSessionMatchesListScan() {
         ParsedChunk chunk = chunk(
-                new BlockAt(0, 5, 0, 1),
-                new BlockAt(1, 5, 0, 2)
+                new BlockAt(0, 5, 1),
+                new BlockAt(1, 5, 2)
         );
         MultiActualBlockMapScanner scanner = new MultiActualBlockMapScanner();
         List<ActualBlockMap> listResult = scanner.scan(
@@ -188,8 +188,8 @@ class MultiActualBlockMapScannerTest {
     @Test
     void matchModesAreExplicit() {
         ParsedChunk chunk = chunk(
-                new BlockAt(0, 5, 0, 1),
-                new BlockAt(1, 5, 0, 2)
+                new BlockAt(0, 5, 1),
+                new BlockAt(1, 5, 2)
         );
         Map<Integer, BlockInfo> registry = Map.of(
                 1, new BlockInfo(1, "ore-cassiterite-granite"),
@@ -222,7 +222,7 @@ class MultiActualBlockMapScannerTest {
 
     @Test
     void singleOreSpecMatchesSameResultAsWithAnotherOreSpec() {
-        ParsedChunk chunk = chunk(new BlockAt(0, 5, 0, 1));
+        ParsedChunk chunk = chunk(new BlockAt(0, 5, 1));
         Map<Integer, BlockInfo> registry = Map.of(
                 1, new BlockInfo(1, "ore-cassiterite-granite"),
                 2, new BlockInfo(2, "decorative-ore-cassiterite")
@@ -279,7 +279,7 @@ class MultiActualBlockMapScannerTest {
         int[] blocks = new int[size * size * size];
         Arrays.fill(blocks, 0);
         for (BlockAt block : blocksAt) {
-            blocks[(block.y() * size + block.z()) * size + block.x()] = block.id();
+            blocks[(block.y() * size + 0) * size + block.x()] = block.id();
         }
         return cartographer.model.ParsedChunkFixtures.create(
                 new ChunkCoordinate(0, 0, 0),
@@ -291,6 +291,6 @@ class MultiActualBlockMapScannerTest {
         );
     }
 
-    private record BlockAt(int x, int y, int z, int id) {
+    private record BlockAt(int x, int y, int id) {
     }
 }

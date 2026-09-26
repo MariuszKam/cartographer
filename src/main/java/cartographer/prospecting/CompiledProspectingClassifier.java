@@ -47,8 +47,8 @@ final class CompiledProspectingClassifier {
             offsets[i] = membershipCount;
             BlockInfo block = registry.get(id);
             if (block != null && block.code() != null) {
-                for (int resource = 0; resource < resources.size(); resource++) {
-                    if (OreCodeMatcher.matchesOreCode(block.code(), resources.get(resource))) membershipCount++;
+                for (String resource : resources) {
+                    if (OreCodeMatcher.matchesOreCode(block.code(), resource)) membershipCount++;
                 }
             }
         }

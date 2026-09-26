@@ -38,36 +38,28 @@ class SurfaceObjectCompactDiscoveryTest {
 
     @Test
     void terrainOnlyUsesExactClippedTerrainRange() {
-        SurfaceObjectCompactPlan plan = compactPlan(
-                new MapChunk(new MapChunkCoordinate(0, 0), new int[0], filled(10)),
-                WORLD, 16, 16, 1);
+        SurfaceObjectCompactPlan plan = compactPlan(new MapChunk(new MapChunkCoordinate(0, 0), new int[0], filled(10)), WORLD, 16, 16);
 
         assertEquals(List.of(8, 9, 10, 11, 12, 13), candidatesAt(plan, 16, 16));
     }
 
     @Test
     void rainOnlyUsesExactClippedRainRange() {
-        SurfaceObjectCompactPlan plan = compactPlan(
-                new MapChunk(new MapChunkCoordinate(0, 0), filled(20), new int[0]),
-                WORLD, 16, 16, 1);
+        SurfaceObjectCompactPlan plan = compactPlan(new MapChunk(new MapChunkCoordinate(0, 0), filled(20), new int[0]), WORLD, 16, 16);
 
         assertEquals(List.of(20, 21, 22, 23), candidatesAt(plan, 16, 16));
     }
 
     @Test
     void clipsCandidateRangeBelowZero() {
-        SurfaceObjectCompactPlan plan = compactPlan(
-                new MapChunk(new MapChunkCoordinate(0, 0), new int[0], filled(0)),
-                WORLD, 16, 16, 1);
+        SurfaceObjectCompactPlan plan = compactPlan(new MapChunk(new MapChunkCoordinate(0, 0), new int[0], filled(0)), WORLD, 16, 16);
 
         assertEquals(List.of(0, 1, 2, 3), candidatesAt(plan, 16, 16));
     }
 
     @Test
     void clipsCandidateRangeAtMapHeight() {
-        SurfaceObjectCompactPlan plan = compactPlan(
-                new MapChunk(new MapChunkCoordinate(0, 0), new int[0], filled(63)),
-                WORLD, 16, 16, 1);
+        SurfaceObjectCompactPlan plan = compactPlan(new MapChunk(new MapChunkCoordinate(0, 0), new int[0], filled(63)), WORLD, 16, 16);
 
         assertEquals(List.of(61, 62, 63), candidatesAt(plan, 16, 16));
         assertTrue(candidatesAt(plan, 16, 16).stream().allMatch(y -> y < WORLD.mapSizeY()));
@@ -75,9 +67,7 @@ class SurfaceObjectCompactDiscoveryTest {
 
     @Test
     void compactPlannerOwnCircleIncludesBoundaryAndRejectsOutsideCell() {
-        SurfaceObjectCompactPlan plan = compactPlan(
-                new MapChunk(new MapChunkCoordinate(0, 0), new int[0], filled(10)),
-                WORLD, 16, 16, 1);
+        SurfaceObjectCompactPlan plan = compactPlan(new MapChunk(new MapChunkCoordinate(0, 0), new int[0], filled(10)), WORLD, 16, 16);
 
         assertTrue(!candidatesAt(plan, 16, 17).isEmpty());
         assertTrue(candidatesAt(plan, 16, 18).isEmpty());
@@ -86,9 +76,7 @@ class SurfaceObjectCompactDiscoveryTest {
     @Test
     void compactPlannerClipsPartialWorldEdgeTile() {
         WorldMetadata edgeWorld = new WorldMetadata(33, 64, 33);
-        SurfaceObjectCompactPlan plan = compactPlan(
-                new MapChunk(new MapChunkCoordinate(1, 1), new int[0], filled(10)),
-                edgeWorld, 32, 32, 1);
+        SurfaceObjectCompactPlan plan = compactPlan(new MapChunk(new MapChunkCoordinate(1, 1), new int[0], filled(10)), edgeWorld, 32, 32);
 
         assertTrue(!candidatesAt(plan, 32, 32).isEmpty());
         assertTrue(candidatesAt(plan, 33, 32).isEmpty());
@@ -129,7 +117,7 @@ class SurfaceObjectCompactDiscoveryTest {
         SurfaceObjectCompactPlan plan = planned(10, 20);
         SurfaceObjectStreamingScanner.Session session = new SurfaceObjectStreamingScanner()
                 .begin(plan, new int[] {7});
-        ParsedChunk chunk = chunk(0, 10, 16, 16, 7);
+        ParsedChunk chunk = chunk(0, 10, 7);
         session.accept(SelectiveChunkVisit.decoded(position(chunk), chunk));
 
         SurfaceObjectCompactScanResult result = session.finish();
@@ -141,12 +129,10 @@ class SurfaceObjectCompactDiscoveryTest {
 
     @Test
     void decodedAvailableChunkWithoutWantedHitIsNotObserved() {
-        SurfaceObjectCompactPlan plan = compactPlan(
-                new MapChunk(new MapChunkCoordinate(0, 0), new int[0], filled(10)),
-                WORLD, 16, 16, 1);
+        SurfaceObjectCompactPlan plan = compactPlan(new MapChunk(new MapChunkCoordinate(0, 0), new int[0], filled(10)), WORLD, 16, 16);
         SurfaceObjectStreamingScanner.Session session = new SurfaceObjectStreamingScanner()
                 .begin(plan, new int[] {7});
-        ParsedChunk chunk = chunk(0, 10, 16, 16, 0);
+        ParsedChunk chunk = chunk(0, 10, 0);
         session.accept(SelectiveChunkVisit.decoded(position(chunk), chunk));
 
         SurfaceObjectCompactScanResult result = session.finish();
@@ -158,9 +144,7 @@ class SurfaceObjectCompactDiscoveryTest {
 
     @Test
     void oneTargetPreservesMultipleWantedObservationsAndYValues() {
-        SurfaceObjectCompactPlan plan = compactPlan(
-                new MapChunk(new MapChunkCoordinate(0, 0), new int[0], filled(10)),
-                WORLD, 16, 16, 1);
+        SurfaceObjectCompactPlan plan = compactPlan(new MapChunk(new MapChunkCoordinate(0, 0), new int[0], filled(10)), WORLD, 16, 16);
         SurfaceObjectStreamingScanner.Session session = new SurfaceObjectStreamingScanner()
                 .begin(plan, new int[] {7});
         int[] blocks = new int[ChunkCoordinate.SIZE_BLOCKS * ChunkCoordinate.SIZE_BLOCKS
@@ -187,12 +171,10 @@ class SurfaceObjectCompactDiscoveryTest {
 
     @Test
     void nonVanillaWantedIdIsPreservedAsPrimitiveObservation() {
-        SurfaceObjectCompactPlan plan = compactPlan(
-                new MapChunk(new MapChunkCoordinate(0, 0), new int[0], filled(10)),
-                WORLD, 16, 16, 1);
+        SurfaceObjectCompactPlan plan = compactPlan(new MapChunk(new MapChunkCoordinate(0, 0), new int[0], filled(10)), WORLD, 16, 16);
         SurfaceObjectStreamingScanner.Session session = new SurfaceObjectStreamingScanner()
                 .begin(plan, new int[] {4242});
-        ParsedChunk chunk = chunk(0, 10, 16, 16, 4242);
+        ParsedChunk chunk = chunk(0, 10, 4242);
         session.accept(SelectiveChunkVisit.decoded(position(chunk), chunk));
 
         SurfaceObjectCompactScanResult result = session.finish();
@@ -204,9 +186,7 @@ class SurfaceObjectCompactDiscoveryTest {
 
     @Test
     void visitArrivalOrderDoesNotChangeResult() {
-        SurfaceObjectCompactPlan plan = compactPlan(
-                new MapChunk(new MapChunkCoordinate(0, 0), new int[0], filled(31)),
-                WORLD, 16, 16, 1);
+        SurfaceObjectCompactPlan plan = compactPlan(new MapChunk(new MapChunkCoordinate(0, 0), new int[0], filled(31)), WORLD, 16, 16);
         List<ChunkPosition> positions = plan.chunkPositions();
         assertTrue(positions.size() >= 2);
 
@@ -242,7 +222,7 @@ class SurfaceObjectCompactDiscoveryTest {
         ChunkPosition lower = new ChunkPosition(0, 0, 0, 0);
         ChunkPosition upper = new ChunkPosition(0, 1, 0, 0);
         session.accept(SelectiveChunkVisit.missing(lower));
-        ParsedChunk chunk = chunk(1, 32, 16, 16, 7);
+        ParsedChunk chunk = chunk(1, 32, 7);
         session.accept(SelectiveChunkVisit.decoded(upper, chunk));
 
         SurfaceObjectCompactScanResult result = session.finish();
@@ -365,9 +345,9 @@ class SurfaceObjectCompactDiscoveryTest {
     }
 
     private SurfaceObjectCompactPlan compactPlan(MapChunk mapChunk, WorldMetadata world,
-                                                  int centerX, int centerZ, int radius) {
+                                                  int centerX, int centerZ) {
         SurfaceObjectCompactPlanner.StreamingSession session =
-                new SurfaceObjectCompactPlanner().begin(world, centerX, centerZ, radius);
+                new SurfaceObjectCompactPlanner().begin(world, centerX, centerZ, 1);
         session.accept(mapChunk);
         return session.finish();
     }
@@ -420,8 +400,8 @@ class SurfaceObjectCompactDiscoveryTest {
             SurfaceObjectCompactPlan plan, boolean reverse) {
         SurfaceObjectStreamingScanner.Session session = new SurfaceObjectStreamingScanner()
                 .begin(plan, new int[] {7});
-        ParsedChunk lower = chunk(0, 31, 16, 16, 7);
-        ParsedChunk upper = chunk(1, 32, 16, 16, 7);
+        ParsedChunk lower = chunk(0, 31, 7);
+        ParsedChunk upper = chunk(1, 32, 7);
         if (reverse) {
             session.accept(SelectiveChunkVisit.decoded(position(upper), upper));
             session.accept(SelectiveChunkVisit.decoded(position(lower), lower));
@@ -454,12 +434,12 @@ class SurfaceObjectCompactDiscoveryTest {
         return fingerprint;
     }
 
-    private ParsedChunk chunk(int chunkY, int worldY, int worldX, int worldZ, int blockId) {
+    private ParsedChunk chunk(int chunkY, int worldY, int blockId) {
         int[] blocks = new int[ChunkCoordinate.SIZE_BLOCKS
                 * ChunkCoordinate.SIZE_BLOCKS * ChunkCoordinate.SIZE_BLOCKS];
         int localY = worldY - chunkY * ChunkCoordinate.SIZE_BLOCKS;
-        int index = (localY * ChunkCoordinate.SIZE_BLOCKS + worldZ % ChunkCoordinate.SIZE_BLOCKS)
-                * ChunkCoordinate.SIZE_BLOCKS + worldX % ChunkCoordinate.SIZE_BLOCKS;
+        int index = (localY * ChunkCoordinate.SIZE_BLOCKS + 16 % ChunkCoordinate.SIZE_BLOCKS)
+                * ChunkCoordinate.SIZE_BLOCKS + 16 % ChunkCoordinate.SIZE_BLOCKS;
         blocks[index] = blockId;
         return cartographer.model.ParsedChunkFixtures.create(
                 new ChunkCoordinate(0, chunkY, 0),

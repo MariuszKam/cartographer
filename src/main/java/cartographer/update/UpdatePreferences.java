@@ -10,7 +10,7 @@ public record UpdatePreferences(
         Optional<Instant> lastSuccessfulCheck
 ) {
     public UpdatePreferences {
-        lastSuccessfulCheck = Objects.requireNonNull(
+        Objects.requireNonNull(
                 lastSuccessfulCheck,
                 "lastSuccessfulCheck is required"
         );

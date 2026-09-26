@@ -232,7 +232,7 @@ class RockMapRendererTest {
         assertEquals(1, result.noRockCount());
         assertEquals(1, result.unavailableCount());
         assertEquals(1, result.legend().size());
-        assertEquals(100.0, result.legend().get(0).observedPercentage());
+        assertEquals(100.0, result.legend().getFirst().observedPercentage());
     }
 
     @Test

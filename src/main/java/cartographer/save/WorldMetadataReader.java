@@ -1,6 +1,5 @@
 package cartographer.save;
 
-import cartographer.progress.ProgressReporter;
 import cartographer.model.ParseResult;
 import cartographer.model.WorldMetadata;
 import cartographer.parser.SaveGameParser;
@@ -19,10 +18,7 @@ public class WorldMetadataReader {
     }
 
     /** Reads metadata from an already-open session-owned read-only connection. */
-    protected WorldMetadata read(
-            Connection connection,
-            ProgressReporter progress
-    ) {
+    protected WorldMetadata read(Connection connection) {
         try (Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery(
                      """
@@ -61,9 +57,6 @@ public class WorldMetadataReader {
                                             )
                             );
 
-            progress.done(
-                    "World metadata read"
-            );
 
             return metadata;
 

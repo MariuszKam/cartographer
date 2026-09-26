@@ -13,7 +13,7 @@ public record MapDecorationState(
         boolean userMarkersAvailable
 ) {
     public MapDecorationState {
-        home = Objects.requireNonNull(home, "home is required");
+        Objects.requireNonNull(home, "home is required");
         userMarkers = List.copyOf(
                 Objects.requireNonNull(userMarkers, "user markers are required")
         );

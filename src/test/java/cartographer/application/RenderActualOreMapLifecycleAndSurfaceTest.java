@@ -203,8 +203,8 @@ class RenderActualOreMapLifecycleAndSurfaceTest extends RenderActualOreMapUseCas
         assertTrue(reader.exactRequests.get(1).stream()
                 .allMatch(position -> position.x() == fallback.x()
                         && position.z() == fallback.z()));
-        assertTrue(hasSurfaceXLessThan(result, 32));
-        assertTrue(hasSurfaceXAtLeast(result, 32));
+        assertTrue(hasSurfaceXLessThan(result));
+        assertTrue(hasSurfaceXAtLeast(result));
     }
 
     @Test
@@ -291,7 +291,7 @@ class RenderActualOreMapLifecycleAndSurfaceTest extends RenderActualOreMapUseCas
                 32
         );
 
-        assertTrue(hasSurfaceXLessThan(result, 32));
-        assertTrue(hasSurfaceXAtLeast(result, 32));
+        assertTrue(hasSurfaceXLessThan(result));
+        assertTrue(hasSurfaceXAtLeast(result));
     }
 }

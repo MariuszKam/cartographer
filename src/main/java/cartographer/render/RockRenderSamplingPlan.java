@@ -161,9 +161,10 @@ public final class RockRenderSamplingPlan {
     ) {
         double worldCoordinate =
                 (pixel + 0.5) * worldDiameter / (double) rasterSize;
-        return Math.min(
-                worldDiameter - 1,
-                Math.max(0, (int) Math.floor(worldCoordinate))
+        return Math.clamp(
+                (int) Math.floor(worldCoordinate),
+                0,
+                worldDiameter - 1
         );
     }
 

@@ -191,7 +191,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
         }
 
         BlockingSelectiveParser parser = new BlockingSelectiveParser();
-        VcdbsReader reader = VcdbsReaderFixtures.withChunkParser(parser, 2, 4);
+        VcdbsReader reader = VcdbsReaderFixtures.withTwoDecodeWorkers(parser);
         AtomicReference<Thread> callerThread = new AtomicReference<>();
         AtomicReference<Thread> consumerThread = new AtomicReference<>();
         AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -213,12 +213,12 @@ class VcdbsReaderSelectiveChunkLookupTest {
         });
 
         try {
-            awaitLatch(parser.bothStarted, "both workers started");
+            awaitBothWorkers(parser.bothStarted);
             parser.release.countDown();
-            joinThread(caller, "caller");
+            joinCaller(caller);
         } finally {
             parser.release.countDown();
-            joinThread(caller, "caller");
+            joinCaller(caller);
         }
 
         assertNull(failure.get());
@@ -277,8 +277,8 @@ class VcdbsReaderSelectiveChunkLookupTest {
 
         assertEquals(1, stats.uniquePositionsRequested());
         assertEquals(1, visits.size());
-        assertEquals(position, visits.get(0).position());
-        assertEquals(SelectiveChunkVisitStatus.DECODED, visits.get(0).status());
+        assertEquals(position, visits.getFirst().position());
+        assertEquals(SelectiveChunkVisitStatus.DECODED, visits.getFirst().status());
     }
 
     @Test
@@ -298,8 +298,8 @@ class VcdbsReaderSelectiveChunkLookupTest {
         );
 
         assertEquals(1, visits.size());
-        assertEquals(SelectiveChunkVisitStatus.FAILED, visits.get(0).status());
-        assertEquals("chunk row has null payload", visits.get(0).error());
+        assertEquals(SelectiveChunkVisitStatus.FAILED, visits.getFirst().status());
+        assertEquals("chunk row has null payload", visits.getFirst().error());
         assertEquals(1, diagnostics.skipped());
         assertEquals(0, diagnostics.failed());
         assertTrue(diagnostics.skippedNotes().contains(
@@ -325,7 +325,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
 
         assertEquals(1, visits.size());
         assertEquals(SelectiveChunkVisitStatus.PALETTE_REJECTED,
-                visits.get(0).status());
+                visits.getFirst().status());
     }
 
     @Test
@@ -346,8 +346,8 @@ class VcdbsReaderSelectiveChunkLookupTest {
         );
 
         assertEquals(1, visits.size());
-        assertEquals(SelectiveChunkVisitStatus.FAILED, visits.get(0).status());
-        assertEquals("malformed palette", visits.get(0).error());
+        assertEquals(SelectiveChunkVisitStatus.FAILED, visits.getFirst().status());
+        assertEquals("malformed palette", visits.getFirst().error());
     }
 
     @Test
@@ -427,18 +427,16 @@ class VcdbsReaderSelectiveChunkLookupTest {
 
     @Test
     void selectiveAdaptiveCanChooseTableStreamAndPreservesBlocksOnly() throws Exception {
-        Path database = databaseWithRows(300);
+        Path database = databaseWithRows();
         RecordingChunkParser parser = parserWithPalette(99);
 
         SelectiveChunkStreamStats stats = adaptive(
                 VcdbsReaderFixtures.withChunkParser(parser),
                 database,
-                positions(320),
+                positions(),
                 new int[]{99},
                 new ReadDiagnostics(),
-                parser.delivered::add,
-                ProgressReporter.NONE
-        );
+                parser.delivered::add);
 
         assertEquals(320, stats.uniquePositionsRequested());
         assertEquals(300, stats.rowsFound());
@@ -459,9 +457,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
                         List.of(new ChunkPosition(1, 0, 2, 0)),
                         new int[0],
                         new ReadDiagnostics(),
-                        ignored -> { },
-                        ProgressReporter.NONE
-                )
+                        ignored -> { })
         );
     }
 
@@ -489,9 +485,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
                 List.of(requested),
                 new int[]{99},
                 new ReadDiagnostics(),
-                tableParser.delivered::add,
-                ProgressReporter.NONE
-        );
+                tableParser.delivered::add);
 
         assertEquals(direct.uniquePositionsRequested(), table.uniquePositionsRequested());
         assertEquals(direct.rowsFound(), table.rowsFound());
@@ -523,9 +517,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
                 List.of(requested),
                 new int[]{99},
                 new ReadDiagnostics(),
-                parser.delivered::add,
-                ProgressReporter.NONE
-        );
+                parser.delivered::add);
 
         assertEquals(1, parser.selectiveCalls.get());
     }
@@ -569,12 +561,16 @@ class VcdbsReaderSelectiveChunkLookupTest {
             List<ChunkPosition> positions,
             int[] wantedBlockIds,
             ReadDiagnostics diagnostics,
-            java.util.function.Consumer<ParsedChunk> consumer,
-            ProgressReporter progress
+            java.util.function.Consumer<ParsedChunk> consumer
     ) {
         try (SaveSession session = testSession(database, positions, wantedBlockIds)) {
             return reader.forEachChunkByPositionMatchingBlockIdsAdaptive(
-                    session, positions, wantedBlockIds, diagnostics, consumer, progress
+                    session,
+                    positions,
+                    wantedBlockIds,
+                    diagnostics,
+                    consumer,
+                    ProgressReporter.NONE
             );
         }
     }
@@ -600,12 +596,16 @@ class VcdbsReaderSelectiveChunkLookupTest {
             List<ChunkPosition> positions,
             int[] wantedBlockIds,
             ReadDiagnostics diagnostics,
-            java.util.function.Consumer<ParsedChunk> consumer,
-            ProgressReporter progress
+            java.util.function.Consumer<ParsedChunk> consumer
     ) {
         try (SaveSession session = openSession(database)) {
             return reader.forEachChunkByPositionMatchingBlockIdsTableStream(
-                    session, positions, wantedBlockIds, diagnostics, consumer, progress
+                    session,
+                    positions,
+                    wantedBlockIds,
+                    diagnostics,
+                    consumer,
+                    ProgressReporter.NONE
             );
         }
     }
@@ -674,7 +674,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
         return database;
     }
 
-    private Path databaseWithRows(int count) throws Exception {
+    private Path databaseWithRows() throws Exception {
         Path database = temporaryDirectory.resolve(
                 "save-" + System.nanoTime() + ".vcdbs"
         );
@@ -687,7 +687,7 @@ class VcdbsReaderSelectiveChunkLookupTest {
                      "INSERT INTO chunk(position, data) VALUES (?, ?)")) {
             connection.setAutoCommit(false);
             try {
-                for (int index = 0; index < count; index++) {
+                for (int index = 0; index < 300; index++) {
                     statement.setLong(
                             1,
                             ChunkPosEncoder.encode(
@@ -707,9 +707,9 @@ class VcdbsReaderSelectiveChunkLookupTest {
         return database;
     }
 
-    private List<ChunkPosition> positions(int count) {
+    private List<ChunkPosition> positions() {
         List<ChunkPosition> positions = new ArrayList<>();
-        for (int index = 0; index < count; index++) {
+        for (int index = 0; index < 320; index++) {
             positions.add(new ChunkPosition(index, 0, 0, 0));
         }
         return positions;
@@ -728,18 +728,18 @@ class VcdbsReaderSelectiveChunkLookupTest {
         }
     }
 
-    private static void awaitLatch(CountDownLatch latch, String description)
+    private static void awaitBothWorkers(CountDownLatch latch)
             throws InterruptedException {
         assertTrue(
                 latch.await(TEST_DEADLOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS),
-                description + " was not signalled"
+                "both workers started was not signalled"
         );
     }
 
-    private static void joinThread(Thread thread, String description)
+    private static void joinCaller(Thread thread)
             throws InterruptedException {
         thread.join(TimeUnit.SECONDS.toMillis(TEST_DEADLOCK_TIMEOUT_SECONDS));
-        assertTrue(!thread.isAlive(), description + " did not terminate");
+        assertTrue(!thread.isAlive(), "caller did not terminate");
     }
 
     private static final class RecordingChunkParser extends ChunkParser {

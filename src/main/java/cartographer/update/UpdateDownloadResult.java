@@ -17,13 +17,13 @@ public record UpdateDownloadResult(
     }
 
     public UpdateDownloadResult {
-        status = Objects.requireNonNull(status, "status is required");
-        manifest = Objects.requireNonNull(manifest, "manifest is required");
-        installerPath = Objects.requireNonNull(
+        Objects.requireNonNull(status, "status is required");
+        Objects.requireNonNull(manifest, "manifest is required");
+        Objects.requireNonNull(
                 installerPath,
                 "installerPath is required"
         );
-        failureMessage = Objects.requireNonNull(
+        Objects.requireNonNull(
                 failureMessage,
                 "failureMessage is required"
         );
