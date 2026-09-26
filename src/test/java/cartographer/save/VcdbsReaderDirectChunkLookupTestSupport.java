@@ -372,4 +372,3 @@ abstract class VcdbsReaderDirectChunkLookupTestSupport {
         }
     }
 }
-}
