@@ -172,7 +172,7 @@ final class ResourceSnapshotPreparer {
         int verticalChunkCount = Math.toIntExact(
                 Math.floorDiv(
                         Math.addExact(
-                                (long) metadata.mapSizeY(),
+                                metadata.mapSizeY(),
                                 ChunkCoordinate.SIZE_BLOCKS - 1L
                         ),
                         ChunkCoordinate.SIZE_BLOCKS

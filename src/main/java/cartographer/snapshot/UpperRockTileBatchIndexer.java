@@ -54,7 +54,7 @@ public final class UpperRockTileBatchIndexer {
         this.verticalChunkCount = Math.toIntExact(
                 Math.floorDiv(
                         Math.addExact(
-                                (long) metadata.mapSizeY(),
+                                metadata.mapSizeY(),
                                 ChunkCoordinate.SIZE_BLOCKS - 1L
                         ),
                         ChunkCoordinate.SIZE_BLOCKS
@@ -272,7 +272,7 @@ public final class UpperRockTileBatchIndexer {
             TileState state,
             int candidateY
     ) {
-        long firstY = Math.addExact((long) candidateY, 1L);
+        long firstY = Math.addExact(candidateY, 1L);
         int firstChunk = Math.toIntExact(
                 Math.floorDiv(firstY, ChunkCoordinate.SIZE_BLOCKS)
         );

@@ -91,7 +91,7 @@ public final class SurfaceObjectCompactPlanner {
         private int firstCandidateY(int terrain, int rain, byte flags) {
             long first = Long.MAX_VALUE;
             if ((flags & TileBuilder.TERRAIN_PRESENT) != 0) first = Math.min(first, (long) terrain - 2L);
-            if ((flags & TileBuilder.RAIN_PRESENT) != 0) first = Math.min(first, (long) rain);
+            if ((flags & TileBuilder.RAIN_PRESENT) != 0) first = Math.min(first, rain);
             return first == Long.MAX_VALUE ? 0 : (int) Math.max(0L, first);
         }
 
@@ -99,7 +99,7 @@ public final class SurfaceObjectCompactPlanner {
             long last = Long.MIN_VALUE;
             if ((flags & TileBuilder.TERRAIN_PRESENT) != 0) last = Math.max(last, (long) terrain + 4L);
             if ((flags & TileBuilder.RAIN_PRESENT) != 0) last = Math.max(last, (long) rain + 4L);
-            return last == Long.MIN_VALUE ? 0 : (int) Math.min((long) metadata.mapSizeY(), last);
+            return last == Long.MIN_VALUE ? 0 : (int) Math.min(metadata.mapSizeY(), last);
         }
 
         private boolean isCandidateY(int terrain, int rain, byte flags, int y) {

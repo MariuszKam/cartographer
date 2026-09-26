@@ -58,7 +58,7 @@ final class RockCellLayout {
         if (rockCount < 0 || yRangeHeight <= 0) {
             throw new IllegalArgumentException("packed layout domain is invalid");
         }
-        int rockBits = ceilLog2(Math.addExact((long) rockCount, 1L));
+        int rockBits = ceilLog2(Math.addExact(rockCount, 1L));
         int yBits = ceilLog2(yRangeHeight);
         return new RockCellLayout(rockBits, yBits, rockCount, yRangeHeight);
     }

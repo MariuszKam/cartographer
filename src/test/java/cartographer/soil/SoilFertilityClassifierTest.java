@@ -146,7 +146,7 @@ class SoilFertilityClassifierTest {
 
         assertTrue(classifyOptional(null).isEmpty());
         assertTrue(classifyOptional("   ").isEmpty());
-        assertTrue(classifier.classify((BlockInfo) null).isEmpty());
+        assertTrue(classifier.classify(null).isEmpty());
     }
 
     private void assertClassification(

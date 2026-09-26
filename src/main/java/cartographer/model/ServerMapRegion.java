@@ -5,7 +5,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public record ServerMapRegion(
         MapRegionCoordinate coordinate,
         Optional<IntDataMap2D> climateMap,
