@@ -68,6 +68,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @IntegrationTest
 class RenderActualOreMapRoutingTest extends RenderActualOreMapUseCaseTestSupport {
 
+    @TempDir
+    Path temporaryDirectory;
+
+    @Override
+    Path temporaryDirectory() {
+        return temporaryDirectory;
+    }
+
     @Test
     void renderRequestRequiresNonNullOptionalReferences() {
         assertEquals(
