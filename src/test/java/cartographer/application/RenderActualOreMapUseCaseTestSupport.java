@@ -70,6 +70,33 @@ abstract class RenderActualOreMapUseCaseTestSupport {
     @TempDir
     Path temporaryDirectory;
 
+    static void assertParity(
+            RenderActualOreMapResult expected,
+            RenderActualOreMapResult actual
+    ) {
+        assertEquals(expected.geometry(), actual.geometry());
+        assertEquals(expected.surface().columnsScanned(), actual.surface().columnsScanned());
+        assertEquals(expected.surface().emptyColumns(), actual.surface().emptyColumns());
+        assertEquals(
+                expected.surface().liquidUnavailableColumns(),
+                actual.surface().liquidUnavailableColumns()
+        );
+        assertEquals(expected.surface().waterColumns(), actual.surface().waterColumns());
+        assertEquals(
+                expected.surface().unknownSurfaceBlocks(),
+                actual.surface().unknownSurfaceBlocks()
+        );
+        assertEquals(
+                expected.surface().topUnknownSurfaceBlockCodes(Integer.MAX_VALUE),
+                actual.surface().topUnknownSurfaceBlockCodes(Integer.MAX_VALUE)
+        );
+        assertEquals(
+                expected.surface().distinctSurfaceBlockCodes(Integer.MAX_VALUE),
+                actual.surface().distinctSurfaceBlockCodes(Integer.MAX_VALUE)
+        );
+        assertImageEquals(expected.image(), actual.image());
+    }
+
     RenderActualOreMapResult execute(FakeReader reader) {
         return execute(
                 reader,
@@ -548,18 +575,6 @@ abstract class RenderActualOreMapUseCaseTestSupport {
         ) {
             directMapChunkRequests.add(List.copyOf(coordinates));
             return visitMapChunks(coordinates, consumer);
-        }
-
-        @Override
-        public ChunkStreamStats forEachChunkByPositionAdaptive(
-                SaveSession session,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer,
-                ProgressReporter progress
-        ) {
-            adaptiveExactChunkCalls++;
-            return visitChunks(positions, consumer);
         }
 
         @Override
