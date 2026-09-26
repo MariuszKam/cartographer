@@ -69,19 +69,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
 
     @TempDir
-    Path temporaryDirectory;
-
-    @Override
-    Path temporaryDirectory() {
-        return temporaryDirectory;
-    }
+    Path suiteTemporaryDirectory;
 
     @Test
     void malformedFinalManifestDisablesCacheAndUsesSource() throws Exception {
-        Path savePath = temporaryDirectory.resolve("malformed-render-data-save.vcdbs");
+        Path savePath = suiteTemporaryDirectory.resolve("malformed-render-data-save.vcdbs");
         Files.write(savePath, new byte[]{1});
         RenderDataCacheStore cacheStore = new RenderDataCacheStore(
-                temporaryDirectory.resolve("malformed-render-data-cache")
+                suiteTemporaryDirectory.resolve("malformed-render-data-cache")
         );
         RenderDataCacheRevision revision = cacheStore.observe(savePath);
         cacheStore.publish(revision);
@@ -91,8 +86,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
         RenderActualOreMapResult result = useCase(
                 reader,
                 new WorldMetadata(128, 256, 128),
-                temporaryDirectory.resolve("malformed-home.properties"),
-                temporaryDirectory.resolve("malformed-markers.csv"),
+                suiteTemporaryDirectory.resolve("malformed-home.properties"),
+                suiteTemporaryDirectory.resolve("malformed-markers.csv"),
                 cacheStore
         ).execute(new RenderActualOreMapRequest(
                 savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
@@ -109,17 +104,17 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
 
     @Test
     void saveRevisionChangeDoesNotReusePreviousRenderArtifacts() throws Exception {
-        Path savePath = temporaryDirectory.resolve("revision-render-data-save.vcdbs");
+        Path savePath = suiteTemporaryDirectory.resolve("revision-render-data-save.vcdbs");
         Files.write(savePath, new byte[]{1});
         RenderDataCacheStore cacheStore = new RenderDataCacheStore(
-                temporaryDirectory.resolve("revision-render-data-cache")
+                suiteTemporaryDirectory.resolve("revision-render-data-cache")
         );
 
         RenderActualOreMapResult first = useCase(
                 surfaceReader(true),
                 new WorldMetadata(32, 256, 32),
-                temporaryDirectory.resolve("revision-home.properties"),
-                temporaryDirectory.resolve("revision-markers.csv"),
+                suiteTemporaryDirectory.resolve("revision-home.properties"),
+                suiteTemporaryDirectory.resolve("revision-markers.csv"),
                 cacheStore
         ).execute(new RenderActualOreMapRequest(
                 savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
@@ -133,8 +128,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
         RenderActualOreMapResult second = useCase(
                 hitReader,
                 new WorldMetadata(32, 256, 32),
-                temporaryDirectory.resolve("revision-home.properties"),
-                temporaryDirectory.resolve("revision-markers.csv"),
+                suiteTemporaryDirectory.resolve("revision-home.properties"),
+                suiteTemporaryDirectory.resolve("revision-markers.csv"),
                 cacheStore
         ).execute(new RenderActualOreMapRequest(
                 savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
@@ -153,8 +148,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
         RenderActualOreMapResult third = useCase(
                 missReader,
                 new WorldMetadata(32, 256, 32),
-                temporaryDirectory.resolve("revision-home.properties"),
-                temporaryDirectory.resolve("revision-markers.csv"),
+                suiteTemporaryDirectory.resolve("revision-home.properties"),
+                suiteTemporaryDirectory.resolve("revision-markers.csv"),
                 cacheStore
         ).execute(new RenderActualOreMapRequest(
                 savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
@@ -171,8 +166,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
         RenderActualOreMapResult sizeChanged = useCase(
                 sizeMissReader,
                 new WorldMetadata(32, 256, 32),
-                temporaryDirectory.resolve("revision-home.properties"),
-                temporaryDirectory.resolve("revision-markers.csv"),
+                suiteTemporaryDirectory.resolve("revision-home.properties"),
+                suiteTemporaryDirectory.resolve("revision-markers.csv"),
                 cacheStore
         ).execute(new RenderActualOreMapRequest(
                 savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
@@ -187,14 +182,14 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
 
     @Test
     void terrainCorruptRowFallsBackHealsDeterministicallyAndThenHits() throws Exception {
-        Path savePath = temporaryDirectory.resolve("terrain-corrupt-save.vcdbs");
+        Path savePath = suiteTemporaryDirectory.resolve("terrain-corrupt-save.vcdbs");
         Files.write(savePath, new byte[]{1});
         RenderDataCacheStore cacheStore = new RenderDataCacheStore(
-                temporaryDirectory.resolve("terrain-corrupt-cache")
+                suiteTemporaryDirectory.resolve("terrain-corrupt-cache")
         );
         WorldMetadata metadata = new WorldMetadata(32, 256, 32);
-        Path home = temporaryDirectory.resolve("terrain-corrupt-home.properties");
-        Path markers = temporaryDirectory.resolve("terrain-corrupt-markers.csv");
+        Path home = suiteTemporaryDirectory.resolve("terrain-corrupt-home.properties");
+        Path markers = suiteTemporaryDirectory.resolve("terrain-corrupt-markers.csv");
         RenderActualOreMapRequest request = new RenderActualOreMapRequest(
                 savePath, 23, 1, RenderStyle.TOPOGRAPHIC, Set.of(RenderLayer.TERRAIN),
                 Optional.empty(), ActualBlockYFilter.unbounded(),
@@ -238,10 +233,10 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
                 "schemaVersion=render-data-v1\n"
         );
         for (int index = 0; index < malformed.size(); index++) {
-            Path savePath = temporaryDirectory.resolve("manifest-variant-" + index + ".vcdbs");
+            Path savePath = suiteTemporaryDirectory.resolve("manifest-variant-" + index + ".vcdbs");
             Files.write(savePath, new byte[]{1});
             RenderDataCacheStore cacheStore = new RenderDataCacheStore(
-                    temporaryDirectory.resolve("manifest-variant-cache-" + index)
+                    suiteTemporaryDirectory.resolve("manifest-variant-cache-" + index)
             );
             RenderDataCacheRevision revision = cacheStore.observe(savePath);
             cacheStore.publish(revision);
@@ -249,8 +244,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
             FakeReader reader = surfaceReader(true);
             RenderActualOreMapResult source = useCase(
                     surfaceReader(true), new WorldMetadata(32, 256, 32),
-                    temporaryDirectory.resolve("manifest-source-home-" + index + ".properties"),
-                    temporaryDirectory.resolve("manifest-source-markers-" + index + ".csv")
+                    suiteTemporaryDirectory.resolve("manifest-source-home-" + index + ".properties"),
+                    suiteTemporaryDirectory.resolve("manifest-source-markers-" + index + ".csv")
             ).execute(new RenderActualOreMapRequest(
                     savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
                     Set.of(RenderLayer.TERRAIN), Optional.empty(),
@@ -258,8 +253,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
             ));
             RenderActualOreMapResult result = useCase(
                     reader, new WorldMetadata(32, 256, 32),
-                    temporaryDirectory.resolve("manifest-variant-home-" + index + ".properties"),
-                    temporaryDirectory.resolve("manifest-variant-markers-" + index + ".csv"),
+                    suiteTemporaryDirectory.resolve("manifest-variant-home-" + index + ".properties"),
+                    suiteTemporaryDirectory.resolve("manifest-variant-markers-" + index + ".csv"),
                     cacheStore
             ).execute(new RenderActualOreMapRequest(
                     savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
@@ -274,10 +269,10 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
         String[] incompatibleSchemas = {"render-data-v99", "render-data-v1"};
         String[] incompatibleParsers = {"parser-data-v1", "parser-data-v99"};
         for (int index = 0; index < incompatibleSchemas.length; index++) {
-            Path incompatibleSave = temporaryDirectory.resolve("complete-manifest-" + index + ".vcdbs");
+            Path incompatibleSave = suiteTemporaryDirectory.resolve("complete-manifest-" + index + ".vcdbs");
             Files.write(incompatibleSave, new byte[]{1});
             RenderDataCacheStore incompatibleCache = new RenderDataCacheStore(
-                    temporaryDirectory.resolve("complete-manifest-cache-" + index));
+                    suiteTemporaryDirectory.resolve("complete-manifest-cache-" + index));
             RenderDataCacheRevision incompatibleRevision = incompatibleCache.observe(incompatibleSave);
             incompatibleCache.publish(incompatibleRevision);
             Files.writeString(incompatibleCache.manifestPath(incompatibleRevision), completeManifest(
@@ -285,8 +280,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
             FakeReader incompatibleReader = surfaceReader(true);
             RenderActualOreMapResult incompatibleSource = useCase(
                     surfaceReader(true), new WorldMetadata(32, 256, 32),
-                    temporaryDirectory.resolve("complete-manifest-source-home-" + index + ".properties"),
-                    temporaryDirectory.resolve("complete-manifest-source-markers-" + index + ".csv")
+                    suiteTemporaryDirectory.resolve("complete-manifest-source-home-" + index + ".properties"),
+                    suiteTemporaryDirectory.resolve("complete-manifest-source-markers-" + index + ".csv")
             ).execute(new RenderActualOreMapRequest(
                     incompatibleSave, 23, 1, RenderStyle.TOPOGRAPHIC,
                     Set.of(RenderLayer.TERRAIN), Optional.empty(),
@@ -294,8 +289,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
             ));
             RenderActualOreMapResult incompatibleResult = useCase(
                     incompatibleReader, new WorldMetadata(32, 256, 32),
-                    temporaryDirectory.resolve("complete-manifest-home-" + index + ".properties"),
-                    temporaryDirectory.resolve("complete-manifest-markers-" + index + ".csv"),
+                    suiteTemporaryDirectory.resolve("complete-manifest-home-" + index + ".properties"),
+                    suiteTemporaryDirectory.resolve("complete-manifest-markers-" + index + ".csv"),
                     incompatibleCache
             ).execute(new RenderActualOreMapRequest(
                     incompatibleSave, 23, 1, RenderStyle.TOPOGRAPHIC,
@@ -307,15 +302,15 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
             assertParity(incompatibleSource, incompatibleResult);
         }
 
-        Path savePath = temporaryDirectory.resolve("cache-preparation-failure.vcdbs");
+        Path savePath = suiteTemporaryDirectory.resolve("cache-preparation-failure.vcdbs");
         Files.write(savePath, new byte[]{1});
-        Path cacheFile = temporaryDirectory.resolve("cache-root-is-file");
+        Path cacheFile = suiteTemporaryDirectory.resolve("cache-root-is-file");
         Files.write(cacheFile, new byte[]{1});
         FakeReader reader = surfaceReader(true);
         RenderActualOreMapResult source = useCase(
                 surfaceReader(true), new WorldMetadata(32, 256, 32),
-                temporaryDirectory.resolve("cache-failure-source-home.properties"),
-                temporaryDirectory.resolve("cache-failure-source-markers.csv")
+                suiteTemporaryDirectory.resolve("cache-failure-source-home.properties"),
+                suiteTemporaryDirectory.resolve("cache-failure-source-markers.csv")
         ).execute(new RenderActualOreMapRequest(
                 savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
                 Set.of(RenderLayer.TERRAIN), Optional.empty(),
@@ -323,8 +318,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
         ));
         RenderActualOreMapResult result = useCase(
                 reader, new WorldMetadata(32, 256, 32),
-                temporaryDirectory.resolve("cache-failure-home.properties"),
-                temporaryDirectory.resolve("cache-failure-markers.csv"),
+                suiteTemporaryDirectory.resolve("cache-failure-home.properties"),
+                suiteTemporaryDirectory.resolve("cache-failure-markers.csv"),
                 new RenderDataCacheStore(cacheFile)
         ).execute(new RenderActualOreMapRequest(
                 savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
@@ -340,8 +335,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
 
     @Test
     void terrainHitCanProvideSurfacePlanningAndPopulateSurfaceCache() throws Exception {
-        Path sourceDirectory = temporaryDirectory.resolve("source");
-        Path cacheRoot = temporaryDirectory.resolve("cache").resolve("render-data");
+        Path sourceDirectory = suiteTemporaryDirectory.resolve("source");
+        Path cacheRoot = suiteTemporaryDirectory.resolve("cache").resolve("render-data");
         Files.createDirectories(sourceDirectory);
         Files.createDirectories(cacheRoot.getParent());
         Path savePath = sourceDirectory.resolve("cached-surface-save.vcdbs");
@@ -366,8 +361,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
         RenderActualOreMapResult first = useCase(
                 firstReader,
                 new WorldMetadata(32, 256, 32),
-                temporaryDirectory.resolve("cached-home.properties"),
-                temporaryDirectory.resolve("cached-markers.csv"),
+                suiteTemporaryDirectory.resolve("cached-home.properties"),
+                suiteTemporaryDirectory.resolve("cached-markers.csv"),
                 cacheStore
         ).execute(new RenderActualOreMapRequest(
                 savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
@@ -395,8 +390,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
         RenderActualOreMapResult second = useCase(
                 secondReader,
                 new WorldMetadata(32, 256, 32),
-                temporaryDirectory.resolve("cached-home.properties"),
-                temporaryDirectory.resolve("cached-markers.csv"),
+                suiteTemporaryDirectory.resolve("cached-home.properties"),
+                suiteTemporaryDirectory.resolve("cached-markers.csv"),
                 cacheStore
         ).execute(new RenderActualOreMapRequest(
                 savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
@@ -420,8 +415,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
         RenderActualOreMapResult third = useCase(
                 thirdReader,
                 new WorldMetadata(32, 256, 32),
-                temporaryDirectory.resolve("cached-home.properties"),
-                temporaryDirectory.resolve("cached-markers.csv"),
+                suiteTemporaryDirectory.resolve("cached-home.properties"),
+                suiteTemporaryDirectory.resolve("cached-markers.csv"),
                 cacheStore
         ).execute(new RenderActualOreMapRequest(
                 savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
@@ -441,10 +436,10 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
 
     @Test
     void clippedSurfaceResultIsNotPublishedAsReusableTile() throws Exception {
-        Path savePath = temporaryDirectory.resolve("clipped-surface-save.vcdbs");
+        Path savePath = suiteTemporaryDirectory.resolve("clipped-surface-save.vcdbs");
         Files.write(savePath, new byte[]{1});
         RenderDataCacheStore cacheStore = new RenderDataCacheStore(
-                temporaryDirectory.resolve("clipped-render-data-cache")
+                suiteTemporaryDirectory.resolve("clipped-render-data-cache")
         );
         RenderDataCacheRevision revision = cacheStore.observe(savePath);
         cacheStore.publish(revision);
@@ -457,8 +452,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
         RenderActualOreMapResult result = useCase(
                 surfaceReader(true),
                 new WorldMetadata(128, 256, 128),
-                temporaryDirectory.resolve("clipped-home.properties"),
-                temporaryDirectory.resolve("clipped-markers.csv"),
+                suiteTemporaryDirectory.resolve("clipped-home.properties"),
+                suiteTemporaryDirectory.resolve("clipped-markers.csv"),
                 cacheStore
         ).execute(new RenderActualOreMapRequest(
                 savePath, 16, 1, RenderStyle.TOPOGRAPHIC,
@@ -473,10 +468,10 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
 
     @Test
     void fallbackCachePreservesFullServerChunkDiagnosticsAtWorldEdge() throws Exception {
-        Path savePath = temporaryDirectory.resolve("edge-fallback-save.vcdbs");
+        Path savePath = suiteTemporaryDirectory.resolve("edge-fallback-save.vcdbs");
         Files.write(savePath, new byte[]{1});
         RenderDataCacheStore cacheStore = new RenderDataCacheStore(
-                temporaryDirectory.resolve("edge-render-data-cache")
+                suiteTemporaryDirectory.resolve("edge-render-data-cache")
         );
         RenderDataCacheRevision revision = cacheStore.observe(savePath);
         cacheStore.publish(revision);
@@ -489,8 +484,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
 
         RenderActualOreMapResult first = useCase(
                 edgeFallbackReader(), metadata,
-                temporaryDirectory.resolve("edge-home.properties"),
-                temporaryDirectory.resolve("edge-markers.csv"),
+                suiteTemporaryDirectory.resolve("edge-home.properties"),
+                suiteTemporaryDirectory.resolve("edge-markers.csv"),
                 cacheStore
         ).execute(new RenderActualOreMapRequest(
                 savePath, 17, 1, RenderStyle.TOPOGRAPHIC,
@@ -507,8 +502,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
         FakeReader secondReader = edgeFallbackReader();
         RenderActualOreMapResult second = useCase(
                 secondReader, metadata,
-                temporaryDirectory.resolve("edge-home.properties"),
-                temporaryDirectory.resolve("edge-markers.csv"),
+                suiteTemporaryDirectory.resolve("edge-home.properties"),
+                suiteTemporaryDirectory.resolve("edge-markers.csv"),
                 cacheStore
         ).execute(new RenderActualOreMapRequest(
                 savePath, 17, 1, RenderStyle.TOPOGRAPHIC,
@@ -531,10 +526,10 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
 
     @Test
     void mixedTerrainHitAndMissReadsOnlyTheMissingMapchunkCoordinates() throws Exception {
-        Path savePath = temporaryDirectory.resolve("mixed-terrain-save.vcdbs");
+        Path savePath = suiteTemporaryDirectory.resolve("mixed-terrain-save.vcdbs");
         Files.write(savePath, new byte[]{1});
         RenderDataCacheStore cacheStore = new RenderDataCacheStore(
-                temporaryDirectory.resolve("mixed-terrain-render-data-cache")
+                suiteTemporaryDirectory.resolve("mixed-terrain-render-data-cache")
         );
         RenderDataCacheRevision revision = cacheStore.observe(savePath);
         cacheStore.publish(revision);
@@ -550,8 +545,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
         RenderActualOreMapResult result = useCase(
                 reader,
                 new WorldMetadata(128, 256, 128),
-                temporaryDirectory.resolve("mixed-terrain-home.properties"),
-                temporaryDirectory.resolve("mixed-terrain-markers.csv"),
+                suiteTemporaryDirectory.resolve("mixed-terrain-home.properties"),
+                suiteTemporaryDirectory.resolve("mixed-terrain-markers.csv"),
                 cacheStore
         ).execute(new RenderActualOreMapRequest(
                 savePath, 32, 1, RenderStyle.TOPOGRAPHIC,
@@ -574,8 +569,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
         RenderActualOreMapResult source = useCase(
                 sourceReader,
                 new WorldMetadata(128, 256, 128),
-                temporaryDirectory.resolve("mixed-terrain-home-source.properties"),
-                temporaryDirectory.resolve("mixed-terrain-markers-source.csv")
+                suiteTemporaryDirectory.resolve("mixed-terrain-home-source.properties"),
+                suiteTemporaryDirectory.resolve("mixed-terrain-markers-source.csv")
         ).execute(new RenderActualOreMapRequest(
                 savePath, 32, 1, RenderStyle.TOPOGRAPHIC,
                 Set.of(RenderLayer.TERRAIN), Optional.empty(),
@@ -587,18 +582,18 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
 
     @Test
     void productionMixedSurfaceHitAndFallbackMissKeepsHitTileOutOfSourceWork() throws Exception {
-        Path savePath = temporaryDirectory.resolve("mixed-surface-save.vcdbs");
+        Path savePath = suiteTemporaryDirectory.resolve("mixed-surface-save.vcdbs");
         Files.write(savePath, new byte[]{1});
         RenderDataCacheStore cacheStore = new RenderDataCacheStore(
-                temporaryDirectory.resolve("mixed-surface-render-data-cache")
+                suiteTemporaryDirectory.resolve("mixed-surface-render-data-cache")
         );
         WorldMetadata metadata = new WorldMetadata(64, 256, 32);
 
         FakeReader firstReader = surfaceReader(true);
         RenderActualOreMapResult first = useCase(
                 firstReader, metadata,
-                temporaryDirectory.resolve("mixed-surface-home.properties"),
-                temporaryDirectory.resolve("mixed-surface-markers.csv"),
+                suiteTemporaryDirectory.resolve("mixed-surface-home.properties"),
+                suiteTemporaryDirectory.resolve("mixed-surface-markers.csv"),
                 cacheStore
         ).execute(new RenderActualOreMapRequest(
                 savePath, 23, 1, RenderStyle.TOPOGRAPHIC,
@@ -620,8 +615,8 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
         );
         RenderActualOreMapResult second = useCase(
                 secondReader, metadata,
-                temporaryDirectory.resolve("mixed-surface-home.properties"),
-                temporaryDirectory.resolve("mixed-surface-markers.csv"),
+                suiteTemporaryDirectory.resolve("mixed-surface-home.properties"),
+                suiteTemporaryDirectory.resolve("mixed-surface-markers.csv"),
                 cacheStore
         ).execute(new RenderActualOreMapRequest(
                 savePath, 15, 1, RenderStyle.TOPOGRAPHIC,
@@ -648,10 +643,10 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
 
     @Test
     void sourceMissAndHitPreserveSemanticAndImageFingerprints() throws Exception {
-        Path savePath = temporaryDirectory.resolve("fingerprint-parity-save.vcdbs");
+        Path savePath = suiteTemporaryDirectory.resolve("fingerprint-parity-save.vcdbs");
         Files.write(savePath, new byte[]{1});
-        Path home = temporaryDirectory.resolve("fingerprint-parity-home.properties");
-        Path markers = temporaryDirectory.resolve("fingerprint-parity-markers.csv");
+        Path home = suiteTemporaryDirectory.resolve("fingerprint-parity-home.properties");
+        Path markers = suiteTemporaryDirectory.resolve("fingerprint-parity-markers.csv");
         RenderActualOreMapRequest request = new RenderActualOreMapRequest(
                 savePath, 23, 1, RenderStyle.TOPOGRAPHIC, Set.of(RenderLayer.SURFACE),
                 Optional.empty(), ActualBlockYFilter.unbounded(),
@@ -662,7 +657,7 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
                 surfaceReader(true), new WorldMetadata(32, 256, 32), home, markers
         ).execute(request);
         RenderDataCacheStore cacheStore = new RenderDataCacheStore(
-                temporaryDirectory.resolve("fingerprint-parity-cache")
+                suiteTemporaryDirectory.resolve("fingerprint-parity-cache")
         );
         RenderActualOreMapResult miss = useCase(
                 surfaceReader(true), new WorldMetadata(32, 256, 32), home, markers, cacheStore
