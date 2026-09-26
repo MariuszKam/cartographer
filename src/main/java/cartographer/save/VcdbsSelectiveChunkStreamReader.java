@@ -252,15 +252,13 @@ final class VcdbsSelectiveChunkStreamReader {
             Collection<ChunkPosition> positions,
             int[] wantedBlockIds,
             ReadDiagnostics diagnostics,
-            Consumer<ParsedChunk> consumer,
-            ProgressReporter progress
+            Consumer<ParsedChunk> consumer
     ) {
         Objects.requireNonNull(session, "session is required");
         Objects.requireNonNull(positions, "positions is required");
         Objects.requireNonNull(wantedBlockIds, "wantedBlockIds is required");
         Objects.requireNonNull(diagnostics, "diagnostics is required");
         Objects.requireNonNull(consumer, "consumer is required");
-        Objects.requireNonNull(progress, "progress is required");
 
         int[] uniqueWantedBlockIds = uniqueWantedBlockIds(wantedBlockIds);
         if (uniqueWantedBlockIds.length == 0) {
@@ -278,7 +276,7 @@ final class VcdbsSelectiveChunkStreamReader {
                     uniqueWantedBlockIds,
                     diagnostics,
                     consumer,
-                    progress
+                    ProgressReporter.NONE
             );
         } catch (SQLException exception) {
             throw new IllegalStateException(

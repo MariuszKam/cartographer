@@ -258,14 +258,12 @@ final class VcdbsChunkStreamReader {
             SaveSession session,
             Collection<ChunkPosition> positions,
             ReadDiagnostics diagnostics,
-            Consumer<ParsedChunk> consumer,
-            ProgressReporter progress
+            Consumer<ParsedChunk> consumer
     ) {
         Objects.requireNonNull(session, "session is required");
         Objects.requireNonNull(positions, "positions is required");
         Objects.requireNonNull(diagnostics, "diagnostics is required");
         Objects.requireNonNull(consumer, "consumer is required");
-        Objects.requireNonNull(progress, "progress is required");
 
         Set<Long> packedPositions = packedUniquePositions(positions);
         if (packedPositions.isEmpty()) {
@@ -278,7 +276,7 @@ final class VcdbsChunkStreamReader {
                     packedPositions,
                     diagnostics,
                     consumer,
-                    progress,
+                    ProgressReporter.NONE,
                     0L,
                     ChunkDecodeMode.FULL
             );

@@ -7,6 +7,10 @@ import org.gradle.api.tasks.testing.TestDescriptor
 import org.gradle.api.tasks.testing.TestListener
 import org.gradle.api.tasks.testing.TestResult
 
+plugins {
+    java
+}
+
 val testSourceSet = extensions.getByType<SourceSetContainer>()["test"]
 
 fun Test.attachTimingReports(reportPrefix: String) {

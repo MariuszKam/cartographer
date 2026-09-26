@@ -163,7 +163,7 @@ public class VcdbsReader {
             Consumer<ParsedChunk> consumer
     ) {
         return chunkStreamReader.forEachChunkByPositionTableStream(
-                session, positions, diagnostics, consumer, ProgressReporter.NONE
+                session, positions, diagnostics, consumer
         );
     }
 
@@ -179,8 +179,7 @@ public class VcdbsReader {
                 positions,
                 wantedBlockIds,
                 diagnostics,
-                consumer,
-                ProgressReporter.NONE
+                consumer
         );
     }
 
