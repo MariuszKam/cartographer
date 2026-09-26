@@ -47,11 +47,14 @@ public class VcdbsReader {
             SaveSession session,
             Collection<ChunkPosition> positions,
             ReadDiagnostics diagnostics,
-            Consumer<ParsedChunk> consumer,
-            ProgressReporter progress
+            Consumer<ParsedChunk> consumer
     ) {
         return chunkStreamReader.forEachChunkByPositionAdaptive(
-                session, positions, diagnostics, consumer, progress
+                session,
+                positions,
+                diagnostics,
+                consumer,
+                ProgressReporter.NONE
         );
     }
 

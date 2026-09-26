@@ -47,14 +47,13 @@ final class SampledTerrainHeightField implements TerrainHeightField {
 
     static Builder builder(
             RenderSamplingPlan sampling,
-            ProgressReporter progress,
             int expectedChunks
     ) {
         return builder(
                 sampling,
                 true,
                 SurfaceRenderData.empty(sampling),
-                progress,
+                ProgressReporter.NONE,
                 expectedChunks
         );
     }

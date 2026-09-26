@@ -65,8 +65,7 @@ abstract class VcdbsReaderDirectChunkLookupTestSupport {
                     session,
                     positions,
                     diagnostics,
-                    consumer,
-                    ProgressReporter.NONE
+                    consumer
             );
         }
     }

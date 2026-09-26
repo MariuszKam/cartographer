@@ -72,7 +72,4 @@ final class RockHighlightPane extends VBox {
         setManaged(visible);
     }
 
-    void setBusy(boolean busy) {
-        rockBox.setDisable(busy);
-    }
 }

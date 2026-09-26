@@ -30,7 +30,6 @@ class SampledTerrainHeightFieldTest {
         SampledTerrainHeightField.Builder builder =
                 SampledTerrainHeightField.builder(
                         sampling,
-                        cartographer.progress.ProgressReporter.NONE,
                         1
                 );
         builder.accept(chunk(0, 0, 10));
@@ -110,7 +109,6 @@ class SampledTerrainHeightFieldTest {
         SampledTerrainHeightField.Builder builder =
                 SampledTerrainHeightField.builder(
                         sampling,
-                        cartographer.progress.ProgressReporter.NONE,
                         2
                 );
         builder.accept(flatChunk(0, 0, 1));
@@ -137,7 +135,6 @@ class SampledTerrainHeightFieldTest {
         SampledTerrainHeightField.Builder builder =
                 SampledTerrainHeightField.builder(
                         sampling,
-                        cartographer.progress.ProgressReporter.NONE,
                         1
                 );
         builder.accept(flatChunk(0, 0, 10));
