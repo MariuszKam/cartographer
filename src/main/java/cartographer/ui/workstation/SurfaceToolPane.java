@@ -62,7 +62,7 @@ final class SurfaceToolPane extends VBox {
     private Consumer<SurfaceToolMode> modeListener = ignored -> { };
     private boolean busy;
     private boolean discoveryBusy;
-    private boolean initialized;
+    private final boolean initialized;
 
     SurfaceToolPane(Runnable availabilityChanged) {
         super(4);
