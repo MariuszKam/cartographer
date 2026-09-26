@@ -242,7 +242,7 @@ the validation helper:
 
 ```powershell
 .\gradlew.bat clean
-.\gradlew.bat test
+.\gradlew.bat testQualityGate
 .\gradlew.bat packageWindowsPortable
 .\gradlew.bat packageWindowsInstaller
 ```
@@ -421,7 +421,7 @@ It runs automatically only for pull requests targeting `master`, on a
 and its current gate is:
 
 ```powershell
-.\gradlew.bat test
+.\gradlew.bat testQualityGate
 ```
 
 The workflow has `contents: read` permissions. It allows one active run per PR;
