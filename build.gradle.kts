@@ -162,6 +162,7 @@ application {
 }
 
 apply(from = "gradle/test-architecture.gradle.kts")
+apply(from = "gradle/test-performance.gradle.kts")
 
 java {
     toolchain {
