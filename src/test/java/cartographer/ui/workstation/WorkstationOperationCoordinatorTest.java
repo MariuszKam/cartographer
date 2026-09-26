@@ -16,8 +16,10 @@ import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -200,8 +202,180 @@ class WorkstationOperationCoordinatorTest {
         assertFalse(coordinator.isActive(WorkstationOperationScope.LOCAL));
     }
 
+    @Test
+    void foregroundProgressSuppressesLocalAndDiscoveryProgress() {
+        RecordingProgressView view = new RecordingProgressView();
+        WorkstationOperationCoordinator coordinator = coordinator(view);
+        ControlledProgressOperation discovery = new ControlledProgressOperation();
+        ControlledProgressOperation local = new ControlledProgressOperation();
+        ControlledProgressOperation foreground = new ControlledProgressOperation();
+
+        try {
+            onFx(() -> coordinator.submitProgress(
+                    WorkstationOperationScope.DISCOVERY,
+                    "discovery",
+                    discovery::run,
+                    ignored -> { },
+                    ignored -> { }
+            ));
+            discovery.awaitStarted("discovery progress operation start");
+            discovery.report("discovery-visible", 1, 10);
+            flushFxEvents();
+            assertEquals("discovery-visible", view.lastStatus());
+            assertEquals(0.1, view.lastProgress());
+
+            onFx(() -> coordinator.submitProgress(
+                    WorkstationOperationScope.LOCAL,
+                    "local",
+                    local::run,
+                    ignored -> { },
+                    ignored -> { }
+            ));
+            local.awaitStarted("local progress operation start");
+            local.report("local-visible", 2, 10);
+            flushFxEvents();
+            assertEquals("local-visible", view.lastStatus());
+            assertEquals(0.2, view.lastProgress());
+
+            discovery.report("discovery-suppressed", 9, 10);
+            flushFxEvents();
+            assertEquals("local-visible", view.lastStatus());
+            assertEquals(0.2, view.lastProgress());
+
+            onFx(() -> coordinator.submitProgress(
+                    WorkstationOperationScope.FOREGROUND,
+                    "foreground",
+                    foreground::run,
+                    ignored -> { },
+                    ignored -> { }
+            ));
+            foreground.awaitStarted("foreground progress operation start");
+            foreground.report("foreground-visible", 3, 10);
+            flushFxEvents();
+            assertEquals("foreground-visible", view.lastStatus());
+            assertEquals(0.3, view.lastProgress());
+
+            local.report("local-suppressed", 8, 10);
+            discovery.report("discovery-still-suppressed", 8, 10);
+            flushFxEvents();
+            assertEquals("foreground-visible", view.lastStatus());
+            assertEquals(0.3, view.lastProgress());
+        } finally {
+            foreground.complete();
+            local.complete();
+            discovery.complete();
+            coordinator.cancelAll();
+            flushFxEvents();
+        }
+    }
+
+    @Test
+    void lowerPriorityProgressResumesAfterHigherPriorityOperationCompletes() {
+        RecordingProgressView view = new RecordingProgressView();
+        WorkstationOperationCoordinator coordinator = coordinator(view);
+        ControlledProgressOperation discovery = new ControlledProgressOperation();
+        ControlledProgressOperation local = new ControlledProgressOperation();
+        ControlledProgressOperation foreground = new ControlledProgressOperation();
+        CountDownLatch foregroundSucceeded = new CountDownLatch(1);
+        CountDownLatch localSucceeded = new CountDownLatch(1);
+
+        try {
+            onFx(() -> coordinator.submitProgress(
+                    WorkstationOperationScope.DISCOVERY,
+                    "discovery",
+                    discovery::run,
+                    ignored -> { },
+                    ignored -> { }
+            ));
+            discovery.awaitStarted("discovery progress operation start");
+            discovery.report("discovery-initial", 1, 10);
+
+            onFx(() -> coordinator.submitProgress(
+                    WorkstationOperationScope.LOCAL,
+                    "local",
+                    local::run,
+                    ignored -> localSucceeded.countDown(),
+                    ignored -> { }
+            ));
+            local.awaitStarted("local progress operation start");
+            local.report("local-initial", 2, 10);
+
+            onFx(() -> coordinator.submitProgress(
+                    WorkstationOperationScope.FOREGROUND,
+                    "foreground",
+                    foreground::run,
+                    ignored -> foregroundSucceeded.countDown(),
+                    ignored -> { }
+            ));
+            foreground.awaitStarted("foreground progress operation start");
+            foreground.report("foreground", 3, 10);
+            flushFxEvents();
+            assertEquals("foreground", view.lastStatus());
+
+            foreground.complete();
+            awaitLatch(foregroundSucceeded, "foreground success callback");
+            local.report("local-resumed", 4, 10);
+            flushFxEvents();
+            assertEquals("local-resumed", view.lastStatus());
+            assertEquals(0.4, view.lastProgress());
+
+            local.complete();
+            awaitLatch(localSucceeded, "local success callback");
+            discovery.report("discovery-resumed", 5, 10);
+            flushFxEvents();
+            assertEquals("discovery-resumed", view.lastStatus());
+            assertEquals(0.5, view.lastProgress());
+        } finally {
+            foreground.complete();
+            local.complete();
+            discovery.complete();
+            coordinator.cancelAll();
+            flushFxEvents();
+        }
+    }
+
+    @Test
+    void supersededFailureCannotInvokeStaleCallback() {
+        WorkstationOperationCoordinator coordinator = coordinator();
+        CountDownLatch staleStarted = new CountDownLatch(1);
+        CountDownLatch releaseStale = new CountDownLatch(1);
+        AtomicBoolean staleFailed = new AtomicBoolean();
+
+        onFx(() -> coordinator.submitProgress(
+                WorkstationOperationScope.FOREGROUND,
+                "stale",
+                reporter -> {
+                    staleStarted.countDown();
+                    waitIgnoringInterrupt(staleStarted, releaseStale, "ignored");
+                    throw new IllegalStateException("stale failure");
+                },
+                ignored -> { },
+                ignored -> staleFailed.set(true)
+        ));
+        awaitLatch(staleStarted, "stale progress operation start");
+
+        CountDownLatch currentSucceeded = new CountDownLatch(1);
+        onFx(() -> coordinator.submitProgress(
+                WorkstationOperationScope.FOREGROUND,
+                "current",
+                reporter -> "current",
+                ignored -> currentSucceeded.countDown(),
+                ignored -> { }
+        ));
+
+        releaseStale.countDown();
+        awaitLatch(currentSucceeded, "current progress success callback");
+        flushFxEvents();
+
+        assertFalse(staleFailed.get());
+    }
+
     private static WorkstationOperationCoordinator coordinator() {
-        return onFx(() -> new WorkstationOperationCoordinator(new RecordingProgressView()));
+        return coordinator(new RecordingProgressView());
+    }
+
+    private static WorkstationOperationCoordinator coordinator(RecordingProgressView view) {
+        return onFx(() -> new WorkstationOperationCoordinator(view));
     }
 
     private static BlockingOperation blockingOperation() {
@@ -286,17 +460,97 @@ class WorkstationOperationCoordinatorTest {
         }
     }
 
+    private static final class ControlledProgressOperation {
+        private final CountDownLatch started = new CountDownLatch(1);
+        private final LinkedBlockingQueue<ProgressCommand> commands =
+                new LinkedBlockingQueue<>();
+
+        private String run(cartographer.progress.ProgressReporter reporter) {
+            started.countDown();
+            while (true) {
+                ProgressCommand command;
+                try {
+                    command = commands.take();
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    throw new CancellationException(
+                            "controlled progress operation cancelled"
+                    );
+                }
+                if (command.complete()) {
+                    return "done";
+                }
+                reporter.progress(
+                        command.stage(),
+                        command.current(),
+                        command.total()
+                );
+                command.reported().countDown();
+            }
+        }
+
+        private void awaitStarted(String description) {
+            awaitLatch(started, description);
+        }
+
+        private void report(String stage, int current, int total) {
+            CountDownLatch reported = new CountDownLatch(1);
+            commands.add(new ProgressCommand(
+                    stage,
+                    current,
+                    total,
+                    false,
+                    reported
+            ));
+            awaitLatch(reported, stage + " progress report");
+        }
+
+        private void complete() {
+            commands.offer(new ProgressCommand(
+                    "",
+                    0,
+                    0,
+                    true,
+                    new CountDownLatch(0)
+            ));
+        }
+    }
+
+    private record ProgressCommand(
+            String stage,
+            int current,
+            int total,
+            boolean complete,
+            CountDownLatch reported
+    ) {
+    }
+
     private static final class RecordingProgressView implements WorkstationProgressView {
+        private final AtomicReference<String> lastStatus = new AtomicReference<>();
+        private final AtomicReference<Double> lastProgress = new AtomicReference<>();
+
         @Override
         public void setStatus(String status) {
+            lastStatus.set(status);
         }
 
         @Override
         public void setIndeterminateProgress() {
+            lastProgress.set(-1.0);
         }
 
         @Override
         public void setProgress(double current, double total) {
+            lastProgress.set(total <= 0.0 ? -1.0 : current / total);
+        }
+
+        private String lastStatus() {
+            return lastStatus.get();
+        }
+
+        private double lastProgress() {
+            Double value = lastProgress.get();
+            return value == null ? Double.NaN : value;
         }
     }
 }
