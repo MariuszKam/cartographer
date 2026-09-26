@@ -240,13 +240,12 @@ final class OreToolPane extends VBox {
         Optional<OreResource> selected =
                 resourceForDisplayName(resourceBox.getEditor().getText());
         resourceStatusLabel.setText(
-                selected.isEmpty()
-                        ? "Registry match: custom input"
-                        : selected.get().registryVerified()
-                        ? "Registry match: verified ("
-                                + selected.get().registryMatchCount() + " block codes)"
-                        : "Registry match: not verified - using \""
-                                + selected.get().match() + "\" as custom match"
+                selected.map(resource -> resource.registryVerified()
+                                ? "Registry match: verified ("
+                                        + resource.registryMatchCount() + " block codes)"
+                                : "Registry match: not verified - using \""
+                                        + resource.match() + "\" as custom match")
+                        .orElse("Registry match: custom input")
         );
     }
 

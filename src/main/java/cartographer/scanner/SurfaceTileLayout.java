@@ -31,7 +31,6 @@ public final class SurfaceTileLayout {
     private final int tileWidthCount;
     private final int tileHeightCount;
     private final int tileCount;
-    private final long cellCount;
     private final Set<Long> explicitActiveTiles;
 
     private SurfaceTileLayout(
@@ -75,7 +74,6 @@ public final class SurfaceTileLayout {
             tileWidthCount = 0;
             tileHeightCount = 0;
             tileCount = 0;
-            cellCount = 0L;
             return;
         }
 
@@ -90,15 +88,6 @@ public final class SurfaceTileLayout {
                 "tile count"
         );
 
-        long totalCells = 0L;
-        for (int tileIndex = 0; tileIndex < tileCount; tileIndex++) {
-            totalCells = checkedAdd(
-                    totalCells,
-                    tileCellCount(tileXAt(tileIndex), tileZAt(tileIndex)),
-                    "cell count"
-            );
-        }
-        cellCount = totalCells;
     }
 
     private SurfaceTileLayout(
@@ -197,15 +186,6 @@ public final class SurfaceTileLayout {
         this.radiusSquared = checkedMultiply(radius, radius, "radius squared");
         this.explicitActiveTiles = Set.copyOf(active);
 
-        long totalCells = 0L;
-        for (int tileIndex = 0; tileIndex < tileCount; tileIndex++) {
-            totalCells = checkedAdd(
-                    totalCells,
-                    tileCellCount(tileXAt(tileIndex), tileZAt(tileIndex)),
-                    "cell count"
-            );
-        }
-        this.cellCount = totalCells;
     }
 
     /**
@@ -474,25 +454,25 @@ public final class SurfaceTileLayout {
         return (int) value;
     }
 
-    private static long checkedAdd(long left, long right, String name) {
+    private static long checkedAdd(long augend, long addend, String name) {
         try {
-            return Math.addExact(left, right);
+            return Math.addExact(augend, addend);
         } catch (ArithmeticException exception) {
             throw new IllegalArgumentException(name + " overflows", exception);
         }
     }
 
-    private static long checkedSubtract(long left, long right, String name) {
+    private static long checkedSubtract(long minuend, long subtrahend, String name) {
         try {
-            return Math.subtractExact(left, right);
+            return Math.subtractExact(minuend, subtrahend);
         } catch (ArithmeticException exception) {
             throw new IllegalArgumentException(name + " overflows", exception);
         }
     }
 
-    private static long checkedMultiply(long left, long right, String name) {
+    private static long checkedMultiply(long firstFactor, long secondFactor, String name) {
         try {
-            return Math.multiplyExact(left, right);
+            return Math.multiplyExact(firstFactor, secondFactor);
         } catch (ArithmeticException exception) {
             throw new IllegalArgumentException(name + " overflows", exception);
         }
