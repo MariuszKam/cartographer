@@ -4,7 +4,6 @@ import cartographer.marker.MarkerStore;
 import cartographer.model.DisplayPosition;
 import cartographer.model.HomeState;
 import cartographer.model.WorldMetadata;
-import cartographer.model.WorldPosition;
 import cartographer.navigation.HomeStore;
 import cartographer.render.RenderLayer;
 import cartographer.render.RenderOptions;
