@@ -1,6 +1,6 @@
 package cartographer.render;
 
-import cartographer.model.HomeLocation;
+import cartographer.model.WorldPosition;
 import cartographer.model.HomeState;
 import cartographer.model.WorldPosition;
 import cartographer.resource.SurfaceMaterialAnalysis;
@@ -553,7 +553,7 @@ public class SurfaceResourceOverlayRenderer {
             }
         }
 
-        if (!(home instanceof HomeState.Present(HomeLocation location))) {
+        if (!(home instanceof HomeState.Present(WorldPosition location))) {
             return;
         }
 
