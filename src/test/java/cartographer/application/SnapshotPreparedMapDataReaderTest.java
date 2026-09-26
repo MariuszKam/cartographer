@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -73,7 +74,7 @@ class SnapshotPreparedMapDataReaderTest {
                 .orElseThrow();
 
         assertTrue(prepared.surface().analysis().isEmpty());
-        assertTrue(!prepared.surface().renderData().isEmpty());
+        assertFalse(prepared.surface().renderData().isEmpty());
         assertTrue(
                 prepared.surface()
                         .diagnostics()

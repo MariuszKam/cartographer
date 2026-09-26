@@ -35,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -92,7 +93,7 @@ class RenderRockMapCancellationTest {
             awaitLatch(scanInterrupted, "rock scan interrupted");
             joinRockRenderThread(operation);
 
-            assertTrue(failure.get() instanceof CancellationException);
+            assertInstanceOf(CancellationException.class, failure.get());
             assertEquals(1, connections.opened());
             assertEquals(1, connections.closed());
         } finally {

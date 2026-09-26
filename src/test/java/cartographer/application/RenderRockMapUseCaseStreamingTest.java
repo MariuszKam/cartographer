@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.testing.TestConnections;
 import cartographer.progress.ProgressReporter;
 import cartographer.model.BlockInfo;
 import cartographer.model.ChunkCoordinate;
@@ -22,7 +23,6 @@ import cartographer.save.WorldMetadataReader;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
-import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -38,13 +38,14 @@ class RenderRockMapUseCaseStreamingTest {
                 reader, new RockMapRenderer(),
                 new SaveSessionFactory(new TestConnectionFactory(), reader, new MetadataReader()));
         WorldPosition center = new WorldPosition(16, 0, 16);
+        Path savePath = Path.of("world.vcdbs");
 
         RenderRockMapResult upper = useCase.execute(new RenderRockMapRequest(
-                Path.of("world.vcdbs"), cartographer.geology.rock.RockMapMode.UPPER_ROCK,
+                savePath, cartographer.geology.rock.RockMapMode.UPPER_ROCK,
                 1, java.util.Optional.of(center), java.util.OptionalInt.empty(),
                 java.util.OptionalInt.of(0), java.util.OptionalInt.of(64)));
         RenderRockMapResult atY = useCase.execute(new RenderRockMapRequest(
-                Path.of("world.vcdbs"), cartographer.geology.rock.RockMapMode.AT_Y,
+                savePath, cartographer.geology.rock.RockMapMode.AT_Y,
                 1, java.util.Optional.of(center), java.util.OptionalInt.of(31),
                 java.util.OptionalInt.empty(), java.util.OptionalInt.empty()));
 
@@ -107,11 +108,7 @@ class RenderRockMapUseCaseStreamingTest {
     private static final class TestConnectionFactory extends SqliteSaveConnection {
         @Override
         public Connection openReadOnly(Path savePath) {
-            return (Connection) Proxy.newProxyInstance(
-                    Connection.class.getClassLoader(),
-                    new Class<?>[]{Connection.class},
-                    (proxy, method, args) -> null
-            );
+            return TestConnections.noOp();
         }
     }
 }
