@@ -1890,18 +1890,6 @@ class RenderActualOreMapUseCaseTest {
         }
 
         @Override
-        public ChunkStreamStats forEachChunkByPositionAdaptive(
-                SaveSession session,
-                java.util.Collection<ChunkPosition> positions,
-                ReadDiagnostics diagnostics,
-                java.util.function.Consumer<ParsedChunk> consumer,
-                ProgressReporter progress
-        ) {
-            adaptiveExactChunkCalls++;
-            return visitChunks(positions, consumer);
-        }
-
-        @Override
         public ChunkStreamStats forEachSurfaceChunkByPositionAdaptive(
                 SaveSession session,
                 java.util.Collection<ChunkPosition> positions,
