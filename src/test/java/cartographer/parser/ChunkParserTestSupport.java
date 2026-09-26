@@ -423,14 +423,14 @@ abstract class ChunkParserTestSupport {
 
     protected static final class SelectiveRecordingLayerDecoder
             extends ChunkDataLayerDecoder {
-        private int paletteContainsCalls;
-        private int ownedDecodeCalls;
-        private byte[] probedPayload;
-        private byte[] decodedPayload;
-        private int probedOffset;
-        private int decodedOffset;
-        private int probedLength;
-        private int decodedLength;
+        protected int paletteContainsCalls;
+        protected int ownedDecodeCalls;
+        protected byte[] probedPayload;
+        protected byte[] decodedPayload;
+        protected int probedOffset;
+        protected int decodedOffset;
+        protected int probedLength;
+        protected int decodedLength;
 
         @Override
         boolean paletteContainsAny(
@@ -479,7 +479,7 @@ abstract class ChunkParserTestSupport {
 
     protected static final class RecordingLayerDecoder
             extends ChunkDataLayerDecoder {
-        private int ownedDecodeCalls;
+        protected int ownedDecodeCalls;
 
         @Override
         DecodedChunkLayer decodeOwned(
