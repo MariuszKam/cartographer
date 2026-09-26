@@ -125,14 +125,14 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
             awaitLatch(selectiveStarted, "selective scan started");
             operation.interrupt();
             awaitLatch(selectiveInterrupted, "selective scan interrupted");
-            joinThread(operation, "surface discovery operation");
+            joinSurfaceDiscoveryThread(operation);
 
             assertTrue(failure.get() instanceof CancellationException);
             assertEquals(1, connections.opened());
             assertEquals(1, connections.closed());
         } finally {
             operation.interrupt();
-            joinThread(operation, "surface discovery operation");
+            joinSurfaceDiscoveryThread(operation);
         }
     }
 
@@ -146,12 +146,14 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
         );
     }
 
-    private static void joinThread(
-            Thread thread,
-            String description
+    private static void joinSurfaceDiscoveryThread(
+            Thread thread
     ) throws InterruptedException {
         thread.join(TimeUnit.SECONDS.toMillis(TEST_DEADLOCK_TIMEOUT_SECONDS));
-        assertFalse(thread.isAlive(), description + " did not terminate");
+        assertFalse(
+                thread.isAlive(),
+                "surface discovery operation did not terminate"
+        );
     }
 
     private DiscoverObservedSurfaceResourcesUseCase useCase(
@@ -213,7 +215,7 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
             consumer.accept(new MapChunk(
                     new MapChunkCoordinate(0, 0),
                     new int[MapChunk.HEIGHT_VALUE_COUNT],
-                    filledHeights(5)
+                    filledHeights()
             ));
             return new MapChunkStreamStats(
                     coordinates.size(), 1, 1, 1, 0, 0
@@ -236,7 +238,7 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
                 return new SelectiveChunkStreamStats(
                         positions.size(), 0, 0, 0, 0, 0, 0, 0);
             }
-            ParsedChunk chunk = chunkWithBlock(16, 6, 1);
+            ParsedChunk chunk = chunkWithBlock();
             consumer.accept(SelectiveChunkVisit.decoded(
                     new ChunkPosition(0, 0, 0, 0), chunk
             ));
@@ -245,15 +247,15 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
             );
         }
 
-        private int[] filledHeights(int value) {
+        private int[] filledHeights() {
             int[] heights = new int[MapChunk.HEIGHT_VALUE_COUNT];
-            Arrays.fill(heights, value);
+            Arrays.fill(heights, 5);
             return heights;
         }
 
-        private ParsedChunk chunkWithBlock(int worldX, int worldY, int blockId) {
+        private ParsedChunk chunkWithBlock() {
             int[] blocks = new int[32 * 32 * 32];
-            blocks[(worldY * 32 + 16) * 32 + worldX] = blockId;
+            blocks[(6 * 32 + 16) * 32 + 16] = 1;
             return cartographer.model.ParsedChunkFixtures.create(
                     new ChunkCoordinate(0, 0, 0), 0, 32, 32, 32, blocks
             );
@@ -333,7 +335,7 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
             consumer.accept(new MapChunk(
                     new MapChunkCoordinate(0, 0),
                     new int[MapChunk.HEIGHT_VALUE_COUNT],
-                    filledHeightsStatic(5)
+                    filledHeightsStatic()
             ));
             return new MapChunkStreamStats(
                     coordinates.size(),
@@ -366,9 +368,9 @@ class DiscoverObservedSurfaceResourcesUseCaseTest {
             throw new AssertionError("blocking scan unexpectedly resumed");
         }
 
-        private static int[] filledHeightsStatic(int value) {
+        private static int[] filledHeightsStatic() {
             int[] heights = new int[MapChunk.HEIGHT_VALUE_COUNT];
-            Arrays.fill(heights, value);
+            Arrays.fill(heights, 5);
             return heights;
         }
     }

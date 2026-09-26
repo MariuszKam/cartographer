@@ -217,8 +217,8 @@ class PrepareMapDataUseCaseSurfaceAnalysisTest {
         ) {
             consumer.accept(new MapChunk(
                     new MapChunkCoordinate(0, 0),
-                    filledHeights(1),
-                    filledHeights(1)
+                    filledHeights(),
+                    filledHeights()
             ));
             return new MapChunkStreamStats(
                     coordinates.size(),
@@ -288,9 +288,9 @@ class PrepareMapDataUseCaseSurfaceAnalysisTest {
             );
         }
 
-        private static int[] filledHeights(int value) {
+        private static int[] filledHeights() {
             int[] result = new int[MapChunk.HEIGHT_VALUE_COUNT];
-            Arrays.fill(result, value);
+            Arrays.fill(result, 1);
             return result;
         }
     }

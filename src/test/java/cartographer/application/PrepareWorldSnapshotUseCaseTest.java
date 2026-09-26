@@ -453,11 +453,11 @@ class PrepareWorldSnapshotUseCaseTest {
         );
     }
 
-    private static MapChunk mapChunk(int x, int z) {
+    private static MapChunk mapChunk(int x) {
         int[] heights = new int[MapChunk.HEIGHT_VALUE_COUNT];
         Arrays.fill(heights, 0);
         return new MapChunk(
-                new MapChunkCoordinate(x, z),
+                new MapChunkCoordinate(x, 0),
                 heights,
                 heights
         );

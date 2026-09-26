@@ -443,8 +443,8 @@ class RenderSurfaceResourceMapUseCaseTest {
 
         RenderSurfaceResourceMapResult result = useCase(reader).execute(request(32, 0, 32));
 
-        assertTrue(hasSurfaceXLessThan(result, 32));
-        assertTrue(hasSurfaceXAtLeast(result, 32));
+        assertTrue(hasSurfaceXLessThan(result));
+        assertTrue(hasSurfaceXAtLeast(result));
     }
 
     @Test
@@ -528,18 +528,18 @@ class RenderSurfaceResourceMapUseCaseTest {
         );
     }
 
-    private boolean hasSurfaceXLessThan(RenderSurfaceResourceMapResult result, int bound) {
+    private boolean hasSurfaceXLessThan(RenderSurfaceResourceMapResult result) {
         int[] found = {0};
         result.surface().map().forEachResolvedCell((x, z, y, blockId, surfaceClass) -> {
-            if (x < bound) found[0]++;
+            if (x < 32) found[0]++;
         });
         return found[0] != 0;
     }
 
-    private boolean hasSurfaceXAtLeast(RenderSurfaceResourceMapResult result, int bound) {
+    private boolean hasSurfaceXAtLeast(RenderSurfaceResourceMapResult result) {
         int[] found = {0};
         result.surface().map().forEachResolvedCell((x, z, y, blockId, surfaceClass) -> {
-            if (x >= bound) found[0]++;
+            if (x >= 32) found[0]++;
         });
         return found[0] != 0;
     }

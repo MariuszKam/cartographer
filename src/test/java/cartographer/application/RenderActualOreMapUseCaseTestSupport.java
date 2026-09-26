@@ -110,8 +110,7 @@ abstract class RenderActualOreMapUseCaseTestSupport {
     }
 
     boolean hasSurfaceXLessThan(
-            RenderActualOreMapResult result,
-            int bound
+            RenderActualOreMapResult result
     ) {
         var renderData = result.preparedMapData()
                 .orElseThrow()
@@ -120,7 +119,7 @@ abstract class RenderActualOreMapUseCaseTestSupport {
         for (int y = 0; y < renderData.rasterSize(); y++) {
             for (int x = 0; x < renderData.rasterSize(); x++) {
                 if (cartographer.render.SurfaceRenderDataTestAccess.hasSurfaceAt(renderData, x, y)
-                        && cartographer.render.SurfaceRenderDataTestAccess.surfaceWorldXAt(renderData, x, y) < bound) {
+                        && cartographer.render.SurfaceRenderDataTestAccess.surfaceWorldXAt(renderData, x, y) < 32) {
                     return true;
                 }
             }
@@ -129,8 +128,7 @@ abstract class RenderActualOreMapUseCaseTestSupport {
     }
 
     boolean hasSurfaceXAtLeast(
-            RenderActualOreMapResult result,
-            int bound
+            RenderActualOreMapResult result
     ) {
         var renderData = result.preparedMapData()
                 .orElseThrow()
@@ -139,7 +137,7 @@ abstract class RenderActualOreMapUseCaseTestSupport {
         for (int y = 0; y < renderData.rasterSize(); y++) {
             for (int x = 0; x < renderData.rasterSize(); x++) {
                 if (cartographer.render.SurfaceRenderDataTestAccess.hasSurfaceAt(renderData, x, y)
-                        && cartographer.render.SurfaceRenderDataTestAccess.surfaceWorldXAt(renderData, x, y) >= bound) {
+                        && cartographer.render.SurfaceRenderDataTestAccess.surfaceWorldXAt(renderData, x, y) >= 32) {
                     return true;
                 }
             }
