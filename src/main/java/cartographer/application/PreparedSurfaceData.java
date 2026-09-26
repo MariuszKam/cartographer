@@ -26,7 +26,7 @@ public record PreparedSurfaceData(
     public PreparedSurfaceData {
         Objects.requireNonNull(renderData, "Surface render data is required");
         Objects.requireNonNull(diagnostics, "Surface diagnostics are required");
-        analysis = Objects.requireNonNull(
+        Objects.requireNonNull(
                 analysis,
                 "Surface analysis option is required"
         );

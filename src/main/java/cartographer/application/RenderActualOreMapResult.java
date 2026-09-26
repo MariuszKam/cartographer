@@ -46,15 +46,15 @@ public record RenderActualOreMapResult(
                 actualOreOverlays == null ? List.of() : actualOreOverlays
         );
         Objects.requireNonNull(renderDataCacheReport, "renderDataCacheReport is required");
-        preparedMapData = Objects.requireNonNull(
+        Objects.requireNonNull(
                 preparedMapData,
                 "preparedMapData is required; use Optional.empty() when unavailable"
         );
-        decorationState = Objects.requireNonNull(
+        Objects.requireNonNull(
                 decorationState,
                 "decorationState is required; use Optional.empty() when unavailable"
         );
-        mapRegionOverlayState = Objects.requireNonNull(
+        Objects.requireNonNull(
                 mapRegionOverlayState,
                 "mapRegionOverlayState is required; use Optional.empty() when unavailable"
         );
