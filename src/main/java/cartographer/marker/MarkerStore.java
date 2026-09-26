@@ -1,5 +1,7 @@
 package cartographer.marker;
 
+import cartographer.model.DisplayPosition;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -88,8 +90,7 @@ public class MarkerStore {
                 markers.add(
                         new UserMarker(
                                 name,
-                                x,
-                                z
+                                new DisplayPosition(x, 0.0, z)
                         )
                 );
             }
@@ -270,11 +271,11 @@ public class MarkerStore {
 
             for (UserMarker marker : markers) {
                 content.append(
-                                marker.x()
+                                marker.position().x()
                         )
                         .append('\t')
                         .append(
-                                marker.z()
+                                marker.position().z()
                         )
                         .append('\t')
                         .append(
