@@ -69,12 +69,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RenderActualOreMapSnapshotTest extends RenderActualOreMapUseCaseTestSupport {
 
     @TempDir
-    Path temporaryDirectory;
-
-    @Override
-    Path temporaryDirectory() {
-        return temporaryDirectory;
-    }
+    Path suiteTemporaryDirectory;
 
     @Test
     void retainedOreRenderSkipsBasePreparationButStillScansOreAuthoritatively() {
@@ -84,11 +79,11 @@ class RenderActualOreMapSnapshotTest extends RenderActualOreMapUseCaseTestSuppor
         RenderActualOreMapUseCase useCase = useCase(
                 reader,
                 new WorldMetadata(128, 256, 128),
-                temporaryDirectory.resolve("retained-ore-home.properties"),
-                temporaryDirectory.resolve("retained-ore-markers.csv")
+                suiteTemporaryDirectory.resolve("retained-ore-home.properties"),
+                suiteTemporaryDirectory.resolve("retained-ore-markers.csv")
         );
         RenderActualOreMapRequest request = new RenderActualOreMapRequest(
-                temporaryDirectory.resolve("retained-ore-save.vcdbs"),
+                suiteTemporaryDirectory.resolve("retained-ore-save.vcdbs"),
                 16,
                 1,
                 RenderStyle.TOPOGRAPHIC,
@@ -141,11 +136,11 @@ class RenderActualOreMapSnapshotTest extends RenderActualOreMapUseCaseTestSuppor
         RenderActualOreMapUseCase useCase = useCase(
                 reader,
                 new WorldMetadata(128, 256, 128),
-                temporaryDirectory.resolve("cross-save-home.properties"),
-                temporaryDirectory.resolve("cross-save-markers.csv")
+                suiteTemporaryDirectory.resolve("cross-save-home.properties"),
+                suiteTemporaryDirectory.resolve("cross-save-markers.csv")
         );
         RenderActualOreMapRequest request = new RenderActualOreMapRequest(
-                temporaryDirectory.resolve("cross-save-a.vcdbs"),
+                suiteTemporaryDirectory.resolve("cross-save-a.vcdbs"),
                 16,
                 1,
                 RenderStyle.TOPOGRAPHIC,
@@ -168,7 +163,7 @@ class RenderActualOreMapSnapshotTest extends RenderActualOreMapUseCaseTestSuppor
                 IllegalArgumentException.class,
                 () -> useCase.executeRetained(
                         request,
-                        temporaryDirectory.resolve("cross-save-b.vcdbs"),
+                        suiteTemporaryDirectory.resolve("cross-save-b.vcdbs"),
                         first.preparedMapData().orElseThrow(),
                         first.decorationState().orElseThrow(),
                         first.mapRegionOverlayState(),
@@ -186,11 +181,11 @@ class RenderActualOreMapSnapshotTest extends RenderActualOreMapUseCaseTestSuppor
         RenderActualOreMapUseCase useCase = useCase(
                 reader,
                 new WorldMetadata(128, 256, 128),
-                temporaryDirectory.resolve("retained-region-home.properties"),
-                temporaryDirectory.resolve("retained-region-markers.csv")
+                suiteTemporaryDirectory.resolve("retained-region-home.properties"),
+                suiteTemporaryDirectory.resolve("retained-region-markers.csv")
         );
         RenderActualOreMapRequest request = new RenderActualOreMapRequest(
-                temporaryDirectory.resolve("retained-region-save.vcdbs"),
+                suiteTemporaryDirectory.resolve("retained-region-save.vcdbs"),
                 16,
                 1,
                 RenderStyle.TOPOGRAPHIC,
@@ -221,12 +216,12 @@ class RenderActualOreMapSnapshotTest extends RenderActualOreMapUseCaseTestSuppor
     @Test
     void completeResourceSnapshotSkipsSelectiveOreSourceTraversal()
             throws Exception {
-        Path savePath = temporaryDirectory.resolve(
+        Path savePath = suiteTemporaryDirectory.resolve(
                 "pf26-resource-save.vcdbs"
         );
         Files.write(savePath, new byte[]{1, 2, 3});
         RenderDataCacheStore cacheStore = new RenderDataCacheStore(
-                temporaryDirectory.resolve("pf26-resource-cache")
+                suiteTemporaryDirectory.resolve("pf26-resource-cache")
         );
         WorldMetadata metadata = new WorldMetadata(128, 256, 128);
         FakeReader reader = new FakeReader(Map.of(
@@ -277,8 +272,8 @@ class RenderActualOreMapSnapshotTest extends RenderActualOreMapUseCaseTestSuppor
         RenderActualOreMapUseCase useCase = useCase(
                 reader,
                 metadata,
-                temporaryDirectory.resolve("pf26-resource-home.properties"),
-                temporaryDirectory.resolve("pf26-resource-markers.csv"),
+                suiteTemporaryDirectory.resolve("pf26-resource-home.properties"),
+                suiteTemporaryDirectory.resolve("pf26-resource-markers.csv"),
                 cacheStore
         );
         RenderActualOreMapResult result = useCase.execute(
@@ -320,12 +315,12 @@ class RenderActualOreMapSnapshotTest extends RenderActualOreMapUseCaseTestSuppor
     @Test
     void healthyCompleteMapregionSnapshotSkipsSourceMapregionRead()
             throws Exception {
-        Path savePath = temporaryDirectory.resolve(
+        Path savePath = suiteTemporaryDirectory.resolve(
                 "pf26-mapregion-save.vcdbs"
         );
         Files.write(savePath, new byte[]{4, 5, 6});
         RenderDataCacheStore cacheStore = new RenderDataCacheStore(
-                temporaryDirectory.resolve("pf26-mapregion-cache")
+                suiteTemporaryDirectory.resolve("pf26-mapregion-cache")
         );
         WorldDataSnapshot snapshot =
                 WorldDataSnapshot.openOrCreate(
@@ -338,8 +333,8 @@ class RenderActualOreMapSnapshotTest extends RenderActualOreMapUseCaseTestSuppor
         RenderActualOreMapUseCase useCase = useCase(
                 reader,
                 new WorldMetadata(128, 256, 128),
-                temporaryDirectory.resolve("pf26-region-home.properties"),
-                temporaryDirectory.resolve("pf26-region-markers.csv"),
+                suiteTemporaryDirectory.resolve("pf26-region-home.properties"),
+                suiteTemporaryDirectory.resolve("pf26-region-markers.csv"),
                 cacheStore
         );
 
