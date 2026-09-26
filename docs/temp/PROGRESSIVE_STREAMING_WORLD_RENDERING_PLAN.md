@@ -936,18 +936,44 @@ Validation note:
 
 ### Phase 1 — Spatial render-tile foundation
 
-Add explicit render-tile coordinate/bounds/layout types.
+Status: IMPLEMENTED
 
-Required tests:
+Added explicit render-tile spatial types owned by `cartographer.render`:
+
+- `RenderTileCoordinate` is a stable coordinate in the global render-tile grid and is intentionally distinct from world-block and source `MapChunkCoordinate` spaces;
+- `RenderTileLayout` defines tile alignment and the number of source mapchunks per render-tile side;
+- `RenderTileBounds` represents half-open absolute world-block bounds and can clip them to authoritative `WorldMetadata` bounds.
+
+Spatial decisions frozen by this phase:
+
+- world -> mapchunk conversion continues to use the existing `MapChunkCoordinate.fromWorld(...)` semantics;
+- mapchunk -> render-tile conversion uses `Math.floorDiv`, so negative coordinates are aligned correctly instead of truncating toward zero;
+- render tiles are globally aligned and their world bounds are half-open;
+- source mapchunks inside a tile/bounds are enumerated deterministically in Z-major, then X-major order;
+- square-ring traversal uses Chebyshev distance and has deterministic clockwise ordering, providing a stable spatial primitive for the later scheduler without implementing scheduler policy in this phase;
+- world-edge clipping never expands a tile and an entirely out-of-world tile produces no intersection;
+- render-tile span remains configurable. Phase 1 deliberately does not choose 4 x 4, 8 x 8, or another production span before benchmark evidence exists.
+
+Implemented tests cover:
 
 - world -> mapchunk -> render tile mapping;
-- negative coordinates;
-- boundary values at multiples of 32 and render-tile span;
-- tile -> contained mapchunk enumeration;
-- deterministic neighbor/ring traversal;
-- partial world-edge bounds.
+- positive and negative coordinate behavior;
+- exact 32-block mapchunk boundaries;
+- exact render-tile-span boundaries;
+- aligned half-open tile bounds;
+- deterministic contained-mapchunk enumeration;
+- deterministic ring traversal and uniqueness;
+- partial world-edge clipping and out-of-world rejection.
 
-No new UI behavior yet.
+No UI, save-reader, cache, renderer, or scheduler behavior changes in this phase.
+
+Validation note:
+
+- the new production spatial types compile successfully in an isolated Java compilation with all direct model dependencies;
+- the new tests compile successfully against the required JUnit API surface;
+- an explicit smoke harness exercised positive/negative mapping, clipping, source-mapchunk enumeration, and ring ordering successfully;
+- `javac -Xlint:all` reported no warnings for the new production types in that selective compilation;
+- this environment provides JDK 21 while the repository requires Java 25, so the full Gradle quality gate is not reported as executed or passed here.
 
 ### Phase 2 — Strong exact source results
 
