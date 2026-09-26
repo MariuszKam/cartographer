@@ -1,6 +1,6 @@
 package cartographer.navigation;
 
-import cartographer.model.HomeLocation;
+import cartographer.model.DisplayPosition;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -35,16 +35,18 @@ class HomeStoreTest {
 
         store.save(
                 saveOne,
-                new HomeLocation(
+                new DisplayPosition(
                         -500,
+                        0.0,
                         300
                 )
         );
 
         store.save(
                 saveTwo,
-                new HomeLocation(
+                new DisplayPosition(
                         1500,
+                        0.0,
                         -700
                 )
         );
@@ -58,8 +60,9 @@ class HomeStoreTest {
         );
 
         assertEquals(
-                new HomeLocation(
+                new DisplayPosition(
                         -500,
+                        0.0,
                         300
                 ),
                 store.load(saveOne)
@@ -67,8 +70,9 @@ class HomeStoreTest {
         );
 
         assertEquals(
-                new HomeLocation(
+                new DisplayPosition(
                         1500,
+                        0.0,
                         -700
                 ),
                 store.load(saveTwo)
