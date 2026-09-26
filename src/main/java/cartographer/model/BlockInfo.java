@@ -6,6 +6,25 @@ public record BlockInfo(
         int id,
         String code
 ) {
+    private static final String[] FOLIAGE_FRAGMENTS = {
+            "leaves",
+            "foliage",
+            "flower",
+            "mushroom",
+            "sapling",
+            "crop",
+            "tallgrass",
+            "fern",
+            "wildvine",
+            "fruitingbush",
+            "berrybush",
+            "tallplant",
+            "cattail",
+            "reed",
+            "bamboo",
+            "cactus",
+            "log-grown"
+    };
 
     public static BlockInfo unknown(int id) {
         return new BlockInfo(
@@ -38,33 +57,11 @@ public record BlockInfo(
             return false;
         }
 
-        return containsAny(
-                normalized,
-                "leaves",
-                "foliage",
-                "flower",
-                "mushroom",
-                "sapling",
-                "crop",
-                "tallgrass",
-                "fern",
-                "wildvine",
-                "fruitingbush",
-                "berrybush",
-                "tallplant",
-                "cattail",
-                "reed",
-                "bamboo",
-                "cactus",
-                "log-grown"
-        );
+        return containsFoliageFragment(normalized);
     }
 
-    private boolean containsAny(
-            String value,
-            String... fragments
-    ) {
-        for (String fragment : fragments) {
+    private boolean containsFoliageFragment(String value) {
+        for (String fragment : FOLIAGE_FRAGMENTS) {
             if (value.contains(fragment)) {
                 return true;
             }
