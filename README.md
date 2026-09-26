@@ -127,4 +127,3 @@ The durable rules live in [AGENTS.md](AGENTS.md) and [docs/ARCHITECTURE_PRINCIPL
 - [Windows packaging and release](docs/WINDOWS_RELEASE.md)
 - [Auto Update architecture](docs/AUTO_UPDATE.md)
 - [Auto Update Stage 5 validation](docs/AUTO_UPDATE_STAGE5_VALIDATION.md)
-- [Soil fertility interpretation](docs/SOIL_FERTILITY.md)
