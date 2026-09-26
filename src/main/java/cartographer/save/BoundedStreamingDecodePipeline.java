@@ -87,7 +87,7 @@ final class BoundedStreamingDecodePipeline<T> implements AutoCloseable {
             outstanding.add(future);
             inFlight++;
         } catch (RejectedExecutionException rejection) {
-            abort();
+            abort(false);
             throw new IllegalStateException(
                     "decode task could not be submitted",
                     rejection
@@ -121,7 +121,7 @@ final class BoundedStreamingDecodePipeline<T> implements AutoCloseable {
             state = State.FINISHED;
         } catch (RuntimeException | Error failure) {
             if (state == State.OPEN) {
-                abort();
+                abort(false);
             }
             throw failure;
         }
@@ -138,13 +138,7 @@ final class BoundedStreamingDecodePipeline<T> implements AutoCloseable {
         if (state == State.FINISHED || state == State.ABORTED) {
             return;
         }
-        InterruptedException interruption = abort();
-        if (interruption != null) {
-            throw new IllegalStateException(
-                    "interrupted while closing decode pipeline",
-                    interruption
-            );
-        }
+        abort(true);
     }
 
     /** Package-private observation for invariant tests. */
@@ -164,7 +158,7 @@ final class BoundedStreamingDecodePipeline<T> implements AutoCloseable {
             return completionService.take();
         } catch (InterruptedException interruption) {
             Thread.currentThread().interrupt();
-            abort();
+            abort(false);
             throw new IllegalStateException(
                     "interrupted while waiting for decode completion",
                     interruption
@@ -178,19 +172,19 @@ final class BoundedStreamingDecodePipeline<T> implements AutoCloseable {
             result = future.get();
         } catch (InterruptedException interruption) {
             Thread.currentThread().interrupt();
-            abort();
+            abort(false);
             throw new IllegalStateException(
                     "interrupted while resolving decode completion",
                     interruption
             );
         } catch (ExecutionException failure) {
-            abort();
+            abort(false);
             throw new IllegalStateException(
                     "decode task failed",
                     failure.getCause()
             );
         } catch (CancellationException cancellation) {
-            abort();
+            abort(false);
             throw new IllegalStateException(
                     "decode task was cancelled",
                     cancellation
@@ -200,12 +194,12 @@ final class BoundedStreamingDecodePipeline<T> implements AutoCloseable {
         try {
             consumer.accept(result);
         } catch (RuntimeException | Error failure) {
-            abort();
+            abort(false);
             throw failure;
         }
 
         if (!outstanding.remove(future)) {
-            abort();
+            abort(false);
             throw new IllegalStateException(
                     "decode pipeline lost completion bookkeeping"
             );
@@ -219,9 +213,9 @@ final class BoundedStreamingDecodePipeline<T> implements AutoCloseable {
         }
     }
 
-    private InterruptedException abort() {
+    private void abort(boolean reportInterruption) {
         if (state == State.FINISHED) {
-            return null;
+            return;
         }
         state = State.ABORTED;
         for (Future<T> future : outstanding) {
@@ -230,7 +224,13 @@ final class BoundedStreamingDecodePipeline<T> implements AutoCloseable {
         outstanding.clear();
         inFlight = 0;
         executor.shutdownNow();
-        return awaitTermination();
+        InterruptedException interruption = awaitTermination();
+        if (reportInterruption && interruption != null) {
+            throw new IllegalStateException(
+                    "interrupted while closing decode pipeline",
+                    interruption
+            );
+        }
     }
 
     /**

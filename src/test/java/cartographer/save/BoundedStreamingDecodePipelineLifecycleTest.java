@@ -147,12 +147,24 @@ class BoundedStreamingDecodePipelineLifecycleTest extends BoundedStreamingDecode
 
     @Test
     void rejectsInvalidConfigurationAndNulls() {
-        assertThrows(IllegalArgumentException.class,
-                () -> new BoundedStreamingDecodePipeline<>(0, 2, value -> { }));
-        assertThrows(IllegalArgumentException.class,
-                () -> new BoundedStreamingDecodePipeline<>(2, 2, value -> { }));
-        assertThrows(NullPointerException.class,
-                () -> new BoundedStreamingDecodePipeline<Integer>(1, 2, null));
+        assertThrows(IllegalArgumentException.class, () -> {
+            try (BoundedStreamingDecodePipeline<Object> ignored =
+                         new BoundedStreamingDecodePipeline<>(0, 2, value -> { })) {
+                // Constructor is expected to reject the configuration.
+            }
+        });
+        assertThrows(IllegalArgumentException.class, () -> {
+            try (BoundedStreamingDecodePipeline<Object> ignored =
+                         new BoundedStreamingDecodePipeline<>(2, 2, value -> { })) {
+                // Constructor is expected to reject the configuration.
+            }
+        });
+        assertThrows(NullPointerException.class, () -> {
+            try (BoundedStreamingDecodePipeline<Integer> ignored =
+                         new BoundedStreamingDecodePipeline<>(1, 2, null)) {
+                // Constructor is expected to reject the null consumer.
+            }
+        });
         try (BoundedStreamingDecodePipeline<Integer> pipeline =
                      new BoundedStreamingDecodePipeline<>(1, 2, value -> { })) {
             assertThrows(NullPointerException.class, () -> pipeline.submit(null));

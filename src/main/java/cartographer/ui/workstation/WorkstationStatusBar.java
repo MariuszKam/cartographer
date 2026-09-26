@@ -11,6 +11,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 
 public final class WorkstationStatusBar extends HBox {
@@ -126,10 +127,9 @@ public final class WorkstationStatusBar extends HBox {
     }
 
     public void setMapGeometry(Optional<MapViewportGeometry> geometry) {
-        Optional<MapViewportGeometry> safe =
-                geometry == null ? Optional.empty() : geometry;
+        Objects.requireNonNull(geometry, "geometry is required");
         mapScale.setText(
-                safe.map(MapScaleSummary::format)
+                geometry.map(MapScaleSummary::format)
                         .orElse("Map —")
         );
     }

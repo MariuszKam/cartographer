@@ -32,11 +32,12 @@ class SaveSessionLifecycleProbeTest {
     void failedSnapshotInitializationStillClosesOwnedConnection() {
         ConnectionCounters counters = new ConnectionCounters();
 
-        assertThrows(
-                IllegalStateException.class,
-                () -> factory(counters, true)
-                        .open(Path.of("fixture.vcdbs"))
-        );
+        assertThrows(IllegalStateException.class, () -> {
+            try (SaveSession ignored = factory(counters, true)
+                    .open(Path.of("fixture.vcdbs"))) {
+                // Opening is expected to fail after acquiring the connection.
+            }
+        });
 
         assertEquals(1, counters.opened.get());
         assertEquals(1, counters.closed.get());
