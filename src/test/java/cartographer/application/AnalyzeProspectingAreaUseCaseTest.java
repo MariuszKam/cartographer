@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.testing.TestConnections;
 import cartographer.progress.ProgressReporter;
 import cartographer.geology.rock.RockCatalog;
 import cartographer.geology.rock.RockColumnSample;
@@ -33,7 +34,6 @@ import cartographer.save.WorldMetadataReader;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
-import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.util.List;
 import java.util.Map;
@@ -283,11 +283,7 @@ class AnalyzeProspectingAreaUseCaseTest {
     private static final class TestConnectionFactory extends SqliteSaveConnection {
         @Override
         public Connection openReadOnly(Path savePath) {
-            return (Connection) Proxy.newProxyInstance(
-                    Connection.class.getClassLoader(),
-                    new Class<?>[]{Connection.class},
-                    (proxy, method, args) -> null
-            );
+            return TestConnections.noOp();
         }
     }
 }

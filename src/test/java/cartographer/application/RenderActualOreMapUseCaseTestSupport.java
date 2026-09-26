@@ -1,5 +1,6 @@
 package cartographer.application;
 
+import cartographer.testing.TestConnections;
 import cartographer.render.ActualOreOverlaySpec;
 import cartographer.spatial.OreChunkPositionPlanner;
 import cartographer.progress.ProgressReporter;
@@ -36,7 +37,6 @@ import cartographer.scanner.ActualBlockYFilter;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.awt.Color;
-import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.sql.Connection;
@@ -657,17 +657,7 @@ abstract class RenderActualOreMapUseCaseTestSupport {
         @Override
         public Connection openReadOnly(Path savePath) {
             opened++;
-            return (Connection) Proxy.newProxyInstance(
-                    Connection.class.getClassLoader(),
-                    new Class<?>[]{Connection.class},
-                    (proxy, method, args) -> {
-                        if (method.getName().equals("close")
-                                && method.getParameterCount() == 0) {
-                            closed++;
-                        }
-                        return null;
-                    }
-            );
+            return TestConnections.onClose(() -> closed++);
         }
 
         int opened() {

@@ -106,10 +106,7 @@ public final class UpdatePreferencesStore {
         if ("true".equalsIgnoreCase(value.trim())) {
             return true;
         }
-        if ("false".equalsIgnoreCase(value.trim())) {
-            return false;
-        }
-        return true;
+        return !"false".equalsIgnoreCase(value.trim());
     }
 
     private Optional<Instant> parseInstant(String value) {

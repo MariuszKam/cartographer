@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -306,7 +307,7 @@ class RenderActualOreMapCacheTest extends RenderActualOreMapUseCaseTestSupport {
         Path savePath = sourceDirectory.resolve("cached-surface-save.vcdbs");
         Path normalizedSourceDirectory = sourceDirectory.toAbsolutePath().normalize();
         Path normalizedCacheRoot = cacheRoot.toAbsolutePath().normalize();
-        assertFalse(normalizedSourceDirectory.equals(normalizedCacheRoot));
+        assertNotEquals(normalizedSourceDirectory, normalizedCacheRoot);
         assertFalse(normalizedCacheRoot.startsWith(normalizedSourceDirectory));
         assertFalse(normalizedSourceDirectory.startsWith(normalizedCacheRoot));
         Files.write(savePath, new byte[]{1});
