@@ -13,7 +13,6 @@ final class RockHighlightPane extends VBox {
     private static final String ALL = "All rocks";
     private final ComboBox<String> rockBox = new ComboBox<>();
     private Consumer<Optional<String>> listener = ignored -> { };
-    private boolean busy;
     private boolean updating;
 
     RockHighlightPane() {
@@ -74,7 +73,6 @@ final class RockHighlightPane extends VBox {
     }
 
     void setBusy(boolean busy) {
-        this.busy = busy;
         rockBox.setDisable(busy);
     }
 }

@@ -263,10 +263,6 @@ public final class UpperRockTile {
                 );
             }
         }
-
-        public int cellCount() {
-            return Math.multiplyExact(width, height);
-        }
     }
 
     @Override

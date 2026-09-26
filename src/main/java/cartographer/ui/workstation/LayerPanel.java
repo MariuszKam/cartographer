@@ -18,7 +18,6 @@ public final class LayerPanel extends VBox {
     private final CheckBox markers = new CheckBox("Markers");
     private boolean modeSupported = true;
     private boolean mapRegionSupported = true;
-    private boolean busy;
     private Consumer<Set<RenderLayer>> layersListener = ignored -> { };
 
     public LayerPanel() {
@@ -86,17 +85,12 @@ public final class LayerPanel extends VBox {
         applyDisabledState();
     }
 
-    public void setBusy(boolean busy) {
-        this.busy = busy;
-        applyDisabledState();
-    }
-
     private void applyDisabledState() {
-        terrain.setDisable(busy || !modeSupported);
-        surface.setDisable(busy || !modeSupported);
-        soilFertility.setDisable(busy || !modeSupported);
-        environment.setDisable(busy || !modeSupported || !mapRegionSupported);
-        geology.setDisable(busy || !modeSupported || !mapRegionSupported);
-        markers.setDisable(busy || !modeSupported);
+        terrain.setDisable(!modeSupported);
+        surface.setDisable(!modeSupported);
+        soilFertility.setDisable(!modeSupported);
+        environment.setDisable(!modeSupported || !mapRegionSupported);
+        geology.setDisable(!modeSupported || !mapRegionSupported);
+        markers.setDisable(!modeSupported);
     }
 }

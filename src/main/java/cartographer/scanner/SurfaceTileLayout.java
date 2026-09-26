@@ -264,24 +264,8 @@ public final class SurfaceTileLayout {
         return centerWorldZ;
     }
 
-    public int radius() {
-        return radius;
-    }
-
-    public int worldSizeX() {
-        return worldSizeX;
-    }
-
-    public int worldSizeZ() {
-        return worldSizeZ;
-    }
-
     public int tileCount() {
         return tileCount;
-    }
-
-    public long cellCount() {
-        return cellCount;
     }
 
     /** Returns true when the coordinate is in world bounds and the active domain. */
