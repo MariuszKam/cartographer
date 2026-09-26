@@ -331,4 +331,99 @@ class ProgressiveMapSessionTest {
             throw new AssertionError("test interrupted", exception);
         }
     }
+    @Test
+    void discoveryBatchQueuesBackgroundTileAndPipelineClosesOnSourceThread()
+            throws Exception {
+        RenderTileLayout layout = new RenderTileLayout(1);
+        DiscoveryPipeline pipeline = new DiscoveryPipeline(layout);
+        List<ProgressiveMapEvent> events =
+                Collections.synchronizedList(new ArrayList<>());
+        ProgressiveMapSession session = new ProgressiveMapSession(
+                11,
+                layout,
+                pipeline,
+                events::add,
+                8,
+                1,
+                1
+        );
+
+        session.start(new RenderTileCoordinate(0, 0));
+
+        assertTrue(pipeline.twoLoads.await(
+                TIMEOUT_SECONDS,
+                TimeUnit.SECONDS
+        ));
+        assertTrue(pipeline.discoveryCalled.await(
+                TIMEOUT_SECONDS,
+                TimeUnit.SECONDS
+        ));
+        session.close();
+        assertTrue(pipeline.closed.await(
+                TIMEOUT_SECONDS,
+                TimeUnit.SECONDS
+        ));
+
+        assertEquals(
+                List.of(
+                        new RenderTileCoordinate(0, 0),
+                        new RenderTileCoordinate(4, 0)
+                ),
+                pipeline.loadOrder.subList(0, 2)
+        );
+        assertEquals(
+                pipeline.sourceThreadName,
+                pipeline.closeThreadName
+        );
+        assertTrue(events.stream().anyMatch(
+                event -> event
+                        instanceof ProgressiveMapEvent.DiscoveryComplete
+        ));
+    }
+
+    private static final class DiscoveryPipeline
+            extends RecordingPipeline {
+        private final List<RenderTileCoordinate> loadOrder =
+                Collections.synchronizedList(new ArrayList<>());
+        private final CountDownLatch twoLoads = new CountDownLatch(2);
+        private final CountDownLatch discoveryCalled =
+                new CountDownLatch(1);
+        private final CountDownLatch closed = new CountDownLatch(1);
+        private final AtomicInteger discoveryCalls = new AtomicInteger();
+        private volatile String sourceThreadName;
+        private volatile String closeThreadName;
+
+        private DiscoveryPipeline(RenderTileLayout layout) {
+            super(layout, 2);
+        }
+
+        @Override
+        public MapTileData load(RenderTileCoordinate coordinate) {
+            if (sourceThreadName == null) {
+                sourceThreadName = Thread.currentThread().getName();
+            }
+            loadOrder.add(coordinate);
+            twoLoads.countDown();
+            return super.load(coordinate);
+        }
+
+        @Override
+        public ProgressiveDiscoveryBatch discoverNextBatch() {
+            discoveryCalled.countDown();
+            if (discoveryCalls.getAndIncrement() == 0) {
+                return new ProgressiveDiscoveryBatch(
+                        List.of(new MapChunkCoordinate(4, 0)),
+                        true
+                );
+            }
+            return ProgressiveDiscoveryBatch.complete();
+        }
+
+        @Override
+        public void close() {
+            closeThreadName = Thread.currentThread().getName();
+            closed.countDown();
+        }
+    }
+
 }

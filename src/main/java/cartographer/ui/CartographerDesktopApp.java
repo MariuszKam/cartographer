@@ -5,6 +5,7 @@ import cartographer.application.DiscoverObservedSurfaceResourcesUseCase;
 import cartographer.application.LoadWorldOverviewUseCase;
 import cartographer.application.InspectWorldSnapshotStatusUseCase;
 import cartographer.application.PrepareWorldSnapshotUseCase;
+import cartographer.application.ProgressiveMapSessionFactory;
 import cartographer.application.RenderActualOreMapUseCase;
 import cartographer.application.RenderCoverageMapUseCase;
 import cartographer.application.RenderRockMapUseCase;
@@ -22,6 +23,7 @@ import cartographer.prospecting.OreRockCompatibilityProvider;
 import cartographer.prospecting.SavedOreObservationProvider;
 import cartographer.render.ActualOreOverlayPainter;
 import cartographer.render.MapRenderer;
+import cartographer.render.MapTileRenderer;
 import cartographer.render.RockMapRenderer;
 import cartographer.render.SurfaceResourceOverlayRenderer;
 import cartographer.render.UserMarkerRenderer;
@@ -155,7 +157,13 @@ public class CartographerDesktopApp extends Application {
                         sessionFactory
                 ),
                 prepareWorldSnapshotUseCase,
-                snapshotStatusUseCase
+                snapshotStatusUseCase,
+                new ProgressiveMapSessionFactory(
+                        reader,
+                        sessionFactory,
+                        renderDataCacheStore,
+                        new MapTileRenderer()
+                )
         );
 
         workstationController = controller;

@@ -6,15 +6,25 @@ import cartographer.render.RenderedMapTile;
 /**
  * Split pipeline used by ProgressiveMapSession.
  *
- * <p>{@link #load(RenderTileCoordinate)} is called only by the session's
- * serialized source-I/O thread. {@link #render(RenderTileCoordinate, MapTileData)}
- * runs on bounded CPU render workers and must not use SaveSession/JDBC state.</p>
+ * <p>{@link #load(RenderTileCoordinate)} and
+ * {@link #discoverNextBatch()} are called only by the session's serialized
+ * source-I/O thread. {@link #render(RenderTileCoordinate, MapTileData)} runs
+ * on bounded CPU render workers and must not use SaveSession/JDBC state.</p>
  */
-public interface ProgressiveTilePipeline {
+public interface ProgressiveTilePipeline extends AutoCloseable {
     MapTileData load(RenderTileCoordinate coordinate);
 
     RenderedMapTile render(
             RenderTileCoordinate coordinate,
             MapTileData data
     );
+
+    default ProgressiveDiscoveryBatch discoverNextBatch() {
+        return ProgressiveDiscoveryBatch.complete();
+    }
+
+    @Override
+    default void close() {
+        // Most test/in-memory pipelines own no source resource.
+    }
 }

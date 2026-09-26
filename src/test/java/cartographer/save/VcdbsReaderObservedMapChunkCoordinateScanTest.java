@@ -18,6 +18,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -194,4 +195,37 @@ class VcdbsReaderObservedMapChunkCoordinateScanTest {
             return ParseResult.failure("coordinate-only scan must not parse");
         }
     }
+    @Test
+    void pageApiAdvancesByPackedPositionWithoutReadingPayload()
+            throws Exception {
+        Path database = databaseWithMainWorldRows(513);
+        CountingParser parser = new CountingParser();
+
+        try (SaveSession session = openSession(
+                database,
+                new WorldMetadata(20_000, 256, 64)
+        )) {
+            VcdbsReader reader =
+                    VcdbsReaderFixtures.withMapChunkParser(parser);
+            ObservedMapChunkCoordinatePage first =
+                    reader.readObservedMapChunkCoordinatePage(
+                            session,
+                            OptionalLong.empty(),
+                            new ReadDiagnostics()
+                    );
+            ObservedMapChunkCoordinatePage second =
+                    reader.readObservedMapChunkCoordinatePage(
+                            session,
+                            first.lastPosition(),
+                            new ReadDiagnostics()
+                    );
+
+            assertEquals(512, first.rowsScanned());
+            assertFalse(first.complete());
+            assertEquals(1, second.rowsScanned());
+            assertTrue(second.complete());
+            assertEquals(0, parser.calls.get());
+        }
+    }
+
 }

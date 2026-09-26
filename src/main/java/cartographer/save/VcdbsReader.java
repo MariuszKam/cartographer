@@ -109,6 +109,18 @@ public class VcdbsReader {
         );
     }
 
+    public ObservedMapChunkCoordinatePage readObservedMapChunkCoordinatePage(
+            SaveSession session,
+            java.util.OptionalLong afterPosition,
+            ReadDiagnostics diagnostics
+    ) {
+        return mapChunkStreamReader.readObservedMapChunkCoordinatePage(
+                session,
+                afterPosition,
+                diagnostics
+        );
+    }
+
     public MapChunkStreamStats forEachMapChunkByCoordinate(
             SaveSession session,
             Collection<MapChunkCoordinate> coordinates,

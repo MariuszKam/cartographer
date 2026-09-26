@@ -10,6 +10,7 @@ public sealed interface ProgressiveMapEvent
         permits ProgressiveMapEvent.TileReady,
         ProgressiveMapEvent.TileFailed,
         ProgressiveMapEvent.DiscoveryComplete,
+        ProgressiveMapEvent.DiscoveryFailed,
         ProgressiveMapEvent.SessionClosed {
 
     long generation();
@@ -39,6 +40,17 @@ public sealed interface ProgressiveMapEvent
     record DiscoveryComplete(
             long generation
     ) implements ProgressiveMapEvent {
+    }
+
+    record DiscoveryFailed(
+            long generation,
+            String detail
+    ) implements ProgressiveMapEvent {
+        public DiscoveryFailed {
+            detail = detail == null || detail.isBlank()
+                    ? "observed-world discovery failed"
+                    : detail.trim();
+        }
     }
 
     record SessionClosed(

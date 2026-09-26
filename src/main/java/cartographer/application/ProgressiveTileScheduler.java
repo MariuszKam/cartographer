@@ -86,6 +86,16 @@ final class ProgressiveTileScheduler {
         return true;
     }
 
+    synchronized ScheduledTile poll() {
+        if (closed || queue.isEmpty()) {
+            return null;
+        }
+        ScheduledTile next = queue.remove();
+        queued.remove(next.coordinate());
+        inFlight.add(next.coordinate());
+        return next;
+    }
+
     synchronized ScheduledTile take() throws InterruptedException {
         while (queue.isEmpty() && !closed) {
             wait();

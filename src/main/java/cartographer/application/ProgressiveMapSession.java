@@ -21,9 +21,9 @@ import java.util.function.Consumer;
 /**
  * Generation-scoped scheduler/execution owner for progressive map tiles.
  *
- * <p>Source loading is serialized on one dedicated thread. Detached tile data
- * is handed to a bounded CPU render pool. The session itself contains no
- * JavaFX dependency.</p>
+ * <p>Source loading and observed-world discovery are serialized on one
+ * dedicated source thread. Detached tile data is handed to a bounded CPU
+ * render pool. The session itself contains no JavaFX dependency.</p>
  */
 public final class ProgressiveMapSession implements AutoCloseable {
     private final long generation;
@@ -37,6 +37,7 @@ public final class ProgressiveMapSession implements AutoCloseable {
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean discoveryComplete = new AtomicBoolean();
+    private final AtomicBoolean discoveryStopped = new AtomicBoolean();
 
     public ProgressiveMapSession(
             long generation,
@@ -160,6 +161,7 @@ public final class ProgressiveMapSession implements AutoCloseable {
 
     public void markDiscoveryComplete() {
         requireStarted();
+        discoveryStopped.set(true);
         if (discoveryComplete.compareAndSet(false, true)) {
             publish(new ProgressiveMapEvent.DiscoveryComplete(generation));
         }
@@ -173,7 +175,12 @@ public final class ProgressiveMapSession implements AutoCloseable {
         scheduler.close();
         sourceExecutor.shutdownNow();
         renderExecutor.shutdownNow();
-        publishEvenWhenClosed(new ProgressiveMapEvent.SessionClosed(generation));
+        if (!started.get()) {
+            pipeline.close();
+        }
+        publishEvenWhenClosed(
+                new ProgressiveMapEvent.SessionClosed(generation)
+        );
     }
 
     private void requestAll(
@@ -199,42 +206,93 @@ public final class ProgressiveMapSession implements AutoCloseable {
         try {
             while (!closed.get()) {
                 ProgressiveTileScheduler.ScheduledTile scheduled =
-                        scheduler.take();
-                if (scheduled == null) {
-                    return;
-                }
+                        scheduler.poll();
 
-                renderSlots.acquire();
-                if (closed.get()) {
-                    renderSlots.release();
-                    return;
-                }
-
-                MapTileData data;
-                try {
-                    data = pipeline.load(scheduled.coordinate());
-                } catch (RuntimeException failure) {
-                    renderSlots.release();
-                    scheduler.terminal(scheduled.coordinate());
-                    publishFailure(scheduled.coordinate(), failure);
+                if (scheduled != null) {
+                    materialize(scheduled);
+                    discoverOneBatch();
                     continue;
                 }
 
-                try {
-                    renderExecutor.execute(
-                            () -> render(
-                                    scheduled.coordinate(),
-                                    data
-                            )
-                    );
-                } catch (RuntimeException failure) {
-                    renderSlots.release();
-                    scheduler.terminal(scheduled.coordinate());
-                    publishFailure(scheduled.coordinate(), failure);
+                if (!discoveryStopped.get()) {
+                    discoverOneBatch();
+                    continue;
                 }
+
+                scheduled = scheduler.take();
+                if (scheduled == null) {
+                    return;
+                }
+                materialize(scheduled);
             }
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
+        } finally {
+            try {
+                pipeline.close();
+            } catch (RuntimeException failure) {
+                if (!closed.get()) {
+                    publish(new ProgressiveMapEvent.DiscoveryFailed(
+                            generation,
+                            failure.getMessage()
+                    ));
+                }
+            }
+        }
+    }
+
+    private void materialize(
+            ProgressiveTileScheduler.ScheduledTile scheduled
+    ) throws InterruptedException {
+        renderSlots.acquire();
+        if (closed.get()) {
+            renderSlots.release();
+            return;
+        }
+
+        MapTileData data;
+        try {
+            data = pipeline.load(scheduled.coordinate());
+        } catch (RuntimeException failure) {
+            renderSlots.release();
+            scheduler.terminal(scheduled.coordinate());
+            publishFailure(scheduled.coordinate(), failure);
+            return;
+        }
+
+        try {
+            renderExecutor.execute(
+                    () -> render(
+                            scheduled.coordinate(),
+                            data
+                    )
+            );
+        } catch (RuntimeException failure) {
+            renderSlots.release();
+            scheduler.terminal(scheduled.coordinate());
+            publishFailure(scheduled.coordinate(), failure);
+        }
+    }
+
+    private void discoverOneBatch() {
+        if (closed.get() || discoveryStopped.get()) {
+            return;
+        }
+        try {
+            ProgressiveDiscoveryBatch batch =
+                    pipeline.discoverNextBatch();
+            if (!batch.coordinates().isEmpty()) {
+                acceptDiscoveredMapChunks(batch.coordinates());
+            }
+            if (batch.complete()) {
+                markDiscoveryComplete();
+            }
+        } catch (RuntimeException failure) {
+            discoveryStopped.set(true);
+            publish(new ProgressiveMapEvent.DiscoveryFailed(
+                    generation,
+                    failure.getMessage()
+            ));
         }
     }
 

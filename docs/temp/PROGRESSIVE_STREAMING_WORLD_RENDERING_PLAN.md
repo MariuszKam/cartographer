@@ -1090,15 +1090,23 @@ JavaFX-independent tests cover transform round trips, zoom-anchor stability, neg
 
 ### Phase 8 — Automatic MAP startup
 
-After LoadWorldOverviewUseCase succeeds:
+Status: IMPLEMENTED
 
-- start ProgressiveMapSession automatically;
-- center initial camera on player when available;
-- request/render bootstrap tile;
-- show map before full discovery/render completion;
-- background build continues without foreground busy lock.
+The progressive path is now wired into the desktop application after world-overview loading:
 
-At this point MAP no longer depends on a selected global radius.
+- `ProgressiveMapSessionFactory` creates one generation-scoped session for the selected save revision and currently uses a provisional 4x4-mapchunk (128x128 block) render-tile span; the span remains benchmark-tunable rather than a permanent architectural constant;
+- `SaveBackedProgressiveTilePipeline` lazily opens exactly one source `SaveSession` on the session's dedicated source thread and closes it on that same thread;
+- tile source loading uses `MapTileDataLoader`; CPU rendering uses `MapTileRenderer` and receives only detached `MapTileData`;
+- coordinate discovery is exposed as bounded 512-row pages and runs on the same serialized source thread between tile loads, so it cannot race the session-owned JDBC connection;
+- a complete revision-scoped `WorldIndexCatalogStore` is streamed from cache instead of rescanning the source; an incomplete catalog resumes authoritative coordinate discovery and is marked complete only after the terminal source page;
+- the session starts automatically after `LoadWorldOverviewUseCase` succeeds, centers the progressive camera on the player when available (otherwise world center), queues the bootstrap tile and two player-neighborhood rings, and continues background discovery without setting the Workstation foreground-busy state;
+- `WorkstationView` now hosts both the legacy `MapPanel` and the new `WorldMapViewport`; MAP can display the progressive viewport while unmigrated tools continue using the legacy panel;
+- viewport demand feeds VIEWPORT/PREFETCH priorities back into the active session;
+- tile events are generation-checked in the controller before they can update the UI, and late events from a superseded save are ignored;
+- selecting another save or shutting down closes the old progressive session before a new one is started;
+- the visible map itself is now progressive feedback; status text reports ready-tile count/discovery completion rather than a percentage-to-whole-map contract.
+
+Phase 8 deliberately leaves the old MAP render action/radius controls in place as a transitional fallback. The automatic progressive startup itself does not use the selected radius; Phase 9 removes the remaining bounded MAP control path.
 
 ### Phase 9 — Base MAP cutover
 

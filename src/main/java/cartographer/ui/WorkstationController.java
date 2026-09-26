@@ -8,6 +8,9 @@ import cartographer.application.InspectWorldSnapshotStatusUseCase;
 import cartographer.application.PrepareWorldSnapshotRequest;
 import cartographer.application.PrepareWorldSnapshotResult;
 import cartographer.application.PrepareWorldSnapshotUseCase;
+import cartographer.application.ProgressiveMapEvent;
+import cartographer.application.ProgressiveMapSession;
+import cartographer.application.ProgressiveMapSessionFactory;
 import cartographer.application.WorldSnapshotStatus;
 import cartographer.application.ProspectingAreaRequest;
 import cartographer.application.RenderActualOreMapRequest;
@@ -21,6 +24,7 @@ import cartographer.geology.rock.RockMapMode;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 import cartographer.render.RenderStyle;
+import cartographer.render.RenderTileCoordinate;
 import cartographer.scanner.ActualBlockYFilter;
 import cartographer.ui.workstation.MapFrame;
 import cartographer.ui.workstation.MapPanel;
@@ -30,8 +34,11 @@ import cartographer.ui.workstation.WorkstationOperationCoordinator;
 import cartographer.ui.workstation.WorkstationOperationScope;
 import cartographer.ui.workstation.WorkstationTool;
 import cartographer.ui.workstation.WorkstationView;
+import cartographer.ui.workstation.WorldMapViewport;
+import cartographer.ui.workstation.WorldMapViewportDemand;
 import cartographer.ui.update.UpdateCheckView;
 import cartographer.ui.workstation.WorldPanel;
+import javafx.application.Platform;
 import javafx.scene.Parent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +48,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 /**
@@ -58,6 +66,7 @@ public final class WorkstationController {
     private final SearchPanel searchPanel;
     private final WorldPanel worldPanel;
     private final MapPanel mapPanel;
+    private final WorldMapViewport progressiveMapViewport;
     private final ResultInspectorPane resultInspector;
     private final WorkstationOperationCoordinator operationCoordinator;
     private final WorkstationMapFrameController mapFrameController;
@@ -70,10 +79,13 @@ public final class WorkstationController {
     private final LoadWorldOverviewUseCase worldOverviewUseCase;
     private final PrepareWorldSnapshotUseCase prepareWorldSnapshotUseCase;
     private final InspectWorldSnapshotStatusUseCase snapshotStatusUseCase;
+    private final ProgressiveMapSessionFactory progressiveMapSessionFactory;
     private final OreResourceResolver resourceResolver = new OreResourceResolver();
 
     private Optional<cartographer.model.WorldPosition> loadedPlayerAbsolute = Optional.empty();
     private Optional<WorldMetadata> loadedWorldMetadata = Optional.empty();
+    private ProgressiveMapSession progressiveMapSession;
+    private final AtomicInteger progressiveTilesReady = new AtomicInteger();
 
     public WorkstationController(
             Supplier<Optional<Path>> saveChooser,
@@ -85,7 +97,8 @@ public final class WorkstationController {
             AnalyzeProspectingAreaUseCase prospectingUseCase,
             LoadWorldOverviewUseCase worldOverviewUseCase,
             PrepareWorldSnapshotUseCase prepareWorldSnapshotUseCase,
-            InspectWorldSnapshotStatusUseCase snapshotStatusUseCase
+            InspectWorldSnapshotStatusUseCase snapshotStatusUseCase,
+            ProgressiveMapSessionFactory progressiveMapSessionFactory
     ) {
         this.saveChooser = Objects.requireNonNull(saveChooser, "save chooser is required");
         this.useCase = Objects.requireNonNull(useCase, "map/ore use case is required");
@@ -103,15 +116,21 @@ public final class WorkstationController {
                 snapshotStatusUseCase,
                 "snapshot status use case is required"
         );
+        this.progressiveMapSessionFactory = Objects.requireNonNull(
+                progressiveMapSessionFactory,
+                "progressiveMapSessionFactory is required"
+        );
 
         workstation = new WorkstationView(
                 this::chooseSave,
                 this::render,
-                this::prepareWorldSnapshot
+                this::prepareWorldSnapshot,
+                progressiveMapSessionFactory.layout()
         );
         worldPanel = workstation.worldPanel();
         searchPanel = workstation.searchPanel();
         mapPanel = workstation.mapPanel();
+        progressiveMapViewport = workstation.progressiveMapViewport();
         resultInspector = workstation.resultInspectorPane();
         operationCoordinator = new WorkstationOperationCoordinator(workstation);
         mapFrameController = new WorkstationMapFrameController(
@@ -136,7 +155,15 @@ public final class WorkstationController {
                 this::showFailure
         );
 
-        mapPanel.setOnCursorPositionChanged(mapFrameController::handleCursorPositionChanged);
+        mapPanel.setOnCursorPositionChanged(
+                mapFrameController::handleCursorPositionChanged
+        );
+        progressiveMapViewport.setOnCursorPositionChanged(
+                mapFrameController::handleCursorPositionChanged
+        );
+        progressiveMapViewport.setOnTileDemand(
+                this::handleProgressiveTileDemand
+        );
         workstation.setOnModeChanged(this::handleModeChanged);
         workstation.setOnRadiusChanged(radius -> surfaceToolController.maybeStartDiscovery());
         workstation.setOnSurfaceModeChanged(mode -> surfaceToolController.maybeStartDiscovery());
@@ -155,6 +182,7 @@ public final class WorkstationController {
     }
 
     public void shutdown() {
+        stopProgressiveMap();
         operationCoordinator.cancelAll();
     }
 
@@ -232,6 +260,9 @@ public final class WorkstationController {
     }
 
     private void loadSaveData(Path savePath) {
+        stopProgressiveMap();
+        progressiveMapViewport.clearTiles();
+        workstation.setProgressiveMapAvailable(false);
         operationCoordinator.cancelAll();
         loadedPlayerAbsolute = Optional.empty();
         loadedWorldMetadata = Optional.empty();
@@ -270,6 +301,7 @@ public final class WorkstationController {
                                     : "Loaded " + discovered.size() + " resources."
                     );
                     setBusy(false);
+                    startProgressiveMap(savePath, loaded);
                 },
                 failure -> {
                     searchPanel.setDiscoveryFailure();
@@ -538,8 +570,126 @@ public final class WorkstationController {
     }
 
     private void handleModeChanged(WorkstationTool mode) {
+        workstation.setProgressiveMapAvailable(
+                progressiveMapSession != null
+        );
         mapFrameController.handleModeChanged(mode);
         surfaceToolController.maybeStartDiscovery();
+    }
+
+    private void startProgressiveMap(
+            Path savePath,
+            cartographer.application.WorldOverview overview
+    ) {
+        stopProgressiveMap();
+        progressiveTilesReady.set(0);
+        progressiveMapViewport.clearTiles();
+        progressiveMapViewport.setPlayer(overview.playerAbsolute());
+
+        WorldPosition initialCenter = overview.playerAbsolute()
+                .orElseGet(
+                        () -> new WorldPosition(
+                                overview.metadata().originX(),
+                                0.0,
+                                overview.metadata().originZ()
+                        )
+                );
+        progressiveMapViewport.centerOn(initialCenter);
+
+        ProgressiveMapSession session =
+                progressiveMapSessionFactory.create(
+                        savePath,
+                        overview,
+                        this::handleProgressiveMapEvent
+                );
+        progressiveMapSession = session;
+        workstation.setProgressiveMapAvailable(true);
+
+        RenderTileCoordinate bootstrap =
+                progressiveMapSessionFactory.layout()
+                        .coordinateForWorld(
+                                initialCenter.x(),
+                                initialCenter.z()
+                        );
+        session.start(bootstrap);
+        session.requestPlayerRings(bootstrap, 2);
+    }
+
+    private void stopProgressiveMap() {
+        ProgressiveMapSession current = progressiveMapSession;
+        progressiveMapSession = null;
+        if (current != null) {
+            current.close();
+        }
+    }
+
+    private void handleProgressiveTileDemand(
+            WorldMapViewportDemand demand
+    ) {
+        ProgressiveMapSession current = progressiveMapSession;
+        if (current == null) {
+            return;
+        }
+        current.requestViewport(
+                demand.visible(),
+                demand.prefetch()
+        );
+    }
+
+    private void handleProgressiveMapEvent(
+            ProgressiveMapEvent event
+    ) {
+        ProgressiveMapSession current = progressiveMapSession;
+        if (current == null
+                || current.generation() != event.generation()) {
+            return;
+        }
+
+        if (event instanceof ProgressiveMapEvent.TileReady ready) {
+            int count = progressiveTilesReady.incrementAndGet();
+            progressiveMapViewport.acceptTile(ready.tile());
+            Platform.runLater(() -> {
+                ProgressiveMapSession active = progressiveMapSession;
+                if (active != null
+                        && active.generation() == event.generation()) {
+                    workstation.setStatus(
+                            "Building map · " + count + " tiles ready"
+                    );
+                }
+            });
+            return;
+        }
+
+        if (event instanceof ProgressiveMapEvent.TileFailed failed) {
+            LOGGER.debug(
+                    "Progressive tile {} unavailable: {}",
+                    failed.coordinate(),
+                    failed.detail()
+            );
+            return;
+        }
+
+        if (event instanceof ProgressiveMapEvent.DiscoveryComplete) {
+            Platform.runLater(() -> {
+                ProgressiveMapSession active = progressiveMapSession;
+                if (active != null
+                        && active.generation() == event.generation()) {
+                    workstation.setStatus(
+                            "Map discovery complete · "
+                                    + progressiveTilesReady.get()
+                                    + " tiles ready"
+                    );
+                }
+            });
+            return;
+        }
+
+        if (event instanceof ProgressiveMapEvent.DiscoveryFailed failed) {
+            LOGGER.warn(
+                    "Progressive observed-world discovery failed: {}",
+                    failed.detail()
+            );
+        }
     }
 
     private PlayerPositionSnapshot playerSnapshot(
