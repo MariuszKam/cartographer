@@ -24,7 +24,7 @@ class VcdbsChunkLookupConcurrencyTest extends VcdbsReaderDirectChunkLookupTestSu
         ChunkPosition second = new ChunkPosition(3, 0, 4, 0);
         Path database = databaseWithRows(first, second);
         BlockingChunkParser parser = new BlockingChunkParser();
-        VcdbsReader reader = VcdbsReaderFixtures.withChunkParser(parser, 2, 4);
+        VcdbsReader reader = VcdbsReaderFixtures.withTwoDecodeWorkers(parser);
         AtomicReference<Thread> callerThread = new AtomicReference<>();
         AtomicReference<Thread> consumerThread = new AtomicReference<>();
         AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -37,21 +37,19 @@ class VcdbsChunkLookupConcurrencyTest extends VcdbsReaderDirectChunkLookupTestSu
                         database,
                         List.of(first, second),
                         new ReadDiagnostics(),
-                        ignored -> consumerThread.set(Thread.currentThread()),
-                        ProgressReporter.NONE
-                );
+                        ignored -> consumerThread.set(Thread.currentThread()));
             } catch (Throwable exception) {
                 failure.set(exception);
             }
         });
 
         try {
-            awaitLatch(parser.bothStarted, "both workers started");
+            awaitBothWorkers(parser.bothStarted);
             parser.release.countDown();
-            joinThread(caller, "caller");
+            joinCaller(caller);
         } finally {
             parser.release.countDown();
-            joinThread(caller, "caller");
+            joinCaller(caller);
         }
 
         assertNull(failure.get());
@@ -67,7 +65,7 @@ class VcdbsChunkLookupConcurrencyTest extends VcdbsReaderDirectChunkLookupTestSu
         ChunkPosition second = new ChunkPosition(3, 0, 4, 0);
         Path database = databaseWithRows(first, second);
         BlockingChunkParser parser = new BlockingChunkParser();
-        VcdbsReader reader = VcdbsReaderFixtures.withChunkParser(parser, 2, 4);
+        VcdbsReader reader = VcdbsReaderFixtures.withTwoDecodeWorkers(parser);
         AtomicReference<Thread> callerThread = new AtomicReference<>();
         AtomicReference<Thread> consumerThread = new AtomicReference<>();
         AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -89,12 +87,12 @@ class VcdbsChunkLookupConcurrencyTest extends VcdbsReaderDirectChunkLookupTestSu
         });
 
         try {
-            awaitLatch(parser.bothStarted, "both workers started");
+            awaitBothWorkers(parser.bothStarted);
             parser.release.countDown();
-            joinThread(caller, "caller");
+            joinCaller(caller);
         } finally {
             parser.release.countDown();
-            joinThread(caller, "caller");
+            joinCaller(caller);
         }
 
         assertNull(failure.get());

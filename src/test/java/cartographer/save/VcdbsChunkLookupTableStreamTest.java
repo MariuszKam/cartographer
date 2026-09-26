@@ -84,9 +84,7 @@ class VcdbsChunkLookupTableStreamTest extends VcdbsReaderDirectChunkLookupTestSu
                 database,
                 List.of(first, second),
                 new ReadDiagnostics(),
-                tableParser.delivered()::add,
-                ProgressReporter.NONE
-        );
+                tableParser.delivered()::add);
 
         assertEquals(direct.uniquePositionsRequested(), table.uniquePositionsRequested());
         assertEquals(direct.rowsFound(), table.rowsFound());
@@ -109,9 +107,7 @@ class VcdbsChunkLookupTableStreamTest extends VcdbsReaderDirectChunkLookupTestSu
                 database,
                 List.of(requested),
                 new ReadDiagnostics(),
-                parser.delivered()::add,
-                ProgressReporter.NONE
-        );
+                parser.delivered()::add);
 
         assertEquals(1, parser.xCoordinates().size());
         assertEquals(1, parser.xCoordinates().getFirst());
@@ -128,9 +124,7 @@ class VcdbsChunkLookupTableStreamTest extends VcdbsReaderDirectChunkLookupTestSu
                 database,
                 List.of(position),
                 diagnostics,
-                ignored -> { },
-                ProgressReporter.NONE
-        );
+                ignored -> { });
 
         assertEquals(1, stats.batchesExecuted());
         assertEquals(1, stats.rowsFound());
@@ -155,9 +149,7 @@ class VcdbsChunkLookupTableStreamTest extends VcdbsReaderDirectChunkLookupTestSu
                 database,
                 List.of(existing, missing),
                 new ReadDiagnostics(),
-                ignored -> { },
-                ProgressReporter.NONE
-        );
+                ignored -> { });
 
         assertEquals(2, stats.uniquePositionsRequested());
         assertEquals(1, stats.rowsFound());
