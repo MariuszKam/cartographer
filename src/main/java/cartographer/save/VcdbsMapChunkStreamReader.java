@@ -27,11 +27,189 @@ import java.util.function.Consumer;
  */
 final class VcdbsMapChunkStreamReader {
     private static final int DIRECT_MAPCHUNK_BATCH_SIZE = 256;
+    private static final int OBSERVED_COORDINATE_BATCH_SIZE = 512;
 
     private final MapChunkParser mapChunkParser;
 
     VcdbsMapChunkStreamReader(MapChunkParser mapChunkParser) {
         this.mapChunkParser = mapChunkParser;
+    }
+
+    ObservedMapChunkCoordinateScanStats scanObservedMapChunkCoordinates(
+            SaveSession session,
+            ReadDiagnostics diagnostics,
+            Consumer<List<MapChunkCoordinate>> batchConsumer,
+            ProgressReporter progress
+    ) {
+        Objects.requireNonNull(session, "session is required");
+        Objects.requireNonNull(diagnostics, "diagnostics is required");
+        Objects.requireNonNull(batchConsumer, "batchConsumer is required");
+        Objects.requireNonNull(progress, "progress is required");
+
+        Connection connection = session.connection();
+        progress.start("Discovering observed mapchunk coordinates");
+        try {
+            if (SqliteSaveTableInspector.tableMissing(
+                    connection,
+                    SaveTable.MAPCHUNK.tableName()
+            )) {
+                diagnostics.missingTable(SaveTable.MAPCHUNK.tableName());
+                throw new IllegalStateException(
+                        "Save contains no mapchunk table; "
+                                + "world coordinate discovery cannot be completed"
+                );
+            }
+
+            int expectedRows = SqliteSaveTableInspector.countRows(
+                    connection,
+                    SaveTable.MAPCHUNK
+            );
+            int rowsScanned = 0;
+            int coordinatesAccepted = 0;
+            int batchesExecuted = 0;
+            Long afterPosition = null;
+
+            while (true) {
+                if (Thread.currentThread().isInterrupted()) {
+                    progress.done("Observed mapchunk coordinate discovery interrupted");
+                    return new ObservedMapChunkCoordinateScanStats(
+                            rowsScanned,
+                            coordinatesAccepted,
+                            batchesExecuted,
+                            false
+                    );
+                }
+
+                CoordinatePage page = readObservedCoordinatePage(
+                        connection,
+                        session,
+                        afterPosition,
+                        diagnostics
+                );
+                if (page.rowsScanned() == 0) {
+                    progress.done("Observed mapchunk coordinate discovery complete");
+                    return new ObservedMapChunkCoordinateScanStats(
+                            rowsScanned,
+                            coordinatesAccepted,
+                            batchesExecuted,
+                            true
+                    );
+                }
+
+                batchesExecuted++;
+                rowsScanned = Math.addExact(
+                        rowsScanned,
+                        page.rowsScanned()
+                );
+                coordinatesAccepted = Math.addExact(
+                        coordinatesAccepted,
+                        page.coordinates().size()
+                );
+                afterPosition = page.lastPosition();
+
+                if (!page.coordinates().isEmpty()) {
+                    batchConsumer.accept(page.coordinates());
+                }
+                progress.progress(
+                        "Discovering observed mapchunk coordinates",
+                        rowsScanned,
+                        expectedRows
+                );
+
+                if (Thread.currentThread().isInterrupted()) {
+                    progress.done("Observed mapchunk coordinate discovery interrupted");
+                    return new ObservedMapChunkCoordinateScanStats(
+                            rowsScanned,
+                            coordinatesAccepted,
+                            batchesExecuted,
+                            false
+                    );
+                }
+
+                if (page.rowsScanned() < OBSERVED_COORDINATE_BATCH_SIZE) {
+                    progress.done("Observed mapchunk coordinate discovery complete");
+                    return new ObservedMapChunkCoordinateScanStats(
+                            rowsScanned,
+                            coordinatesAccepted,
+                            batchesExecuted,
+                            true
+                    );
+                }
+            }
+        } catch (SQLException exception) {
+            throw new IllegalStateException(
+                    "Cannot scan observed mapchunk coordinates: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
+    private CoordinatePage readObservedCoordinatePage(
+            Connection connection,
+            SaveSession session,
+            Long afterPosition,
+            ReadDiagnostics diagnostics
+    ) throws SQLException {
+        String sql;
+        if (afterPosition == null) {
+            sql = "SELECT position FROM \""
+                    + SaveTable.MAPCHUNK.tableName()
+                    + "\" ORDER BY position LIMIT ?";
+        } else {
+            sql = "SELECT position FROM \""
+                    + SaveTable.MAPCHUNK.tableName()
+                    + "\" WHERE position > ? ORDER BY position LIMIT ?";
+        }
+
+        List<MapChunkCoordinate> coordinates =
+                new ArrayList<>(OBSERVED_COORDINATE_BATCH_SIZE);
+        int rowsScanned = 0;
+        long lastPosition = 0L;
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            int parameter = 1;
+            if (afterPosition != null) {
+                statement.setLong(parameter++, afterPosition);
+            }
+            statement.setInt(parameter, OBSERVED_COORDINATE_BATCH_SIZE);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    rowsScanned++;
+                    Object rawPosition = resultSet.getObject("position");
+                    lastPosition = resultSet.getLong("position");
+
+                    Optional<MapChunkCoordinate> coordinate =
+                            SavePackedPositionDecoder
+                                    .mainWorldMapChunkCoordinate(rawPosition);
+                    if (coordinate.isEmpty()) {
+                        diagnostics.recordSkipped(
+                                "mapchunk row is not a readable main-world mapchunk"
+                        );
+                        continue;
+                    }
+
+                    MapChunkCoordinate observed = coordinate.orElseThrow();
+                    if (!SavePackedPositionDecoder.mapChunkWithinWorld(
+                            observed,
+                            session.snapshot().metadata()
+                    )) {
+                        diagnostics.recordSkipped(
+                                "main-world mapchunk is outside world metadata bounds"
+                        );
+                        continue;
+                    }
+                    coordinates.add(observed);
+                }
+            }
+        }
+
+        return new CoordinatePage(
+                rowsScanned,
+                lastPosition,
+                List.copyOf(coordinates)
+        );
     }
 
     MapChunkStreamStats forEachObservedMapChunk(
@@ -478,6 +656,13 @@ final class VcdbsMapChunkStreamReader {
 
     private String sqlPlaceholders(int count) {
         return "?, ".repeat(count - 1) + "?";
+    }
+
+    private record CoordinatePage(
+            int rowsScanned,
+            long lastPosition,
+            List<MapChunkCoordinate> coordinates
+    ) {
     }
 
     private record MapChunkBatchStats(

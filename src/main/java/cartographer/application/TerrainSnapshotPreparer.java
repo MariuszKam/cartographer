@@ -3,9 +3,9 @@ package cartographer.application;
 import cartographer.cache.TerrainHeightTile;
 import cartographer.cache.TerrainTileLookup;
 import cartographer.cache.TerrainTileStore;
-import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.progress.ProgressReporter;
+import cartographer.save.ObservedMapChunkCoordinateScanStats;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.VcdbsReader;
@@ -40,30 +40,28 @@ final class TerrainSnapshotPreparer {
 
         Counters counters = new Counters();
         progress.start("Checking observed mapchunk coverage");
-        boolean catalogWasComplete = indexStore.mapChunkScanComplete();
-        if (!catalogWasComplete) {
-            discoverObservedMapChunks(
-                    session,
-                    terrainStore,
-                    indexStore,
-                    diagnostics,
-                    counters,
-                    progress
-            );
-            indexStore.markMapChunkScanComplete();
+        if (!indexStore.mapChunkScanComplete()) {
+            ObservedMapChunkCoordinateScanStats discovery =
+                    discoverObservedMapChunks(
+                            session,
+                            indexStore,
+                            diagnostics,
+                            progress
+                    );
+            if (discovery.complete()) {
+                indexStore.markMapChunkScanComplete();
+            }
         }
 
         List<MapChunkCoordinate> observed = indexStore.observedMapChunks();
-        if (catalogWasComplete) {
-            repairTerrainCoverage(
-                    session,
-                    terrainStore,
-                    observed,
-                    diagnostics,
-                    counters,
-                    progress
-            );
-        }
+        repairTerrainCoverage(
+                session,
+                terrainStore,
+                observed,
+                diagnostics,
+                counters,
+                progress
+        );
 
         boolean complete = coverageComplete(terrainStore, observed);
         progress.done(
@@ -80,80 +78,18 @@ final class TerrainSnapshotPreparer {
         );
     }
 
-    private void discoverObservedMapChunks(
+    private ObservedMapChunkCoordinateScanStats discoverObservedMapChunks(
             SaveSession session,
-            TerrainTileStore terrainStore,
             WorldIndexCatalogStore indexStore,
             ReadDiagnostics diagnostics,
-            Counters counters,
             ProgressReporter progress
     ) {
-        List<MapChunkCoordinate> observedBuffer =
-                new ArrayList<>(TERRAIN_BATCH_SIZE);
-        List<MapChunk> terrainBuffer =
-                new ArrayList<>(TERRAIN_BATCH_SIZE);
-        reader.forEachObservedMapChunk(
+        return reader.scanObservedMapChunkCoordinates(
                 session,
                 diagnostics,
-                coordinate -> {
-                    observedBuffer.add(coordinate);
-                    if (observedBuffer.size() >= TERRAIN_BATCH_SIZE) {
-                        indexStore.recordObserved(List.copyOf(observedBuffer));
-                        observedBuffer.clear();
-                    }
-                },
-                mapChunk -> {
-                    terrainBuffer.add(mapChunk);
-                    if (terrainBuffer.size() >= TERRAIN_BATCH_SIZE) {
-                        publishDiscoveryTerrainBatch(
-                                terrainStore,
-                                terrainBuffer,
-                                counters
-                        );
-                    }
-                },
+                indexStore::recordObserved,
                 progress
         );
-        if (!observedBuffer.isEmpty()) {
-            indexStore.recordObserved(List.copyOf(observedBuffer));
-            observedBuffer.clear();
-        }
-        publishDiscoveryTerrainBatch(terrainStore, terrainBuffer, counters);
-    }
-
-    private void publishDiscoveryTerrainBatch(
-            TerrainTileStore terrainStore,
-            List<MapChunk> buffer,
-            Counters counters
-    ) {
-        if (buffer.isEmpty()) {
-            return;
-        }
-        List<MapChunkCoordinate> coordinates = buffer.stream()
-                .map(MapChunk::coordinate)
-                .toList();
-        Map<MapChunkCoordinate, TerrainTileLookup> lookups =
-                terrainStore.read(coordinates);
-        List<TerrainHeightTile> publish = new ArrayList<>();
-        for (MapChunk mapChunk : buffer) {
-            TerrainTileLookup lookup = lookups.getOrDefault(
-                    mapChunk.coordinate(),
-                    TerrainTileLookup.miss()
-            );
-            if (lookup.status() == TerrainTileLookup.Status.HIT) {
-                counters.hits++;
-            } else {
-                publish.add(TerrainHeightTile.from(mapChunk));
-            }
-        }
-        if (!publish.isEmpty()) {
-            terrainStore.publish(publish);
-            counters.published = Math.addExact(
-                    counters.published,
-                    publish.size()
-            );
-        }
-        buffer.clear();
     }
 
     private void repairTerrainCoverage(

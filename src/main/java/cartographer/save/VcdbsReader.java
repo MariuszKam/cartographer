@@ -95,6 +95,20 @@ public class VcdbsReader {
         );
     }
 
+    public ObservedMapChunkCoordinateScanStats scanObservedMapChunkCoordinates(
+            SaveSession session,
+            ReadDiagnostics diagnostics,
+            Consumer<List<MapChunkCoordinate>> batchConsumer,
+            ProgressReporter progress
+    ) {
+        return mapChunkStreamReader.scanObservedMapChunkCoordinates(
+                session,
+                diagnostics,
+                batchConsumer,
+                progress
+        );
+    }
+
     public MapChunkStreamStats forEachMapChunkByCoordinate(
             SaveSession session,
             Collection<MapChunkCoordinate> coordinates,

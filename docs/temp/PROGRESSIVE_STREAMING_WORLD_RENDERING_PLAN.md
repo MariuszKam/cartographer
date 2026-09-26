@@ -996,16 +996,22 @@ The legacy callback API intentionally remains until Phase 4+ consumers have migr
 
 ### Phase 3 — Coordinate-only observed-world discovery
 
-Add a bounded/paged source capability that reads authoritative observed coordinates without loading MAPCHUNK payload data.
+Status: IMPLEMENTED
 
-Requirements:
+The authoritative observed-world discovery path now has a coordinate-only scanner:
 
-- main-world filtering remains correct;
-- world metadata bounds remain correct;
-- coordinates can be recorded incrementally in WorldIndexCatalogStore;
-- completion marker written only after full scan;
-- cancellation leaves a valid partial catalog;
-- discovery yields between bounded batches so high-priority exact reads can run.
+- `VcdbsReader.scanObservedMapChunkCoordinates(...)` reads only the MAPCHUNK `position` column;
+- keyset pagination uses ordered `position` pages of 512 rows instead of loading the complete table or reading payload blobs;
+- each accepted batch is published incrementally to `WorldIndexCatalogStore`;
+- main-world/Y=0 filtering and authoritative `WorldMetadata` bounds checks are preserved;
+- `ObservedMapChunkCoordinateScanStats.complete` is false when interruption is observed between bounded pages;
+- `WorldIndexCatalogStore.markMapChunkScanComplete()` is called only after the coordinate scanner reports full completion;
+- partial catalog rows therefore remain reusable for the same revision after interruption, while absence is not treated as authoritative until the completion marker exists;
+- `TerrainSnapshotPreparer` now separates discovery from terrain decoding: coordinate discovery establishes world shape first, then missing terrain cache entries are repaired through bounded exact reads.
+
+The legacy payload-reading `forEachObservedMapChunk(...)` path remains temporarily for compatibility/tests but is no longer the terrain snapshot discovery mechanism.
+
+Tests verify multi-page scanning, zero parser calls during discovery, main-world/world-bound filtering, interruption/incomplete semantics, and snapshot-preparation reuse behavior.
 
 ### Phase 4 — Tile data loader
 
