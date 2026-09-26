@@ -4,8 +4,6 @@ import cartographer.progress.ProgressReporter;
 import cartographer.coverage.RegionCoverageAnalyzer;
 import cartographer.coverage.RegionCoverageRenderer;
 import cartographer.coverage.RegionCoverageSummary;
-import cartographer.model.DisplayPosition;
-import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
@@ -98,15 +96,8 @@ public final class RenderCoverageMapUseCase {
 
     private HomeState absoluteHome(Path savePath, WorldMetadata metadata) {
         return homeStore.load(savePath)
-                .map(location -> toAbsoluteHome(location, metadata))
+                .map(metadata::toAbsolute)
                 .map(HomeState::present)
                 .orElseGet(HomeState::absent);
-    }
-
-    private HomeLocation toAbsoluteHome(HomeLocation displayHome, WorldMetadata metadata) {
-        WorldPosition absolute = metadata.toAbsolute(
-                new DisplayPosition(displayHome.x(), 0.0, displayHome.z())
-        );
-        return new HomeLocation(absolute.x(), absolute.z());
     }
 }

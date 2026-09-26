@@ -1,6 +1,6 @@
 package cartographer.coverage;
 
-import cartographer.model.HomeLocation;
+import cartographer.model.WorldPosition;
 import cartographer.model.HomeState;
 import cartographer.model.WorldPosition;
 import cartographer.render.MarkerRenderer;
@@ -328,7 +328,7 @@ public class RegionCoverageRenderer {
             );
         }
 
-        if (!(home instanceof HomeState.Present(HomeLocation location))) {
+        if (!(home instanceof HomeState.Present(WorldPosition location))) {
             return;
         }
 

@@ -1,6 +1,6 @@
 package cartographer.navigation;
 
-import cartographer.model.HomeLocation;
+import cartographer.model.DisplayPosition;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -26,7 +27,7 @@ public class HomeStore {
                 legacyConfigPath;
     }
 
-    public Optional<HomeLocation> load(
+    public Optional<DisplayPosition> load(
             Path savePath
     ) {
         return loadFrom(
@@ -36,8 +37,9 @@ public class HomeStore {
 
     public void save(
             Path savePath,
-            HomeLocation home
+            DisplayPosition home
     ) {
+        requireHorizontalDisplayPosition(home);
         saveTo(
                 perSaveConfigPath(savePath),
                 home,
@@ -45,7 +47,25 @@ public class HomeStore {
         );
     }
 
-    private Optional<HomeLocation> loadFrom(
+    private void requireHorizontalDisplayPosition(
+            DisplayPosition position
+    ) {
+        Objects.requireNonNull(position, "HOME display position is required");
+        if (!Double.isFinite(position.x())
+                || !Double.isFinite(position.y())
+                || !Double.isFinite(position.z())) {
+            throw new IllegalArgumentException(
+                    "HOME display coordinates must be finite"
+            );
+        }
+        if (position.y() != 0.0) {
+            throw new IllegalArgumentException(
+                    "HOME display Y must be zero"
+            );
+        }
+    }
+
+    private Optional<DisplayPosition> loadFrom(
             Path configPath
     ) {
         if (!Files.exists(configPath)) {
@@ -61,13 +81,14 @@ public class HomeStore {
             properties.load(input);
 
             return Optional.of(
-                    new HomeLocation(
+                    new DisplayPosition(
                             Double.parseDouble(
                                     required(
                                             properties,
                                             "x"
                                     )
                             ),
+                            0.0,
                             Double.parseDouble(
                                     required(
                                             properties,
@@ -92,7 +113,7 @@ public class HomeStore {
 
     private void saveTo(
             Path configPath,
-            HomeLocation home,
+            DisplayPosition home,
             Path savePath
     ) {
         Properties properties =

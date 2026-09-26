@@ -1,6 +1,5 @@
 package cartographer.coverage;
 
-import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
 import cartographer.model.MapRegionCoordinate;
 import cartographer.model.WorldPosition;
@@ -20,7 +19,7 @@ class RegionCoverageRendererTest {
         RegionCoverageRenderResult result = new RegionCoverageRenderer().render(
                 summary(),
                 new WorldPosition(-16, 100, -48),
-                HomeState.present(new HomeLocation(-24, -56))
+                HomeState.present(new WorldPosition(-24, 0.0, -56))
         );
 
         MapViewportGeometry geometry = result.geometry().orElseThrow();

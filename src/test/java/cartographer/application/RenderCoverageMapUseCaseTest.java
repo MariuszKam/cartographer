@@ -6,7 +6,7 @@ import cartographer.coverage.RegionCoverageRenderer;
 import cartographer.coverage.RegionCoverageRenderResult;
 import cartographer.coverage.RegionCoverageSummary;
 import cartographer.model.BlockInfo;
-import cartographer.model.HomeLocation;
+import cartographer.model.DisplayPosition;
 import cartographer.model.HomeState;
 import cartographer.model.MapRegionCoordinate;
 import cartographer.model.ServerMapRegion;
@@ -64,11 +64,11 @@ class RenderCoverageMapUseCaseTest {
         CapturingRenderer renderer = new CapturingRenderer();
         Path save = temporaryDirectory.resolve("world.vcdbs");
         HomeStore homeStore = new HomeStore(temporaryDirectory.resolve("home.properties"));
-        homeStore.save(save, new HomeLocation(-10, 20));
+        homeStore.save(save, new DisplayPosition(-10, 0.0, 20));
 
         useCase(reader, renderer, homeStore).execute(new RenderCoverageMapRequest(save));
 
-        assertEquals(HomeState.present(new HomeLocation(502, 532)), renderer.home);
+        assertEquals(HomeState.present(new WorldPosition(502, 0.0, 532)), renderer.home);
     }
 
     @Test

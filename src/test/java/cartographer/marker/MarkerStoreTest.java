@@ -1,5 +1,7 @@
 package cartographer.marker;
 
+import cartographer.model.DisplayPosition;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -8,6 +10,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MarkerStoreTest {
@@ -27,7 +30,7 @@ class MarkerStoreTest {
 
         store.put(
                 savePath,
-                new UserMarker(
+                marker(
                         "Red Clay",
                         -834.0,
                         259.0
@@ -36,7 +39,7 @@ class MarkerStoreTest {
 
         store.put(
                 savePath,
-                new UserMarker(
+                marker(
                         "RED CLAY",
                         -800.0,
                         300.0
@@ -54,7 +57,7 @@ class MarkerStoreTest {
         );
 
         assertEquals(
-                new UserMarker(
+                marker(
                         "RED CLAY",
                         -800.0,
                         300.0
@@ -75,7 +78,7 @@ class MarkerStoreTest {
 
         store.put(
                 savePath,
-                new UserMarker(
+                marker(
                         "RED CLAY",
                         -834.0,
                         259.0
@@ -84,7 +87,7 @@ class MarkerStoreTest {
 
         store.put(
                 savePath,
-                new UserMarker(
+                marker(
                         "BLUE CLAY",
                         -579.0,
                         337.0
@@ -103,7 +106,7 @@ class MarkerStoreTest {
 
         assertEquals(
                 List.of(
-                        new UserMarker(
+                        marker(
                                 "BLUE CLAY",
                                 -579.0,
                                 337.0
@@ -127,7 +130,7 @@ class MarkerStoreTest {
 
         store.put(
                 savePath,
-                new UserMarker(
+                marker(
                         "ONE",
                         1.0,
                         2.0
@@ -136,7 +139,7 @@ class MarkerStoreTest {
 
         store.put(
                 savePath,
-                new UserMarker(
+                marker(
                         "TWO",
                         3.0,
                         4.0
@@ -168,7 +171,7 @@ class MarkerStoreTest {
 
         store.put(
                 savePath,
-                new UserMarker("BASE", 10.0, 20.0)
+                marker("BASE", 10.0, 20.0)
         );
 
         Path markerDirectory = tempDir.resolve("markers");
@@ -201,7 +204,7 @@ class MarkerStoreTest {
 
         store.put(
                 firstSave,
-                new UserMarker(
+                marker(
                         "FIRST WORLD",
                         10.0,
                         20.0
@@ -210,7 +213,7 @@ class MarkerStoreTest {
 
         store.put(
                 secondSave,
-                new UserMarker(
+                marker(
                         "SECOND WORLD",
                         30.0,
                         40.0
@@ -219,7 +222,7 @@ class MarkerStoreTest {
 
         assertEquals(
                 List.of(
-                        new UserMarker(
+                        marker(
                                 "FIRST WORLD",
                                 10.0,
                                 20.0
@@ -232,7 +235,7 @@ class MarkerStoreTest {
 
         assertEquals(
                 List.of(
-                        new UserMarker(
+                        marker(
                                 "SECOND WORLD",
                                 30.0,
                                 40.0
@@ -241,6 +244,28 @@ class MarkerStoreTest {
                 store.load(
                         secondSave
                 )
+        );
+    }
+
+    @Test
+    void markerRejectsNonHorizontalDisplayPosition() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new UserMarker(
+                        "BASE",
+                        new DisplayPosition(10.0, 1.0, 20.0)
+                )
+        );
+    }
+
+    private UserMarker marker(
+            String name,
+            double x,
+            double z
+    ) {
+        return new UserMarker(
+                name,
+                new DisplayPosition(x, 0.0, z)
         );
     }
 

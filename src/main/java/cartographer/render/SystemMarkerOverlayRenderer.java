@@ -1,6 +1,6 @@
 package cartographer.render;
 
-import cartographer.model.HomeLocation;
+import cartographer.model.WorldPosition;
 import cartographer.model.HomeState;
 import cartographer.model.WorldPosition;
 
@@ -90,7 +90,7 @@ public class SystemMarkerOverlayRenderer {
                 );
             }
 
-            if (home instanceof HomeState.Present(HomeLocation location)) {
+            if (home instanceof HomeState.Present(WorldPosition location)) {
 
                 int homeX =
                         (int) Math.round(

@@ -2,7 +2,6 @@ package cartographer.render;
 
 import cartographer.progress.ProgressReporter;
 import cartographer.model.BlockInfo;
-import cartographer.model.HomeLocation;
 import cartographer.model.HomeState;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
@@ -529,8 +528,9 @@ class MapRendererTest {
                                         100.0
                                 ),
                                 HomeState.present(
-                                        new HomeLocation(
+                                        new WorldPosition(
                                                 105.0,
+                                                0.0,
                                                 100.0
                                         )
                                 ),

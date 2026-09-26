@@ -7,7 +7,7 @@ public sealed interface HomeState
         HomeState.Absent {
 
     static HomeState present(
-            HomeLocation location
+            WorldPosition location
     ) {
         return new Present(
                 location
@@ -19,7 +19,7 @@ public sealed interface HomeState
     }
 
     record Present(
-            HomeLocation location
+            WorldPosition location
     ) implements HomeState {
 
         public Present {

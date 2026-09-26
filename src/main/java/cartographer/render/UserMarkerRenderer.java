@@ -1,7 +1,6 @@
 package cartographer.render;
 
 import cartographer.marker.UserMarker;
-import cartographer.model.DisplayPosition;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
 
@@ -107,13 +106,7 @@ public class UserMarkerRenderer {
 
             for (UserMarker marker : markers) {
                 WorldPosition absolute =
-                        metadata.toAbsolute(
-                                new DisplayPosition(
-                                        marker.x(),
-                                        0.0,
-                                        marker.z()
-                                )
-                        );
+                        metadata.toAbsolute(marker.position());
 
                 int imageX =
                         (int) Math.round(
