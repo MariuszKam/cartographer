@@ -1,7 +1,16 @@
 name: Qodana
 on:
   workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Optional note for this manual Qodana run'
+        required: false
+        type: string
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
   push:
     branches:
       - master

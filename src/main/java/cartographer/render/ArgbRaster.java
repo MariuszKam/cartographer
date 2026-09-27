@@ -56,6 +56,11 @@ final class ArgbRaster {
         return dataBuffer;
     }
 
+    int argbAt(int x, int y) {
+        checkPixel(x, y);
+        return pixels[y * width + x];
+    }
+
     void setArgb(int x, int y, int argb) {
         checkPixel(x, y);
         pixels[y * width + x] = argb;

@@ -190,6 +190,31 @@ tasks.register<JavaExec>("jmh") {
     jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
 
+val progressiveTileRenderingReport = layout.buildDirectory.file(
+    "reports/progressive-rendering/map-tile-renderer-jmh.csv"
+)
+
+tasks.register<JavaExec>("progressiveTileRenderingBenchmark") {
+    group = "verification"
+    description = "Benchmarks candidate progressive render-tile spans"
+    dependsOn("jmhClasses")
+    classpath = jmhSourceSet.runtimeClasspath
+    mainClass.set("org.openjdk.jmh.Main")
+    javaLauncher.set(jmhJavaLauncher)
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    outputs.file(progressiveTileRenderingReport)
+
+    doFirst {
+        val report = progressiveTileRenderingReport.get().asFile
+        report.parentFile.mkdirs()
+        args = listOf(
+            "cartographer.perf.jmh.MapTileRendererBenchmark",
+            "-rf", "csv",
+            "-rff", report.absolutePath
+        )
+    }
+}
+
 tasks.register<Sync>("prepareJpackageInput") {
     group = "distribution"
     description = "Stages the application JAR and runtime dependencies for future jpackage use"

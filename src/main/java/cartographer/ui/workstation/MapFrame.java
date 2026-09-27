@@ -18,10 +18,11 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Retained non-raster state for the map currently displayed by the Workstation.
+ * Retained non-raster state for bounded analysis results displayed by the Workstation.
  *
- * <p>The raster itself remains owned by {@link MapPanel}. A frame retains only
- * bounded/compact analysis state and geometry; it never owns a SaveSession,
+ * <p>Progressive MAP does not use this type. The legacy {@link MapPanel} owns
+ * bounded analysis images while a frame retains only compact analysis state
+ * and geometry; it never owns a SaveSession,
  * JDBC connection, decoded source chunk collection, or duplicate BufferedImage.</p>
  */
 public record MapFrame(
@@ -63,11 +64,8 @@ public record MapFrame(
         );
 
         switch (tool) {
-            case MAP -> requirePreparedOnly(
-                    preparedMapData,
-                    actualOreOverlays,
-                    surfaceAnalysis,
-                    rockMap
+            case MAP -> throw new IllegalArgumentException(
+                    "progressive MAP does not use retained MapFrame state"
             );
             case ORE -> {
                 if (preparedMapData.isEmpty()) {
@@ -120,71 +118,6 @@ public record MapFrame(
             }
 
         }
-    }
-
-    public static MapFrame map(
-            Path savePath,
-            MapViewportGeometry geometry,
-            PreparedMapData prepared
-    ) {
-        return map(
-                savePath,
-                geometry,
-                prepared,
-                Optional.empty(),
-                Optional.empty()
-        );
-    }
-
-    public static MapFrame map(
-            Path savePath,
-            MapViewportGeometry geometry,
-            PreparedMapData prepared,
-            MapDecorationState decorations
-    ) {
-        return map(
-                savePath,
-                geometry,
-                prepared,
-                Optional.of(Objects.requireNonNull(decorations, "decorations are required")),
-                Optional.empty()
-        );
-    }
-
-    public static MapFrame map(
-            Path savePath,
-            MapViewportGeometry geometry,
-            PreparedMapData prepared,
-            MapDecorationState decorations,
-            MapRegionOverlayState mapRegionOverlays
-    ) {
-        return map(
-                savePath,
-                geometry,
-                prepared,
-                Optional.of(Objects.requireNonNull(decorations, "decorations are required")),
-                Optional.of(Objects.requireNonNull(mapRegionOverlays, "mapRegionOverlays are required"))
-        );
-    }
-
-    private static MapFrame map(
-            Path savePath,
-            MapViewportGeometry geometry,
-            PreparedMapData prepared,
-            Optional<MapDecorationState> decorations,
-            Optional<MapRegionOverlayState> mapRegionOverlays
-    ) {
-        return new MapFrame(
-                savePath,
-                WorkstationTool.MAP,
-                geometry,
-                Optional.of(Objects.requireNonNull(prepared, "prepared is required")),
-                List.of(),
-                Optional.empty(),
-                Optional.empty(),
-                decorations,
-                mapRegionOverlays
-        );
     }
 
     public static MapFrame ore(
@@ -370,8 +303,7 @@ public record MapFrame(
         if (!supported.containsAll(layers)
                 || preparedMapData.isEmpty()
                 || decorationState.isEmpty()
-                || (tool != WorkstationTool.MAP
-                && tool != WorkstationTool.ORE
+                || (tool != WorkstationTool.ORE
                 && tool != WorkstationTool.SURFACE)) {
             return false;
         }
@@ -420,17 +352,4 @@ public record MapFrame(
         return true;
     }
 
-    private static void requirePreparedOnly(
-            Optional<PreparedMapData> prepared,
-            List<ActualOreOverlayResult> overlays,
-            Optional<SurfaceRenderAnalysis> surfaceAnalysis,
-            Optional<RockMap> rockMap
-    ) {
-        if (prepared.isEmpty()) {
-            throw new IllegalArgumentException("map frame requires prepared map data");
-        }
-        if (!overlays.isEmpty() || surfaceAnalysis.isPresent() || rockMap.isPresent()) {
-            throw new IllegalArgumentException("map frame contains incompatible retained state");
-        }
-    }
 }

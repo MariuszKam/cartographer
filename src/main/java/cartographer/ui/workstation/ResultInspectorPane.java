@@ -7,7 +7,6 @@ import cartographer.geology.rock.RockMapMode;
 import cartographer.prospecting.ProspectingAssessment;
 import cartographer.render.ActualOreOverlayResult;
 import cartographer.render.RockLegendEntry;
-import cartographer.render.RenderLayer;
 import cartographer.resource.SurfaceMaterialAnalysis;
 import cartographer.resource.SurfaceObjectAnalysis;
 import cartographer.resource.SurfaceObjectSelectionAnalysis;
@@ -184,22 +183,6 @@ public final class ResultInspectorPane extends VBox {
         nodes.add(label("Radius: " + request.radius()));
         content.getChildren().setAll(nodes);
         diagnostics.show(oreDiagnostics(result));
-        tabs.getSelectionModel().select(resultsTab);
-    }
-
-    public void showMapResult(RenderActualOreMapResult result, RenderActualOreMapRequest request) {
-        List<javafx.scene.Node> nodes = new ArrayList<>();
-        nodes.add(sectionTitle("Map"));
-        nodes.add(label("Radius: " + request.radius()));
-        nodes.add(label("Layers: " + result.renderReport().layers()));
-        nodes.add(label("User markers: " + result.userMarkersDrawn()));
-        if (requiresSurfaceData(request)) {
-            nodes.add(label("Surface columns: " + result.surface().columnsScanned()));
-            nodes.add(label("Water columns: " + result.surface().waterColumns()));
-            nodes.add(label("Unknown surface blocks: " + result.surface().unknownSurfaceBlocks()));
-        }
-        content.getChildren().setAll(nodes);
-        diagnostics.show(mapDiagnostics(result, request));
         tabs.getSelectionModel().select(resultsTab);
     }
 
@@ -400,17 +383,6 @@ public final class ResultInspectorPane extends VBox {
         return lines;
     }
 
-    private List<String> mapDiagnostics(
-            RenderActualOreMapResult result,
-            RenderActualOreMapRequest request
-    ) {
-        List<String> lines = new ArrayList<>(requiresSurfaceData(request)
-                ? diagnostics(result.mapChunkDiagnostics(), result.chunkDiagnostics())
-                : diagnostics(result.mapChunkDiagnostics()));
-        lines.addAll(renderDataCacheDiagnostics(result.renderDataCacheReport()));
-        return lines;
-    }
-
     private List<String> renderDataCacheDiagnostics(RenderDataCacheReport report) {
         List<String> lines = new ArrayList<>();
         lines.add("Render-data cache: " + (report.enabled() ? "enabled" : "disabled"));
@@ -434,11 +406,6 @@ public final class ResultInspectorPane extends VBox {
                 + ", published " + stats.published()
                 + ", skipped incomplete " + stats.skippedIncompleteForPublish()
                 + ", world mismatch " + stats.worldMismatches();
-    }
-
-    private boolean requiresSurfaceData(RenderActualOreMapRequest request) {
-        return request.layers().contains(RenderLayer.SURFACE)
-                || request.layers().contains(RenderLayer.SOIL_FERTILITY);
     }
 
     private List<String> surfaceDiagnostics(RenderSurfaceResourceMapResult result) {

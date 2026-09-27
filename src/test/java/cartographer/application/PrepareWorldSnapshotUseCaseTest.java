@@ -21,6 +21,7 @@ import cartographer.render.RenderLayer;
 import cartographer.render.RenderStyle;
 import cartographer.save.ChunkStreamStats;
 import cartographer.save.MapChunkStreamStats;
+import cartographer.save.ObservedMapChunkCoordinateScanStats;
 import cartographer.save.MapRegionStreamStats;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
@@ -104,7 +105,7 @@ class PrepareWorldSnapshotUseCaseTest {
         assertEquals(2, first.terrainPublished());
         assertEquals(2, first.surfacePublished());
         assertEquals(1, reader.observedScans.get());
-        assertEquals(0, reader.exactMapChunkReads.get());
+        assertEquals(1, reader.exactMapChunkReads.get());
         assertEquals(1, reader.surfaceReads.get());
         assertEquals(1, reader.mapRegionReads.get());
         assertEquals(1, reader.rockReads.get());
@@ -166,9 +167,9 @@ class PrepareWorldSnapshotUseCaseTest {
                 "completed revision catalog must avoid another source discovery scan"
         );
         assertEquals(
-                0,
+                1,
                 reader.exactMapChunkReads.get(),
-                "valid Terrain coverage must avoid repair reads"
+                "valid Terrain coverage must avoid additional repair reads"
         );
         assertEquals(
                 1,
@@ -217,9 +218,9 @@ class PrepareWorldSnapshotUseCaseTest {
         );
 
         assertEquals(
-                0,
+                1,
                 reader.exactMapChunkReads.get(),
-                "prepared Terrain coverage must avoid source mapchunk lookups"
+                "prepared Terrain coverage must avoid additional source mapchunk lookups"
         );
         assertEquals(
                 1,
@@ -252,9 +253,9 @@ class PrepareWorldSnapshotUseCaseTest {
         );
 
         assertEquals(
-                0,
+                1,
                 reader.exactMapChunkReads.get(),
-                "complete catalog may skip known-unobserved Terrain mapchunks"
+                "complete catalog may skip additional known-unobserved Terrain lookups"
         );
         assertEquals(
                 2,
@@ -509,6 +510,28 @@ class PrepareWorldSnapshotUseCaseTest {
                             2,
                             "game:ore-nativecopper-granite"
                     )
+            );
+        }
+
+        @Override
+        public ObservedMapChunkCoordinateScanStats scanObservedMapChunkCoordinates(
+                SaveSession session,
+                ReadDiagnostics diagnostics,
+                Consumer<List<MapChunkCoordinate>> batchConsumer,
+                ProgressReporter progress
+        ) {
+            observedScans.incrementAndGet();
+            List<MapChunkCoordinate> coordinates = mapChunks.stream()
+                    .map(MapChunk::coordinate)
+                    .toList();
+            if (!coordinates.isEmpty()) {
+                batchConsumer.accept(coordinates);
+            }
+            return new ObservedMapChunkCoordinateScanStats(
+                    coordinates.size(),
+                    coordinates.size(),
+                    coordinates.isEmpty() ? 0 : 1,
+                    true
             );
         }
 

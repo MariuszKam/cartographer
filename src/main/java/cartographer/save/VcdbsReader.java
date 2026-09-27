@@ -95,6 +95,32 @@ public class VcdbsReader {
         );
     }
 
+    public ObservedMapChunkCoordinateScanStats scanObservedMapChunkCoordinates(
+            SaveSession session,
+            ReadDiagnostics diagnostics,
+            Consumer<List<MapChunkCoordinate>> batchConsumer,
+            ProgressReporter progress
+    ) {
+        return mapChunkStreamReader.scanObservedMapChunkCoordinates(
+                session,
+                diagnostics,
+                batchConsumer,
+                progress
+        );
+    }
+
+    public ObservedMapChunkCoordinatePage readObservedMapChunkCoordinatePage(
+            SaveSession session,
+            java.util.OptionalLong afterPosition,
+            ReadDiagnostics diagnostics
+    ) {
+        return mapChunkStreamReader.readObservedMapChunkCoordinatePage(
+                session,
+                afterPosition,
+                diagnostics
+        );
+    }
+
     public MapChunkStreamStats forEachMapChunkByCoordinate(
             SaveSession session,
             Collection<MapChunkCoordinate> coordinates,
@@ -104,6 +130,33 @@ public class VcdbsReader {
     ) {
         return mapChunkStreamReader.forEachMapChunkByCoordinate(
                 session, coordinates, diagnostics, consumer, progress
+        );
+    }
+
+    public MapChunkStreamStats forEachMapChunkByCoordinateWithResults(
+            SaveSession session,
+            Collection<MapChunkCoordinate> coordinates,
+            ReadDiagnostics diagnostics,
+            Consumer<MapChunkReadResult> consumer,
+            ProgressReporter progress
+    ) {
+        return mapChunkStreamReader.forEachMapChunkByCoordinateWithResults(
+                session, coordinates, diagnostics, consumer, progress
+        );
+    }
+
+    public void forEachMapChunkByCoordinateWithResults(
+            SaveSession session,
+            Collection<MapChunkCoordinate> coordinates,
+            ReadDiagnostics diagnostics,
+            Consumer<MapChunkReadResult> consumer
+    ) {
+        mapChunkStreamReader.forEachMapChunkByCoordinateWithResults(
+                session,
+                coordinates,
+                diagnostics,
+                consumer,
+                ProgressReporter.NONE
         );
     }
 

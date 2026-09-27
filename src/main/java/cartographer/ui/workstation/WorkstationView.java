@@ -1,6 +1,7 @@
 package cartographer.ui.workstation;
 
 import cartographer.render.MapViewportGeometry;
+import cartographer.render.RenderTileLayout;
 import cartographer.ui.update.UpdateCheckView;
 import cartographer.update.ApplicationVersion;
 import cartographer.render.RenderLayer;
@@ -14,8 +15,10 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -28,6 +31,7 @@ public final class WorkstationView implements UpdateCheckView, WorkstationProgre
     private final LayerPanel layerPanel;
     private final ResultInspectorPane resultInspectorPane;
     private final MapPanel mapPanel = new MapPanel();
+    private final WorldMapViewport progressiveMapViewport;
     private final WorkstationWorldBar worldBar;
     private final WorkstationStatusBar statusBar = new WorkstationStatusBar();
     private final VBox contextDock = new VBox(8);
@@ -37,14 +41,29 @@ public final class WorkstationView implements UpdateCheckView, WorkstationProgre
     private boolean foregroundBusy;
     private boolean discoveryBusy;
     private boolean localBusy;
+    private WorkstationTool currentMode = WorkstationTool.ORE;
+    private boolean progressiveMapAvailable;
 
     public WorkstationView(
             Runnable onBrowse,
             Runnable onRender,
-            Runnable onPrepareWorld
+            Runnable onPrepareWorld,
+            RenderTileLayout progressiveMapLayout
     ) {
         root.getStyleClass().add("workstation-root");
         workspace.getStyleClass().add("workspace-body");
+
+        StackPane mapHost = new StackPane();
+        progressiveMapViewport = new WorldMapViewport(
+                Objects.requireNonNull(
+                        progressiveMapLayout,
+                        "progressiveMapLayout is required"
+                ),
+                256
+        );
+        progressiveMapViewport.setVisible(false);
+        progressiveMapViewport.setManaged(false);
+        mapHost.getChildren().addAll(mapPanel, progressiveMapViewport);
 
         worldPanel = new WorldPanel(panel -> onBrowse.run());
         worldBar = new WorkstationWorldBar(
@@ -89,10 +108,10 @@ public final class WorkstationView implements UpdateCheckView, WorkstationProgre
         resultInspectorPane.setMaxWidth(420);
 
         workspace.setLeft(contextDock);
-        workspace.setCenter(mapPanel);
+        workspace.setCenter(mapHost);
         workspace.setRight(resultInspectorPane);
         BorderPane.setMargin(contextDock, new Insets(10, 8, 10, 10));
-        BorderPane.setMargin(mapPanel, new Insets(10, 0, 10, 0));
+        BorderPane.setMargin(mapHost, new Insets(10, 0, 10, 0));
         BorderPane.setMargin(resultInspectorPane, new Insets(10, 10, 10, 8));
 
         root.setTop(worldBar);
@@ -216,6 +235,8 @@ public final class WorkstationView implements UpdateCheckView, WorkstationProgre
     }
 
     private void setMode(WorkstationTool mode) {
+        currentMode = Objects.requireNonNull(mode, "mode is required");
+        refreshMapSurface();
         toolNavigationPane.setMode(mode);
         searchPanel.setMode(mode);
         layerPanel.setMode(mode);
@@ -225,7 +246,10 @@ public final class WorkstationView implements UpdateCheckView, WorkstationProgre
                 || mode == WorkstationTool.ORE
                 || mode == WorkstationTool.SURFACE;
         resultInspectorPane.setLayersAvailable(layersAvailable);
-        statusBar.setRadiusVisible(mode != WorkstationTool.COVERAGE);
+        statusBar.setRadiusVisible(
+                mode != WorkstationTool.COVERAGE
+                        && mode != WorkstationTool.MAP
+        );
         modeListener.accept(mode);
     }
 
@@ -368,6 +392,25 @@ public final class WorkstationView implements UpdateCheckView, WorkstationProgre
 
     public MapPanel mapPanel() {
         return mapPanel;
+    }
+
+    public WorldMapViewport progressiveMapViewport() {
+        return progressiveMapViewport;
+    }
+
+    public void setProgressiveMapAvailable(boolean available) {
+        progressiveMapAvailable = available;
+        refreshMapSurface();
+    }
+
+    private void refreshMapSurface() {
+        boolean progressiveActive =
+                currentMode == WorkstationTool.MAP
+                        && progressiveMapAvailable;
+        progressiveMapViewport.setVisible(progressiveActive);
+        progressiveMapViewport.setManaged(progressiveActive);
+        mapPanel.setVisible(!progressiveActive);
+        mapPanel.setManaged(!progressiveActive);
     }
 
     public ResultInspectorPane resultInspectorPane() {

@@ -136,35 +136,6 @@ final class WorkstationMapFrameController {
         workstation.setBusy(false);
     }
 
-    void showMapResult(
-            RenderActualOreMapResult result,
-            RenderActualOreMapRequest request
-    ) {
-        localRecompositionGate.invalidate();
-        mapPanel.show(
-                result.image(),
-                Optional.of(result.geometry()),
-                loadedPlayerAbsolute.get()
-        );
-        mapFrameState.retain(MapFrame.map(
-                request.savePath(),
-                result.geometry(),
-                result.preparedMapData().orElseThrow(
-                        () -> new IllegalStateException("map result missing prepared map data")
-                ),
-                result.decorationState().orElseThrow(
-                        () -> new IllegalStateException("map result missing decoration state")
-                ),
-                result.mapRegionOverlayState().orElseThrow(
-                        () -> new IllegalStateException("map result missing map-region overlay state")
-                )
-        ));
-        workstation.setMapGeometry(Optional.of(result.geometry()));
-        resultInspector.showMapResult(result, request);
-        workstation.setStatus("Map rendered.");
-        workstation.setBusy(false);
-    }
-
     void showCoverageResult(
             RenderCoverageMapResult result,
             RenderCoverageMapRequest request
@@ -277,8 +248,7 @@ final class WorkstationMapFrameController {
         }
         MapFrame frame = current.orElseThrow();
         if (!frame.supportsLocalRecomposition(layers)) {
-            if (frame.tool() == WorkstationTool.MAP
-                    || frame.tool() == WorkstationTool.ORE
+            if (frame.tool() == WorkstationTool.ORE
                     || frame.tool() == WorkstationTool.SURFACE) {
                 workstation.setStatus(
                         "Selected layers need data not retained in this frame; press Render."

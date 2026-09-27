@@ -1,14 +1,15 @@
 package cartographer.ui.workstation;
 
 import cartographer.application.MapDecorationState;
+import cartographer.application.MapRegionOverlayState;
 import cartographer.application.PreparedMapData;
 import cartographer.application.PreparedSurfaceData;
-import cartographer.application.SurfaceDataRequirement;
-import cartographer.progress.ProgressReporter;
 import cartographer.application.RenderDataCacheReport;
+import cartographer.application.SurfaceDataRequirement;
 import cartographer.model.HomeState;
 import cartographer.model.WorldMetadata;
 import cartographer.model.WorldPosition;
+import cartographer.progress.ProgressReporter;
 import cartographer.render.MapTerrainPreparation;
 import cartographer.render.MapViewportGeometry;
 import cartographer.render.RenderLayer;
@@ -24,6 +25,7 @@ import java.awt.image.BufferedImage;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,16 +34,25 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 class MapFrameCompositorTest {
 
     @Test
-    void recomposesFromRetainedStateAndCanToggleSystemMarkersLocally() {
+    void recomposesBoundedOreFrameFromRetainedState() {
         PreparedMapData prepared = prepared();
         MapViewportGeometry geometry = MapViewportGeometry.fullImage(
                 64, 64, 16, 16, 48, 48
         );
-        MapFrame frame = MapFrame.map(
+        MapFrame frame = MapFrame.ore(
                 Path.of("world.vcdbs"),
                 geometry,
                 prepared,
-                new MapDecorationState(HomeState.absent(), List.of(), true)
+                List.of(),
+                new MapDecorationState(
+                        HomeState.absent(),
+                        List.of(),
+                        true
+                ),
+                new MapRegionOverlayState(
+                        Optional.empty(),
+                        Optional.empty()
+                )
         );
         MapFrameCompositor compositor = new MapFrameCompositor();
 
@@ -52,7 +63,11 @@ class MapFrameCompositorTest {
         );
         BufferedImage withMarkers = compositor.recompose(
                 frame,
-                Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE, RenderLayer.MARKERS),
+                Set.of(
+                        RenderLayer.TERRAIN,
+                        RenderLayer.SURFACE,
+                        RenderLayer.MARKERS
+                ),
                 ProgressReporter.NONE
         );
 
@@ -71,7 +86,11 @@ class MapFrameCompositorTest {
                 16,
                 1,
                 RenderStyle.TOPOGRAPHIC,
-                Set.of(RenderLayer.TERRAIN, RenderLayer.SURFACE, RenderLayer.MARKERS)
+                Set.of(
+                        RenderLayer.TERRAIN,
+                        RenderLayer.SURFACE,
+                        RenderLayer.MARKERS
+                )
         );
         SurfaceTileLayout layout = SurfaceTileLayout.forSurface(
                 center.x(), center.z(), 16, metadata
