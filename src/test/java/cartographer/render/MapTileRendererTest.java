@@ -1,7 +1,5 @@
 package cartographer.render;
 
-import cartographer.application.MapTileData;
-import cartographer.application.MapTileDataRequirement;
 import cartographer.cache.SurfaceCacheTile;
 import cartographer.cache.TerrainHeightTile;
 import cartographer.model.HomeState;
@@ -29,7 +27,7 @@ class MapTileRendererTest {
         MapChunk chunk = chunk(0, 0, 70);
         TerrainHeightTile terrain = TerrainHeightTile.from(chunk);
         RenderTileBounds bounds = new RenderTileBounds(0, 0, 32, 32);
-        MapTileData data = data(
+        RenderTileData data = data(
                 bounds,
                 List.of(terrain)
         );
@@ -146,7 +144,7 @@ class MapTileRendererTest {
         );
     }
 
-    private MapTileData data(
+    private RenderTileData data(
             RenderTileBounds bounds,
             List<TerrainHeightTile> terrain
     ) {
@@ -155,16 +153,14 @@ class MapTileRendererTest {
         for (TerrainHeightTile tile : terrain) {
             tiles.put(tile.coordinate(), tile);
         }
-        return new MapTileData(
+        return new RenderTileData(
                 bounds,
                 Optional.of(bounds),
                 terrain.stream()
                         .map(TerrainHeightTile::coordinate)
                         .toList(),
                 tiles,
-                Map.of(),
-                Map.of(),
-                MapTileDataRequirement.TERRAIN
+                Map.of()
         );
     }
 
@@ -242,14 +238,12 @@ class MapTileRendererTest {
                 0
         );
 
-        MapTileData data = new MapTileData(
+        RenderTileData data = new RenderTileData(
                 bounds,
                 Optional.of(bounds),
                 List.of(new MapChunkCoordinate(0, 0)),
                 Map.of(terrain.coordinate(), terrain),
-                Map.of(surface.coordinate(), surface),
-                Map.of(),
-                MapTileDataRequirement.TERRAIN_AND_SURFACE
+                Map.of(surface.coordinate(), surface)
         );
 
         RenderedMapTile rendered = new MapTileRenderer().render(

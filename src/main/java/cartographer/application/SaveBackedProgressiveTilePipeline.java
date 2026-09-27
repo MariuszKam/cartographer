@@ -141,7 +141,7 @@ final class SaveBackedProgressiveTilePipeline
     ) {
         return renderer.render(
                 key.coordinate(),
-                data,
+                data.renderData(),
                 data.terrainTiles(),
                 colorRange,
                 RenderStyle.TOPOGRAPHIC,

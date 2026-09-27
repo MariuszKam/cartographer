@@ -1,7 +1,5 @@
 package cartographer.render;
 
-import cartographer.application.MapTileData;
-import cartographer.application.MapTileDataRequirement;
 import cartographer.cache.TerrainHeightTile;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
@@ -25,14 +23,12 @@ class MapTileRendererLodTest {
                 new MapChunk(coordinate, heights, new int[0])
         );
         RenderTileBounds bounds = new RenderTileBounds(0, 0, 32, 32);
-        MapTileData data = new MapTileData(
+        RenderTileData data = new RenderTileData(
                 bounds,
                 Optional.of(bounds),
                 List.of(coordinate),
                 Map.of(coordinate, terrain),
-                Map.of(),
-                Map.of(),
-                MapTileDataRequirement.TERRAIN
+                Map.of()
         );
 
         RenderedMapTile rendered = new MapTileRenderer().render(

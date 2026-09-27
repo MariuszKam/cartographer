@@ -15,7 +15,7 @@ public record ProgressiveDiscoveryBatch(
         coordinates = List.copyOf(coordinates);
     }
 
-    public static ProgressiveDiscoveryBatch complete() {
+    public static ProgressiveDiscoveryBatch completed() {
         return new ProgressiveDiscoveryBatch(List.of(), true);
     }
 }

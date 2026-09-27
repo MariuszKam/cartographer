@@ -9,3 +9,8 @@ profile:
   name: "Project Default"
 include:
   - name: CheckDependencyLicenses
+exclude:
+  - name: All
+    paths:
+      - build
+      - build-logic/build

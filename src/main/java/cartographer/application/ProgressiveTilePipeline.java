@@ -28,7 +28,7 @@ public interface ProgressiveTilePipeline extends AutoCloseable {
     }
 
     default ProgressiveDiscoveryBatch discoverNextBatch() {
-        return ProgressiveDiscoveryBatch.complete();
+        return ProgressiveDiscoveryBatch.completed();
     }
 
     @Override

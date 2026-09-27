@@ -1,7 +1,5 @@
 package cartographer.perf.jmh;
 
-import cartographer.application.MapTileData;
-import cartographer.application.MapTileDataRequirement;
 import cartographer.cache.TerrainHeightTile;
 import cartographer.model.MapChunk;
 import cartographer.model.MapChunkCoordinate;
@@ -47,7 +45,7 @@ public class MapTileRendererBenchmark {
 
     private MapTileRenderer renderer;
     private RenderTileCoordinate coordinate;
-    private MapTileData data;
+    private RenderTileData data;
     private Map<MapChunkCoordinate, TerrainHeightTile> context;
     private TerrainColorRange range;
 
@@ -88,14 +86,12 @@ public class MapTileRendererBenchmark {
 
         context = Map.copyOf(terrain);
         range = TerrainColorRange.fromTiles(terrain.values());
-        data = new MapTileData(
+        data = new RenderTileData(
                 bounds,
                 Optional.of(bounds),
                 layout.mapChunksFor(coordinate),
                 terrain,
-                Map.of(),
-                Map.of(),
-                MapTileDataRequirement.TERRAIN
+                Map.of()
         );
     }
 

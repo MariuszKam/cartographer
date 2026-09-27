@@ -1,6 +1,5 @@
 package cartographer.render;
 
-import cartographer.application.MapTileData;
 import cartographer.cache.SurfaceCacheTile;
 import cartographer.cache.TerrainHeightTile;
 import cartographer.model.BlockInfo;
@@ -11,7 +10,6 @@ import cartographer.model.SurfaceClassCode;
 import cartographer.scanner.SurfaceRegistryLookup;
 import cartographer.soil.SoilFertilityClassification;
 
-import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -34,7 +32,7 @@ public final class MapTileRenderer {
 
     public RenderedMapTile renderTerrain(
             RenderTileCoordinate coordinate,
-            MapTileData data,
+            RenderTileData data,
             Map<MapChunkCoordinate, TerrainHeightTile> terrainContext,
             TerrainColorRange colorRange,
             RenderStyle style
@@ -53,7 +51,7 @@ public final class MapTileRenderer {
 
     public RenderedMapTile render(
             RenderTileCoordinate coordinate,
-            MapTileData data,
+            RenderTileData data,
             Map<MapChunkCoordinate, TerrainHeightTile> terrainContext,
             TerrainColorRange colorRange,
             RenderStyle style,
@@ -75,7 +73,7 @@ public final class MapTileRenderer {
 
     public RenderedMapTile render(
             RenderTileCoordinate coordinate,
-            MapTileData data,
+            RenderTileData data,
             Map<MapChunkCoordinate, TerrainHeightTile> terrainContext,
             TerrainColorRange colorRange,
             RenderStyle style,
@@ -223,7 +221,7 @@ public final class MapTileRenderer {
     }
 
     private SurfaceSample surfaceAt(
-            MapTileData data,
+            RenderTileData data,
             int worldX,
             int worldZ
     ) {

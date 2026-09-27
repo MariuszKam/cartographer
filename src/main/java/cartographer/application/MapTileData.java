@@ -4,6 +4,7 @@ import cartographer.cache.SurfaceCacheTile;
 import cartographer.cache.TerrainHeightTile;
 import cartographer.model.MapChunkCoordinate;
 import cartographer.render.RenderTileBounds;
+import cartographer.render.RenderTileData;
 import cartographer.save.MapChunkReadStatus;
 
 import java.util.Collections;
@@ -47,6 +48,16 @@ public record MapTileData(
                     "terrain-only tile data cannot contain Surface tiles"
             );
         }
+    }
+
+    public RenderTileData renderData() {
+        return new RenderTileData(
+                requestedBounds,
+                effectiveWorldBounds,
+                mapChunks,
+                terrainTiles,
+                surfaceTiles
+        );
     }
 
     public boolean terrainComplete() {
