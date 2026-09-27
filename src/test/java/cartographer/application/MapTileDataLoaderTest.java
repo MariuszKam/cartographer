@@ -19,8 +19,7 @@ import cartographer.save.ChunkPosEncoder;
 import cartographer.save.MapChunkReadStatus;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
-import cartographer.save.SaveSnapshot;
-import cartographer.save.SqliteSaveConnection;
+import cartographer.save.SaveSessionTestFactory;
 import cartographer.save.VcdbsReader;
 import cartographer.snapshot.WorldDataSnapshot;
 import org.junit.jupiter.api.Test;
@@ -259,11 +258,7 @@ class MapTileDataLoaderTest {
             Path save,
             WorldMetadata metadata
     ) {
-        return new SaveSession(
-                save,
-                new SqliteSaveConnection().openReadOnly(save),
-                new SaveSnapshot(metadata, Map.of())
-        );
+        return SaveSessionTestFactory.open(save, metadata);
     }
 
     private VcdbsReader reader(MapChunkParser parser) {
