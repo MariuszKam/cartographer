@@ -137,6 +137,10 @@ class ProgressiveMapSessionTest {
                 TIMEOUT_SECONDS,
                 TimeUnit.SECONDS
         ));
+        assertTrue(pipeline.ready.await(
+                TIMEOUT_SECONDS,
+                TimeUnit.SECONDS
+        ));
         session.close();
 
         assertTrue(events.stream().anyMatch(
