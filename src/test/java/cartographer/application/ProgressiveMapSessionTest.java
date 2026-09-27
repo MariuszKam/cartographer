@@ -285,11 +285,20 @@ class ProgressiveMapSessionTest {
 
         @Override
         public MapTileData load(RenderTileCoordinate coordinate) {
+            if (coordinate.equals(failing)) {
+                terminal.countDown();
+                throw new IllegalStateException("intentional failure");
+            }
+            return super.load(coordinate);
+        }
+
+        @Override
+        public RenderedMapTile render(
+                RenderTileCoordinate coordinate,
+                MapTileData data
+        ) {
             try {
-                if (coordinate.equals(failing)) {
-                    throw new IllegalStateException("intentional failure");
-                }
-                return super.load(coordinate);
+                return super.render(coordinate, data);
             } finally {
                 terminal.countDown();
             }
@@ -311,10 +320,21 @@ class ProgressiveMapSessionTest {
                 MapTileData data
         ) {
             renderEntered.countDown();
-            await(releaseRender);
+            boolean interrupted = false;
             try {
+                while (true) {
+                    try {
+                        releaseRender.await();
+                        break;
+                    } catch (InterruptedException exception) {
+                        interrupted = true;
+                    }
+                }
                 return rendered(layout, coordinate);
             } finally {
+                if (interrupted) {
+                    Thread.currentThread().interrupt();
+                }
                 renderFinished.countDown();
             }
         }
