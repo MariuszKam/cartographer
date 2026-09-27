@@ -207,12 +207,10 @@ tasks.register<JavaExec>("progressiveTileRenderingBenchmark") {
     doFirst {
         val report = progressiveTileRenderingReport.get().asFile
         report.parentFile.mkdirs()
-        setArgs(
-            listOf(
-                "cartographer.perf.jmh.MapTileRendererBenchmark",
-                "-rf", "csv",
-                "-rff", report.absolutePath
-            )
+        args = listOf(
+            "cartographer.perf.jmh.MapTileRendererBenchmark",
+            "-rf", "csv",
+            "-rff", report.absolutePath
         )
     }
 }

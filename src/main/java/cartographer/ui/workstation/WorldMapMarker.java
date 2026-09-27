@@ -4,7 +4,7 @@ import cartographer.model.WorldPosition;
 
 import java.util.Objects;
 
-/** Vector marker drawn independently from progressive raster tiles. */
+/** Vector marker drawn independently of progressive raster tiles. */
 public record WorldMapMarker(
         String label,
         WorldPosition position,

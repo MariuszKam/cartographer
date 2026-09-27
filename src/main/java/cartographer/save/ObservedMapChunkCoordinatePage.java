@@ -9,7 +9,7 @@ import java.util.OptionalLong;
 /**
  * One bounded page of authoritative MAPCHUNK coordinate discovery.
  *
- * <p>The cursor is the last raw packed source position read, including rows
+ * <p>The cursor is the last packed source position read, including rows
  * filtered out of the accepted main-world coordinate list. This guarantees
  * keyset discovery always advances through the source table.</p>
  */

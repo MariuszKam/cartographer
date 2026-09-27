@@ -21,7 +21,7 @@ import java.util.Set;
  * Retained non-raster state for bounded analysis results displayed by the Workstation.
  *
  * <p>Progressive MAP does not use this type. The legacy {@link MapPanel} owns
- * bounded analysis rasters while a frame retains only compact analysis state
+ * bounded analysis images while a frame retains only compact analysis state
  * and geometry; it never owns a SaveSession,
  * JDBC connection, decoded source chunk collection, or duplicate BufferedImage.</p>
  */

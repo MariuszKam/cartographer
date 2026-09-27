@@ -192,7 +192,7 @@ final class SaveBackedProgressiveTilePipeline
             catalogCoordinates = indexStore.observedMapChunks();
         }
         if (catalogOffset >= catalogCoordinates.size()) {
-            return ProgressiveDiscoveryBatch.complete();
+            return ProgressiveDiscoveryBatch.completed();
         }
 
         int end = Math.min(

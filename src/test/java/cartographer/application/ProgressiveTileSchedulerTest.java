@@ -71,7 +71,7 @@ class ProgressiveTileSchedulerTest {
         assertEquals(first, firstTaken.coordinate());
     }
     @Test
-    void sameCoordinateAtDifferentLodsAreDistinctWorkItems()
+    void sameCoordinateAtDifferentLevelsOfDetailAreDistinctWorkItems()
             throws Exception {
         ProgressiveTileScheduler scheduler =
                 new ProgressiveTileScheduler(4);
