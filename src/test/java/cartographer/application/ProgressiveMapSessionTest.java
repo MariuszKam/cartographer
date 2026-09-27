@@ -117,11 +117,20 @@ class ProgressiveMapSessionTest {
         );
         List<ProgressiveMapEvent> events =
                 Collections.synchronizedList(new ArrayList<>());
+        CountDownLatch failedPublished = new CountDownLatch(1);
+        CountDownLatch readyPublished = new CountDownLatch(1);
         ProgressiveMapSession session = new ProgressiveMapSession(
                 9,
                 layout,
                 pipeline,
-                events::add,
+                event -> {
+                    events.add(event);
+                    if (event instanceof ProgressiveMapEvent.TileFailed) {
+                        failedPublished.countDown();
+                    } else if (event instanceof ProgressiveMapEvent.TileReady) {
+                        readyPublished.countDown();
+                    }
+                },
                 8,
                 1,
                 1
@@ -133,15 +142,18 @@ class ProgressiveMapSessionTest {
                 List.of()
         );
 
-        assertTrue(pipeline.terminal.await(
-                TIMEOUT_SECONDS,
-                TimeUnit.SECONDS
-        ));
-        assertTrue(pipeline.ready.await(
-                TIMEOUT_SECONDS,
-                TimeUnit.SECONDS
-        ));
-        session.close();
+        try {
+            assertTrue(failedPublished.await(
+                    TIMEOUT_SECONDS,
+                    TimeUnit.SECONDS
+            ));
+            assertTrue(readyPublished.await(
+                    TIMEOUT_SECONDS,
+                    TimeUnit.SECONDS
+            ));
+        } finally {
+            session.close();
+        }
 
         assertTrue(events.stream().anyMatch(
                 event -> event instanceof ProgressiveMapEvent.TileFailed
@@ -276,7 +288,6 @@ class ProgressiveMapSessionTest {
 
     private static final class FailingPipeline extends RecordingPipeline {
         private final RenderTileCoordinate failing;
-        private final CountDownLatch terminal;
 
         private FailingPipeline(
                 RenderTileLayout layout,
@@ -284,28 +295,14 @@ class ProgressiveMapSessionTest {
         ) {
             super(layout, 1);
             this.failing = failing;
-            this.terminal = new CountDownLatch(2);
         }
 
         @Override
         public MapTileData load(RenderTileCoordinate coordinate) {
             if (coordinate.equals(failing)) {
-                terminal.countDown();
                 throw new IllegalStateException("intentional failure");
             }
             return super.load(coordinate);
-        }
-
-        @Override
-        public RenderedMapTile render(
-                RenderTileCoordinate coordinate,
-                MapTileData data
-        ) {
-            try {
-                return super.render(coordinate, data);
-            } finally {
-                terminal.countDown();
-            }
         }
     }
 
