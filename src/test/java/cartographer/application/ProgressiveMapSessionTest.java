@@ -119,7 +119,8 @@ class ProgressiveMapSessionTest {
                 Collections.synchronizedList(new ArrayList<>());
         CountDownLatch failedPublished = new CountDownLatch(1);
         CountDownLatch readyPublished = new CountDownLatch(1);
-        ProgressiveMapSession session = new ProgressiveMapSession(
+
+        try (ProgressiveMapSession session = new ProgressiveMapSession(
                 9,
                 layout,
                 pipeline,
@@ -134,15 +135,13 @@ class ProgressiveMapSessionTest {
                 8,
                 1,
                 1
-        );
+        )) {
+            session.start(new RenderTileCoordinate(1, 0));
+            session.requestViewport(
+                    List.of(new RenderTileCoordinate(2, 0)),
+                    List.of()
+            );
 
-        session.start(new RenderTileCoordinate(1, 0));
-        session.requestViewport(
-                List.of(new RenderTileCoordinate(2, 0)),
-                List.of()
-        );
-
-        try {
             assertTrue(failedPublished.await(
                     TIMEOUT_SECONDS,
                     TimeUnit.SECONDS
@@ -151,8 +150,6 @@ class ProgressiveMapSessionTest {
                     TIMEOUT_SECONDS,
                     TimeUnit.SECONDS
             ));
-        } finally {
-            session.close();
         }
 
         assertTrue(events.stream().anyMatch(
