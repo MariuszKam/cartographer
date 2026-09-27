@@ -138,9 +138,11 @@ class VcdbsReaderObservedMapChunkCoordinateScanTest {
              PreparedStatement statement = connection.prepareStatement(
                      "INSERT INTO mapchunk(position, data) VALUES (?, ?)"
              )) {
+            connection.setAutoCommit(false);
             for (int x = 0; x < count; x++) {
                 insert(statement, x, 0, 0, 0);
             }
+            connection.commit();
         }
         return database;
     }
