@@ -24,7 +24,7 @@ class MapTileRendererTest {
 
     @Test
     void terrainPixelsMatchLegacyRendererForEquivalentWorldBlocks() {
-        MapChunk chunk = chunk(0, 0, 70);
+        MapChunk chunk = chunk(0, 70);
         TerrainHeightTile terrain = TerrainHeightTile.from(chunk);
         RenderTileBounds bounds = new RenderTileBounds(0, 0, 32, 32);
         RenderTileData data = data(
@@ -83,8 +83,8 @@ class MapTileRendererTest {
 
     @Test
     void sharedTerrainContextKeepsHillshadeContinuousAcrossTileBoundary() {
-        MapChunk leftChunk = chunk(0, 0, 40);
-        MapChunk rightChunk = chunk(1, 0, 120);
+        MapChunk leftChunk = chunk(0, 40);
+        MapChunk rightChunk = chunk(1, 120);
         TerrainHeightTile left = TerrainHeightTile.from(leftChunk);
         TerrainHeightTile right = TerrainHeightTile.from(rightChunk);
         TerrainColorRange range = TerrainColorRange.fromTiles(
@@ -190,7 +190,6 @@ class MapTileRendererTest {
 
     private MapChunk chunk(
             int chunkX,
-            int chunkZ,
             int baseHeight
     ) {
         int[] heights = new int[MapChunk.HEIGHT_VALUE_COUNT];
@@ -201,14 +200,14 @@ class MapTileRendererTest {
             }
         }
         return new MapChunk(
-                new MapChunkCoordinate(chunkX, chunkZ),
+                new MapChunkCoordinate(chunkX, 0),
                 heights,
                 new int[0]
         );
     }
     @Test
     void semanticSurfaceLayerOverridesTerrainPerResolvedWorldCell() {
-        MapChunk chunk = chunk(0, 0, 70);
+        MapChunk chunk = chunk(0, 70);
         TerrainHeightTile terrain = TerrainHeightTile.from(chunk);
         RenderTileBounds bounds = new RenderTileBounds(0, 0, 32, 32);
 

@@ -19,11 +19,4 @@ public record WorldMapViewportDemand(
         visible = List.copyOf(visible);
         prefetch = List.copyOf(prefetch);
     }
-
-    public WorldMapViewportDemand(
-            List<RenderTileCoordinate> visible,
-            List<RenderTileCoordinate> prefetch
-    ) {
-        this(visible, prefetch, RenderLod.fullDetail());
-    }
 }

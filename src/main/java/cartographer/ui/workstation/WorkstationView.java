@@ -31,7 +31,6 @@ public final class WorkstationView implements UpdateCheckView, WorkstationProgre
     private final ResultInspectorPane resultInspectorPane;
     private final MapPanel mapPanel = new MapPanel();
     private final WorldMapViewport progressiveMapViewport;
-    private final StackPane mapHost = new StackPane();
     private final WorkstationWorldBar worldBar;
     private final WorkstationStatusBar statusBar = new WorkstationStatusBar();
     private final VBox contextDock = new VBox(8);
@@ -53,6 +52,7 @@ public final class WorkstationView implements UpdateCheckView, WorkstationProgre
         root.getStyleClass().add("workstation-root");
         workspace.getStyleClass().add("workspace-body");
 
+        StackPane mapHost = new StackPane();
         progressiveMapViewport = new WorldMapViewport(
                 Objects.requireNonNull(
                         progressiveMapLayout,

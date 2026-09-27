@@ -113,8 +113,7 @@ class ProgressiveMapSessionTest {
         RenderTileLayout layout = new RenderTileLayout(1);
         FailingPipeline pipeline = new FailingPipeline(
                 layout,
-                new RenderTileCoordinate(1, 0),
-                2
+                new RenderTileCoordinate(1, 0)
         );
         List<ProgressiveMapEvent> events =
                 Collections.synchronizedList(new ArrayList<>());
@@ -277,12 +276,11 @@ class ProgressiveMapSessionTest {
 
         private FailingPipeline(
                 RenderTileLayout layout,
-                RenderTileCoordinate failing,
-                int expectedTerminals
+                RenderTileCoordinate failing
         ) {
             super(layout, 1);
             this.failing = failing;
-            this.terminal = new CountDownLatch(expectedTerminals);
+            this.terminal = new CountDownLatch(2);
         }
 
         @Override

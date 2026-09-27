@@ -31,7 +31,6 @@ public final class WorldMapViewport extends Region {
     private static final double ZOOM_STEP = 1.25;
     private static final int PREFETCH_TILE_MARGIN = 1;
 
-    private final RenderTileLayout layout;
     private final WorldMapViewportModel model;
     private final Canvas canvas = new Canvas();
     private final int maxCachedTiles;
@@ -42,7 +41,6 @@ public final class WorldMapViewport extends Region {
             ignored -> { };
     private Consumer<Optional<MapCursorPosition>> cursorListener =
             ignored -> { };
-    private Optional<WorldPosition> player = Optional.empty();
     private List<WorldMapMarker> markers = List.of();
     private double dragX;
     private double dragY;
@@ -52,7 +50,7 @@ public final class WorldMapViewport extends Region {
             RenderTileLayout layout,
             int maxCachedTiles
     ) {
-        this.layout = Objects.requireNonNull(layout, "layout is required");
+        Objects.requireNonNull(layout, "layout is required");
         if (maxCachedTiles <= 0) {
             throw new IllegalArgumentException(
                     "maxCachedTiles must be positive"
@@ -124,10 +122,6 @@ public final class WorldMapViewport extends Region {
         cursorListener = listener == null ? ignored -> { } : listener;
     }
 
-    public void setPlayer(Optional<WorldPosition> player) {
-        this.player = Objects.requireNonNull(player, "player is required");
-    }
-
     public void setMarkers(List<WorldMapMarker> markers) {
         Objects.requireNonNull(markers, "markers are required");
         if (!Platform.isFxApplicationThread()) {
@@ -139,20 +133,8 @@ public final class WorldMapViewport extends Region {
         requestRedraw();
     }
 
-    public void centerPlayer() {
-        player.ifPresent(position -> {
-            model.centerOn(position);
-            requestRedrawAndDemand();
-        });
-    }
-
     public void centerOn(WorldPosition position) {
         model.centerOn(Objects.requireNonNull(position, "position is required"));
-        requestRedrawAndDemand();
-    }
-
-    public void fitKnownWorld(RenderTileBounds bounds) {
-        model.fit(Objects.requireNonNull(bounds, "bounds is required"), 24.0);
         requestRedrawAndDemand();
     }
 
@@ -182,14 +164,6 @@ public final class WorldMapViewport extends Region {
         }
         tiles.clear();
         requestRedraw();
-    }
-
-    public int cachedTileCount() {
-        return tiles.size();
-    }
-
-    public double pixelsPerBlock() {
-        return model.pixelsPerBlock();
     }
 
     public RenderLod currentLod() {

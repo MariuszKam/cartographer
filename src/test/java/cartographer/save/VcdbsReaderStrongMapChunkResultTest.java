@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @IntegrationTest
@@ -92,10 +93,10 @@ class VcdbsReaderStrongMapChunkResultTest {
     @Test
     void reportsMissingMapchunkTableAsNotCompletedNotAbsent() throws Exception {
         Path database = temporaryDirectory.resolve("missing-table.vcdbs");
-        try (Connection ignored = DriverManager.getConnection(
+        try (Connection connection = DriverManager.getConnection(
                 "jdbc:sqlite:" + database
         )) {
-            // Empty database intentionally has no mapchunk table.
+            assertFalse(connection.isClosed());
         }
 
         MapChunkCoordinate coordinate = new MapChunkCoordinate(1, 2);
@@ -135,7 +136,7 @@ class VcdbsReaderStrongMapChunkResultTest {
                         results::add
                 );
             } finally {
-                Thread.interrupted();
+                assertTrue(Thread.interrupted());
             }
         }
 

@@ -145,14 +145,18 @@ public class VcdbsReader {
         );
     }
 
-    public MapChunkStreamStats forEachMapChunkByCoordinateWithResults(
+    public void forEachMapChunkByCoordinateWithResults(
             SaveSession session,
             Collection<MapChunkCoordinate> coordinates,
             ReadDiagnostics diagnostics,
             Consumer<MapChunkReadResult> consumer
     ) {
-        return mapChunkStreamReader.forEachMapChunkByCoordinateWithResults(
-                session, coordinates, diagnostics, consumer
+        mapChunkStreamReader.forEachMapChunkByCoordinateWithResults(
+                session,
+                coordinates,
+                diagnostics,
+                consumer,
+                ProgressReporter.NONE
         );
     }
 

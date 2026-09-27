@@ -117,7 +117,7 @@ class VcdbsReaderObservedMapChunkCoordinateScanTest {
                         ProgressReporter.NONE
                 );
             } finally {
-                Thread.interrupted();
+                assertTrue(Thread.interrupted());
             }
         }
 

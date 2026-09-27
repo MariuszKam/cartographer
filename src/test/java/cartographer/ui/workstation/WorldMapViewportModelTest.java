@@ -101,7 +101,7 @@ class WorldMapViewportModelTest {
         assertEquals(300.0, model.centerWorldX(), 1.0e-9);
         assertEquals(300.0, model.centerWorldZ(), 1.0e-9);
         assertEquals(2.0, model.pixelsPerBlock(), 1.0e-9);
-        assertTrue(model.demand(0).visible().size() > 0);
+        assertFalse(model.demand(0).visible().isEmpty());
     }
     @Test
     void zoomSelectsCoarserLodDeterministically() {

@@ -561,7 +561,6 @@ public final class WorkstationController {
         stopProgressiveMap();
         progressiveTilesReady.set(0);
         progressiveMapViewport.clearTiles();
-        progressiveMapViewport.setPlayer(overview.playerAbsolute());
 
         WorldPosition initialCenter = overview.playerAbsolute()
                 .orElseGet(
@@ -681,50 +680,44 @@ public final class WorkstationController {
             return;
         }
 
-        if (event instanceof ProgressiveMapEvent.TileReady ready) {
-            int count = progressiveTilesReady.incrementAndGet();
-            progressiveMapViewport.acceptTile(ready.tile());
-            Platform.runLater(() -> {
-                ProgressiveMapSession active = progressiveMapSession;
-                if (active != null
-                        && active.generation() == event.generation()) {
-                    workstation.setStatus(
-                            "Building map · " + count + " tiles ready"
-                    );
-                }
-            });
-            return;
-        }
-
-        if (event instanceof ProgressiveMapEvent.TileFailed failed) {
-            LOGGER.debug(
+        switch (event) {
+            case ProgressiveMapEvent.TileReady ready -> {
+                int count = progressiveTilesReady.incrementAndGet();
+                progressiveMapViewport.acceptTile(ready.tile());
+                Platform.runLater(() -> {
+                    ProgressiveMapSession active = progressiveMapSession;
+                    if (active != null
+                            && active.generation() == event.generation()) {
+                        workstation.setStatus(
+                                "Building map · " + count + " tiles ready"
+                        );
+                    }
+                });
+            }
+            case ProgressiveMapEvent.TileFailed failed -> LOGGER.debug(
                     "Progressive tile {} unavailable: {}",
                     failed.coordinate(),
                     failed.detail()
             );
-            return;
-        }
-
-        if (event instanceof ProgressiveMapEvent.DiscoveryComplete) {
-            Platform.runLater(() -> {
-                ProgressiveMapSession active = progressiveMapSession;
-                if (active != null
-                        && active.generation() == event.generation()) {
-                    workstation.setStatus(
-                            "Map discovery complete · "
-                                    + progressiveTilesReady.get()
-                                    + " tiles ready"
-                    );
-                }
-            });
-            return;
-        }
-
-        if (event instanceof ProgressiveMapEvent.DiscoveryFailed failed) {
-            LOGGER.warn(
+            case ProgressiveMapEvent.DiscoveryComplete _ ->
+                    Platform.runLater(() -> {
+                        ProgressiveMapSession active = progressiveMapSession;
+                        if (active != null
+                                && active.generation() == event.generation()) {
+                            workstation.setStatus(
+                                    "Map discovery complete · "
+                                            + progressiveTilesReady.get()
+                                            + " tiles ready"
+                            );
+                        }
+                    });
+            case ProgressiveMapEvent.DiscoveryFailed failed -> LOGGER.warn(
                     "Progressive observed-world discovery failed: {}",
                     failed.detail()
             );
+            case ProgressiveMapEvent.SessionClosed _ -> {
+                // Owner state already handles closure and supersession.
+            }
         }
     }
 

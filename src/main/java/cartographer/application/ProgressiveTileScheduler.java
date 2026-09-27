@@ -120,10 +120,6 @@ final class ProgressiveTileScheduler {
         return next;
     }
 
-    synchronized void terminal(RenderTileCoordinate coordinate) {
-        terminal(RenderTileKey.fullDetail(coordinate));
-    }
-
     synchronized void terminal(RenderTileKey key) {
         Objects.requireNonNull(key, "key is required");
         inFlight.remove(key);

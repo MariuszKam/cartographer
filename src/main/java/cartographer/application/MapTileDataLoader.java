@@ -13,6 +13,7 @@ import cartographer.progress.ProgressReporter;
 import cartographer.render.RenderTileBounds;
 import cartographer.save.MapChunkReadResult;
 import cartographer.save.MapChunkReadStatus;
+import cartographer.save.MapChunkStreamStats;
 import cartographer.save.ReadDiagnostics;
 import cartographer.save.SaveSession;
 import cartographer.save.VcdbsReader;
@@ -161,18 +162,24 @@ public final class MapTileDataLoader {
 
         if (!sourceNeeded.isEmpty()) {
             List<TerrainHeightTile> publish = new ArrayList<>();
-            reader.forEachMapChunkByCoordinateWithResults(
-                    session,
-                    sourceNeeded,
-                    diagnostics,
-                    result -> acceptSourceResult(
-                            result,
-                            terrain,
-                            publish,
-                            sourceStatuses
-                    ),
-                    progress
-            );
+            MapChunkStreamStats stats =
+                    reader.forEachMapChunkByCoordinateWithResults(
+                            session,
+                            sourceNeeded,
+                            diagnostics,
+                            result -> acceptSourceResult(
+                                    result,
+                                    terrain,
+                                    publish,
+                                    sourceStatuses
+                            ),
+                            progress
+                    );
+            if (stats.uniquePositionsRequested() != sourceNeeded.size()) {
+                throw new IllegalStateException(
+                        "exact mapchunk lookup did not preserve request cardinality"
+                );
+            }
             if (!publish.isEmpty()) {
                 terrainStore.publish(publish);
             }

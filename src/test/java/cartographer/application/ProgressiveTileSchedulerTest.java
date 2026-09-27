@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProgressiveTileSchedulerTest {
@@ -31,6 +32,7 @@ class ProgressiveTileSchedulerTest {
         ));
 
         ProgressiveTileScheduler.ScheduledTile taken = scheduler.take();
+        assertNotNull(taken);
         assertEquals(tile, taken.coordinate());
         assertEquals(ProgressiveTilePriority.VIEWPORT, taken.priority());
         assertEquals(0, scheduler.queuedCount());
@@ -59,8 +61,14 @@ class ProgressiveTileSchedulerTest {
                 ProgressiveTilePriority.VIEWPORT
         ));
 
-        assertEquals(viewport, scheduler.take().coordinate());
-        assertEquals(first, scheduler.take().coordinate());
+        ProgressiveTileScheduler.ScheduledTile viewportTaken =
+                scheduler.take();
+        ProgressiveTileScheduler.ScheduledTile firstTaken =
+                scheduler.take();
+        assertNotNull(viewportTaken);
+        assertNotNull(firstTaken);
+        assertEquals(viewport, viewportTaken.coordinate());
+        assertEquals(first, firstTaken.coordinate());
     }
     @Test
     void sameCoordinateAtDifferentLodsAreDistinctWorkItems()
@@ -79,8 +87,14 @@ class ProgressiveTileSchedulerTest {
                 ProgressiveTilePriority.VIEWPORT
         ));
 
-        assertEquals(RenderLod.LOD_0, scheduler.take().key().lod());
-        assertEquals(RenderLod.LOD_3, scheduler.take().key().lod());
+        ProgressiveTileScheduler.ScheduledTile firstLod =
+                scheduler.take();
+        ProgressiveTileScheduler.ScheduledTile secondLod =
+                scheduler.take();
+        assertNotNull(firstLod);
+        assertNotNull(secondLod);
+        assertEquals(RenderLod.LOD_0, firstLod.key().lod());
+        assertEquals(RenderLod.LOD_3, secondLod.key().lod());
     }
 
 }

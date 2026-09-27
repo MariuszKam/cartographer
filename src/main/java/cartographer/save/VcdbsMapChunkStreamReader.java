@@ -395,21 +395,6 @@ final class VcdbsMapChunkStreamReader {
         );
     }
 
-    MapChunkStreamStats forEachMapChunkByCoordinateWithResults(
-            SaveSession session,
-            Collection<MapChunkCoordinate> coordinates,
-            ReadDiagnostics diagnostics,
-            Consumer<MapChunkReadResult> consumer
-    ) {
-        return forEachMapChunkByCoordinateWithResults(
-                session,
-                coordinates,
-                diagnostics,
-                consumer,
-                ProgressReporter.NONE
-        );
-    }
-
     private MapChunkStreamStats forEachMapChunkByCoordinateWithResults(
             Connection connection,
             Map<Long, MapChunkCoordinate> requestedByPackedPosition,
@@ -457,8 +442,7 @@ final class VcdbsMapChunkStreamReader {
                 if (Thread.currentThread().isInterrupted()) {
                     publishNotCompleted(
                             requested.subList(start, requested.size()),
-                            consumer,
-                            "exact mapchunk lookup interrupted"
+                            consumer
                     );
                     progress.done("Exact mapchunk lookup interrupted");
                     return new MapChunkStreamStats(
@@ -637,13 +621,12 @@ final class VcdbsMapChunkStreamReader {
 
     private void publishNotCompleted(
             List<Map.Entry<Long, MapChunkCoordinate>> requested,
-            Consumer<MapChunkReadResult> consumer,
-            String detail
+            Consumer<MapChunkReadResult> consumer
     ) {
         for (Map.Entry<Long, MapChunkCoordinate> entry : requested) {
             consumer.accept(MapChunkReadResult.notCompleted(
                     entry.getValue(),
-                    detail
+                    "exact mapchunk lookup interrupted"
             ));
         }
     }
