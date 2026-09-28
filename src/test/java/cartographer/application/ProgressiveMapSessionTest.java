@@ -166,6 +166,7 @@ class ProgressiveMapSessionTest {
         RenderTileLayout layout = new RenderTileLayout(1);
         RecordingPipeline pipeline = new RecordingPipeline(layout, 2);
         CountDownLatch firstReady = new CountDownLatch(1);
+        CountDownLatch readyPublished = new CountDownLatch(2);
         AtomicInteger readyEvents = new AtomicInteger();
         ProgressiveMapSession session = new ProgressiveMapSession(
                 13,
@@ -176,6 +177,7 @@ class ProgressiveMapSessionTest {
                         if (readyEvents.incrementAndGet() == 1) {
                             firstReady.countDown();
                         }
+                        readyPublished.countDown();
                     }
                 },
                 8,
@@ -193,7 +195,7 @@ class ProgressiveMapSessionTest {
 
         session.requestViewport(List.of(coordinate), List.of());
 
-        assertTrue(pipeline.ready.await(
+        assertTrue(readyPublished.await(
                 TIMEOUT_SECONDS,
                 TimeUnit.SECONDS
         ));
