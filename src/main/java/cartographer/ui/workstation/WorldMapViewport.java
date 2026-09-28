@@ -31,7 +31,6 @@ public final class WorldMapViewport extends Region {
 
     private final WorldMapViewportModel model;
     private final Canvas canvas = new Canvas();
-    private final int maxCachedTiles;
     private final WorldMapViewportTileCache<CachedTile> tileCache;
     private final AtomicBoolean redrawPending = new AtomicBoolean();
 
@@ -53,7 +52,6 @@ public final class WorldMapViewport extends Region {
                     "maxCachedTiles must be positive"
             );
         }
-        this.maxCachedTiles = maxCachedTiles;
         this.model = new WorldMapViewportModel(layout);
         this.tileCache = new WorldMapViewportTileCache<>(maxCachedTiles);
 
