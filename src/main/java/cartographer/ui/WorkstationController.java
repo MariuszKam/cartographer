@@ -38,7 +38,7 @@ import cartographer.ui.workstation.WorkstationOperationScope;
 import cartographer.ui.workstation.WorkstationTool;
 import cartographer.ui.workstation.WorkstationView;
 import cartographer.ui.workstation.WorldMapViewport;
-import cartographer.ui.workstation.WorldMapViewportDemand;
+import cartographer.ui.workstation.WorldMapViewportRequest;
 import cartographer.ui.workstation.WorldMapMarker;
 import cartographer.ui.update.UpdateCheckView;
 import cartographer.ui.workstation.WorldPanel;
@@ -593,6 +593,7 @@ public final class WorkstationController {
                 bootstrap,
                 progressiveMapViewport.currentLod()
         );
+        progressiveMapViewport.refreshTileDemand();
         session.requestPlayerRings(bootstrap, 2);
     }
 
@@ -658,16 +659,18 @@ public final class WorkstationController {
     }
 
     private void handleProgressiveTileDemand(
-            WorldMapViewportDemand demand
+            WorldMapViewportRequest request
     ) {
         ProgressiveMapSession current = progressiveMapSession;
         if (current == null) {
             return;
         }
         current.requestViewport(
-                demand.visible(),
-                demand.prefetch(),
-                demand.lod()
+                request.active().visible(),
+                request.active().prefetch(),
+                request.missing().visible(),
+                request.missing().prefetch(),
+                request.active().lod()
         );
     }
 
