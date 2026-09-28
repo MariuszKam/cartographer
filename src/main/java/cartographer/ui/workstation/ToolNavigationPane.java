@@ -71,7 +71,7 @@ public final class ToolNavigationPane extends VBox {
                 contextToggle,
                 inspectorToggle
         );
-        setMode(WorkstationTool.ORE);
+        setMode(WorkstationTool.MAP);
     }
 
     private ToggleButton tool(String text, String tooltip) {

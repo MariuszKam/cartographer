@@ -46,10 +46,12 @@ public final class MapPanel extends BorderPane {
         preview.viewportBoundsProperty().addListener((observable, oldBounds, bounds) ->
                 mapContent.setMinSize(bounds.getWidth(), bounds.getHeight()));
         preview.addEventFilter(javafx.scene.input.ScrollEvent.SCROLL, event -> {
-            if (event.isControlDown() && mapAvailable) {
+            if (mapAvailable) {
                 if (event.getDeltaY() > 0) zoomIn();
                 if (event.getDeltaY() < 0) zoomOut();
-                event.consume();
+                if (event.getDeltaY() != 0.0) {
+                    event.consume();
+                }
             }
         });
         imageView.setPreserveRatio(true);

@@ -41,7 +41,7 @@ public final class WorkstationView implements UpdateCheckView, WorkstationProgre
     private boolean foregroundBusy;
     private boolean discoveryBusy;
     private boolean localBusy;
-    private WorkstationTool currentMode = WorkstationTool.ORE;
+    private WorkstationTool currentMode = WorkstationTool.MAP;
     private boolean progressiveMapAvailable;
 
     public WorkstationView(
@@ -119,7 +119,7 @@ public final class WorkstationView implements UpdateCheckView, WorkstationProgre
         root.setCenter(workspace);
         root.setBottom(statusBar);
 
-        setMode(WorkstationTool.ORE);
+        setMode(WorkstationTool.MAP);
         refreshDockState();
     }
 
