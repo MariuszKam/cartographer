@@ -6,6 +6,7 @@ import cartographer.render.RenderTileKey;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.PriorityQueue;
@@ -24,7 +25,8 @@ final class ProgressiveTileScheduler {
     private final Map<RenderTileKey, ScheduledTile> queued =
             new HashMap<>();
     private final Set<RenderTileKey> inFlight = new HashSet<>();
-    private final Set<RenderTileKey> terminal = new HashSet<>();
+    private final Set<RenderTileKey> completed = new HashSet<>();
+    private final Set<RenderTileKey> failed = new HashSet<>();
 
     private long nextSequence;
     private boolean closed;
@@ -52,10 +54,14 @@ final class ProgressiveTileScheduler {
     ) {
         Objects.requireNonNull(key, "key is required");
         Objects.requireNonNull(priority, "priority is required");
-        if (closed
-                || terminal.contains(key)
-                || inFlight.contains(key)) {
+        if (closed || failed.contains(key) || inFlight.contains(key)) {
             return false;
+        }
+        if (completed.contains(key)) {
+            if (!isInteractive(priority)) {
+                return false;
+            }
+            completed.remove(key);
         }
 
         ScheduledTile existing = queued.get(key);
@@ -97,6 +103,20 @@ final class ProgressiveTileScheduler {
         return true;
     }
 
+    synchronized void retainInteractiveDemand(Set<RenderTileKey> demanded) {
+        Objects.requireNonNull(demanded, "demanded is required");
+        Iterator<ScheduledTile> iterator = queue.iterator();
+        while (iterator.hasNext()) {
+            ScheduledTile scheduled = iterator.next();
+            if (isInteractive(scheduled.priority())
+                    && !demanded.contains(scheduled.key())) {
+                iterator.remove();
+                queued.remove(scheduled.key());
+            }
+        }
+        notifyAll();
+    }
+
     synchronized ScheduledTile poll() {
         if (closed || queue.isEmpty()) {
             return null;
@@ -120,10 +140,17 @@ final class ProgressiveTileScheduler {
         return next;
     }
 
-    synchronized void terminal(RenderTileKey key) {
+    synchronized void completed(RenderTileKey key) {
         Objects.requireNonNull(key, "key is required");
         inFlight.remove(key);
-        terminal.add(key);
+        completed.add(key);
+        notifyAll();
+    }
+
+    synchronized void failed(RenderTileKey key) {
+        Objects.requireNonNull(key, "key is required");
+        inFlight.remove(key);
+        failed.add(key);
         notifyAll();
     }
 
@@ -131,6 +158,9 @@ final class ProgressiveTileScheduler {
         closed = true;
         queue.clear();
         queued.clear();
+        inFlight.clear();
+        completed.clear();
+        failed.clear();
         notifyAll();
     }
 
@@ -140,6 +170,11 @@ final class ProgressiveTileScheduler {
 
     synchronized int inFlightCount() {
         return inFlight.size();
+    }
+
+    private boolean isInteractive(ProgressiveTilePriority priority) {
+        return priority == ProgressiveTilePriority.VIEWPORT
+                || priority == ProgressiveTilePriority.PREFETCH;
     }
 
     record ScheduledTile(
