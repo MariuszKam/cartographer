@@ -125,6 +125,7 @@ class WorldMapViewportModelTest {
         model.setViewportSize(1400, 800);
         model.centerOn(0.0, 0.0);
 
+        int acceptedZoomSteps = 0;
         while (model.zoomAtWithinTileLimit(
                 0.8,
                 700,
@@ -132,9 +133,10 @@ class WorldMapViewportModelTest {
                 1,
                 256
         )) {
-            // Keep zooming out until the next step would exceed the budget.
+            acceptedZoomSteps++;
         }
 
+        assertTrue(acceptedZoomSteps > 0);
         WorldMapViewportDemand demand = model.demand(1);
         assertTrue(demand.visible().size() + demand.prefetch().size() <= 256);
     }
