@@ -59,7 +59,7 @@ public final class WorkstationView implements UpdateCheckView, WorkstationProgre
                         progressiveMapLayout,
                         "progressiveMapLayout is required"
                 ),
-                256
+                1024
         );
         progressiveMapViewport.setVisible(false);
         progressiveMapViewport.setManaged(false);
