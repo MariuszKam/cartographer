@@ -161,6 +161,50 @@ class ProgressiveMapSessionTest {
     }
 
     @Test
+    void completedTileCanBeMaterializedAgainForViewportRehydration()
+            throws Exception {
+        RenderTileLayout layout = new RenderTileLayout(1);
+        RecordingPipeline pipeline = new RecordingPipeline(layout, 2);
+        CountDownLatch firstReady = new CountDownLatch(1);
+        AtomicInteger readyEvents = new AtomicInteger();
+        ProgressiveMapSession session = new ProgressiveMapSession(
+                13,
+                layout,
+                pipeline,
+                event -> {
+                    if (event instanceof ProgressiveMapEvent.TileReady) {
+                        if (readyEvents.incrementAndGet() == 1) {
+                            firstReady.countDown();
+                        }
+                    }
+                },
+                8,
+                1,
+                1
+        );
+        RenderTileCoordinate coordinate =
+                new RenderTileCoordinate(0, 0);
+
+        session.start(coordinate);
+        assertTrue(firstReady.await(
+                TIMEOUT_SECONDS,
+                TimeUnit.SECONDS
+        ));
+
+        session.requestViewport(List.of(coordinate), List.of());
+
+        assertTrue(pipeline.ready.await(
+                TIMEOUT_SECONDS,
+                TimeUnit.SECONDS
+        ));
+        session.close();
+
+        assertEquals(2, pipeline.loads.get());
+        assertEquals(2, pipeline.renders.get());
+        assertEquals(2, readyEvents.get());
+    }
+
+    @Test
     void closeRejectsLateTileReadyPublication() throws Exception {
         RenderTileLayout layout = new RenderTileLayout(1);
         LateRenderPipeline pipeline = new LateRenderPipeline(layout);
