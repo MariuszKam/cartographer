@@ -94,11 +94,11 @@ public final class WorldMapViewport extends Region {
         ));
         setOnMouseExited(event -> cursorListener.accept(Optional.empty()));
         addEventFilter(javafx.scene.input.ScrollEvent.SCROLL, event -> {
-            if (!event.isControlDown()) {
+            if (event.getDeltaY() == 0.0) {
                 return;
             }
             model.zoomAt(
-                    event.getDeltaY() >= 0.0
+                    event.getDeltaY() > 0.0
                             ? ZOOM_STEP
                             : 1.0 / ZOOM_STEP,
                     event.getX(),

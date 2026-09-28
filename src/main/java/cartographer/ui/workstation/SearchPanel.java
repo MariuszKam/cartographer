@@ -38,7 +38,7 @@ public final class SearchPanel extends VBox {
     private final RockHighlightPane rockHighlightPane = new RockHighlightPane();
     private final RadiusPane radiusPane = new RadiusPane();
     private final Button renderButton = new Button("Render");
-    private WorkstationTool mode = WorkstationTool.ORE;
+    private WorkstationTool mode = WorkstationTool.MAP;
     private boolean foregroundBusy;
     private boolean discoveryBusy;
 
@@ -64,7 +64,7 @@ public final class SearchPanel extends VBox {
         );
         setPrefWidth(286);
         setMaxWidth(Double.MAX_VALUE);
-        setMode(WorkstationTool.ORE);
+        setMode(WorkstationTool.MAP);
     }
 
     public WorkstationTool selectedMode() {
