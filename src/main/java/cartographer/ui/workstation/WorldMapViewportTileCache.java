@@ -6,7 +6,6 @@ import cartographer.render.RenderTileKey;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,7 +14,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 /**
- * Bounded presentation cache for progressive map rasters.
+ * Bounded presentation cache for progressive rendered map tiles.
  *
  * <p>The cache admits only tiles that are still relevant to the current
  * viewport. It also tracks requests already emitted by the viewport so layout
@@ -151,12 +150,9 @@ final class WorldMapViewportTileCache<T> {
     }
 
     private void removeCoordinate(RenderTileCoordinate coordinate) {
-        Iterator<RenderTileKey> iterator = tiles.keySet().iterator();
-        while (iterator.hasNext()) {
-            if (iterator.next().coordinate().equals(coordinate)) {
-                iterator.remove();
-            }
-        }
+        tiles.keySet().removeIf(
+                key -> key.coordinate().equals(coordinate)
+        );
     }
 
     private void trimToCapacity() {
