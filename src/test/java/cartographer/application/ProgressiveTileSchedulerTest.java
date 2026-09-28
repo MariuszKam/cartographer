@@ -111,7 +111,7 @@ class ProgressiveTileSchedulerTest {
                 key,
                 ProgressiveTilePriority.VIEWPORT
         ));
-        assertEquals(key, scheduler.take().key());
+        assertEquals(key, takeKey(scheduler));
         scheduler.completed(key);
 
         assertFalse(scheduler.offer(
@@ -122,7 +122,7 @@ class ProgressiveTileSchedulerTest {
                 key,
                 ProgressiveTilePriority.VIEWPORT
         ));
-        assertEquals(key, scheduler.take().key());
+        assertEquals(key, takeKey(scheduler));
     }
 
     @Test
@@ -137,7 +137,7 @@ class ProgressiveTileSchedulerTest {
                 key,
                 ProgressiveTilePriority.VIEWPORT
         ));
-        assertEquals(key, scheduler.take().key());
+        assertEquals(key, takeKey(scheduler));
         scheduler.failed(key);
 
         assertFalse(scheduler.offer(
@@ -186,8 +186,17 @@ class ProgressiveTileSchedulerTest {
                 ProgressiveTilePriority.VIEWPORT
         ));
 
-        assertEquals(currentViewport, scheduler.take().key());
-        assertEquals(background, scheduler.take().key());
+        assertEquals(currentViewport, takeKey(scheduler));
+        assertEquals(background, takeKey(scheduler));
+    }
+
+
+    private static RenderTileKey takeKey(
+            ProgressiveTileScheduler scheduler
+    ) throws InterruptedException {
+        ProgressiveTileScheduler.ScheduledTile scheduled = scheduler.take();
+        assertNotNull(scheduled);
+        return scheduled.key();
     }
 
 }
