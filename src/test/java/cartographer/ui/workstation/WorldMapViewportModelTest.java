@@ -11,6 +11,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WorldMapViewportModelTest {
 
@@ -114,6 +115,52 @@ class WorldMapViewportModelTest {
         model.zoomAt(0.125, 400, 300);
 
         assertEquals(RenderLod.LOD_3, model.demand(0).lod());
+    }
+
+
+    @Test
+    void zoomOutIsRejectedWhenItWouldExceedTileBudget() {
+        WorldMapViewportModel model =
+                new WorldMapViewportModel(new RenderTileLayout(4));
+        model.setViewportSize(1400, 800);
+        model.centerOn(0.0, 0.0);
+
+        int acceptedZoomSteps = 0;
+        while (model.zoomAtWithinTileLimit(
+                0.8,
+                700,
+                400,
+                1,
+                256
+        )) {
+            acceptedZoomSteps++;
+        }
+
+        assertTrue(acceptedZoomSteps > 0);
+        WorldMapViewportDemand demand = model.demand(1);
+        assertTrue(demand.visible().size() + demand.prefetch().size() <= 256);
+    }
+
+    @Test
+    void zoomInRemainsPossibleWhenCurrentViewportAlreadyExceedsBudget() {
+        WorldMapViewportModel model =
+                new WorldMapViewportModel(new RenderTileLayout(4));
+        model.setViewportSize(4000, 2500);
+        model.centerOn(0.0, 0.0);
+        WorldMapViewportDemand before = model.demand(1);
+        int beforeCount = before.visible().size() + before.prefetch().size();
+
+        assertTrue(model.zoomAtWithinTileLimit(
+                2.0,
+                2000,
+                1250,
+                1,
+                16
+        ));
+        WorldMapViewportDemand after = model.demand(1);
+        int afterCount = after.visible().size() + after.prefetch().size();
+
+        assertTrue(afterCount < beforeCount);
     }
 
 }

@@ -84,6 +84,41 @@ public final class WorldMapViewportModel {
         centerWorldZ += anchorBefore.absoluteZ() - anchorAfter.absoluteZ();
     }
 
+    public boolean zoomAtWithinTileLimit(
+            double factor,
+            double viewportX,
+            double viewportY,
+            int prefetchTileMargin,
+            int maxDemandedTiles
+    ) {
+        if (maxDemandedTiles <= 0) {
+            throw new IllegalArgumentException(
+                    "maxDemandedTiles must be positive"
+            );
+        }
+        WorldMapViewportDemand before = demand(prefetchTileMargin);
+        double previousCenterWorldX = centerWorldX;
+        double previousCenterWorldZ = centerWorldZ;
+        double previousPixelsPerBlock = pixelsPerBlock;
+
+        zoomAt(factor, viewportX, viewportY);
+
+        WorldMapViewportDemand after = demand(prefetchTileMargin);
+        int beforeCount = demandCount(before);
+        int afterCount = demandCount(after);
+        if (afterCount <= maxDemandedTiles || afterCount < beforeCount) {
+            return Double.compare(
+                    previousPixelsPerBlock,
+                    pixelsPerBlock
+            ) != 0;
+        }
+
+        centerWorldX = previousCenterWorldX;
+        centerWorldZ = previousCenterWorldZ;
+        pixelsPerBlock = previousPixelsPerBlock;
+        return false;
+    }
+
     public MapCursorPosition worldAt(double viewportX, double viewportY) {
         requireFinite(viewportX, "viewportX");
         requireFinite(viewportY, "viewportY");
@@ -246,6 +281,13 @@ public final class WorldMapViewportModel {
             }
         }
         return List.copyOf(coordinates);
+    }
+
+    private static int demandCount(WorldMapViewportDemand demand) {
+        return Math.addExact(
+                demand.visible().size(),
+                demand.prefetch().size()
+        );
     }
 
     private static void requireFinite(double value, String name) {

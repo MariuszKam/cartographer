@@ -147,16 +147,36 @@ public final class ProgressiveMapSession implements AutoCloseable {
             Collection<RenderTileCoordinate> prefetch,
             RenderLod lod
     ) {
+        requestViewport(
+                visible,
+                prefetch,
+                visible,
+                prefetch,
+                lod
+        );
+    }
+
+    public void requestViewport(
+            Collection<RenderTileCoordinate> visible,
+            Collection<RenderTileCoordinate> prefetch,
+            Collection<RenderTileCoordinate> missingVisible,
+            Collection<RenderTileCoordinate> missingPrefetch,
+            RenderLod lod
+    ) {
         requireStarted();
         Objects.requireNonNull(lod, "lod is required");
         currentLod.set(lod);
+        Set<RenderTileKey> interactiveDemand = new LinkedHashSet<>();
+        addKeys(interactiveDemand, visible, lod);
+        addKeys(interactiveDemand, prefetch, lod);
+        scheduler.retainInteractiveDemand(interactiveDemand);
         requestAll(
-                visible,
+                missingVisible,
                 ProgressiveTilePriority.VIEWPORT,
                 lod
         );
         requestAll(
-                prefetch,
+                missingPrefetch,
                 ProgressiveTilePriority.PREFETCH,
                 lod
         );
@@ -251,6 +271,22 @@ public final class ProgressiveMapSession implements AutoCloseable {
         }
     }
 
+    private void addKeys(
+            Set<RenderTileKey> target,
+            Collection<RenderTileCoordinate> coordinates,
+            RenderLod lod
+    ) {
+        for (RenderTileCoordinate coordinate : coordinates) {
+            target.add(new RenderTileKey(
+                    Objects.requireNonNull(
+                            coordinate,
+                            "coordinates cannot contain null"
+                    ),
+                    lod
+            ));
+        }
+    }
+
     private void sourceLoop() {
         try {
             while (!closed.get()) {
@@ -304,7 +340,7 @@ public final class ProgressiveMapSession implements AutoCloseable {
             data = pipeline.load(scheduled.key().coordinate());
         } catch (RuntimeException failure) {
             renderSlots.release();
-            scheduler.terminal(scheduled.key());
+            scheduler.failed(scheduled.key());
             publishFailure(scheduled.key().coordinate(), failure);
             return;
         }
@@ -318,7 +354,7 @@ public final class ProgressiveMapSession implements AutoCloseable {
             );
         } catch (RuntimeException failure) {
             renderSlots.release();
-            scheduler.terminal(scheduled.key());
+            scheduler.failed(scheduled.key());
             publishFailure(scheduled.key().coordinate(), failure);
         }
     }
@@ -351,7 +387,7 @@ public final class ProgressiveMapSession implements AutoCloseable {
     ) {
         try {
             RenderedMapTile tile = pipeline.render(key, data);
-            scheduler.terminal(key);
+            scheduler.completed(key);
             if (!closed.get()) {
                 publish(new ProgressiveMapEvent.TileReady(
                         generation,
@@ -359,7 +395,7 @@ public final class ProgressiveMapSession implements AutoCloseable {
                 ));
             }
         } catch (RuntimeException failure) {
-            scheduler.terminal(key);
+            scheduler.failed(key);
             publishFailure(key.coordinate(), failure);
         } finally {
             renderSlots.release();

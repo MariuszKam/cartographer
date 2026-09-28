@@ -16,9 +16,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.Region;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -33,12 +31,10 @@ public final class WorldMapViewport extends Region {
 
     private final WorldMapViewportModel model;
     private final Canvas canvas = new Canvas();
-    private final int maxCachedTiles;
-    private final Map<RenderTileKey, CachedTile> tiles;
+    private final WorldMapViewportTileCache<CachedTile> tileCache;
     private final AtomicBoolean redrawPending = new AtomicBoolean();
 
-    private Consumer<WorldMapViewportDemand> demandListener =
-            ignored -> { };
+    private Consumer<WorldMapViewportRequest> demandListener;
     private Consumer<Optional<MapCursorPosition>> cursorListener =
             ignored -> { };
     private List<WorldMapMarker> markers = List.of();
@@ -56,16 +52,8 @@ public final class WorldMapViewport extends Region {
                     "maxCachedTiles must be positive"
             );
         }
-        this.maxCachedTiles = maxCachedTiles;
         this.model = new WorldMapViewportModel(layout);
-        this.tiles = new LinkedHashMap<>(16, 0.75f, true) {
-            @Override
-            protected boolean removeEldestEntry(
-                    Map.Entry<RenderTileKey, CachedTile> eldest
-            ) {
-                return size() > WorldMapViewport.this.maxCachedTiles;
-            }
-        };
+        this.tileCache = new WorldMapViewportTileCache<>(maxCachedTiles);
 
         getChildren().add(canvas);
         setMinSize(0, 0);
@@ -97,22 +85,26 @@ public final class WorldMapViewport extends Region {
             if (event.getDeltaY() == 0.0) {
                 return;
             }
-            model.zoomAt(
+            boolean changed = model.zoomAtWithinTileLimit(
                     event.getDeltaY() > 0.0
                             ? ZOOM_STEP
                             : 1.0 / ZOOM_STEP,
                     event.getX(),
-                    event.getY()
+                    event.getY(),
+                    PREFETCH_TILE_MARGIN,
+                    maxCachedTiles
             );
-            requestRedrawAndDemand();
+            if (changed) {
+                requestRedrawAndDemand();
+            }
             event.consume();
         });
     }
 
     public void setOnTileDemand(
-            Consumer<WorldMapViewportDemand> listener
+            Consumer<WorldMapViewportRequest> listener
     ) {
-        demandListener = listener == null ? ignored -> { } : listener;
+        demandListener = listener;
         publishDemand();
     }
 
@@ -144,17 +136,20 @@ public final class WorldMapViewport extends Region {
             Platform.runLater(() -> acceptTile(tile));
             return;
         }
-        tiles.put(
-                new RenderTileKey(
-                        tile.coordinate(),
-                        tile.lod()
-                ),
+        RenderTileKey key = new RenderTileKey(
+                tile.coordinate(),
+                tile.lod()
+        );
+        boolean accepted = tileCache.accept(
+                key,
                 new CachedTile(
                         tile.worldBounds(),
                         SwingFXUtils.toFXImage(tile.image(), null)
                 )
         );
-        requestRedraw();
+        if (accepted) {
+            requestRedraw();
+        }
     }
 
     public void clearTiles() {
@@ -162,7 +157,7 @@ public final class WorldMapViewport extends Region {
             Platform.runLater(this::clearTiles);
             return;
         }
-        tiles.clear();
+        tileCache.clear();
         requestRedraw();
     }
 
@@ -218,7 +213,7 @@ public final class WorldMapViewport extends Region {
 
         WorldMapViewportDemand demand = model.demand(0);
         for (RenderTileCoordinate coordinate : demand.visible()) {
-            CachedTile tile = cachedTileFor(
+            CachedTile tile = tileCache.best(
                     new RenderTileKey(coordinate, demand.lod())
             );
             if (tile == null) {
@@ -241,29 +236,6 @@ public final class WorldMapViewport extends Region {
             );
         }
         drawMarkers(graphics);
-    }
-
-    private CachedTile cachedTileFor(RenderTileKey desired) {
-        CachedTile exact = tiles.get(desired);
-        if (exact != null) {
-            return exact;
-        }
-
-        RenderTileKey bestKey = null;
-        int bestDistance = Integer.MAX_VALUE;
-        for (RenderTileKey candidate : tiles.keySet()) {
-            if (!candidate.coordinate().equals(desired.coordinate())) {
-                continue;
-            }
-            int distance = Math.abs(
-                    candidate.lod().level() - desired.lod().level()
-            );
-            if (distance < bestDistance) {
-                bestKey = candidate;
-                bestDistance = distance;
-            }
-        }
-        return bestKey == null ? null : tiles.get(bestKey);
     }
 
     private void drawMarkers(GraphicsContext graphics) {
@@ -304,13 +276,25 @@ public final class WorldMapViewport extends Region {
         }
     }
 
+    public void refreshTileDemand() {
+        tileCache.clearPendingRequests();
+        publishDemand();
+    }
+
     private void publishDemand() {
         if (getWidth() <= 0.0 || getHeight() <= 0.0) {
             return;
         }
-        demandListener.accept(
-                model.demand(PREFETCH_TILE_MARGIN)
-        );
+        WorldMapViewportDemand demand =
+                model.demand(PREFETCH_TILE_MARGIN);
+        tileCache.updateDemand(demand);
+        Consumer<WorldMapViewportRequest> listener = demandListener;
+        if (listener != null) {
+            listener.accept(new WorldMapViewportRequest(
+                    demand,
+                    tileCache.missingDemand()
+            ));
+        }
     }
 
     private record CachedTile(
