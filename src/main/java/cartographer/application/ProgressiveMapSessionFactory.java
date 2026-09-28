@@ -16,7 +16,7 @@ import java.util.function.Consumer;
 
 /** Creates generation-scoped progressive MAP sessions for selected saves. */
 public final class ProgressiveMapSessionFactory {
-    private static final int MAX_QUEUED_TILES = 512;
+    private static final int MAX_QUEUED_TILES = 1024;
     private static final int DEFAULT_MAPCHUNKS_PER_TILE = 4;
 
     private final VcdbsReader reader;
