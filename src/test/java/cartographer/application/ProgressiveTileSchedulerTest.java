@@ -97,4 +97,97 @@ class ProgressiveTileSchedulerTest {
         assertEquals(RenderLod.LOD_3, secondLod.key().lod());
     }
 
+
+    @Test
+    void completedTileCanBeRequestedAgainByViewportButNotBackground()
+            throws Exception {
+        ProgressiveTileScheduler scheduler =
+                new ProgressiveTileScheduler(4);
+        RenderTileCoordinate coordinate =
+                new RenderTileCoordinate(6, 2);
+        RenderTileKey key = RenderTileKey.fullDetail(coordinate);
+
+        assertTrue(scheduler.offer(
+                key,
+                ProgressiveTilePriority.VIEWPORT
+        ));
+        assertEquals(key, scheduler.take().key());
+        scheduler.completed(key);
+
+        assertFalse(scheduler.offer(
+                key,
+                ProgressiveTilePriority.BACKGROUND
+        ));
+        assertTrue(scheduler.offer(
+                key,
+                ProgressiveTilePriority.VIEWPORT
+        ));
+        assertEquals(key, scheduler.take().key());
+    }
+
+    @Test
+    void failedTileRemainsTerminalForInteractiveRequests() throws Exception {
+        ProgressiveTileScheduler scheduler =
+                new ProgressiveTileScheduler(4);
+        RenderTileKey key = RenderTileKey.fullDetail(
+                new RenderTileCoordinate(7, 3)
+        );
+
+        assertTrue(scheduler.offer(
+                key,
+                ProgressiveTilePriority.VIEWPORT
+        ));
+        assertEquals(key, scheduler.take().key());
+        scheduler.failed(key);
+
+        assertFalse(scheduler.offer(
+                key,
+                ProgressiveTilePriority.VIEWPORT
+        ));
+    }
+
+    @Test
+    void staleInteractiveQueueEntriesAreDroppedForNewViewportDemand()
+            throws Exception {
+        ProgressiveTileScheduler scheduler =
+                new ProgressiveTileScheduler(3);
+        RenderTileKey staleViewport = RenderTileKey.fullDetail(
+                new RenderTileCoordinate(0, 0)
+        );
+        RenderTileKey stalePrefetch = RenderTileKey.fullDetail(
+                new RenderTileCoordinate(1, 0)
+        );
+        RenderTileKey background = RenderTileKey.fullDetail(
+                new RenderTileCoordinate(2, 0)
+        );
+        RenderTileKey currentViewport = RenderTileKey.fullDetail(
+                new RenderTileCoordinate(9, 9)
+        );
+
+        assertTrue(scheduler.offer(
+                staleViewport,
+                ProgressiveTilePriority.VIEWPORT
+        ));
+        assertTrue(scheduler.offer(
+                stalePrefetch,
+                ProgressiveTilePriority.PREFETCH
+        ));
+        assertTrue(scheduler.offer(
+                background,
+                ProgressiveTilePriority.BACKGROUND
+        ));
+
+        scheduler.retainInteractiveDemand(
+                java.util.Set.of(currentViewport)
+        );
+        assertEquals(1, scheduler.queuedCount());
+        assertTrue(scheduler.offer(
+                currentViewport,
+                ProgressiveTilePriority.VIEWPORT
+        ));
+
+        assertEquals(currentViewport, scheduler.take().key());
+        assertEquals(background, scheduler.take().key());
+    }
+
 }
